@@ -21,10 +21,24 @@ cmake --build cmake-build-debug
 
 For a release build, substitute `cmake-build-release` for `cmake-build-debug` and add `-DCMAKE_BUILD_TYPE=Release` to the configure step.
 
+## Lint
+
+```bash
+clang-tidy main.cpp -- -std=c++26
+```
+
+## C++ Style
+
+- Use anonymous namespaces (`namespace { }`) instead of `static` for file-local linkage.
+
+## Crypto Implementation Rules
+- All crypto implementation must be constant time.
+- All secrets used in crypto must be scrubbed.
+
 ## Stack
 
 - **Language:** C++26
 - **Build system:** CMake 3.31
 - **IDE:** CLion (`.idea/` present but git-ignored)
 
-No test framework, linting, or external libraries are configured yet.
+No test framework or external libraries are configured yet.
