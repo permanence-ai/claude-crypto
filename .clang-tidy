@@ -1,0 +1,13 @@
+Checks: '-*,bugprone-*,cert-*, cppcoreguidelines-*, hicpp-*, misc-*, modernize-*, performance-*, portability-*, readability-*, -modernize-use-trailing-return-type, -readability-identifier-length'
+ExcludeHeaderFilterRegex: '.*\.hpp'
+CheckOptions:
+    - key: bugprone-argument-comment.StrictMode
+      value: 1
+    - key: bugprone-exception-escape.FunctionsThatShouldNotThrow
+      value: WinMain,SDL_main
+    - key: readability-function-cognitive-complexity.Threshold
+      value: 20
+    - key: readability-function-size.LineThreshold
+      value: 100
+    - key: readability-function-size.ParameterThreshold
+      value: 6
