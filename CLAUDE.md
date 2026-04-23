@@ -21,6 +21,16 @@ cmake --build cmake-build-debug
 
 For a release build, substitute `cmake-build-release` for `cmake-build-debug` and add `-DCMAKE_BUILD_TYPE=Release` to the configure step.
 
+## Commit and Push
+
+Prompt the user for a commit message, then:
+
+```bash
+git add -A
+git commit -m "<message>"
+git push
+```
+
 ## Lint
 
 ```bash
