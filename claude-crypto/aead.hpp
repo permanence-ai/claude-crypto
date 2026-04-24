@@ -31,15 +31,16 @@ struct AesGcmResult {
 
 template<SecureBufferLike Plaintext>
 [[nodiscard]]
-inline auto aes256_gcm_encrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,  // NOLINT(readability-function-cognitive-complexity)
-                               const Plaintext& plaintext,
-                               const std::optional<SecureBuffer>& aad = std::nullopt)
+auto aes256_gcm_encrypt(  // NOLINT(readability-function-cognitive-complexity)
+    const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,
+    const Plaintext& plaintext,
+    const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {
     constexpr std::size_t AES256_KEY_BITS = 256;
 
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("PSA crypto init failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
     }
 
     auto iv = random_bytes<AES_GCM_IV_SIZE_BYTES>();
@@ -55,7 +56,7 @@ inline auto aes256_gcm_encrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& k
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("Key import failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "Key import failed"));
     }
 
     const std::size_t output_size =
@@ -77,7 +78,7 @@ inline auto aes256_gcm_encrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& k
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("AES-256-GCM encryption failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::EncryptionFailed, "AES-256-GCM encryption failed"));
     }
 
     return AesGcmResult{
@@ -88,15 +89,16 @@ inline auto aes256_gcm_encrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& k
 
 
 [[nodiscard]]
-inline auto aes256_gcm_decrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,  // NOLINT(readability-function-cognitive-complexity)
-                               const AesGcmResult& ciphertext,
-                               const std::optional<SecureBuffer>& aad = std::nullopt)
+inline auto aes256_gcm_decrypt(  // NOLINT(readability-function-cognitive-complexity)
+    const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,
+    const AesGcmResult& ciphertext,
+    const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
     constexpr std::size_t AES256_KEY_BITS = 256;
 
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("PSA crypto init failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
@@ -107,7 +109,7 @@ inline auto aes256_gcm_decrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& k
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("Key import failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "Key import failed"));
     }
 
     const std::uint8_t* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
@@ -129,7 +131,7 @@ inline auto aes256_gcm_decrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& k
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("AES-256-GCM decryption failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::DecryptionFailed, "AES-256-GCM decryption failed"));
     }
 
     return plaintext;

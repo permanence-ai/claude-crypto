@@ -13,38 +13,39 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <psa/crypto_values.h>
 
 #include "crypto_error.hpp"
+#include "digests.hpp"
 #include "secure_buffer.hpp"
 
 
-constexpr std::size_t HMAC_SHA384_SIZE_BYTES = 48;
-
-
-template<SecureBufferLike Key, SecureBufferLike Message>
+template<ShaVariant V, SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
-inline auto hmac_sha384_generate(const Key& key,  // NOLINT(readability-function-cognitive-complexity)
-                                 const Message& message)
-    -> std::expected<FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES>, CryptoError>
+auto hmac_generate(  // NOLINT(readability-function-cognitive-complexity)
+    const Key& key,
+    const Message& message)
+    -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
+    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(sha_psa_alg(V));
+
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("PSA crypto init failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
     psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * 8));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_HMAC(PSA_ALG_SHA_384));
+    psa_set_key_algorithm(&attrs, alg);
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("Key import failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "Key import failed"));
     }
 
-    FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES> mac;
+    FixedSecureBuffer<sha_output_size(V)> mac;
 
     std::size_t mac_length = 0;
     const psa_status_t status = psa_mac_compute(
-        key_id, PSA_ALG_HMAC(PSA_ALG_SHA_384),
+        key_id, alg,
         message.data(), message.size(),
         mac.data(), mac.size(),
         &mac_length);
@@ -52,45 +53,51 @@ inline auto hmac_sha384_generate(const Key& key,  // NOLINT(readability-function
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("HMAC-SHA-384 generation failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::MacGenerationFailed, "HMAC generation failed"));
     }
 
     return mac;
 }
 
 
-template<SecureBufferLike Key, SecureBufferLike Message>
+template<ShaVariant V, SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
-inline auto hmac_sha384_verify(const Key& key,  // NOLINT(readability-function-cognitive-complexity)
-                               const Message& message,
-                               const FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES>& mac)
-    -> std::expected<void, CryptoError>
+auto hmac_verify(  // NOLINT(readability-function-cognitive-complexity)
+    const Key& key,
+    const Message& message,
+    const FixedSecureBuffer<sha_output_size(V)>& mac)
+    -> std::expected<bool, CryptoError>
 {
+    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(sha_psa_alg(V));
+
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("PSA crypto init failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
     psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * 8));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_HMAC(PSA_ALG_SHA_384));
+    psa_set_key_algorithm(&attrs, alg);
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("Key import failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "Key import failed"));
     }
 
     const psa_status_t status = psa_mac_verify(
-        key_id, PSA_ALG_HMAC(PSA_ALG_SHA_384),
+        key_id, alg,
         message.data(), message.size(),
         mac.data(), mac.size());
 
     psa_destroy_key(key_id);
 
+    if (status == PSA_ERROR_INVALID_SIGNATURE) {
+        return false;
+    }
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("HMAC-SHA-384 verification failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::VerificationFailed, "HMAC verification failed"));
     }
 
-    return {};
+    return true;
 }

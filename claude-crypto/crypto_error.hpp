@@ -5,12 +5,38 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #pragma once
 
+#include <cstdint>
 #include <string>
+
+
+enum class CryptoErrorCode : std::uint8_t {
+    InitFailed,
+    InvalidArgument,
+    RandomGenerationFailed,
+    KeyImportFailed,
+    KeyExportFailed,
+    KeyGenerationFailed,
+    EncryptionFailed,
+    DecryptionFailed,
+    SigningFailed,
+    VerificationFailed,
+    MacGenerationFailed,
+    DigestFailed,
+    KdfSetupFailed,
+    KdfInputFailed,
+    KdfOutputFailed,
+};
 
 
 class CryptoError {
 public:
-    explicit CryptoError(std::string message) : message_(std::move(message)) {}
+    explicit CryptoError(const CryptoErrorCode code, std::string message)
+        : code_(code), message_(std::move(message)) {}
+
+    [[nodiscard]]
+    auto code() const -> CryptoErrorCode {
+        return code_;
+    }
 
     [[nodiscard]]
     auto message() const -> const std::string& {
@@ -18,5 +44,6 @@ public:
     }
 
 private:
-    std::string message_;
+    CryptoErrorCode code_;
+    std::string     message_;
 };

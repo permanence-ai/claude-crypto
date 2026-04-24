@@ -19,18 +19,19 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 
 [[nodiscard]]
-inline auto derive_key(const std::size_t output_length,
-                       const std::optional<SecureBuffer>& ikm  = std::nullopt,
-                       const std::optional<SecureBuffer>& salt = std::nullopt,
-                       const std::optional<SecureBuffer>& info = std::nullopt)
+inline auto derive_key(
+    const std::size_t output_length,
+    const std::optional<SecureBuffer>& ikm  = std::nullopt,
+    const std::optional<SecureBuffer>& salt = std::nullopt,
+    const std::optional<SecureBuffer>& info = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
     if (ikm.has_value() && ikm->size() < output_length * 2) {
-        return std::unexpected(CryptoError("IKM must be at least 2 * output_length"));
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "IKM must be at least 2 * output_length"));
     }
 
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("PSA crypto init failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
     }
 
     // Generate IKM if not provided: twice the target key length per security convention
@@ -52,7 +53,7 @@ inline auto derive_key(const std::size_t output_length,
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, ikm_ref.data(), ikm_ref.size(), &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("IKM import failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "IKM import failed"));
     }
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
@@ -65,41 +66,41 @@ inline auto derive_key(const std::size_t output_length,
 
     if (psa_key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
         cleanup();
-        return std::unexpected(CryptoError("HKDF setup failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KdfSetupFailed, "HKDF setup failed"));
     }
 
     if (salt.has_value()) {
         if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_SALT,
                                            salt->data(), salt->size()) != PSA_SUCCESS) {
             cleanup();
-            return std::unexpected(CryptoError("HKDF salt input failed"));
+            return std::unexpected(CryptoError(CryptoErrorCode::KdfInputFailed, "HKDF salt input failed"));
         }
     }
 
     if (psa_key_derivation_input_key(&op, PSA_KEY_DERIVATION_INPUT_SECRET,
                                      key_id) != PSA_SUCCESS) {
         cleanup();
-        return std::unexpected(CryptoError("HKDF secret input failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KdfInputFailed, "HKDF secret input failed"));
     }
 
     if (info.has_value()) {
         if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
                                            info->data(), info->size()) != PSA_SUCCESS) {
             cleanup();
-            return std::unexpected(CryptoError("HKDF info input failed"));
+            return std::unexpected(CryptoError(CryptoErrorCode::KdfInputFailed, "HKDF info input failed"));
         }
     } else {
         if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
                                            nullptr, 0) != PSA_SUCCESS) {
             cleanup();
-            return std::unexpected(CryptoError("HKDF info input failed"));
+            return std::unexpected(CryptoError(CryptoErrorCode::KdfInputFailed, "HKDF info input failed"));
         }
     }
 
     SecureBuffer output(output_length);
     if (psa_key_derivation_output_bytes(&op, output.data(), output.size()) != PSA_SUCCESS) {
         cleanup();
-        return std::unexpected(CryptoError("HKDF output failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KdfOutputFailed, "HKDF output failed"));
     }
 
     cleanup();
@@ -109,11 +110,11 @@ inline auto derive_key(const std::size_t output_length,
 
 template<RsaKeyBits KB>
 [[nodiscard]]
-inline auto generate_rsa_key()  // NOLINT(readability-function-cognitive-complexity)
+auto generate_rsa_key()  // NOLINT(readability-function-cognitive-complexity)
     -> std::expected<RsaKeyPair<KB>, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("PSA crypto init failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
     }
 
     constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
@@ -127,7 +128,7 @@ inline auto generate_rsa_key()  // NOLINT(readability-function-cognitive-complex
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_generate_key(&attrs, &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("RSA key generation failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyGenerationFailed, "RSA key generation failed"));
     }
 
     const std::size_t private_key_size =
@@ -140,7 +141,7 @@ inline auto generate_rsa_key()  // NOLINT(readability-function-cognitive-complex
                        private_key_der.size(),
                        &private_key_length) != PSA_SUCCESS) {
         psa_destroy_key(key_id);
-        return std::unexpected(CryptoError("RSA private key export failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyExportFailed, "RSA private key export failed"));
     }
     private_key_der.resize(private_key_length);
 
@@ -154,7 +155,7 @@ inline auto generate_rsa_key()  // NOLINT(readability-function-cognitive-complex
                               public_key_der.size(),
                               &public_key_length) != PSA_SUCCESS) {
         psa_destroy_key(key_id);
-        return std::unexpected(CryptoError("RSA public key export failed"));
+        return std::unexpected(CryptoError(CryptoErrorCode::KeyExportFailed, "RSA public key export failed"));
     }
     public_key_der.resize(public_key_length);
 
