@@ -5,6 +5,7 @@ add_executable(${EXE_NAME}
         asymmetric_tests.hpp
         digests_tests.hpp
         init_tests.hpp
+        kdf_tests.hpp
         mac_tests.hpp
         main.cpp
         random_tests.hpp

@@ -25,6 +25,10 @@ inline auto derive_key(const std::size_t output_length,
                        const std::optional<SecureBuffer>& info = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
+    if (ikm.has_value() && ikm->size() < output_length * 2) {
+        return std::unexpected(CryptoError("IKM must be at least 2 * output_length"));
+    }
+
     if (psa_crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
