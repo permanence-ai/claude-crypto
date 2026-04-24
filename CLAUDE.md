@@ -10,7 +10,7 @@ An experimental C++26 project for exploring cryptography and modern C++ with Cla
 
 ```bash
 # Configure
-cmake -B cmake-build-debug -S .
+cmake -G Ninja -B cmake-build-debug -S .
 
 # Build
 cmake --build cmake-build-debug
