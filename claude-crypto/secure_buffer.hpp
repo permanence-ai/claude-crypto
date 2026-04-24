@@ -10,13 +10,14 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <array>
 #include <concepts>
 #include <cstddef>
-#include <cstdint>
 #include <vector>
+
+#include "defs.hpp"
 
 
 template<typename T>
 concept SecureBufferLike = requires(const T& t) {
-    { t.data() } -> std::same_as<const std::uint8_t*>;
+    { t.data() } -> std::same_as<const CRYPTO_BYTE*>;
     { t.size() } -> std::convertible_to<std::size_t>;
 };
 
@@ -37,12 +38,12 @@ public:
     }
 
     [[nodiscard]]
-    auto data() -> std::uint8_t* {
+    auto data() -> CRYPTO_BYTE* {
         return data_.data();
     }
 
     [[nodiscard]]
-    auto data() const -> const std::uint8_t* {
+    auto data() const -> const CRYPTO_BYTE* {
         return data_.data();
     }
 
@@ -64,37 +65,37 @@ public:
     }
 
     [[nodiscard]]
-    auto begin() -> std::vector<std::uint8_t>::iterator {
+    auto begin() -> std::vector<CRYPTO_BYTE>::iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto begin() const -> std::vector<std::uint8_t>::const_iterator {
+    auto begin() const -> std::vector<CRYPTO_BYTE>::const_iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto end() -> std::vector<std::uint8_t>::iterator {
+    auto end() -> std::vector<CRYPTO_BYTE>::iterator {
         return data_.end();
     }
 
     [[nodiscard]]
-    auto end() const -> std::vector<std::uint8_t>::const_iterator {
+    auto end() const -> std::vector<CRYPTO_BYTE>::const_iterator {
         return data_.end();
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) -> std::uint8_t& {
+    auto operator[](const std::size_t i) -> CRYPTO_BYTE& {
         return data_.at(i);
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) const -> const std::uint8_t& {
+    auto operator[](const std::size_t i) const -> const CRYPTO_BYTE& {
         return data_.at(i);
     }
 
 private:
-    std::vector<std::uint8_t> data_;
+    std::vector<CRYPTO_BYTE> data_;
 };
 
 
@@ -116,12 +117,12 @@ public:
     }
 
     [[nodiscard]]
-    auto data() -> std::uint8_t* {
+    auto data() -> CRYPTO_BYTE* {
         return data_.data();
     }
 
     [[nodiscard]]
-    auto data() const -> const std::uint8_t* {
+    auto data() const -> const CRYPTO_BYTE* {
         return data_.data();
     }
 
@@ -136,35 +137,35 @@ public:
     }
 
     [[nodiscard]]
-    auto begin() -> typename std::array<std::uint8_t, N>::iterator {
+    auto begin() -> typename std::array<CRYPTO_BYTE, N>::iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto begin() const -> typename std::array<std::uint8_t, N>::const_iterator {
+    auto begin() const -> typename std::array<CRYPTO_BYTE, N>::const_iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto end() -> typename std::array<std::uint8_t, N>::iterator {
+    auto end() -> typename std::array<CRYPTO_BYTE, N>::iterator {
         return data_.end();
     }
 
     [[nodiscard]]
-    auto end() const -> typename std::array<std::uint8_t, N>::const_iterator {
+    auto end() const -> typename std::array<CRYPTO_BYTE, N>::const_iterator {
         return data_.end();
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) -> std::uint8_t& {
+    auto operator[](const std::size_t i) -> CRYPTO_BYTE& {
         return data_.at(i);
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) const -> const std::uint8_t& {
+    auto operator[](const std::size_t i) const -> const CRYPTO_BYTE& {
         return data_.at(i);
     }
 
 private:
-    std::array<std::uint8_t, N> data_{};
+    std::array<CRYPTO_BYTE, N> data_{};
 };

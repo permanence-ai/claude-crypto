@@ -67,7 +67,7 @@ auto aes256_gcm_encrypt(  // NOLINT(readability-function-cognitive-complexity)
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
     SecureBuffer ciphertext(output_size);
 
-    const std::uint8_t* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
+    const CRYPTO_BYTE* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t   aad_size = aad.has_value() ? aad->size() : 0;
 
     std::size_t ciphertext_length = 0;
@@ -122,7 +122,7 @@ inline auto aes256_gcm_decrypt(  // NOLINT(readability-function-cognitive-comple
             "Key import failed"));
     }
 
-    const std::uint8_t* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
+    const CRYPTO_BYTE* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t   aad_size = aad.has_value() ? aad->size() : 0;
 
     const std::size_t plaintext_size =

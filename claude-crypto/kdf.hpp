@@ -175,7 +175,7 @@ inline auto expand_key(
             "HKDF-Expand PRK input failed"));
     }
 
-    const std::uint8_t* info_ptr  = info.has_value() ? info->data() : nullptr;
+    const CRYPTO_BYTE* info_ptr  = info.has_value() ? info->data() : nullptr;
     const std::size_t   info_size = info.has_value() ? info->size() : 0;
 
     if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,

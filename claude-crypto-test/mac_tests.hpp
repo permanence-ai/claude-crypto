@@ -188,7 +188,7 @@ TEST_F(MacTests, VerifyWithWrongKeyFails) {
 
 
 TEST_F(MacTests, VerifyWithTamperedMessageFails) {
-    constexpr std::uint8_t TAMPER_BYTE = 0xFF;
+    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
 
     const auto key = make_random_secure_buffer(KEY_SIZE_BYTES);
     auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
@@ -206,7 +206,7 @@ TEST_F(MacTests, VerifyWithTamperedMessageFails) {
 
 
 TEST_F(MacTests, VerifyWithTamperedMacFails) {
-    constexpr std::uint8_t TAMPER_BYTE = 0xFF;
+    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
 
     const auto key     = make_random_secure_buffer(KEY_SIZE_BYTES);
     const auto message = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
