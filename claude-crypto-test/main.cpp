@@ -6,6 +6,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <gtest/gtest.h>
 
 #include "init_tests.hpp"
+#include "md_tests.hpp"
 
 
 int main(int argc, char **argv) {

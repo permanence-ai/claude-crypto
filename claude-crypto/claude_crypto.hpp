@@ -5,6 +5,8 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #pragma once
 
-#include <mbedtls/md.h>
+#include "secure_buffer.hpp"
 
-void say_hello();
+
+[[nodiscard]]
+auto sha384(const SecureBuffer& input) -> SecureBuffer;

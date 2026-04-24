@@ -3,6 +3,8 @@ set(EXE_NAME claude_crypto_test)
 add_executable(${EXE_NAME}
         init_tests.hpp
         main.cpp
+        md_tests.hpp
+        test_utils.hpp
 )
 
 target_compile_options(${EXE_NAME} PRIVATE
