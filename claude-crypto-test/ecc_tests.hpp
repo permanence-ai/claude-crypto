@@ -1,0 +1,142 @@
+/*
+Copyright Permanence AI, 2026. All rights reserved.
+
+*/
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
+
+#include <gtest/gtest.h>
+
+#include "ecc.hpp"
+#include "test_utils.hpp"
+
+
+class EccTests : public ::testing::Test {
+protected:
+    static constexpr std::size_t MESSAGE_SIZE_BYTES = 64;
+};
+
+
+TEST_F(EccTests, EcdsaGenerateKeyP256ProducesValidKeyPair) {
+    const auto key_pair = ecdsa_generate_key(EcCurve::P256);
+
+    ASSERT_TRUE(key_pair.has_value());
+    EXPECT_FALSE(key_pair->private_key_der.empty());
+    EXPECT_FALSE(key_pair->public_key_der.empty());
+}
+
+
+TEST_F(EccTests, EcdsaGenerateKeyP384ProducesValidKeyPair) {
+    const auto key_pair = ecdsa_generate_key(EcCurve::P384);
+
+    ASSERT_TRUE(key_pair.has_value());
+    EXPECT_FALSE(key_pair->private_key_der.empty());
+    EXPECT_FALSE(key_pair->public_key_der.empty());
+}
+
+
+TEST_F(EccTests, EcdsaGenerateKeyP521ProducesValidKeyPair) {
+    const auto key_pair = ecdsa_generate_key(EcCurve::P521);
+
+    ASSERT_TRUE(key_pair.has_value());
+    EXPECT_FALSE(key_pair->private_key_der.empty());
+    EXPECT_FALSE(key_pair->public_key_der.empty());
+}
+
+
+TEST_F(EccTests, EcdsaP256SignVerifyRoundTrip) {
+    const auto key_pair = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = ecdsa_sign(*key_pair, EcCurve::P256, message);
+    ASSERT_TRUE(signature.has_value());
+
+    const auto result = ecdsa_verify(*key_pair, EcCurve::P256, message, *signature);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(*result);
+}
+
+
+TEST_F(EccTests, EcdsaP384SignVerifyRoundTrip) {
+    const auto key_pair = ecdsa_generate_key(EcCurve::P384);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = ecdsa_sign(*key_pair, EcCurve::P384, message);
+    ASSERT_TRUE(signature.has_value());
+
+    const auto result = ecdsa_verify(*key_pair, EcCurve::P384, message, *signature);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(*result);
+}
+
+
+TEST_F(EccTests, EcdsaP521SignVerifyRoundTrip) {
+    const auto key_pair = ecdsa_generate_key(EcCurve::P521);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = ecdsa_sign(*key_pair, EcCurve::P521, message);
+    ASSERT_TRUE(signature.has_value());
+
+    const auto result = ecdsa_verify(*key_pair, EcCurve::P521, message, *signature);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(*result);
+}
+
+
+TEST_F(EccTests, EcdsaVerifyWithWrongKeyFails) {
+    const auto key_pair       = ecdsa_generate_key(EcCurve::P256);
+    const auto wrong_key_pair = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(key_pair.has_value());
+    ASSERT_TRUE(wrong_key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = ecdsa_sign(*key_pair, EcCurve::P256, message);
+    ASSERT_TRUE(signature.has_value());
+
+    const auto result = ecdsa_verify(*wrong_key_pair, EcCurve::P256, message, *signature);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
+}
+
+
+TEST_F(EccTests, EcdsaVerifyWithTamperedMessageFails) {
+    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+
+    const auto key_pair = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(key_pair.has_value());
+
+    auto message         = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = ecdsa_sign(*key_pair, EcCurve::P256, message);
+    ASSERT_TRUE(signature.has_value());
+
+    std::span(message.data(), message.size()).front() ^= TAMPER_BYTE;
+
+    const auto result = ecdsa_verify(*key_pair, EcCurve::P256, message, *signature);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
+}
+
+
+TEST_F(EccTests, EcdsaVerifyWithTamperedSignatureFails) {
+    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+
+    const auto key_pair = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    auto signature     = ecdsa_sign(*key_pair, EcCurve::P256, message);
+    ASSERT_TRUE(signature.has_value());
+
+    std::span(signature->data(), signature->size()).front() ^= TAMPER_BYTE;
+
+    const auto result = ecdsa_verify(*key_pair, EcCurve::P256, message, *signature);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
+}

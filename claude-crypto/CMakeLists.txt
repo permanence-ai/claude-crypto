@@ -8,6 +8,7 @@ target_sources(${LIB_NAME} INTERFACE
         crypto_error.hpp
         defs.hpp
         digests.hpp
+        ecc.hpp
         kdf.hpp
         mac.hpp
         random.hpp
