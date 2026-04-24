@@ -8,6 +8,7 @@ target_sources(${LIB_NAME} INTERFACE
         digests.hpp
         kdf.hpp
         mac.hpp
+        random.hpp
         secure_buffer.hpp
 )
 

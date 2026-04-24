@@ -6,6 +6,7 @@ add_executable(${EXE_NAME}
         init_tests.hpp
         mac_tests.hpp
         main.cpp
+        random_tests.hpp
         test_utils.hpp
 )
 

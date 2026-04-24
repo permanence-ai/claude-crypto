@@ -15,6 +15,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <psa/crypto_values.h>
 
 #include "crypto_error.hpp"
+#include "random.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -37,9 +38,9 @@ inline auto aes256_gcm_encrypt(const SecureBuffer& key,  // NOLINT(readability-f
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
-    SecureBuffer iv(IV_SIZE_BYTES);
-    if (psa_generate_random(iv.data(), iv.size()) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError("IV generation failed"));
+    auto iv = random_bytes(IV_SIZE_BYTES);
+    if (!iv.has_value()) {
+        return std::unexpected(iv.error());
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
@@ -63,7 +64,7 @@ inline auto aes256_gcm_encrypt(const SecureBuffer& key,  // NOLINT(readability-f
     std::size_t ciphertext_length = 0;
     const psa_status_t status = psa_aead_encrypt(
         key_id, PSA_ALG_GCM,
-        iv.data(), iv.size(),
+        iv->data(), iv->size(),
         aad_ptr, aad_size,
         plaintext.data(), plaintext.size(),
         ciphertext.data(), ciphertext.size(),
@@ -76,7 +77,7 @@ inline auto aes256_gcm_encrypt(const SecureBuffer& key,  // NOLINT(readability-f
     }
 
     return AesGcmResult{
-        .iv         = std::move(iv),
+        .iv         = std::move(*iv),
         .ciphertext = std::move(ciphertext),
     };
 }

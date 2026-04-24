@@ -13,6 +13,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <psa/crypto_values.h>
 
 #include "crypto_error.hpp"
+#include "random.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -28,14 +29,15 @@ inline auto derive_key(const std::size_t output_length,
     }
 
     // Generate IKM if not provided: twice the target key length per security convention
-    SecureBuffer generated_ikm(0);
+    auto generated_ikm = std::optional<SecureBuffer>{};
     if (!ikm.has_value()) {
-        generated_ikm = SecureBuffer(output_length * 2);
-        if (psa_generate_random(generated_ikm.data(), generated_ikm.size()) != PSA_SUCCESS) {
-            return std::unexpected(CryptoError("IKM generation failed"));
+        auto result = random_bytes(output_length * 2);
+        if (!result.has_value()) {
+            return std::unexpected(result.error());
         }
+        generated_ikm = std::move(*result);
     }
-    const SecureBuffer& ikm_ref = ikm.has_value() ? *ikm : generated_ikm;
+    const SecureBuffer& ikm_ref = ikm.has_value() ? *ikm : *generated_ikm;
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
