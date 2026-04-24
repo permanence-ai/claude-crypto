@@ -3,4 +3,4 @@ project(claude_crypto)
 
 set(CMAKE_CXX_STANDARD 26)
 
-add_executable(claude_crypto main.cpp)
+add_subdirectory(claude-crypto-test)
