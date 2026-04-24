@@ -2,6 +2,7 @@ set(EXE_NAME claude_crypto_test)
 
 add_executable(${EXE_NAME}
         aead_tests.hpp
+        asymmetric_tests.hpp
         digests_tests.hpp
         init_tests.hpp
         mac_tests.hpp

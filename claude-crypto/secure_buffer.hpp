@@ -41,6 +41,38 @@ public:
     }
 
     [[nodiscard]]
+    auto empty() const -> bool {
+        return data_.empty();
+    }
+
+    auto resize(const std::size_t new_size) -> void {
+        if (new_size < data_.size()) {
+            mbedtls_platform_zeroize(data_.data() + new_size, data_.size() - new_size);
+        }
+        data_.resize(new_size);
+    }
+
+    [[nodiscard]]
+    auto begin() -> std::vector<std::uint8_t>::iterator {
+        return data_.begin();
+    }
+
+    [[nodiscard]]
+    auto begin() const -> std::vector<std::uint8_t>::const_iterator {
+        return data_.begin();
+    }
+
+    [[nodiscard]]
+    auto end() -> std::vector<std::uint8_t>::iterator {
+        return data_.end();
+    }
+
+    [[nodiscard]]
+    auto end() const -> std::vector<std::uint8_t>::const_iterator {
+        return data_.end();
+    }
+
+    [[nodiscard]]
     auto operator[](const std::size_t i) -> std::uint8_t& {
         return data_.at(i);
     }

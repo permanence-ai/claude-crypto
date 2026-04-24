@@ -4,6 +4,7 @@ add_library(${LIB_NAME} INTERFACE)
 
 target_sources(${LIB_NAME} INTERFACE
         aead.hpp
+        asymmetric.hpp
         crypto_error.hpp
         digests.hpp
         kdf.hpp

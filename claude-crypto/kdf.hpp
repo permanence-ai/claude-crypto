@@ -12,6 +12,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <psa/crypto.h>
 #include <psa/crypto_values.h>
 
+#include "asymmetric.hpp"
 #include "crypto_error.hpp"
 #include "random.hpp"
 #include "secure_buffer.hpp"
@@ -99,4 +100,64 @@ inline auto derive_key(const std::size_t output_length,
 
     cleanup();
     return output;
+}
+
+
+[[nodiscard]]
+inline auto generate_rsa_key(const RsaKeyBits key_bits)  // NOLINT(readability-function-cognitive-complexity)
+    -> std::expected<RsaKeyPair, CryptoError>
+{
+    if (psa_crypto_init() != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("PSA crypto init failed"));
+    }
+
+    const auto key_bits_val = static_cast<psa_key_bits_t>(key_bits);
+
+    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
+    psa_set_key_bits(&attrs, key_bits_val);
+    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT |
+                                    PSA_KEY_USAGE_EXPORT);
+    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
+
+    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (psa_generate_key(&attrs, &key_id) != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("RSA key generation failed"));
+    }
+
+    const std::size_t private_key_size =
+        PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR, key_bits_val);
+    SecureBuffer private_key_der(private_key_size);
+    std::size_t private_key_length = 0;
+
+    if (psa_export_key(key_id,
+                       private_key_der.data(),
+                       private_key_der.size(),
+                       &private_key_length) != PSA_SUCCESS) {
+        psa_destroy_key(key_id);
+        return std::unexpected(CryptoError("RSA private key export failed"));
+    }
+    private_key_der.resize(private_key_length);
+
+    const std::size_t public_key_size =
+        PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR, key_bits_val);
+    SecureBuffer public_key_der(public_key_size);
+    std::size_t public_key_length = 0;
+
+    if (psa_export_public_key(key_id,
+                              public_key_der.data(),
+                              public_key_der.size(),
+                              &public_key_length) != PSA_SUCCESS) {
+        psa_destroy_key(key_id);
+        return std::unexpected(CryptoError("RSA public key export failed"));
+    }
+    public_key_der.resize(public_key_length);
+
+    psa_destroy_key(key_id);
+
+    return RsaKeyPair{
+        .private_key_der = std::move(private_key_der),
+        .public_key_der  = std::move(public_key_der),
+        .key_bits        = key_bits,
+    };
 }
