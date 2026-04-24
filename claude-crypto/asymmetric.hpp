@@ -31,11 +31,11 @@ struct RsaKeyPair {
 };
 
 
-template<RsaKeyBits KB>
+template<RsaKeyBits KB, SecureBufferLike Plaintext>
 [[nodiscard]]
 inline auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
-    const SecureBuffer& plaintext,
+    const Plaintext& plaintext,
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
@@ -88,11 +88,11 @@ inline auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
-template<RsaKeyBits KB>
+template<RsaKeyBits KB, SecureBufferLike Ciphertext>
 [[nodiscard]]
 inline auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
-    const SecureBuffer& ciphertext,
+    const Ciphertext& ciphertext,
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
@@ -145,11 +145,11 @@ inline auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
-template<RsaKeyBits KB>
+template<RsaKeyBits KB, SecureBufferLike Message>
 [[nodiscard]]
 inline auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
-    const SecureBuffer& message)
+    const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
@@ -197,12 +197,12 @@ inline auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<RsaKeyBits KB>
+template<RsaKeyBits KB, SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
 inline auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
-    const SecureBuffer& message,
-    const SecureBuffer& signature)
+    const Message& message,
+    const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {

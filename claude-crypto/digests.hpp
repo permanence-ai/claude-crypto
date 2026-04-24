@@ -17,8 +17,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 constexpr std::size_t SHA384_SIZE_BYTES = 48;
 
 
+template<SecureBufferLike Input>
 [[nodiscard]]
-inline auto sha384(const SecureBuffer& input)
+inline auto sha384(const Input& input)
     -> std::expected<FixedSecureBuffer<SHA384_SIZE_BYTES>, CryptoError>
 {
     FixedSecureBuffer<SHA384_SIZE_BYTES> digest;

@@ -29,9 +29,10 @@ struct AesGcmResult {
 };
 
 
+template<SecureBufferLike Plaintext>
 [[nodiscard]]
 inline auto aes256_gcm_encrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,  // NOLINT(readability-function-cognitive-complexity)
-                               const SecureBuffer& plaintext,
+                               const Plaintext& plaintext,
                                const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {

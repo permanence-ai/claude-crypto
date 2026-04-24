@@ -19,9 +19,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 constexpr std::size_t HMAC_SHA384_SIZE_BYTES = 48;
 
 
+template<SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
-inline auto hmac_sha384_generate(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
-                                 const SecureBuffer& message)
+inline auto hmac_sha384_generate(const Key& key,  // NOLINT(readability-function-cognitive-complexity)
+                                 const Message& message)
     -> std::expected<FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES>, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
@@ -58,9 +59,10 @@ inline auto hmac_sha384_generate(const SecureBuffer& key,  // NOLINT(readability
 }
 
 
+template<SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
-inline auto hmac_sha384_verify(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
-                               const SecureBuffer& message,
+inline auto hmac_sha384_verify(const Key& key,  // NOLINT(readability-function-cognitive-complexity)
+                               const Message& message,
                                const FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES>& mac)
     -> std::expected<void, CryptoError>
 {

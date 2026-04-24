@@ -8,9 +8,17 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <mbedtls/platform_util.h>
 
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+
+
+template<typename T>
+concept SecureBufferLike = requires(const T& t) {
+    { t.data() } -> std::same_as<const std::uint8_t*>;
+    { t.size() } -> std::convertible_to<std::size_t>;
+};
 
 
 // Dynamic (heap-allocated) secure buffer — zeroised on destruction.
@@ -95,7 +103,7 @@ private:
 template<std::size_t N>
 class FixedSecureBuffer {
 public:
-    FixedSecureBuffer() : data_{} {}
+    FixedSecureBuffer() = default;
 
     FixedSecureBuffer(const FixedSecureBuffer&) = delete;
     FixedSecureBuffer& operator=(const FixedSecureBuffer&) = delete;
@@ -158,5 +166,5 @@ public:
     }
 
 private:
-    std::array<std::uint8_t, N> data_;
+    std::array<std::uint8_t, N> data_{};
 };
