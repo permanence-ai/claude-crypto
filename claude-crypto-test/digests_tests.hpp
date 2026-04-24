@@ -26,5 +26,6 @@ TEST_F(DigestsTests, Sha384Test01) {
     const auto input  = make_random_secure_buffer(INPUT_SIZE_BYTES);
     const auto digest = sha384(input);
 
-    EXPECT_EQ(digest.size(), SHA384_SIZE_BYTES);
+    ASSERT_TRUE(digest.has_value());
+    EXPECT_EQ(digest->size(), SHA384_SIZE_BYTES);
 }

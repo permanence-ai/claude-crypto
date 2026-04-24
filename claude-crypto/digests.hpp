@@ -6,15 +6,16 @@ Copyright Permanence AI, 2026. All rights reserved.
 #pragma once
 
 #include <cstddef>
-#include <stdexcept>
+#include <expected>
 
 #include <mbedtls/md.h>
 
+#include "crypto_error.hpp"
 #include "secure_buffer.hpp"
 
 
 [[nodiscard]]
-inline auto sha384(const SecureBuffer& input) -> SecureBuffer
+inline auto sha384(const SecureBuffer& input) -> std::expected<SecureBuffer, CryptoError>
 {
     constexpr std::size_t SHA384_SIZE_BYTES = 48;
 
@@ -30,7 +31,7 @@ inline auto sha384(const SecureBuffer& input) -> SecureBuffer
         mbedtls_md_update(&ctx, input.data(), input.size()) != 0 ||
         mbedtls_md_finish(&ctx, digest.data()) != 0) {
         mbedtls_md_free(&ctx);
-        throw std::runtime_error("SHA-384 computation failed");
+        return std::unexpected(CryptoError("SHA-384 computation failed"));
     }
 
     mbedtls_md_free(&ctx);

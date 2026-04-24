@@ -33,8 +33,9 @@ TEST_F(AeadTests, EncryptProducesExpectedSizes) {
 
     const auto result = aes256_gcm_encrypt(key, plaintext);
 
-    EXPECT_EQ(result.iv.size(), IV_SIZE_BYTES);
-    EXPECT_EQ(result.ciphertext.size(), plaintext.size() + GCM_TAG_SIZE_BYTES);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->iv.size(), IV_SIZE_BYTES);
+    EXPECT_EQ(result->ciphertext.size(), plaintext.size() + GCM_TAG_SIZE_BYTES);
 }
 
 
@@ -45,7 +46,9 @@ TEST_F(AeadTests, DecryptRoundTrip) {
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
 
     const auto encrypted = aes256_gcm_encrypt(key, plaintext);
-    const auto decrypted = aes256_gcm_decrypt(key, encrypted);
+    ASSERT_TRUE(encrypted.has_value());
+
+    const auto decrypted = aes256_gcm_decrypt(key, *encrypted);
 
     ASSERT_TRUE(decrypted.has_value());
     ASSERT_EQ(decrypted->size(), plaintext.size());
@@ -64,7 +67,9 @@ TEST_F(AeadTests, DecryptRoundTripWithAad) {
     auto aad             = std::optional<SecureBuffer>(make_random_secure_buffer(AAD_SIZE_BYTES));
 
     const auto encrypted = aes256_gcm_encrypt(key, plaintext, aad);
-    const auto decrypted = aes256_gcm_decrypt(key, encrypted, aad);
+    ASSERT_TRUE(encrypted.has_value());
+
+    const auto decrypted = aes256_gcm_decrypt(key, *encrypted, aad);
 
     ASSERT_TRUE(decrypted.has_value());
     ASSERT_EQ(decrypted->size(), plaintext.size());
@@ -82,7 +87,9 @@ TEST_F(AeadTests, DecryptWithWrongKeyFails) {
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
 
     const auto encrypted = aes256_gcm_encrypt(key, plaintext);
-    const auto decrypted = aes256_gcm_decrypt(wrong_key, encrypted);
+    ASSERT_TRUE(encrypted.has_value());
+
+    const auto decrypted = aes256_gcm_decrypt(wrong_key, *encrypted);
 
     EXPECT_FALSE(decrypted.has_value());
 }
@@ -96,9 +103,11 @@ TEST_F(AeadTests, DecryptWithTamperedCiphertextFails) {
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
 
     auto encrypted = aes256_gcm_encrypt(key, plaintext);
-    std::span(encrypted.ciphertext.data(), encrypted.ciphertext.size()).front() ^= TAMPER_BYTE;
+    ASSERT_TRUE(encrypted.has_value());
 
-    const auto decrypted = aes256_gcm_decrypt(key, encrypted);
+    std::span(encrypted->ciphertext.data(), encrypted->ciphertext.size()).front() ^= TAMPER_BYTE;
+
+    const auto decrypted = aes256_gcm_decrypt(key, *encrypted);
 
     EXPECT_FALSE(decrypted.has_value());
 }
@@ -114,7 +123,9 @@ TEST_F(AeadTests, DecryptWithWrongAadFails) {
     auto wrong_aad       = std::optional<SecureBuffer>(make_random_secure_buffer(AAD_SIZE_BYTES));
 
     const auto encrypted = aes256_gcm_encrypt(key, plaintext, aad);
-    const auto decrypted = aes256_gcm_decrypt(key, encrypted, wrong_aad);
+    ASSERT_TRUE(encrypted.has_value());
+
+    const auto decrypted = aes256_gcm_decrypt(key, *encrypted, wrong_aad);
 
     EXPECT_FALSE(decrypted.has_value());
 }

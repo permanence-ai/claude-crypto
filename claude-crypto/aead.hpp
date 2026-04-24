@@ -9,7 +9,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstdint>
 #include <expected>
 #include <optional>
-#include <stdexcept>
 
 #include <psa/crypto.h>
 #include <psa/crypto_sizes.h>
@@ -26,20 +25,21 @@ struct AesGcmResult {
 
 
 [[nodiscard]]
-inline auto aes256_gcm_encrypt(const SecureBuffer& key,
+inline auto aes256_gcm_encrypt(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
                                const SecureBuffer& plaintext,
-                               const std::optional<SecureBuffer>& aad = std::nullopt) -> AesGcmResult
+                               const std::optional<SecureBuffer>& aad = std::nullopt)
+    -> std::expected<AesGcmResult, CryptoError>
 {
     constexpr std::size_t AES256_KEY_BITS = 256;
     constexpr std::size_t IV_SIZE_BYTES   = 12;
 
     if (psa_crypto_init() != PSA_SUCCESS) {
-        throw std::runtime_error("PSA crypto init failed");
+        return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
     SecureBuffer iv(IV_SIZE_BYTES);
     if (psa_generate_random(iv.data(), iv.size()) != PSA_SUCCESS) {
-        throw std::runtime_error("IV generation failed");
+        return std::unexpected(CryptoError("IV generation failed"));
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
@@ -50,7 +50,7 @@ inline auto aes256_gcm_encrypt(const SecureBuffer& key,
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
-        throw std::runtime_error("Key import failed");
+        return std::unexpected(CryptoError("Key import failed"));
     }
 
     const std::size_t output_size =
@@ -72,15 +72,18 @@ inline auto aes256_gcm_encrypt(const SecureBuffer& key,
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        throw std::runtime_error("AES-256-GCM encryption failed");
+        return std::unexpected(CryptoError("AES-256-GCM encryption failed"));
     }
 
-    return AesGcmResult{std::move(iv), std::move(ciphertext)};
+    return AesGcmResult{
+        .iv         = std::move(iv),
+        .ciphertext = std::move(ciphertext),
+    };
 }
 
 
 [[nodiscard]]
-inline auto aes256_gcm_decrypt(const SecureBuffer& key,
+inline auto aes256_gcm_decrypt(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
                                const AesGcmResult& ciphertext,
                                const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
