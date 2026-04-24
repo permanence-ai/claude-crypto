@@ -7,10 +7,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include <mbedtls/platform_util.h>
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
 
+// Dynamic (heap-allocated) secure buffer — zeroised on destruction.
 class SecureBuffer {
 public:
     explicit SecureBuffer(const std::size_t size) : data_(size) {}
@@ -84,4 +87,76 @@ public:
 
 private:
     std::vector<std::uint8_t> data_;
+};
+
+
+// Fixed-size (stack-allocated) secure buffer — zero-initialised on construction,
+// zeroised on destruction.
+template<std::size_t N>
+class FixedSecureBuffer {
+public:
+    FixedSecureBuffer() : data_{} {}
+
+    FixedSecureBuffer(const FixedSecureBuffer&) = delete;
+    FixedSecureBuffer& operator=(const FixedSecureBuffer&) = delete;
+
+    FixedSecureBuffer(FixedSecureBuffer&&) = default;
+    FixedSecureBuffer& operator=(FixedSecureBuffer&&) = default;
+
+    ~FixedSecureBuffer() {
+        mbedtls_platform_zeroize(data_.data(), data_.size());
+    }
+
+    [[nodiscard]]
+    auto data() -> std::uint8_t* {
+        return data_.data();
+    }
+
+    [[nodiscard]]
+    auto data() const -> const std::uint8_t* {
+        return data_.data();
+    }
+
+    [[nodiscard]]
+    constexpr auto size() const -> std::size_t {
+        return N;
+    }
+
+    [[nodiscard]]
+    constexpr auto empty() const -> bool {
+        return N == 0;
+    }
+
+    [[nodiscard]]
+    auto begin() -> typename std::array<std::uint8_t, N>::iterator {
+        return data_.begin();
+    }
+
+    [[nodiscard]]
+    auto begin() const -> typename std::array<std::uint8_t, N>::const_iterator {
+        return data_.begin();
+    }
+
+    [[nodiscard]]
+    auto end() -> typename std::array<std::uint8_t, N>::iterator {
+        return data_.end();
+    }
+
+    [[nodiscard]]
+    auto end() const -> typename std::array<std::uint8_t, N>::const_iterator {
+        return data_.end();
+    }
+
+    [[nodiscard]]
+    auto operator[](const std::size_t i) -> std::uint8_t& {
+        return data_.at(i);
+    }
+
+    [[nodiscard]]
+    auto operator[](const std::size_t i) const -> const std::uint8_t& {
+        return data_.at(i);
+    }
+
+private:
+    std::array<std::uint8_t, N> data_;
 };

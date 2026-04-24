@@ -19,26 +19,29 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
+constexpr std::size_t AES256_KEY_SIZE_BYTES = 32;
+constexpr std::size_t AES_GCM_IV_SIZE_BYTES = 12;
+
+
 struct AesGcmResult {
-    SecureBuffer iv;
-    SecureBuffer ciphertext;
+    FixedSecureBuffer<AES_GCM_IV_SIZE_BYTES> iv;
+    SecureBuffer                             ciphertext;
 };
 
 
 [[nodiscard]]
-inline auto aes256_gcm_encrypt(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
+inline auto aes256_gcm_encrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,  // NOLINT(readability-function-cognitive-complexity)
                                const SecureBuffer& plaintext,
                                const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {
     constexpr std::size_t AES256_KEY_BITS = 256;
-    constexpr std::size_t IV_SIZE_BYTES   = 12;
 
     if (psa_crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
-    auto iv = random_bytes(IV_SIZE_BYTES);
+    auto iv = random_bytes<AES_GCM_IV_SIZE_BYTES>();
     if (!iv.has_value()) {
         return std::unexpected(iv.error());
     }
@@ -84,7 +87,7 @@ inline auto aes256_gcm_encrypt(const SecureBuffer& key,  // NOLINT(readability-f
 
 
 [[nodiscard]]
-inline auto aes256_gcm_decrypt(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
+inline auto aes256_gcm_decrypt(const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,  // NOLINT(readability-function-cognitive-complexity)
                                const AesGcmResult& ciphertext,
                                const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>

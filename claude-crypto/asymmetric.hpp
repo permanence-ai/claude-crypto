@@ -24,16 +24,17 @@ enum class RsaKeyBits : psa_key_bits_t {
 };
 
 
+template<RsaKeyBits KB>
 struct RsaKeyPair {
     SecureBuffer private_key_der;
     SecureBuffer public_key_der;
-    RsaKeyBits   key_bits;
 };
 
 
+template<RsaKeyBits KB>
 [[nodiscard]]
 inline auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
-    const RsaKeyPair& key_pair,
+    const RsaKeyPair<KB>& key_pair,
     const SecureBuffer& plaintext,
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
@@ -42,7 +43,7 @@ inline auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexi
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
-    const auto key_bits_val = static_cast<psa_key_bits_t>(key_pair.key_bits);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
@@ -87,9 +88,10 @@ inline auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
+template<RsaKeyBits KB>
 [[nodiscard]]
 inline auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
-    const RsaKeyPair& key_pair,
+    const RsaKeyPair<KB>& key_pair,
     const SecureBuffer& ciphertext,
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
@@ -98,7 +100,7 @@ inline auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexi
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
-    const auto key_bits_val = static_cast<psa_key_bits_t>(key_pair.key_bits);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -143,9 +145,10 @@ inline auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
+template<RsaKeyBits KB>
 [[nodiscard]]
 inline auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
-    const RsaKeyPair& key_pair,
+    const RsaKeyPair<KB>& key_pair,
     const SecureBuffer& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
@@ -153,7 +156,7 @@ inline auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
-    const auto key_bits_val = static_cast<psa_key_bits_t>(key_pair.key_bits);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -194,18 +197,19 @@ inline auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
+template<RsaKeyBits KB>
 [[nodiscard]]
 inline auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
-    const RsaKeyPair& key_pair,
+    const RsaKeyPair<KB>& key_pair,
     const SecureBuffer& message,
     const SecureBuffer& signature)
-    -> std::expected<void, CryptoError>
+    -> std::expected<bool, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
-    const auto key_bits_val = static_cast<psa_key_bits_t>(key_pair.key_bits);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
@@ -229,9 +233,12 @@ inline auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity
 
     psa_destroy_key(key_id);
 
+    if (status == PSA_ERROR_INVALID_SIGNATURE || status == PSA_ERROR_INVALID_ARGUMENT) {
+        return false;
+    }
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError("RSA-PSS verification failed"));
     }
 
-    return {};
+    return true;
 }

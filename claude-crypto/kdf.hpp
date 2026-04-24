@@ -103,15 +103,16 @@ inline auto derive_key(const std::size_t output_length,
 }
 
 
+template<RsaKeyBits KB>
 [[nodiscard]]
-inline auto generate_rsa_key(const RsaKeyBits key_bits)  // NOLINT(readability-function-cognitive-complexity)
-    -> std::expected<RsaKeyPair, CryptoError>
+inline auto generate_rsa_key()  // NOLINT(readability-function-cognitive-complexity)
+    -> std::expected<RsaKeyPair<KB>, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError("PSA crypto init failed"));
     }
 
-    const auto key_bits_val = static_cast<psa_key_bits_t>(key_bits);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -155,9 +156,8 @@ inline auto generate_rsa_key(const RsaKeyBits key_bits)  // NOLINT(readability-f
 
     psa_destroy_key(key_id);
 
-    return RsaKeyPair{
+    return RsaKeyPair<KB>{
         .private_key_der = std::move(private_key_der),
         .public_key_der  = std::move(public_key_der),
-        .key_bits        = key_bits,
     };
 }

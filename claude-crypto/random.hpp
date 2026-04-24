@@ -29,3 +29,21 @@ inline auto random_bytes(const std::size_t length) -> std::expected<SecureBuffer
 
     return output;
 }
+
+
+template<std::size_t N>
+[[nodiscard]]
+inline auto random_bytes() -> std::expected<FixedSecureBuffer<N>, CryptoError>
+{
+    if (psa_crypto_init() != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("PSA crypto init failed"));
+    }
+
+    FixedSecureBuffer<N> output;
+
+    if (psa_generate_random(output.data(), output.size()) != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("Random byte generation failed"));
+    }
+
+    return output;
+}

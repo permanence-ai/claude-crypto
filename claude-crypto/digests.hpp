@@ -14,12 +14,14 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-[[nodiscard]]
-inline auto sha384(const SecureBuffer& input) -> std::expected<SecureBuffer, CryptoError>
-{
-    constexpr std::size_t SHA384_SIZE_BYTES = 48;
+constexpr std::size_t SHA384_SIZE_BYTES = 48;
 
-    SecureBuffer digest(SHA384_SIZE_BYTES);
+
+[[nodiscard]]
+inline auto sha384(const SecureBuffer& input)
+    -> std::expected<FixedSecureBuffer<SHA384_SIZE_BYTES>, CryptoError>
+{
+    FixedSecureBuffer<SHA384_SIZE_BYTES> digest;
 
     const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA384);
 

@@ -16,10 +16,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
+constexpr std::size_t HMAC_SHA384_SIZE_BYTES = 48;
+
+
 [[nodiscard]]
 inline auto hmac_sha384_generate(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
                                  const SecureBuffer& message)
-    -> std::expected<SecureBuffer, CryptoError>
+    -> std::expected<FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES>, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError("PSA crypto init failed"));
@@ -36,9 +39,7 @@ inline auto hmac_sha384_generate(const SecureBuffer& key,  // NOLINT(readability
         return std::unexpected(CryptoError("Key import failed"));
     }
 
-    constexpr std::size_t MAC_SIZE_BYTES =
-        PSA_MAC_LENGTH(PSA_KEY_TYPE_HMAC, 0, PSA_ALG_HMAC(PSA_ALG_SHA_384));
-    SecureBuffer mac(MAC_SIZE_BYTES);
+    FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES> mac;
 
     std::size_t mac_length = 0;
     const psa_status_t status = psa_mac_compute(
@@ -60,7 +61,7 @@ inline auto hmac_sha384_generate(const SecureBuffer& key,  // NOLINT(readability
 [[nodiscard]]
 inline auto hmac_sha384_verify(const SecureBuffer& key,  // NOLINT(readability-function-cognitive-complexity)
                                const SecureBuffer& message,
-                               const SecureBuffer& mac)
+                               const FixedSecureBuffer<HMAC_SHA384_SIZE_BYTES>& mac)
     -> std::expected<void, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
