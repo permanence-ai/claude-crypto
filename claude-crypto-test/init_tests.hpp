@@ -11,6 +11,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "aead.hpp"
 #include "digests.hpp"
 #include "kdf.hpp"
+#include "mac.hpp"
 
 
 class InitTests : public ::testing::Test {

@@ -7,6 +7,7 @@ target_sources(${LIB_NAME} INTERFACE
         crypto_error.hpp
         digests.hpp
         kdf.hpp
+        mac.hpp
         secure_buffer.hpp
 )
 

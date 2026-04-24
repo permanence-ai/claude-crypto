@@ -13,6 +13,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
+// Test-only: uses std::mt19937 which is not cryptographically secure.
 [[nodiscard]]
 inline auto make_random_secure_buffer(const std::size_t size) -> SecureBuffer {
     SecureBuffer buf(size);

@@ -8,6 +8,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "aead_tests.hpp"
 #include "digests_tests.hpp"
 #include "init_tests.hpp"
+#include "mac_tests.hpp"
 
 
 int main(int argc, char **argv) {
