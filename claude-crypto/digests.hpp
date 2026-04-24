@@ -3,19 +3,22 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 */
 
-#include "claude_crypto.hpp"
-#include "secure_buffer.hpp"
-
-#include <mbedtls/md.h>
+#pragma once
 
 #include <cstddef>
 #include <stdexcept>
 
+#include <mbedtls/md.h>
 
-auto sha384(const SecureBuffer& input) -> SecureBuffer {
-    constexpr std::size_t SHA384_SIZE = 48;
+#include "secure_buffer.hpp"
 
-    SecureBuffer digest(SHA384_SIZE);
+
+[[nodiscard]]
+inline auto sha384(const SecureBuffer& input) -> SecureBuffer
+{
+    constexpr std::size_t SHA384_SIZE_BYTES = 48;
+
+    SecureBuffer digest(SHA384_SIZE_BYTES);
 
     const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA384);
 

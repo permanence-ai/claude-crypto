@@ -8,7 +8,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include <gtest/gtest.h>
 
-#include "claude_crypto.hpp"
+#include "aead.hpp"
+#include "digests.hpp"
+#include "kdf.hpp"
 
 
 class InitTests : public ::testing::Test {

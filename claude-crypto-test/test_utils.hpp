@@ -5,12 +5,12 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #pragma once
 
-#include "secure_buffer.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <random>
 #include <span>
+
+#include "secure_buffer.hpp"
 
 
 [[nodiscard]]
