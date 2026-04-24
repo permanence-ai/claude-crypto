@@ -141,3 +141,97 @@ inline auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexi
     plaintext.resize(plaintext_length);
     return plaintext;
 }
+
+
+[[nodiscard]]
+inline auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
+    const RsaKeyPair& key_pair,
+    const SecureBuffer& message)
+    -> std::expected<SecureBuffer, CryptoError>
+{
+    if (psa_crypto_init() != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("PSA crypto init failed"));
+    }
+
+    const auto key_bits_val = static_cast<psa_key_bits_t>(key_pair.key_bits);
+
+    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
+    psa_set_key_bits(&attrs, key_bits_val);
+    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
+    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
+
+    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (psa_import_key(&attrs,
+                       key_pair.private_key_der.data(),
+                       key_pair.private_key_der.size(),
+                       &key_id) != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("RSA private key import failed"));
+    }
+
+    const std::size_t signature_size =
+        PSA_SIGN_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR,
+                             key_bits_val,
+                             PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
+    SecureBuffer signature(signature_size);
+
+    std::size_t signature_length = 0;
+    const psa_status_t status = psa_sign_message(
+        key_id,
+        PSA_ALG_RSA_PSS(PSA_ALG_SHA_384),
+        message.data(), message.size(),
+        signature.data(), signature.size(),
+        &signature_length);
+
+    psa_destroy_key(key_id);
+
+    if (status != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("RSA-PSS signing failed"));
+    }
+
+    signature.resize(signature_length);
+    return signature;
+}
+
+
+[[nodiscard]]
+inline auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
+    const RsaKeyPair& key_pair,
+    const SecureBuffer& message,
+    const SecureBuffer& signature)
+    -> std::expected<void, CryptoError>
+{
+    if (psa_crypto_init() != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("PSA crypto init failed"));
+    }
+
+    const auto key_bits_val = static_cast<psa_key_bits_t>(key_pair.key_bits);
+
+    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
+    psa_set_key_bits(&attrs, key_bits_val);
+    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
+    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
+
+    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (psa_import_key(&attrs,
+                       key_pair.public_key_der.data(),
+                       key_pair.public_key_der.size(),
+                       &key_id) != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("RSA public key import failed"));
+    }
+
+    const psa_status_t status = psa_verify_message(
+        key_id,
+        PSA_ALG_RSA_PSS(PSA_ALG_SHA_384),
+        message.data(), message.size(),
+        signature.data(), signature.size());
+
+    psa_destroy_key(key_id);
+
+    if (status != PSA_SUCCESS) {
+        return std::unexpected(CryptoError("RSA-PSS verification failed"));
+    }
+
+    return {};
+}

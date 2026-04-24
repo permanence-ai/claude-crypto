@@ -155,3 +155,101 @@ TEST_F(AsymmetricTests, RsaOaepDecryptWithWrongLabelFails) {
 
     EXPECT_FALSE(decrypted.has_value());
 }
+
+
+TEST_F(AsymmetricTests, RsaPss3072SignVerifyRoundTrip) {
+    constexpr std::size_t MESSAGE_SIZE_BYTES = 128;
+
+    const auto key_pair = generate_rsa_key(RsaKeyBits::Bits3072);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = rsa_pss_sign(*key_pair, message);
+    ASSERT_TRUE(signature.has_value());
+
+    const auto result = rsa_pss_verify(*key_pair, message, *signature);
+    EXPECT_TRUE(result.has_value());
+}
+
+
+TEST_F(AsymmetricTests, RsaPss4096SignVerifyRoundTrip) {
+    constexpr std::size_t MESSAGE_SIZE_BYTES = 256;
+
+    const auto key_pair = generate_rsa_key(RsaKeyBits::Bits4096);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = rsa_pss_sign(*key_pair, message);
+    ASSERT_TRUE(signature.has_value());
+
+    const auto result = rsa_pss_verify(*key_pair, message, *signature);
+    EXPECT_TRUE(result.has_value());
+}
+
+
+TEST_F(AsymmetricTests, RsaPssSignProducesExpectedSize) {
+    constexpr std::size_t MESSAGE_SIZE_BYTES            = 64;
+    constexpr std::size_t EXPECTED_SIGNATURE_SIZE_BYTES = 3072 / 8;
+
+    const auto key_pair = generate_rsa_key(RsaKeyBits::Bits3072);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = rsa_pss_sign(*key_pair, message);
+
+    ASSERT_TRUE(signature.has_value());
+    EXPECT_EQ(signature->size(), EXPECTED_SIGNATURE_SIZE_BYTES);
+}
+
+
+TEST_F(AsymmetricTests, RsaPssVerifyWithWrongKeyFails) {
+    constexpr std::size_t MESSAGE_SIZE_BYTES = 96;
+
+    const auto key_pair       = generate_rsa_key(RsaKeyBits::Bits3072);
+    const auto wrong_key_pair = generate_rsa_key(RsaKeyBits::Bits3072);
+    ASSERT_TRUE(key_pair.has_value());
+    ASSERT_TRUE(wrong_key_pair.has_value());
+
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = rsa_pss_sign(*key_pair, message);
+    ASSERT_TRUE(signature.has_value());
+
+    const auto result = rsa_pss_verify(*wrong_key_pair, message, *signature);
+    EXPECT_FALSE(result.has_value());
+}
+
+
+TEST_F(AsymmetricTests, RsaPssVerifyWithTamperedMessageFails) {
+    constexpr std::size_t  MESSAGE_SIZE_BYTES = 64;
+    constexpr std::uint8_t TAMPER_BYTE        = 0xFF;
+
+    const auto key_pair = generate_rsa_key(RsaKeyBits::Bits3072);
+    ASSERT_TRUE(key_pair.has_value());
+
+    auto message         = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    const auto signature = rsa_pss_sign(*key_pair, message);
+    ASSERT_TRUE(signature.has_value());
+
+    std::span(message.data(), message.size()).front() ^= TAMPER_BYTE;
+
+    const auto result = rsa_pss_verify(*key_pair, message, *signature);
+    EXPECT_FALSE(result.has_value());
+}
+
+
+TEST_F(AsymmetricTests, RsaPssVerifyWithTamperedSignatureFails) {
+    constexpr std::size_t  MESSAGE_SIZE_BYTES = 64;
+    constexpr std::uint8_t TAMPER_BYTE        = 0xFF;
+
+    const auto key_pair = generate_rsa_key(RsaKeyBits::Bits3072);
+    ASSERT_TRUE(key_pair.has_value());
+
+    const auto message = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+    auto signature     = rsa_pss_sign(*key_pair, message);
+    ASSERT_TRUE(signature.has_value());
+
+    std::span(signature->data(), signature->size()).front() ^= TAMPER_BYTE;
+
+    const auto result = rsa_pss_verify(*key_pair, message, *signature);
+    EXPECT_FALSE(result.has_value());
+}
