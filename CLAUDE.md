@@ -21,12 +21,6 @@ cmake --build cmake-build-debug
 
 For a release build, substitute `cmake-build-release` for `cmake-build-debug` and add `-DCMAKE_BUILD_TYPE=Release` to the configure step.
 
-## Lint
-
-```bash
-clang-tidy main.cpp -- -std=c++26
-```
-
 ## Crypto Implementation Rules
 - All crypto implementation must be constant time.
 - All secrets used in crypto must be scrubbed.
