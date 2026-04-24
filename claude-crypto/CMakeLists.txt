@@ -6,6 +6,7 @@ target_sources(${LIB_NAME} INTERFACE
         aead.hpp
         asymmetric.hpp
         crypto_error.hpp
+        defs.hpp
         digests.hpp
         kdf.hpp
         mac.hpp

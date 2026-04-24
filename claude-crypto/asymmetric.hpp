@@ -40,7 +40,9 @@ auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
     -> std::expected<SecureBuffer, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InitFailed,
+            "PSA crypto init failed"));
     }
 
     constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
@@ -56,7 +58,9 @@ auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
                        key_pair.public_key_der.data(),
                        key_pair.public_key_der.size(),
                        &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "RSA public key import failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::KeyImportFailed,
+            "RSA public key import failed"));
     }
 
     const std::size_t output_size =
@@ -80,7 +84,9 @@ auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::EncryptionFailed, "RSA-OAEP encryption failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::EncryptionFailed,
+            "RSA-OAEP encryption failed"));
     }
 
     ciphertext.resize(ciphertext_length);
@@ -97,7 +103,9 @@ auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
     -> std::expected<SecureBuffer, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InitFailed,
+            "PSA crypto init failed"));
     }
 
     constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
@@ -113,7 +121,9 @@ auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
                        key_pair.private_key_der.data(),
                        key_pair.private_key_der.size(),
                        &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "RSA private key import failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::KeyImportFailed,
+            "RSA private key import failed"));
     }
 
     const std::size_t output_size =
@@ -137,7 +147,9 @@ auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::DecryptionFailed, "RSA-OAEP decryption failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::DecryptionFailed,
+            "RSA-OAEP decryption failed"));
     }
 
     plaintext.resize(plaintext_length);
@@ -153,7 +165,9 @@ auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
     -> std::expected<SecureBuffer, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InitFailed,
+            "PSA crypto init failed"));
     }
 
     constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
@@ -169,7 +183,9 @@ auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
                        key_pair.private_key_der.data(),
                        key_pair.private_key_der.size(),
                        &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "RSA private key import failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::KeyImportFailed,
+            "RSA private key import failed"));
     }
 
     const std::size_t signature_size =
@@ -189,7 +205,9 @@ auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::SigningFailed, "RSA-PSS signing failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::SigningFailed,
+            "RSA-PSS signing failed"));
     }
 
     signature.resize(signature_length);
@@ -206,7 +224,9 @@ auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
     -> std::expected<bool, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InitFailed,
+            "PSA crypto init failed"));
     }
 
     constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
@@ -222,7 +242,9 @@ auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
                        key_pair.public_key_der.data(),
                        key_pair.public_key_der.size(),
                        &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "RSA public key import failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::KeyImportFailed,
+            "RSA public key import failed"));
     }
 
     const psa_status_t status = psa_verify_message(
@@ -237,7 +259,9 @@ auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
         return false;
     }
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::VerificationFailed, "RSA-PSS verification failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::VerificationFailed,
+            "RSA-PSS verification failed"));
     }
 
     return true;

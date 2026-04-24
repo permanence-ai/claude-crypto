@@ -57,7 +57,9 @@ auto sha(const Input& input)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InitFailed,
+            "PSA crypto init failed"));
     }
 
     FixedSecureBuffer<sha_output_size(V)> digest;
@@ -70,7 +72,9 @@ auto sha(const Input& input)
         &digest_length);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::DigestFailed, "SHA computation failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::DigestFailed,
+            "SHA computation failed"));
     }
 
     return digest;

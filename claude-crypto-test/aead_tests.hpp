@@ -91,7 +91,9 @@ TEST_F(AeadTests, DecryptWithWrongKeyFails) {
 
     const auto decrypted = aes256_gcm_decrypt(wrong_key, *encrypted);
 
-    EXPECT_FALSE(decrypted.has_value());
+    ASSERT_FALSE(decrypted.has_value());
+    EXPECT_EQ(decrypted.error().code(), CryptoErrorCode::DecryptionFailed);
+    EXPECT_FALSE(decrypted.error().message().empty());
 }
 
 

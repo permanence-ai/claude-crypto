@@ -124,7 +124,9 @@ TEST_F(AsymmetricTests, RsaOaepDecryptWithWrongKeyFails) {
 
     const auto decrypted = rsa_oaep_decrypt(*wrong_key_pair, *ciphertext);
 
-    EXPECT_FALSE(decrypted.has_value());
+    ASSERT_FALSE(decrypted.has_value());
+    EXPECT_EQ(decrypted.error().code(), CryptoErrorCode::DecryptionFailed);
+    EXPECT_FALSE(decrypted.error().message().empty());
 }
 
 

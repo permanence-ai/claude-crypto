@@ -40,7 +40,9 @@ auto aes256_gcm_encrypt(  // NOLINT(readability-function-cognitive-complexity)
     constexpr std::size_t AES256_KEY_BITS = 256;
 
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InitFailed,
+            "PSA crypto init failed"));
     }
 
     auto iv = random_bytes<AES_GCM_IV_SIZE_BYTES>();
@@ -56,7 +58,9 @@ auto aes256_gcm_encrypt(  // NOLINT(readability-function-cognitive-complexity)
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "Key import failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::KeyImportFailed,
+            "Key import failed"));
     }
 
     const std::size_t output_size =
@@ -78,7 +82,9 @@ auto aes256_gcm_encrypt(  // NOLINT(readability-function-cognitive-complexity)
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::EncryptionFailed, "AES-256-GCM encryption failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::EncryptionFailed,
+            "AES-256-GCM encryption failed"));
     }
 
     return AesGcmResult{
@@ -98,7 +104,9 @@ inline auto aes256_gcm_decrypt(  // NOLINT(readability-function-cognitive-comple
     constexpr std::size_t AES256_KEY_BITS = 256;
 
     if (psa_crypto_init() != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::InitFailed, "PSA crypto init failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InitFailed,
+            "PSA crypto init failed"));
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
@@ -109,7 +117,9 @@ inline auto aes256_gcm_decrypt(  // NOLINT(readability-function-cognitive-comple
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (psa_import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::KeyImportFailed, "Key import failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::KeyImportFailed,
+            "Key import failed"));
     }
 
     const std::uint8_t* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
@@ -131,7 +141,9 @@ inline auto aes256_gcm_decrypt(  // NOLINT(readability-function-cognitive-comple
     psa_destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
-        return std::unexpected(CryptoError(CryptoErrorCode::DecryptionFailed, "AES-256-GCM decryption failed"));
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::DecryptionFailed,
+            "AES-256-GCM decryption failed"));
     }
 
     return plaintext;
