@@ -3,6 +3,8 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 */
 
+#include "claude_crypto.hpp"
+
 #include <iostream>
 #include <random>
 
@@ -10,10 +12,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 namespace {
     int add(int a, int b) {
         return a + b;
-    }
-
-    void hello() {
-        std::cout << "Hello, World!\n";
     }
 }
 
@@ -23,6 +21,6 @@ int main() {
     auto result = add(dist(rng), dist(rng));
     std::cout << result << "\n";
 
-    hello();
+    say_hello();
     return 0;
 }
