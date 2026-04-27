@@ -35,9 +35,7 @@ inline auto ecdh_generate_key(  // NOLINT(readability-function-cognitive-complex
     }
 
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const psa_key_bits_t   key_bits = (curve == EcCurve::P256) ? P256_KEY_BITS
-                                    : (curve == EcCurve::P384) ? P384_KEY_BITS
-                                                               : P521_KEY_BITS;
+    const psa_key_bits_t   key_bits = ec_curve_key_bits(curve);
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
@@ -111,9 +109,7 @@ auto ecdh_compute_shared_secret(  // NOLINT(readability-function-cognitive-compl
     }
 
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const psa_key_bits_t   key_bits = (curve == EcCurve::P256) ? P256_KEY_BITS
-                                    : (curve == EcCurve::P384) ? P384_KEY_BITS
-                                                               : P521_KEY_BITS;
+    const psa_key_bits_t   key_bits = ec_curve_key_bits(curve);
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
