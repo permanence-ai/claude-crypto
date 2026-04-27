@@ -438,38 +438,39 @@ inline auto sigma_i_aes_gcm_decrypt(
 
 
 // Step 2 (Responder): receive Msg1, run ECDH, derive keys, encrypt identity bundle.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_i_responder_respond(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg1&  msg1,
     const EccKeyPair& responder_identity,
     const EcCurve     curve)
     -> std::expected<SigmaIResponderRespondResult, CryptoError>
 {
-    auto eph_r = ecdh_generate_key(curve);
+    auto eph_r = ecdh_generate_key_impl<PSA>(curve);
     if (!eph_r.has_value()) {
         return std::unexpected(eph_r.error());
     }
 
-    auto shared_secret = ecdh_compute_shared_secret(
+    auto shared_secret = ecdh_compute_shared_secret_impl<PSA>(
         *eph_r, curve, msg1.ephemeral_pub_i);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
 
-    auto keys = sigma_i_derive_keys(*shared_secret);
+    auto keys = sigma_i_derive_keys_impl<PSA>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
 
     // Sign eph_pub_i ‖ eph_pub_r.
     const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
-    auto sig_r = ecdsa_sign(responder_identity, curve, sign_input);
+    auto sig_r = ecdsa_sign_impl<PSA>(responder_identity, curve, sign_input);
     if (!sig_r.has_value()) {
         return std::unexpected(sig_r.error());
     }
 
     // MAC over responder identity.
-    auto mac_r = hmac_generate<ShaVariant::Sha384>(
+    auto mac_r = hmac_generate_impl<ShaVariant::Sha384, PSA>(
         keys->mac_key, responder_identity.public_key_der);
     if (!mac_r.has_value()) {
         return std::unexpected(mac_r.error());
@@ -478,7 +479,7 @@ inline auto sigma_i_responder_respond(  // NOLINT(readability-function-cognitive
     // Encrypt the identity bundle.
     const auto plaintext_r = sigma_i_serialize_bundle(
         responder_identity.public_key_der, *sig_r, *mac_r);
-    auto bundle_r = sigma_i_aes_gcm_encrypt(keys->enc_key_r, plaintext_r);
+    auto bundle_r = sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_r, plaintext_r);
     if (!bundle_r.has_value()) {
         return std::unexpected(bundle_r.error());
     }
@@ -501,10 +502,21 @@ inline auto sigma_i_responder_respond(  // NOLINT(readability-function-cognitive
     };
 }
 
+[[nodiscard]]
+inline auto sigma_i_responder_respond(
+    const SigmaMsg1&  msg1,
+    const EccKeyPair& responder_identity,
+    const EcCurve     curve)
+    -> std::expected<SigmaIResponderRespondResult, CryptoError>
+{
+    return sigma_i_responder_respond_impl(msg1, responder_identity, curve);
+}
+
 
 // Step 3 (Initiator): decrypt and verify Msg2, encrypt own identity bundle.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     SigmaInitiatorState        state,
     const SigmaIMsg2&          msg2,
     const EccKeyPair&          initiator_identity,
@@ -512,19 +524,19 @@ inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-
     const EcCurve              curve)
     -> std::expected<SigmaIInitiatorFinishResult, CryptoError>
 {
-    auto shared_secret = ecdh_compute_shared_secret(
+    auto shared_secret = ecdh_compute_shared_secret_impl<PSA>(
         state.ephemeral_key_pair, curve, msg2.ephemeral_pub_r);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
 
-    auto keys = sigma_i_derive_keys(*shared_secret);
+    auto keys = sigma_i_derive_keys_impl<PSA>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
 
     // Decrypt the responder bundle.
-    auto plaintext_r = sigma_i_aes_gcm_decrypt(keys->enc_key_r, msg2.bundle_r);
+    auto plaintext_r = sigma_i_aes_gcm_decrypt_impl<PSA>(keys->enc_key_r, msg2.bundle_r);
     if (!plaintext_r.has_value()) {
         return std::unexpected(plaintext_r.error());
     }
@@ -543,7 +555,7 @@ inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-
     }
 
     // Verify HMAC over responder identity.
-    auto mac_ok = hmac_verify<ShaVariant::Sha384>(
+    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, PSA>(
         keys->mac_key, bundle_r->identity_pub, bundle_r->mac);
     if (!mac_ok.has_value()) {
         return std::unexpected(mac_ok.error());
@@ -564,7 +576,7 @@ inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-
             return b;
         }(),
     };
-    auto sig_ok = ecdsa_verify(responder_pub_only, curve, sign_input, bundle_r->signature);
+    auto sig_ok = ecdsa_verify_impl<PSA>(responder_pub_only, curve, sign_input, bundle_r->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
@@ -575,12 +587,12 @@ inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-
     }
 
     // Sign and MAC for the initiator bundle.
-    auto sig_i = ecdsa_sign(initiator_identity, curve, sign_input);
+    auto sig_i = ecdsa_sign_impl<PSA>(initiator_identity, curve, sign_input);
     if (!sig_i.has_value()) {
         return std::unexpected(sig_i.error());
     }
 
-    auto mac_i = hmac_generate<ShaVariant::Sha384>(
+    auto mac_i = hmac_generate_impl<ShaVariant::Sha384, PSA>(
         keys->mac_key, initiator_identity.public_key_der);
     if (!mac_i.has_value()) {
         return std::unexpected(mac_i.error());
@@ -589,7 +601,7 @@ inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-
     // Encrypt the initiator bundle with K_enc_i.
     const auto plaintext_i = sigma_i_serialize_bundle(
         initiator_identity.public_key_der, *sig_i, *mac_i);
-    auto bundle_i = sigma_i_aes_gcm_encrypt(keys->enc_key_i, plaintext_i);
+    auto bundle_i = sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_i, plaintext_i);
     if (!bundle_i.has_value()) {
         return std::unexpected(bundle_i.error());
     }
@@ -603,10 +615,24 @@ inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-
     };
 }
 
+[[nodiscard]]
+inline auto sigma_i_initiator_finish(
+    SigmaInitiatorState        state,
+    const SigmaIMsg2&          msg2,
+    const EccKeyPair&          initiator_identity,
+    const SecureBuffer&        expected_responder_pub,
+    const EcCurve              curve)
+    -> std::expected<SigmaIInitiatorFinishResult, CryptoError>
+{
+    return sigma_i_initiator_finish_impl(
+        std::move(state), msg2, initiator_identity, expected_responder_pub, curve);
+}
+
 
 // Step 4 (Responder): decrypt and verify Msg3.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_i_responder_finish(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaIMsg3&           msg3,
     const SigmaIResponderState& responder_state,
     const SigmaMsg1&            msg1,
@@ -616,7 +642,7 @@ inline auto sigma_i_responder_finish(  // NOLINT(readability-function-cognitive-
     -> std::expected<bool, CryptoError>
 {
     // Decrypt the initiator bundle with K_enc_i.
-    auto plaintext_i = sigma_i_aes_gcm_decrypt(responder_state.enc_key_i, msg3.bundle_i);
+    auto plaintext_i = sigma_i_aes_gcm_decrypt_impl<PSA>(responder_state.enc_key_i, msg3.bundle_i);
     if (!plaintext_i.has_value()) {
         return false;
     }
@@ -633,7 +659,7 @@ inline auto sigma_i_responder_finish(  // NOLINT(readability-function-cognitive-
     }
 
     // Verify HMAC.
-    auto mac_ok = hmac_verify<ShaVariant::Sha384>(
+    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, PSA>(
         responder_state.session_keys.mac_key, bundle_i->identity_pub, bundle_i->mac);
     if (!mac_ok.has_value()) {
         return std::unexpected(mac_ok.error());
@@ -652,10 +678,24 @@ inline auto sigma_i_responder_finish(  // NOLINT(readability-function-cognitive-
             return b;
         }(),
     };
-    auto sig_ok = ecdsa_verify(initiator_pub_only, curve, sign_input, bundle_i->signature);
+    auto sig_ok = ecdsa_verify_impl<PSA>(initiator_pub_only, curve, sign_input, bundle_i->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
 
     return *sig_ok;
+}
+
+[[nodiscard]]
+inline auto sigma_i_responder_finish(
+    const SigmaIMsg3&           msg3,
+    const SigmaIResponderState& responder_state,
+    const SigmaMsg1&            msg1,
+    const SigmaIMsg2&           msg2,
+    const SecureBuffer&         expected_initiator_pub,
+    const EcCurve               curve)
+    -> std::expected<bool, CryptoError>
+{
+    return sigma_i_responder_finish_impl(
+        msg3, responder_state, msg1, msg2, expected_initiator_pub, curve);
 }

@@ -182,11 +182,12 @@ inline auto sigma_derive_keys(const SecureBuffer& shared_secret)
 
 
 // Step 1 (Initiator): generate ephemeral key pair, produce Msg1.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_initiator_begin(const EcCurve curve)
+auto sigma_initiator_begin_impl(const EcCurve curve)
     -> std::expected<SigmaInitiatorInitResult, CryptoError>
 {
-    auto eph = ecdh_generate_key(curve);
+    auto eph = ecdh_generate_key_impl<PSA>(curve);
     if (!eph.has_value()) {
         return std::unexpected(eph.error());
     }
@@ -206,44 +207,51 @@ inline auto sigma_initiator_begin(const EcCurve curve)
     };
 }
 
+[[nodiscard]]
+inline auto sigma_initiator_begin(const EcCurve curve)
+    -> std::expected<SigmaInitiatorInitResult, CryptoError>
+{
+    return sigma_initiator_begin_impl(curve);
+}
+
 
 // Step 2 (Responder): receive Msg1, run ECDH, sign, MAC, produce Msg2 + session keys.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_responder_respond(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_responder_respond_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg1&  msg1,
     const EccKeyPair& responder_identity,
     const EcCurve     curve)
     -> std::expected<SigmaResponderRespondResult, CryptoError>
 {
     // Generate responder ephemeral key pair.
-    auto eph_r = ecdh_generate_key(curve);
+    auto eph_r = ecdh_generate_key_impl<PSA>(curve);
     if (!eph_r.has_value()) {
         return std::unexpected(eph_r.error());
     }
 
     // ECDH with initiator's ephemeral public key.
-    auto shared_secret = ecdh_compute_shared_secret(
+    auto shared_secret = ecdh_compute_shared_secret_impl<PSA>(
         *eph_r, curve, msg1.ephemeral_pub_i);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
 
     // Derive K_mac and K_session.
-    auto keys = sigma_derive_keys(*shared_secret);
+    auto keys = sigma_derive_keys_impl<PSA>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
 
     // Sign eph_pub_i ‖ eph_pub_r with responder long-term identity key.
     const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
-    auto sig_r = ecdsa_sign(responder_identity, curve, sign_input);
+    auto sig_r = ecdsa_sign_impl<PSA>(responder_identity, curve, sign_input);
     if (!sig_r.has_value()) {
         return std::unexpected(sig_r.error());
     }
 
     // MAC over responder's long-term public key using K_mac.
-    // K_mac is SecureBuffer (48 bytes); hmac_generate accepts any SecureBufferLike.
-    auto mac_r = hmac_generate<ShaVariant::Sha384>(
+    auto mac_r = hmac_generate_impl<ShaVariant::Sha384, PSA>(
         keys->mac_key, responder_identity.public_key_der);
     if (!mac_r.has_value()) {
         return std::unexpected(mac_r.error());
@@ -266,10 +274,21 @@ inline auto sigma_responder_respond(  // NOLINT(readability-function-cognitive-c
     };
 }
 
+[[nodiscard]]
+inline auto sigma_responder_respond(
+    const SigmaMsg1&  msg1,
+    const EccKeyPair& responder_identity,
+    const EcCurve     curve)
+    -> std::expected<SigmaResponderRespondResult, CryptoError>
+{
+    return sigma_responder_respond_impl(msg1, responder_identity, curve);
+}
+
 
 // Step 3 (Initiator): verify Msg2, sign, MAC, produce Msg3 + session keys.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     SigmaInitiatorState        state,
     const SigmaMsg2&           msg2,
     const EccKeyPair&          initiator_identity,
@@ -278,13 +297,13 @@ inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-co
     -> std::expected<SigmaInitiatorFinishResult, CryptoError>
 {
     // ECDH with responder's ephemeral public key.
-    auto shared_secret = ecdh_compute_shared_secret(
+    auto shared_secret = ecdh_compute_shared_secret_impl<PSA>(
         state.ephemeral_key_pair, curve, msg2.ephemeral_pub_r);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
 
-    auto keys = sigma_derive_keys(*shared_secret);
+    auto keys = sigma_derive_keys_impl<PSA>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
@@ -298,7 +317,7 @@ inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-co
     }
 
     // Verify HMAC over responder identity.
-    auto mac_ok = hmac_verify<ShaVariant::Sha384>(
+    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, PSA>(
         keys->mac_key, msg2.identity_pub_r, msg2.mac_r);
     if (!mac_ok.has_value()) {
         return std::unexpected(mac_ok.error());
@@ -312,7 +331,6 @@ inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-co
     // Verify responder signature over eph_pub_i ‖ eph_pub_r.
     const auto sign_input = concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
 
-    // Build a key pair with only the responder public key for verification.
     const EccKeyPair responder_pub_only{
         .private_key_der = SecureBuffer(0),
         .public_key_der  = [&] {
@@ -322,7 +340,7 @@ inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-co
         }(),
     };
 
-    auto sig_ok = ecdsa_verify(responder_pub_only, curve, sign_input, msg2.signature_r);
+    auto sig_ok = ecdsa_verify_impl<PSA>(responder_pub_only, curve, sign_input, msg2.signature_r);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
@@ -333,13 +351,13 @@ inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-co
     }
 
     // Sign eph_pub_i ‖ eph_pub_r with initiator long-term identity key.
-    auto sig_i = ecdsa_sign(initiator_identity, curve, sign_input);
+    auto sig_i = ecdsa_sign_impl<PSA>(initiator_identity, curve, sign_input);
     if (!sig_i.has_value()) {
         return std::unexpected(sig_i.error());
     }
 
     // MAC over initiator's long-term public key using K_mac.
-    auto mac_i = hmac_generate<ShaVariant::Sha384>(
+    auto mac_i = hmac_generate_impl<ShaVariant::Sha384, PSA>(
         keys->mac_key, initiator_identity.public_key_der);
     if (!mac_i.has_value()) {
         return std::unexpected(mac_i.error());
@@ -358,10 +376,24 @@ inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-co
     };
 }
 
+[[nodiscard]]
+inline auto sigma_initiator_finish(
+    SigmaInitiatorState        state,
+    const SigmaMsg2&           msg2,
+    const EccKeyPair&          initiator_identity,
+    const SecureBuffer&        expected_responder_pub,
+    const EcCurve              curve)
+    -> std::expected<SigmaInitiatorFinishResult, CryptoError>
+{
+    return sigma_initiator_finish_impl(
+        std::move(state), msg2, initiator_identity, expected_responder_pub, curve);
+}
+
 
 // Step 4 (Responder): verify Msg3. Returns false on auth failure, error on fault.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_responder_finish(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_responder_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg3&         msg3,
     const SigmaSessionKeys&  session_keys,
     const SigmaMsg1&         msg1,
@@ -377,7 +409,7 @@ inline auto sigma_responder_finish(  // NOLINT(readability-function-cognitive-co
     }
 
     // Verify HMAC over initiator identity.
-    auto mac_ok = hmac_verify<ShaVariant::Sha384>(
+    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, PSA>(
         session_keys.mac_key, msg3.identity_pub_i, msg3.mac_i);
     if (!mac_ok.has_value()) {
         return std::unexpected(mac_ok.error());
@@ -398,10 +430,24 @@ inline auto sigma_responder_finish(  // NOLINT(readability-function-cognitive-co
         }(),
     };
 
-    auto sig_ok = ecdsa_verify(initiator_pub_only, curve, sign_input, msg3.signature_i);
+    auto sig_ok = ecdsa_verify_impl<PSA>(initiator_pub_only, curve, sign_input, msg3.signature_i);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
 
     return *sig_ok;
+}
+
+[[nodiscard]]
+inline auto sigma_responder_finish(
+    const SigmaMsg3&         msg3,
+    const SigmaSessionKeys&  session_keys,
+    const SigmaMsg1&         msg1,
+    const SigmaMsg2&         msg2,
+    const SecureBuffer&      expected_initiator_pub,
+    const EcCurve            curve)
+    -> std::expected<bool, CryptoError>
+{
+    return sigma_responder_finish_impl(
+        msg3, session_keys, msg1, msg2, expected_initiator_pub, curve);
 }

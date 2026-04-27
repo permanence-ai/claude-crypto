@@ -1248,3 +1248,258 @@ TEST_F(PsaErrorTests, SigmaIAesGcmDecryptAeadFailed) {
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::SigmaAuthFailed);
 }
+
+
+// ── sigma.hpp (sigma_initiator_begin_impl) ───────────────────────────────────
+
+TEST_F(PsaErrorTests, SigmaInitiatorBeginEcdhFailed) {
+    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
+
+    const auto result = sigma_initiator_begin_impl<MockPsaBackend>(EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+
+// ── sigma.hpp (sigma_responder_respond_impl) ─────────────────────────────────
+
+TEST_F(PsaErrorTests, SigmaResponderRespondEcdhGenerateFailed) {
+    constexpr std::size_t PRIV_KEY_SZ = 32;
+    constexpr std::size_t PUB_KEY_SZ  = 65;
+    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
+
+    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
+    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
+        msg1, responder, EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+TEST_F(PsaErrorTests, SigmaResponderRespondEcdhComputeFailed) {
+    constexpr std::size_t FAKE_KEY_BYTES = 32;
+    constexpr std::size_t PRIV_KEY_SZ   = 32;
+    constexpr std::size_t PUB_KEY_SZ    = 65;
+    // generate_key success (ecdh_generate_key_impl), then crypto_init fails for compute
+    EXPECT_CALL(*mock_, crypto_init())
+        .WillOnce(Return(PSA_SUCCESS))
+        .WillOnce(Return(GENERIC_ERROR));
+    EXPECT_CALL(*mock_, generate_key(_, _))
+        .WillOnce(DoAll(SetArgPointee<1>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, export_key(_, _, _, _))
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, export_public_key(_, _, _, _))
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
+
+    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
+    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
+        msg1, responder, EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+TEST_F(PsaErrorTests, SigmaResponderRespondDeriveKeysFailed) {
+    constexpr std::size_t FAKE_KEY_BYTES         = 32;
+    constexpr std::size_t SHARED_SECRET_SZ       = 32;
+    constexpr std::size_t PRIV_KEY_SZ            = 32;
+    constexpr std::size_t PUB_KEY_SZ             = 65;
+    constexpr int         RAW_KEY_AGREE_OUT_IDX  = 6;
+    // ecdh_generate_key succeeds, ecdh_compute succeeds, sigma_derive_keys fails at init
+    EXPECT_CALL(*mock_, crypto_init())
+        .WillOnce(Return(PSA_SUCCESS))
+        .WillOnce(Return(PSA_SUCCESS))
+        .WillOnce(Return(GENERIC_ERROR));
+    EXPECT_CALL(*mock_, generate_key(_, _))
+        .WillOnce(DoAll(SetArgPointee<1>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, export_key(_, _, _, _))
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, export_public_key(_, _, _, _))
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, import_key(_, _, _, _))
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, raw_key_agreement(_, _, _, _, _, _, _))
+        .WillOnce(DoAll(SetArgPointee<RAW_KEY_AGREE_OUT_IDX>(SHARED_SECRET_SZ), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, destroy_key(_)).WillRepeatedly(Return(PSA_SUCCESS));
+
+    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
+    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
+        msg1, responder, EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+
+// ── sigma.hpp (sigma_initiator_finish_impl) ──────────────────────────────────
+
+TEST_F(PsaErrorTests, SigmaInitiatorFinishEcdhComputeFailed) {
+    constexpr std::size_t PRIV_KEY_SZ = 32;
+    constexpr std::size_t PUB_KEY_SZ  = 65;
+    constexpr std::size_t SIG_SZ      = 64;
+    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
+
+    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                         .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    SigmaInitiatorState state{
+        .ephemeral_key_pair = EccKeyPair{
+            .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+            .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ),
+        },
+        .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ),
+    };
+    const SigmaMsg2 msg2{
+        .ephemeral_pub_r = make_random_secure_buffer(PUB_KEY_SZ),
+        .identity_pub_r  = make_random_secure_buffer(PUB_KEY_SZ),
+        .signature_r     = make_random_secure_buffer(SIG_SZ),
+        .mac_r           = {},
+    };
+    const SecureBuffer expected_pub = make_random_secure_buffer(65);
+    const auto result = sigma_initiator_finish_impl<MockPsaBackend>(
+        std::move(state), msg2, kp, expected_pub, EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+
+// ── sigma.hpp (sigma_responder_finish_impl) ──────────────────────────────────
+
+TEST_F(PsaErrorTests, SigmaResponderFinishHmacVerifyFailed) {
+    constexpr std::size_t PUB_KEY_SZ  = 65;
+    constexpr std::size_t SIG_SZ      = 64;
+    constexpr std::size_t MAC_KEY_SZ  = 48;
+    constexpr std::size_t SESSION_SZ  = 32;
+    // Identity matches expected, but hmac_verify fails at crypto_init
+    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
+
+    auto identity_pub = make_random_secure_buffer(PUB_KEY_SZ);
+    SecureBuffer expected_pub(identity_pub.size());
+    std::ranges::copy(identity_pub, expected_pub.begin());
+
+    SecureBuffer identity_pub_copy(identity_pub.size());
+    std::ranges::copy(identity_pub, identity_pub_copy.begin());
+    const SigmaMsg3 msg3{
+        .identity_pub_i = std::move(identity_pub_copy),
+        .signature_i    = make_random_secure_buffer(SIG_SZ),
+        .mac_i          = {},
+    };
+
+    const SigmaSessionKeys session_keys{
+        .mac_key     = make_random_secure_buffer(MAC_KEY_SZ),
+        .session_key = make_random_secure_buffer(SESSION_SZ),
+    };
+    const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
+    const SigmaMsg2 msg2{
+        .ephemeral_pub_r = make_random_secure_buffer(PUB_KEY_SZ),
+        .identity_pub_r  = make_random_secure_buffer(PUB_KEY_SZ),
+        .signature_r     = make_random_secure_buffer(SIG_SZ),
+        .mac_r           = {},
+    };
+
+    const auto result = sigma_responder_finish_impl<MockPsaBackend>(
+        msg3, session_keys, msg1, msg2, expected_pub, EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+
+// ── sigma_i.hpp (sigma_i_responder_respond_impl) ─────────────────────────────
+
+TEST_F(PsaErrorTests, SigmaIResponderRespondEcdhGenerateFailed) {
+    constexpr std::size_t PRIV_KEY_SZ = 32;
+    constexpr std::size_t PUB_KEY_SZ  = 65;
+    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
+
+    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
+    const auto result = sigma_i_responder_respond_impl<MockPsaBackend>(
+        msg1, responder, EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+
+// ── sigma_i.hpp (sigma_i_initiator_finish_impl) ──────────────────────────────
+
+TEST_F(PsaErrorTests, SigmaIInitiatorFinishEcdhComputeFailed) {
+    constexpr std::size_t PRIV_KEY_SZ  = 32;
+    constexpr std::size_t PUB_KEY_SZ   = 65;
+    constexpr std::size_t BUNDLE_CT_SZ = 80;
+    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
+
+    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                         .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    SigmaInitiatorState state{
+        .ephemeral_key_pair = EccKeyPair{
+            .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+            .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ),
+        },
+        .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ),
+    };
+    const SigmaIMsg2 msg2{
+        .ephemeral_pub_r = make_random_secure_buffer(PUB_KEY_SZ),
+        .bundle_r        = SigmaIBundle{ .iv = {}, .ciphertext = make_random_secure_buffer(BUNDLE_CT_SZ) },
+    };
+    const SecureBuffer expected_pub = make_random_secure_buffer(65);
+    const auto result = sigma_i_initiator_finish_impl<MockPsaBackend>(
+        std::move(state), msg2, kp, expected_pub, EcCurve::P256);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
+}
+
+
+// ── sigma_i.hpp (sigma_i_responder_finish_impl) ──────────────────────────────
+
+TEST_F(PsaErrorTests, SigmaIResponderFinishHmacVerifyFailed) {
+    constexpr std::size_t BUNDLE_CT_SZ = 80;
+    constexpr std::size_t MAC_KEY_SZ   = 48;
+    constexpr std::size_t SESSION_SZ   = 32;
+    constexpr std::size_t ENC_KEY_SZ   = 32;
+    constexpr std::size_t PUB_KEY_SZ   = 65;
+    // Decrypt succeeds but returns a well-formed bundle whose identity matches,
+    // then hmac_verify fails at crypto_init.
+    // We can't inject that without a real decrypt, so instead we fail the
+    // decrypt itself (aead_decrypt returns error → SigmaAuthFailed → returns false).
+    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
+    EXPECT_CALL(*mock_, import_key(_, _, _, _))
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, aead_decrypt(_, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(Return(GENERIC_ERROR));
+    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
+
+    const SigmaIMsg3 msg3{
+        .bundle_i = SigmaIBundle{ .iv = {}, .ciphertext = make_random_secure_buffer(BUNDLE_CT_SZ) },
+    };
+    const SigmaIResponderState responder_state{
+        .session_keys = SigmaSessionKeys{
+            .mac_key     = make_random_secure_buffer(MAC_KEY_SZ),
+            .session_key = make_random_secure_buffer(SESSION_SZ),
+        },
+        .enc_key_i = make_random_secure_buffer(ENC_KEY_SZ),
+    };
+    const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
+    const SigmaIMsg2 msg2{
+        .ephemeral_pub_r = make_random_secure_buffer(PUB_KEY_SZ),
+        .bundle_r        = SigmaIBundle{ .iv = {}, .ciphertext = make_random_secure_buffer(BUNDLE_CT_SZ) },
+    };
+    const SecureBuffer expected_pub = make_random_secure_buffer(PUB_KEY_SZ);
+
+    const auto result = sigma_i_responder_finish_impl<MockPsaBackend>(
+        msg3, responder_state, msg1, msg2, expected_pub, EcCurve::P256);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
+}
