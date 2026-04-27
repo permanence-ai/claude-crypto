@@ -15,6 +15,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "kdf_tests.hpp"
 #include "mac_tests.hpp"
 #include "random_tests.hpp"
+#include "sigma_tests.hpp"
 
 
 int main(int argc, char **argv) {

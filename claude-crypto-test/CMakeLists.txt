@@ -12,6 +12,7 @@ add_executable(${EXE_NAME}
         mac_tests.hpp
         main.cpp
         random_tests.hpp
+        sigma_tests.hpp
         test_utils.hpp
 )
 

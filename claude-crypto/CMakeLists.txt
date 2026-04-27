@@ -14,6 +14,7 @@ target_sources(${LIB_NAME} INTERFACE
         mac.hpp
         random.hpp
         secure_buffer.hpp
+        sigma.hpp
 )
 
 target_include_directories(${LIB_NAME} INTERFACE
