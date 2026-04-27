@@ -313,7 +313,7 @@ inline auto sigma_initiator_finish(  // NOLINT(readability-function-cognitive-co
     const auto sign_input = concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
 
     // Build a key pair with only the responder public key for verification.
-    EccKeyPair responder_pub_only{
+    const EccKeyPair responder_pub_only{
         .private_key_der = SecureBuffer(0),
         .public_key_der  = [&] {
             SecureBuffer b(msg2.identity_pub_r.size());
@@ -389,7 +389,7 @@ inline auto sigma_responder_finish(  // NOLINT(readability-function-cognitive-co
     // Verify initiator signature over eph_pub_i ‖ eph_pub_r.
     const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
 
-    EccKeyPair initiator_pub_only{
+    const EccKeyPair initiator_pub_only{
         .private_key_der = SecureBuffer(0),
         .public_key_der  = [&] {
             SecureBuffer b(msg3.identity_pub_i.size());

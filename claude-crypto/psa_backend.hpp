@@ -65,7 +65,7 @@ struct RealPsaBackend {
         return psa_export_public_key(key, data, data_size, data_length);
     }
 
-    static psa_status_t mac_compute(
+    static psa_status_t mac_compute(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CRYPTO_BYTE* input, const std::size_t input_length,
         CRYPTO_BYTE* mac, const std::size_t mac_size, std::size_t* mac_length)
@@ -81,7 +81,7 @@ struct RealPsaBackend {
         return psa_mac_verify(key, alg, input, input_length, mac, mac_length);
     }
 
-    static psa_status_t aead_encrypt(
+    static psa_status_t aead_encrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CRYPTO_BYTE* nonce, const std::size_t nonce_length,
         const CRYPTO_BYTE* additional_data, const std::size_t additional_data_length,
@@ -97,7 +97,7 @@ struct RealPsaBackend {
             ciphertext, ciphertext_size, ciphertext_length);
     }
 
-    static psa_status_t aead_decrypt(
+    static psa_status_t aead_decrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CRYPTO_BYTE* nonce, const std::size_t nonce_length,
         const CRYPTO_BYTE* additional_data, const std::size_t additional_data_length,
@@ -113,7 +113,7 @@ struct RealPsaBackend {
             plaintext, plaintext_size, plaintext_length);
     }
 
-    static psa_status_t sign_message(
+    static psa_status_t sign_message(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CRYPTO_BYTE* input, const std::size_t input_length,
         CRYPTO_BYTE* signature, const std::size_t signature_size,
@@ -133,7 +133,7 @@ struct RealPsaBackend {
             key, alg, input, input_length, signature, signature_length);
     }
 
-    static psa_status_t raw_key_agreement(
+    static psa_status_t raw_key_agreement(  // NOLINT(readability-function-size)
         const psa_algorithm_t alg,
         const mbedtls_svc_key_id_t private_key,
         const CRYPTO_BYTE* peer_key, const std::size_t peer_key_length,
@@ -145,7 +145,7 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
-    static psa_status_t asymmetric_encrypt(
+    static psa_status_t asymmetric_encrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CRYPTO_BYTE* input, const std::size_t input_length,
         const CRYPTO_BYTE* salt, const std::size_t salt_length,
@@ -157,7 +157,7 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
-    static psa_status_t asymmetric_decrypt(
+    static psa_status_t asymmetric_decrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CRYPTO_BYTE* input, const std::size_t input_length,
         const CRYPTO_BYTE* salt, const std::size_t salt_length,

@@ -18,7 +18,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-enum class EcCurve {
+enum class EcCurve : std::uint8_t {
     P256,
     P384,
     P521,

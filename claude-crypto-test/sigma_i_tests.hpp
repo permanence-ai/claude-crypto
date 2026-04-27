@@ -131,6 +131,7 @@ TEST_F(SigmaITests, BothSidesDeriveIdenticalSessionKeys) {
 }
 
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_F(SigmaITests, IdentitiesAreNotExposedInMsg2) {
     const auto initiator = ecdsa_generate_key(EcCurve::P256);
     const auto responder = ecdsa_generate_key(EcCurve::P256);
@@ -151,6 +152,7 @@ TEST_F(SigmaITests, IdentitiesAreNotExposedInMsg2) {
     bool found = false;
     for (std::size_t i = 0; i + pub.size() <= ct.size(); ++i) {
         if (std::ranges::equal(
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 std::span(ct.data() + i, pub.size()),
                 std::span(pub.data(), pub.size()))) {
             found = true;
@@ -206,7 +208,7 @@ TEST_F(SigmaITests, InitiatorRejectsTamperedBundle) {
         init_result->msg1, *responder, EcCurve::P256);
     ASSERT_TRUE(resp_result.has_value());
 
-    resp_result->msg2.bundle_r.ciphertext[0] ^= TAMPER_BYTE;
+    resp_result->msg2.bundle_r.ciphertext[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     SecureBuffer expected_pub(responder->public_key_der.size());
     std::ranges::copy(responder->public_key_der, expected_pub.begin());
@@ -291,7 +293,7 @@ TEST_F(SigmaITests, ResponderRejectsTamperedBundle) {
         EcCurve::P256);
     ASSERT_TRUE(finish_result.has_value());
 
-    finish_result->msg3.bundle_i.ciphertext[0] ^= TAMPER_BYTE;
+    finish_result->msg3.bundle_i.ciphertext[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     SecureBuffer expected_init_pub(initiator->public_key_der.size());
     std::ranges::copy(initiator->public_key_der, expected_init_pub.begin());

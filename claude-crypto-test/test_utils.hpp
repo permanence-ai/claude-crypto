@@ -16,12 +16,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 // Test-only: uses std::mt19937 which is not cryptographically secure.
 [[nodiscard]]
 inline auto make_random_secure_buffer(const std::size_t size) -> SecureBuffer {
+    constexpr unsigned int MAX_BYTE = 255;
     SecureBuffer buf(size);
 
     std::random_device rd;
     std::seed_seq seed{rd()};
     std::mt19937 rng(seed);
-    std::uniform_int_distribution<unsigned int> dist(0, 255);
+    std::uniform_int_distribution<unsigned int> dist(0, MAX_BYTE);
 
     for (auto& byte : std::span(buf.data(), buf.size())) {
         byte = static_cast<CRYPTO_BYTE>(dist(rng));
@@ -35,12 +36,13 @@ inline auto make_random_secure_buffer(const std::size_t size) -> SecureBuffer {
 template<std::size_t N>
 [[nodiscard]]
 auto make_random_fixed_secure_buffer() -> FixedSecureBuffer<N> {
+    constexpr unsigned int MAX_BYTE = 255;
     FixedSecureBuffer<N> buf;
 
     std::random_device rd;
     std::seed_seq seed{rd()};
     std::mt19937 rng(seed);
-    std::uniform_int_distribution<unsigned int> dist(0, 255);
+    std::uniform_int_distribution<unsigned int> dist(0, MAX_BYTE);
 
     for (auto& byte : std::span(buf.data(), buf.size())) {
         byte = static_cast<CRYPTO_BYTE>(dist(rng));

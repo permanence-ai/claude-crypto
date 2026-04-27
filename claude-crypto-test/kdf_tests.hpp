@@ -43,7 +43,7 @@ TEST_F(KdfTests, DeriveKeyWithIkmRoundTrip) {
 
 TEST_F(KdfTests, DeriveKeyWithIkmTooShortFails) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
-    auto ikm = make_random_secure_buffer(OUTPUT_LENGTH * 2 - 1);
+    auto ikm = make_random_secure_buffer((OUTPUT_LENGTH * 2) - 1);
 
     const auto result = derive_key(OUTPUT_LENGTH, std::optional<SecureBuffer>(std::move(ikm)));
 
@@ -61,7 +61,7 @@ TEST_F(KdfTests, DeriveKeyWithSaltSucceeds) {
 
     const auto result = derive_key(OUTPUT_LENGTH,
                                    std::optional<SecureBuffer>(std::move(ikm)),
-                                   std::move(salt));
+                                   salt);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->size(), OUTPUT_LENGTH);
@@ -94,9 +94,10 @@ TEST_F(KdfTests, ExpandKeyProducesExpectedSize) {
 TEST_F(KdfTests, ExpandKeyWithInfoProducesExpectedSize) {
     constexpr std::size_t OUTPUT_LENGTH = 64;
     constexpr std::size_t PRK_SIZE      = 48;
+    constexpr std::size_t INFO_SIZE     = 16;
 
     const auto prk  = make_random_secure_buffer(PRK_SIZE);
-    auto info       = make_random_secure_buffer(16);
+    auto info       = make_random_secure_buffer(INFO_SIZE);
     const auto result = expand_key(OUTPUT_LENGTH, prk,
                                    std::optional<SecureBuffer>(std::move(info)));
 
@@ -108,10 +109,11 @@ TEST_F(KdfTests, ExpandKeyWithInfoProducesExpectedSize) {
 TEST_F(KdfTests, ExpandKeyDifferentInfoProducesDifferentOutput) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
     constexpr std::size_t PRK_SIZE      = 48;
+    constexpr std::size_t INFO_SIZE     = 16;
 
     const auto prk   = make_random_secure_buffer(PRK_SIZE);
-    auto info_a      = make_random_secure_buffer(16);
-    auto info_b      = make_random_secure_buffer(16);
+    auto info_a      = make_random_secure_buffer(INFO_SIZE);
+    auto info_b      = make_random_secure_buffer(INFO_SIZE);
 
     const auto result_a = expand_key(OUTPUT_LENGTH, prk,
                                      std::optional<SecureBuffer>(std::move(info_a)));

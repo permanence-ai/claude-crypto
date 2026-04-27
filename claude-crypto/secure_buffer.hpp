@@ -59,6 +59,7 @@ public:
 
     auto resize(const std::size_t new_size) -> void {
         if (new_size < data_.size()) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             mbedtls_platform_zeroize(data_.data() + new_size, data_.size() - new_size);
         }
         data_.resize(new_size);
@@ -137,22 +138,22 @@ public:
     }
 
     [[nodiscard]]
-    auto begin() -> typename std::array<CRYPTO_BYTE, N>::iterator {
+    auto begin() -> std::array<CRYPTO_BYTE, N>::iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto begin() const -> typename std::array<CRYPTO_BYTE, N>::const_iterator {
+    auto begin() const -> std::array<CRYPTO_BYTE, N>::const_iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto end() -> typename std::array<CRYPTO_BYTE, N>::iterator {
+    auto end() -> std::array<CRYPTO_BYTE, N>::iterator {
         return data_.end();
     }
 
     [[nodiscard]]
-    auto end() const -> typename std::array<CRYPTO_BYTE, N>::const_iterator {
+    auto end() const -> std::array<CRYPTO_BYTE, N>::const_iterator {
         return data_.end();
     }
 

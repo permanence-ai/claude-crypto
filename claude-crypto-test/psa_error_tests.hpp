@@ -23,10 +23,11 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sigma_i.hpp"
 #include "test_utils.hpp"
 
-using ::testing::_;
 using ::testing::DoAll;
 using ::testing::Return;
 using ::testing::SetArgPointee;
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+using ::testing::_;
 
 
 class PsaErrorTests : public ::testing::Test {
@@ -40,6 +41,7 @@ protected:
         mock_.reset();
     }
 
+    // NOLINTNEXTLINE(misc-non-private-member-variables-in-classes,cppcoreguidelines-non-private-member-variables-in-classes)
     std::unique_ptr<::testing::StrictMock<MockPsaOps>> mock_;
 
     static constexpr mbedtls_svc_key_id_t FAKE_KEY_ID{};
@@ -415,11 +417,12 @@ TEST_F(PsaErrorTests, EcdsaGenerateKeyExportPrivateFailed) {
 }
 
 TEST_F(PsaErrorTests, EcdsaGenerateKeyExportPublicFailed) {
+    constexpr std::size_t FAKE_KEY_BYTES = 32;
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, generate_key(_, _))
         .WillOnce(DoAll(SetArgPointee<1>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, export_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(std::size_t{32}), Return(PSA_SUCCESS)));
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, export_public_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
@@ -544,11 +547,12 @@ TEST_F(PsaErrorTests, EcdhGenerateKeyExportPrivateFailed) {
 }
 
 TEST_F(PsaErrorTests, EcdhGenerateKeyExportPublicFailed) {
+    constexpr std::size_t FAKE_KEY_BYTES = 32;
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, generate_key(_, _))
         .WillOnce(DoAll(SetArgPointee<1>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, export_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(std::size_t{32}), Return(PSA_SUCCESS)));
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, export_public_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
@@ -996,11 +1000,12 @@ TEST_F(PsaErrorTests, GenerateRsaKeyExportPrivateFailed) {
 }
 
 TEST_F(PsaErrorTests, GenerateRsaKeyExportPublicFailed) {
+    constexpr std::size_t FAKE_KEY_BYTES = 128;
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, generate_key(_, _))
         .WillOnce(DoAll(SetArgPointee<1>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, export_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(std::size_t{128}), Return(PSA_SUCCESS)));
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, export_public_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 

@@ -91,9 +91,7 @@ TEST_F(AsymmetricTests, RsaOaepRoundTripWithLabel) {
     constexpr std::array<CRYPTO_BYTE, 4> LABEL_BYTES = {0x01, 0x02, 0x03, 0x04};
     auto make_label = [&]() {
         SecureBuffer buf(LABEL_BYTES.size());
-        for (std::size_t i = 0; i < LABEL_BYTES.size(); ++i) {
-            buf[i] = LABEL_BYTES.at(i);
-        }
+        std::ranges::copy(LABEL_BYTES, buf.begin());
         return std::optional<SecureBuffer>(std::move(buf));
     };
 
@@ -142,9 +140,7 @@ TEST_F(AsymmetricTests, RsaOaepDecryptWithWrongLabelFails) {
     constexpr std::array<CRYPTO_BYTE, 4> WRONG_LABEL_BYTES = {0x01, 0x02, 0x03, 0x04};
     auto make_label = [](const auto& bytes) {
         SecureBuffer buf(bytes.size());
-        for (std::size_t i = 0; i < bytes.size(); ++i) {
-            buf[i] = bytes.at(i);
-        }
+        std::ranges::copy(bytes, buf.begin());
         return std::optional<SecureBuffer>(std::move(buf));
     };
 

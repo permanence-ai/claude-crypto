@@ -1,5 +1,5 @@
 Checks: '-*,bugprone-*,cert-*, cppcoreguidelines-*, hicpp-*, misc-*, modernize-*, performance-*, portability-*, readability-*, -modernize-use-trailing-return-type, -readability-identifier-length, -portability-avoid-pragma-once, -misc-include-cleaner, -cppcoreguidelines-pro-type-member-init, -hicpp-member-init'
-ExcludeHeaderFilterRegex: '.*\.hpp'
+ExcludeHeaderFilterRegex: '.*(_deps|googlemock|googletest)/.*'
 CheckOptions:
     - key: bugprone-argument-comment.StrictMode
       value: 1

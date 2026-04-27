@@ -196,18 +196,25 @@ inline auto sigma_i_serialize_bundle(
         2 + signature.size() +
         SIGMA_MAC_KEY_SIZE_BYTES;
 
+    constexpr std::size_t  BYTE_SHIFT = 8U;
+    constexpr CRYPTO_BYTE  BYTE_MASK  = 0xFFU;
+
     SecureBuffer out(total);
     std::size_t  off = 0;
 
     const auto pub_len = static_cast<uint16_t>(identity_pub.size());
-    out[off++] = static_cast<CRYPTO_BYTE>(pub_len >> 8U);
-    out[off++] = static_cast<CRYPTO_BYTE>(pub_len & 0xFFU);
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    out[off++] = static_cast<CRYPTO_BYTE>(pub_len >> BYTE_SHIFT);
+    out[off++] = static_cast<CRYPTO_BYTE>(pub_len & BYTE_MASK);
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     std::ranges::copy(identity_pub, out.begin() + static_cast<std::ptrdiff_t>(off));
     off += identity_pub.size();
 
     const auto sig_len = static_cast<uint16_t>(signature.size());
-    out[off++] = static_cast<CRYPTO_BYTE>(sig_len >> 8U);
-    out[off++] = static_cast<CRYPTO_BYTE>(sig_len & 0xFFU);
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    out[off++] = static_cast<CRYPTO_BYTE>(sig_len >> BYTE_SHIFT);
+    out[off++] = static_cast<CRYPTO_BYTE>(sig_len & BYTE_MASK);
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     std::ranges::copy(signature, out.begin() + static_cast<std::ptrdiff_t>(off));
     off += signature.size();
 
@@ -239,9 +246,12 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
 
     std::size_t off = 0;
 
+    constexpr std::size_t BYTE_SHIFT = 8U;
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     const std::size_t pub_len =
-        (static_cast<std::size_t>(plaintext[off]) << 8U) |
+        (static_cast<std::size_t>(plaintext[off]) << BYTE_SHIFT) |
          static_cast<std::size_t>(plaintext[off + 1]);
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     off += 2;
 
     if (off + pub_len + 2 + SIGMA_MAC_KEY_SIZE_BYTES > plaintext.size()) {
@@ -257,9 +267,11 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
         identity_pub.begin());
     off += pub_len;
 
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     const std::size_t sig_len =
-        (static_cast<std::size_t>(plaintext[off]) << 8U) |
+        (static_cast<std::size_t>(plaintext[off]) << BYTE_SHIFT) |
          static_cast<std::size_t>(plaintext[off + 1]);
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     off += 2;
 
     if (off + sig_len + SIGMA_MAC_KEY_SIZE_BYTES != plaintext.size()) {
@@ -544,7 +556,7 @@ inline auto sigma_i_initiator_finish(  // NOLINT(readability-function-cognitive-
 
     // Verify responder signature.
     const auto sign_input = concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
-    EccKeyPair responder_pub_only{
+    const EccKeyPair responder_pub_only{
         .private_key_der = SecureBuffer(0),
         .public_key_der  = [&] {
             SecureBuffer b(bundle_r->identity_pub.size());
@@ -632,7 +644,7 @@ inline auto sigma_i_responder_finish(  // NOLINT(readability-function-cognitive-
 
     // Verify initiator signature.
     const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
-    EccKeyPair initiator_pub_only{
+    const EccKeyPair initiator_pub_only{
         .private_key_der = SecureBuffer(0),
         .public_key_der  = [&] {
             SecureBuffer b(bundle_i->identity_pub.size());

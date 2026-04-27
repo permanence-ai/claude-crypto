@@ -182,7 +182,7 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedResponderMac) {
         init_result->msg1, *responder, EcCurve::P256);
     ASSERT_TRUE(resp_result.has_value());
 
-    resp_result->msg2.mac_r[0] ^= TAMPER_BYTE;
+    resp_result->msg2.mac_r[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     SecureBuffer expected_pub(responder->public_key_der.size());
     std::ranges::copy(responder->public_key_der, expected_pub.begin());
@@ -214,7 +214,7 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedResponderSignature) {
         init_result->msg1, *responder, EcCurve::P256);
     ASSERT_TRUE(resp_result.has_value());
 
-    resp_result->msg2.signature_r[0] ^= TAMPER_BYTE;
+    resp_result->msg2.signature_r[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     SecureBuffer expected_pub(responder->public_key_der.size());
     std::ranges::copy(responder->public_key_der, expected_pub.begin());
@@ -300,7 +300,7 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorMac) {
         EcCurve::P256);
     ASSERT_TRUE(finish_result.has_value());
 
-    finish_result->msg3.mac_i[0] ^= TAMPER_BYTE;
+    finish_result->msg3.mac_i[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     SecureBuffer expected_init_pub(initiator->public_key_der.size());
     std::ranges::copy(initiator->public_key_der, expected_init_pub.begin());
@@ -344,7 +344,7 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorSignature) {
         EcCurve::P256);
     ASSERT_TRUE(finish_result.has_value());
 
-    finish_result->msg3.signature_i[0] ^= TAMPER_BYTE;
+    finish_result->msg3.signature_i[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     SecureBuffer expected_init_pub(initiator->public_key_der.size());
     std::ranges::copy(initiator->public_key_der, expected_init_pub.begin());
