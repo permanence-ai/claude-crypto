@@ -12,6 +12,7 @@ target_sources(${LIB_NAME} INTERFACE
         ecdh.hpp
         kdf.hpp
         mac.hpp
+        psa_backend.hpp
         random.hpp
         secure_buffer.hpp
         sigma.hpp

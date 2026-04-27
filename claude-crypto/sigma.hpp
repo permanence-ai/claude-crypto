@@ -17,6 +17,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "ecc.hpp"
 #include "ecdh.hpp"
 #include "mac.hpp"
+#include "psa_backend.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -85,17 +86,16 @@ inline auto concat_buffers(const SecureBuffer& a, const SecureBuffer& b) -> Secu
 // HKDF rather than HKDF-Expand alone allows shared secrets shorter than the
 // hash output size (e.g. the 32-byte P-256 x-coordinate) to be safely used as
 // input keying material.
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto sigma_derive_keys(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& shared_secret)
     -> std::expected<SigmaSessionKeys, CryptoError>
 {
     constexpr std::size_t TOTAL_OUTPUT = SIGMA_MAC_KEY_SIZE_BYTES + SIGMA_SESSION_KEY_SIZE_BYTES;
-
-    // "sigma" as context info distinguishes these keys from any other HKDF use.
     constexpr std::array<CRYPTO_BYTE, 5> INFO = {'s','i','g','m','a'};
 
-    if (psa_crypto_init() != PSA_SUCCESS) {
+    if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -109,9 +109,9 @@ inline auto sigma_derive_keys(  // NOLINT(readability-function-cognitive-complex
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs,
-                       shared_secret.data(), shared_secret.size(),
-                       &key_id) != PSA_SUCCESS) {
+    if (PSA::import_key(&attrs,
+                        shared_secret.data(), shared_secret.size(),
+                        &key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA IKM import failed"));
@@ -120,18 +120,18 @@ inline auto sigma_derive_keys(  // NOLINT(readability-function-cognitive-complex
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
     auto cleanup = [&]() {
-        psa_key_derivation_abort(&op);
-        psa_destroy_key(key_id);
+        PSA::key_derivation_abort(&op);
+        PSA::destroy_key(key_id);
     };
 
-    if (psa_key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
+    if (PSA::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
         cleanup();
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "SIGMA HKDF setup failed"));
     }
 
-    if (psa_key_derivation_input_key(
+    if (PSA::key_derivation_input_key(
             &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_id) != PSA_SUCCESS) {
         cleanup();
         return std::unexpected(CryptoError(
@@ -139,7 +139,7 @@ inline auto sigma_derive_keys(  // NOLINT(readability-function-cognitive-complex
             "SIGMA HKDF secret input failed"));
     }
 
-    if (psa_key_derivation_input_bytes(
+    if (PSA::key_derivation_input_bytes(
             &op, PSA_KEY_DERIVATION_INPUT_INFO,
             INFO.data(), INFO.size()) != PSA_SUCCESS) {
         cleanup();
@@ -149,7 +149,7 @@ inline auto sigma_derive_keys(  // NOLINT(readability-function-cognitive-complex
     }
 
     SecureBuffer output(TOTAL_OUTPUT);
-    if (psa_key_derivation_output_bytes(
+    if (PSA::key_derivation_output_bytes(
             &op, output.data(), output.size()) != PSA_SUCCESS) {
         cleanup();
         return std::unexpected(CryptoError(
@@ -171,6 +171,13 @@ inline auto sigma_derive_keys(  // NOLINT(readability-function-cognitive-complex
         .mac_key     = std::move(mac_key),
         .session_key = std::move(session_key),
     };
+}
+
+[[nodiscard]]
+inline auto sigma_derive_keys(const SecureBuffer& shared_secret)
+    -> std::expected<SigmaSessionKeys, CryptoError>
+{
+    return sigma_derive_keys_impl(shared_secret);
 }
 
 

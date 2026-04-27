@@ -15,6 +15,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <psa/crypto_values.h>
 
 #include "crypto_error.hpp"
+#include "psa_backend.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -31,15 +32,15 @@ struct RsaKeyPair {
 };
 
 
-template<RsaKeyBits KB, SecureBufferLike Plaintext>
+template<RsaKeyBits KB, typename PSA = RealPsaBackend, SecureBufferLike Plaintext>
 [[nodiscard]]
-auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
+auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
     const Plaintext& plaintext,
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (psa_crypto_init() != PSA_SUCCESS) {
+    if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -54,10 +55,10 @@ auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs,
-                       key_pair.public_key_der.data(),
-                       key_pair.public_key_der.size(),
-                       &key_id) != PSA_SUCCESS) {
+    if (PSA::import_key(&attrs,
+                        key_pair.public_key_der.data(),
+                        key_pair.public_key_der.size(),
+                        &key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "RSA public key import failed"));
@@ -73,7 +74,7 @@ auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
 
     std::size_t ciphertext_length = 0;
-    const psa_status_t status = psa_asymmetric_encrypt(
+    const psa_status_t status = PSA::asymmetric_encrypt(
         key_id,
         PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384),
         plaintext.data(), plaintext.size(),
@@ -81,7 +82,7 @@ auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
         ciphertext.data(), ciphertext.size(),
         &ciphertext_length);
 
-    psa_destroy_key(key_id);
+    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -94,15 +95,15 @@ auto rsa_oaep_encrypt(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<RsaKeyBits KB, SecureBufferLike Ciphertext>
+template<RsaKeyBits KB, typename PSA = RealPsaBackend, SecureBufferLike Ciphertext>
 [[nodiscard]]
-auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
+auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
     const Ciphertext& ciphertext,
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (psa_crypto_init() != PSA_SUCCESS) {
+    if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -117,10 +118,10 @@ auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs,
-                       key_pair.private_key_der.data(),
-                       key_pair.private_key_der.size(),
-                       &key_id) != PSA_SUCCESS) {
+    if (PSA::import_key(&attrs,
+                        key_pair.private_key_der.data(),
+                        key_pair.private_key_der.size(),
+                        &key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "RSA private key import failed"));
@@ -136,7 +137,7 @@ auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
 
     std::size_t plaintext_length = 0;
-    const psa_status_t status = psa_asymmetric_decrypt(
+    const psa_status_t status = PSA::asymmetric_decrypt(
         key_id,
         PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384),
         ciphertext.data(), ciphertext.size(),
@@ -144,7 +145,7 @@ auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
         plaintext.data(), plaintext.size(),
         &plaintext_length);
 
-    psa_destroy_key(key_id);
+    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -157,14 +158,14 @@ auto rsa_oaep_decrypt(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<RsaKeyBits KB, SecureBufferLike Message>
+template<RsaKeyBits KB, typename PSA = RealPsaBackend, SecureBufferLike Message>
 [[nodiscard]]
-auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
+auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (psa_crypto_init() != PSA_SUCCESS) {
+    if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -179,10 +180,10 @@ auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs,
-                       key_pair.private_key_der.data(),
-                       key_pair.private_key_der.size(),
-                       &key_id) != PSA_SUCCESS) {
+    if (PSA::import_key(&attrs,
+                        key_pair.private_key_der.data(),
+                        key_pair.private_key_der.size(),
+                        &key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "RSA private key import failed"));
@@ -195,14 +196,14 @@ auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
     SecureBuffer signature(signature_size);
 
     std::size_t signature_length = 0;
-    const psa_status_t status = psa_sign_message(
+    const psa_status_t status = PSA::sign_message(
         key_id,
         PSA_ALG_RSA_PSS(PSA_ALG_SHA_384),
         message.data(), message.size(),
         signature.data(), signature.size(),
         &signature_length);
 
-    psa_destroy_key(key_id);
+    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -215,15 +216,16 @@ auto rsa_pss_sign(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<RsaKeyBits KB, SecureBufferLike Message, SecureBufferLike Signature>
+template<RsaKeyBits KB, typename PSA = RealPsaBackend,
+         SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
-auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
+auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
     const Message& message,
     const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
-    if (psa_crypto_init() != PSA_SUCCESS) {
+    if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -238,22 +240,22 @@ auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
 
     mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs,
-                       key_pair.public_key_der.data(),
-                       key_pair.public_key_der.size(),
-                       &key_id) != PSA_SUCCESS) {
+    if (PSA::import_key(&attrs,
+                        key_pair.public_key_der.data(),
+                        key_pair.public_key_der.size(),
+                        &key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "RSA public key import failed"));
     }
 
-    const psa_status_t status = psa_verify_message(
+    const psa_status_t status = PSA::verify_message(
         key_id,
         PSA_ALG_RSA_PSS(PSA_ALG_SHA_384),
         message.data(), message.size(),
         signature.data(), signature.size());
 
-    psa_destroy_key(key_id);
+    PSA::destroy_key(key_id);
 
     if (status == PSA_ERROR_INVALID_SIGNATURE || status == PSA_ERROR_INVALID_ARGUMENT) {
         return false;
@@ -265,4 +267,48 @@ auto rsa_pss_verify(  // NOLINT(readability-function-cognitive-complexity)
     }
 
     return true;
+}
+
+
+template<RsaKeyBits KB, SecureBufferLike Plaintext>
+[[nodiscard]]
+auto rsa_oaep_encrypt(
+    const RsaKeyPair<KB>& key_pair,
+    const Plaintext& plaintext,
+    const std::optional<SecureBuffer>& label = std::nullopt)
+    -> std::expected<SecureBuffer, CryptoError>
+{
+    return rsa_oaep_encrypt_impl<KB, RealPsaBackend>(key_pair, plaintext, label);
+}
+
+template<RsaKeyBits KB, SecureBufferLike Ciphertext>
+[[nodiscard]]
+auto rsa_oaep_decrypt(
+    const RsaKeyPair<KB>& key_pair,
+    const Ciphertext& ciphertext,
+    const std::optional<SecureBuffer>& label = std::nullopt)
+    -> std::expected<SecureBuffer, CryptoError>
+{
+    return rsa_oaep_decrypt_impl<KB, RealPsaBackend>(key_pair, ciphertext, label);
+}
+
+template<RsaKeyBits KB, SecureBufferLike Message>
+[[nodiscard]]
+auto rsa_pss_sign(
+    const RsaKeyPair<KB>& key_pair,
+    const Message& message)
+    -> std::expected<SecureBuffer, CryptoError>
+{
+    return rsa_pss_sign_impl<KB, RealPsaBackend>(key_pair, message);
+}
+
+template<RsaKeyBits KB, SecureBufferLike Message, SecureBufferLike Signature>
+[[nodiscard]]
+auto rsa_pss_verify(
+    const RsaKeyPair<KB>& key_pair,
+    const Message& message,
+    const Signature& signature)
+    -> std::expected<bool, CryptoError>
+{
+    return rsa_pss_verify_impl<KB, RealPsaBackend>(key_pair, message, signature);
 }

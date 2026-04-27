@@ -8,16 +8,16 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstddef>
 #include <expected>
 
-#include <psa/crypto.h>
-
 #include "crypto_error.hpp"
+#include "psa_backend.hpp"
 #include "secure_buffer.hpp"
 
 
+template<typename PSA = RealPsaBackend>
 [[nodiscard]]
-inline auto random_bytes(const std::size_t length) -> std::expected<SecureBuffer, CryptoError>
+auto random_bytes_impl(const std::size_t length) -> std::expected<SecureBuffer, CryptoError>
 {
-    if (psa_crypto_init() != PSA_SUCCESS) {
+    if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -25,7 +25,7 @@ inline auto random_bytes(const std::size_t length) -> std::expected<SecureBuffer
 
     SecureBuffer output(length);
 
-    if (psa_generate_random(output.data(), output.size()) != PSA_SUCCESS) {
+    if (PSA::generate_random(output.data(), output.size()) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::RandomGenerationFailed,
             "Random byte generation failed"));
@@ -35,11 +35,11 @@ inline auto random_bytes(const std::size_t length) -> std::expected<SecureBuffer
 }
 
 
-template<std::size_t N>
+template<std::size_t N, typename PSA = RealPsaBackend>
 [[nodiscard]]
-auto random_bytes() -> std::expected<FixedSecureBuffer<N>, CryptoError>
+auto random_bytes_fixed_impl() -> std::expected<FixedSecureBuffer<N>, CryptoError>
 {
-    if (psa_crypto_init() != PSA_SUCCESS) {
+    if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -47,11 +47,26 @@ auto random_bytes() -> std::expected<FixedSecureBuffer<N>, CryptoError>
 
     FixedSecureBuffer<N> output;
 
-    if (psa_generate_random(output.data(), output.size()) != PSA_SUCCESS) {
+    if (PSA::generate_random(output.data(), output.size()) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::RandomGenerationFailed,
             "Random byte generation failed"));
     }
 
     return output;
+}
+
+
+[[nodiscard]]
+inline auto random_bytes(const std::size_t length) -> std::expected<SecureBuffer, CryptoError>
+{
+    return random_bytes_impl(length);
+}
+
+
+template<std::size_t N>
+[[nodiscard]]
+auto random_bytes() -> std::expected<FixedSecureBuffer<N>, CryptoError>
+{
+    return random_bytes_fixed_impl<N>();
 }
