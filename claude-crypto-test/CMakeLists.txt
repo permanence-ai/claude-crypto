@@ -26,6 +26,7 @@ target_compile_options(${EXE_NAME} PRIVATE
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE
+        gmock
         gtest
         claude_crypto
 )
