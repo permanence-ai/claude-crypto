@@ -15,6 +15,7 @@ target_sources(${LIB_NAME} INTERFACE
         random.hpp
         secure_buffer.hpp
         sigma.hpp
+        sigma_i.hpp
 )
 
 target_include_directories(${LIB_NAME} INTERFACE
