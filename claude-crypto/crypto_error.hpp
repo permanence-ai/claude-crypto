@@ -25,6 +25,7 @@ enum class CryptoErrorCode : std::uint8_t {
     KdfSetupFailed,
     KdfInputFailed,
     KdfOutputFailed,
+    KeyAgreementFailed,
 };
 
 

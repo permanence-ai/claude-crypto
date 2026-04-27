@@ -6,6 +6,7 @@ add_executable(${EXE_NAME}
         chacha20_tests.hpp
         digests_tests.hpp
         ecc_tests.hpp
+        ecdh_tests.hpp
         init_tests.hpp
         kdf_tests.hpp
         mac_tests.hpp
