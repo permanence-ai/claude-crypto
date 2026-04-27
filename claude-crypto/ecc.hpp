@@ -23,6 +23,10 @@ enum class EcCurve {
     P521,
 };
 
+constexpr psa_key_bits_t P256_KEY_BITS = 256;
+constexpr psa_key_bits_t P384_KEY_BITS = 384;
+constexpr psa_key_bits_t P521_KEY_BITS = 521;
+
 struct EccKeyPair {
     SecureBuffer private_key_der;
     SecureBuffer public_key_der;
@@ -40,16 +44,10 @@ inline auto ecdsa_generate_key(  // NOLINT(readability-function-cognitive-comple
             "PSA crypto init failed"));
     }
 
-    psa_ecc_family_t family    = PSA_ECC_FAMILY_SECP_R1;
-    psa_key_bits_t   key_bits  = 0;
-
-    if (curve == EcCurve::P256) {
-        key_bits = 256;
-    } else if (curve == EcCurve::P384) {
-        key_bits = 384;
-    } else {
-        key_bits = 521;
-    }
+    const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
+    const psa_key_bits_t   key_bits = (curve == EcCurve::P256) ? P256_KEY_BITS
+                                    : (curve == EcCurve::P384) ? P384_KEY_BITS
+                                                               : P521_KEY_BITS;
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
@@ -121,16 +119,10 @@ auto ecdsa_sign(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    psa_key_bits_t   key_bits = 0;
-
-    if (curve == EcCurve::P256) {
-        key_bits = 256;
-    } else if (curve == EcCurve::P384) {
-        key_bits = 384;
-    } else {
-        key_bits = 521;
-    }
+    const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
+    const psa_key_bits_t   key_bits = (curve == EcCurve::P256) ? P256_KEY_BITS
+                                    : (curve == EcCurve::P384) ? P384_KEY_BITS
+                                                               : P521_KEY_BITS;
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
@@ -190,16 +182,10 @@ auto ecdsa_verify(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    psa_key_bits_t   key_bits = 0;
-
-    if (curve == EcCurve::P256) {
-        key_bits = 256;
-    } else if (curve == EcCurve::P384) {
-        key_bits = 384;
-    } else {
-        key_bits = 521;
-    }
+    const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
+    const psa_key_bits_t   key_bits = (curve == EcCurve::P256) ? P256_KEY_BITS
+                                    : (curve == EcCurve::P384) ? P384_KEY_BITS
+                                                               : P521_KEY_BITS;
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_PUBLIC_KEY(family));
