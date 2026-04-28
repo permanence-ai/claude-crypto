@@ -10,6 +10,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <optional>
 
 #include "asymmetric.hpp"
+#include "contracts.hpp"
 #include "crypto_error.hpp"
 #include "defs.hpp"
 #include "psa_backend.hpp"
@@ -24,6 +25,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const std::optional<SecureBuffer>& ikm  = std::nullopt,
     const std::optional<SecureBuffer>& salt = std::nullopt,
     const std::optional<SecureBuffer>& info = std::nullopt)
+    SAFE_CRYPTO_PRE(output_length > 0)
     -> std::expected<SecureBuffer, CryptoError>
 {
     if (ikm.has_value() && ikm->size() < output_length * 2) {
@@ -122,6 +124,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const std::size_t output_length,
     const SecureBuffer& prk,
     const std::optional<SecureBuffer>& info = std::nullopt)
+    SAFE_CRYPTO_PRE(output_length > 0)
     -> std::expected<SecureBuffer, CryptoError>
 {
     if (Provider::crypto_init() != Provider::ok) {

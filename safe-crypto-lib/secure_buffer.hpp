@@ -6,11 +6,11 @@ Copyright Permanence AI, 2026. All rights reserved.
 #pragma once
 
 #include <array>
-#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <vector>
 
+#include "contracts.hpp"
 #include "defs.hpp"
 
 
@@ -64,7 +64,7 @@ public:
         return data_.empty();
     }
 
-    auto resize(const std::size_t new_size) -> void {
+    auto resize(const std::size_t new_size) SAFE_CRYPTO_PRE(new_size <= data_.size()) -> void {
         if (new_size < data_.size()) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             detail::secure_zero(data_.data() + new_size, data_.size() - new_size);
@@ -93,14 +93,12 @@ public:
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) -> CryptoByte& {
-        assert(i < data_.size());
+    auto operator[](const std::size_t i) SAFE_CRYPTO_PRE(i < data_.size()) -> CryptoByte& {
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) const -> const CryptoByte& {
-        assert(i < data_.size());
+    auto operator[](const std::size_t i) const SAFE_CRYPTO_PRE(i < data_.size()) -> const CryptoByte& {
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
@@ -177,14 +175,12 @@ public:
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) -> CryptoByte& {
-        assert(i < N);
+    auto operator[](const std::size_t i) SAFE_CRYPTO_PRE(i < N) -> CryptoByte& {
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access, cppcoreguidelines-pro-bounds-constant-array-index)
     }
 
     [[nodiscard]]
-    auto operator[](const std::size_t i) const -> const CryptoByte& {
-        assert(i < N);
+    auto operator[](const std::size_t i) const SAFE_CRYPTO_PRE(i < N) -> const CryptoByte& {
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access, cppcoreguidelines-pro-bounds-constant-array-index)
     }
 

@@ -3,3 +3,5 @@ cmake-build-debug/
 cmake-build-release/
 .idea/
 Testing/
+cmake-build-gcc15/
+a.out

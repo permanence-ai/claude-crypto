@@ -9,6 +9,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include <gtest/gtest.h>
 
+#include "contracts.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -66,7 +67,7 @@ TEST_F(SecureBufferTests, FixedIndexOperatorConstReadsCorrectElement) {
 }
 
 
-#ifndef NDEBUG
+#ifdef SAFE_CRYPTO_CONTRACTS_ENFORCED
 
 TEST_F(SecureBufferTests, IndexOperatorOutOfBoundsDies) {
     constexpr std::size_t buf_size = 4;
@@ -97,5 +98,5 @@ TEST_F(SecureBufferTests, FixedIndexOperatorConstOutOfBoundsDies) {
     ASSERT_DEATH((void)buf[buf_size], "");
 }
 
-#endif  // NDEBUG
+#endif  // SAFE_CRYPTO_CONTRACTS_ENFORCED
 // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access, cppcoreguidelines-pro-bounds-constant-array-index)

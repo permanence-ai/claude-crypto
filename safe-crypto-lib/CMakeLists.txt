@@ -5,6 +5,7 @@ add_library(${LIB_NAME} INTERFACE)
 target_sources(${LIB_NAME} INTERFACE
         aead.hpp
         asymmetric.hpp
+        contracts.hpp
         crypto_error.hpp
         crypto_provider.hpp
         defs.hpp

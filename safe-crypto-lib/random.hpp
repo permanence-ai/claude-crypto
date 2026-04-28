@@ -8,6 +8,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstddef>
 #include <expected>
 
+#include "contracts.hpp"
 #include "crypto_error.hpp"
 #include "psa_backend.hpp"
 #include "secure_buffer.hpp"
@@ -15,7 +16,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
-auto random_bytes_impl(const std::size_t length) -> std::expected<SecureBuffer, CryptoError>
+auto random_bytes_impl(const std::size_t length)
+    SAFE_CRYPTO_PRE(length > 0)
+    -> std::expected<SecureBuffer, CryptoError>
 {
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(

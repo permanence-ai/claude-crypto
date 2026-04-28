@@ -11,6 +11,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <expected>
 
 #include "aead.hpp"
+#include "contracts.hpp"
 #include "crypto_error.hpp"
 #include "defs.hpp"
 #include "ecc.hpp"
@@ -177,6 +178,8 @@ inline auto sigma_i_serialize_bundle(
     const SecureBuffer&                          identity_pub,
     const SecureBuffer&                          signature,
     const FixedSecureBuffer<sigma_mac_key_size_bytes>& mac)
+    SAFE_CRYPTO_PRE(identity_pub.size() <= 65535)
+    SAFE_CRYPTO_PRE(signature.size() <= 65535)
     -> SecureBuffer
 {
     const std::size_t total =

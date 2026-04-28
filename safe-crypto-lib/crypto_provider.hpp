@@ -8,6 +8,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <concepts>
 #include <cstddef>
 
+#include "contracts.hpp"
 #include "defs.hpp"
 #include "sha_variant.hpp"
 
@@ -165,7 +166,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] auto get() const noexcept -> KeyId { return id_; }
+    [[nodiscard]] auto get() const noexcept SAFE_CRYPTO_PRE(valid_) -> KeyId { return id_; }
 
     void reset() noexcept {
         if (valid_) {
