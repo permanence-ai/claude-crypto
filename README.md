@@ -38,7 +38,7 @@ cmake/                    # FetchContent modules for MbedTLS and GoogleTest
 ## Build
 
 ```bash
-# Configure
+# Configure (PSA/MbedTLS provider is the default)
 cmake -G Ninja -B cmake-build-debug -S .
 
 # Build
@@ -50,7 +50,21 @@ cmake --build cmake-build-debug
 
 For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYPE=Release`.
 
-To select the IA ASM provider instead of PSA/MbedTLS, link `safe_crypto_lib_ia_asm` and pass `-DCLAUDE_CRYPTO_PROVIDER_IA_ASM` to the compiler.
+## Provider selection
+
+The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cache variable. Pass it at configure time — CMake propagates the correct provider library and compile definitions to every target that links `safe_crypto_lib`, so no manual link step or compile flag is needed.
+
+| Value | Backend | Status |
+|---|---|---|
+| `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
+| `IA_ASM` | Native assembly | Stub (in development) |
+
+```bash
+# Use the IA ASM provider
+cmake -G Ninja -B cmake-build-debug -S . -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM
+```
+
+Specifying an unrecognised value is a configure-time fatal error that lists the valid choices. Adding a new provider means creating a `providers/<name>/` subdirectory with a backend struct and CMakeLists, then registering it in the top-level `SAFE_CRYPTO_ACTIVE_PROVIDER` string list.
 
 ## Stack
 
