@@ -562,14 +562,9 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
 
     // Verify responder signature.
     const auto sign_input = concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
-    const EccKeyPair responder_pub_only{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = [&] {
-            SecureBuffer b(bundle_r->identity_pub.size());
-            std::ranges::copy(bundle_r->identity_pub, b.begin());
-            return b;
-        }(),
-    };
+    SecureBuffer responder_pub_copy(bundle_r->identity_pub.size());
+    std::ranges::copy(bundle_r->identity_pub, responder_pub_copy.begin());
+    const EcPublicKey responder_pub_only{ .public_key_der = std::move(responder_pub_copy) };
     auto sig_ok = ecdsa_verify_impl<PSA>(responder_pub_only, curve, sign_input, bundle_r->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
@@ -664,14 +659,9 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
 
     // Verify initiator signature.
     const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
-    const EccKeyPair initiator_pub_only{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = [&] {
-            SecureBuffer b(bundle_i->identity_pub.size());
-            std::ranges::copy(bundle_i->identity_pub, b.begin());
-            return b;
-        }(),
-    };
+    SecureBuffer initiator_pub_copy(bundle_i->identity_pub.size());
+    std::ranges::copy(bundle_i->identity_pub, initiator_pub_copy.begin());
+    const EcPublicKey initiator_pub_only{ .public_key_der = std::move(initiator_pub_copy) };
     auto sig_ok = ecdsa_verify_impl<PSA>(initiator_pub_only, curve, sign_input, bundle_i->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());

@@ -37,6 +37,10 @@ constexpr auto ec_curve_key_bits(const EcCurve curve) -> std::size_t {
     }
 }
 
+struct EcPublicKey {
+    SecureBuffer public_key_der;
+};
+
 struct EccKeyPair {
     SecureBuffer private_key_der;
     SecureBuffer public_key_der;
@@ -174,7 +178,7 @@ template<typename PSA = RealPsaBackend,
          SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
 auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const EccKeyPair& key_pair,
+    const EcPublicKey& public_key,
     const EcCurve curve,
     const Message& message,
     const Signature& signature)
@@ -197,8 +201,8 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (PSA::import_key(&attrs,
-                        key_pair.public_key_der.data(),
-                        key_pair.public_key_der.size(),
+                        public_key.public_key_der.data(),
+                        public_key.public_key_der.size(),
                         &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -246,11 +250,11 @@ auto ecdsa_sign(
 template<SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
 auto ecdsa_verify(
-    const EccKeyPair& key_pair,
+    const EcPublicKey& public_key,
     const EcCurve curve,
     const Message& message,
     const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
-    return ecdsa_verify_impl<RealPsaBackend>(key_pair, curve, message, signature);
+    return ecdsa_verify_impl<RealPsaBackend>(public_key, curve, message, signature);
 }

@@ -473,10 +473,10 @@ TEST_F(PsaErrorTests, EcdsaSignSignMessageFailed) {
 TEST_F(PsaErrorTests, EcdsaVerifyInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = SecureBuffer(0), .public_key_der = make_random_secure_buffer(65) };
+    const EcPublicKey pub{ .public_key_der = make_random_secure_buffer(65) };
     const auto msg = make_random_secure_buffer(32);
     const auto sig = make_random_secure_buffer(64);
-    const auto result = ecdsa_verify_impl<MockPsaBackend>(kp, EcCurve::P256, msg, sig);
+    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, EcCurve::P256, msg, sig);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -486,10 +486,10 @@ TEST_F(PsaErrorTests, EcdsaVerifyKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = SecureBuffer(0), .public_key_der = make_random_secure_buffer(65) };
+    const EcPublicKey pub{ .public_key_der = make_random_secure_buffer(65) };
     const auto msg = make_random_secure_buffer(32);
     const auto sig = make_random_secure_buffer(64);
-    const auto result = ecdsa_verify_impl<MockPsaBackend>(kp, EcCurve::P256, msg, sig);
+    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, EcCurve::P256, msg, sig);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -502,10 +502,10 @@ TEST_F(PsaErrorTests, EcdsaVerifyMessageFailed) {
     EXPECT_CALL(*mock_, verify_message(_, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const EccKeyPair kp{ .private_key_der = SecureBuffer(0), .public_key_der = make_random_secure_buffer(65) };
+    const EcPublicKey pub{ .public_key_der = make_random_secure_buffer(65) };
     const auto msg = make_random_secure_buffer(32);
     const auto sig = make_random_secure_buffer(64);
-    const auto result = ecdsa_verify_impl<MockPsaBackend>(kp, EcCurve::P256, msg, sig);
+    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, EcCurve::P256, msg, sig);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::VerificationFailed);
