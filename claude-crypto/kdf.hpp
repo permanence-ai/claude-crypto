@@ -9,9 +9,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <expected>
 #include <optional>
 
-#include <psa/crypto.h>
-#include <psa/crypto_values.h>
-
 #include "asymmetric.hpp"
 #include "crypto_error.hpp"
 #include "defs.hpp"
@@ -51,11 +48,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
     const SecureBuffer& ikm_ref = ikm.has_value() ? *ikm : *generated_ikm;
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(ikm_ref.size() * bits_per_byte));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_hkdf_derive_attrs(ikm_ref.size() * bits_per_byte);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, ikm_ref.data(), ikm_ref.size(), &raw_key_id) != Provider::ok) {
@@ -67,7 +60,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto op = Provider::make_kdf_op();
 
-    if (Provider::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != Provider::ok) {
+    if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
@@ -75,7 +68,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
 
     if (salt.has_value()) {
-        if (Provider::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_SALT,
+        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_salt(),
                                             salt->data(), salt->size()) != Provider::ok) {
             Provider::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
@@ -84,7 +77,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
         }
     }
 
-    if (Provider::key_derivation_input_key(&op, PSA_KEY_DERIVATION_INPUT_SECRET,
+    if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(),
                                       key_handle.get()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
@@ -93,7 +86,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
 
     if (info.has_value()) {
-        if (Provider::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
+        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
                                             info->data(), info->size()) != Provider::ok) {
             Provider::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
@@ -101,7 +94,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
                 "HKDF info input failed"));
         }
     } else {
-        if (Provider::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
+        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
                                             nullptr, 0) != Provider::ok) {
             Provider::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
@@ -137,11 +130,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(prk.size() * bits_per_byte));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_hkdf_expand_derive_attrs(prk.size() * bits_per_byte);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, prk.data(), prk.size(), &raw_key_id) != Provider::ok) {
@@ -153,14 +142,14 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto op = Provider::make_kdf_op();
 
-    if (Provider::key_derivation_setup(&op, PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384)) != Provider::ok) {
+    if (Provider::key_derivation_setup(&op, Provider::alg_hkdf_expand()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "HKDF-Expand setup failed"));
     }
 
-    if (Provider::key_derivation_input_key(&op, PSA_KEY_DERIVATION_INPUT_SECRET,
+    if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(),
                                       key_handle.get()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
@@ -171,7 +160,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const CryptoByte* info_ptr  = info.has_value() ? info->data() : nullptr;
     const std::size_t   info_size = info.has_value() ? info->size() : 0;
 
-    if (Provider::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
+    if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
                                         info_ptr, info_size) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
@@ -226,14 +215,9 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
+    constexpr auto key_bits_val = static_cast<std::size_t>(static_cast<std::uint16_t>(KB));
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-    psa_set_key_bits(&attrs, key_bits_val);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT |
-                                    PSA_KEY_USAGE_EXPORT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_rsa_key_pair_attrs(key_bits_val);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
@@ -243,9 +227,7 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t private_key_size =
-        PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR, key_bits_val);
-    SecureBuffer private_key_der(private_key_size);
+    SecureBuffer private_key_der(Provider::rsa_private_key_export_size(key_bits_val));
     std::size_t private_key_length = 0;
 
     if (Provider::export_key(key_handle.get(),
@@ -258,9 +240,7 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     private_key_der.resize(private_key_length);
 
-    const std::size_t public_key_size =
-        PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR, key_bits_val);
-    SecureBuffer public_key_der(public_key_size);
+    SecureBuffer public_key_der(Provider::rsa_public_key_export_size(key_bits_val));
     std::size_t public_key_length = 0;
 
     if (Provider::export_public_key(key_handle.get(),

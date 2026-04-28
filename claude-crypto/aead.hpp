@@ -6,26 +6,18 @@ Copyright Permanence AI, 2026. All rights reserved.
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <expected>
 #include <optional>
 
-#include <psa/crypto_sizes.h>
-#include <psa/crypto_values.h>
-
 #include "crypto_error.hpp"
+#include "defs.hpp"
 #include "psa_backend.hpp"
 #include "random.hpp"
 #include "secure_buffer.hpp"
 
 
-constexpr std::size_t aes256_key_size_bytes           = 32;
-constexpr std::size_t aes_gcm_iv_size_bytes            = 12;
-constexpr std::size_t chacha20_key_size_bytes           = 32;
-constexpr std::size_t chacha20_poly1305_iv_size_bytes   = 12;
-
-constexpr std::size_t aes256_key_bits   = aes256_key_size_bytes   * bits_per_byte;
-constexpr std::size_t chacha20_key_bits = chacha20_key_size_bytes  * bits_per_byte;
+constexpr std::size_t aes_gcm_iv_size_bytes           = 12;
+constexpr std::size_t chacha20_poly1305_iv_size_bytes  = 12;
 
 
 struct AesGcmResult {
@@ -59,11 +51,7 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
         return std::unexpected(iv.error());
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(aes256_key_bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
+    auto attrs = Provider::make_aes256_gcm_encrypt_attrs();
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -73,16 +61,14 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t output_size =
-        PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
-    SecureBuffer ciphertext(output_size);
+    SecureBuffer ciphertext(Provider::aes_gcm_encrypt_output_size(plaintext.size()));
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
 
     std::size_t ciphertext_length = 0;
     const auto status = Provider::aead_encrypt(
-        key_handle.get(), PSA_ALG_GCM,
+        key_handle.get(), Provider::alg_aes_gcm(),
         iv->data(), iv->size(),
         aad_ptr, aad_size,
         plaintext.data(), plaintext.size(),
@@ -116,11 +102,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(aes256_key_bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
+    auto attrs = Provider::make_aes256_gcm_decrypt_attrs();
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -133,13 +115,11 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
 
-    const std::size_t plaintext_size =
-        PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, ciphertext.ciphertext.size());
-    SecureBuffer plaintext(plaintext_size);
+    SecureBuffer plaintext(Provider::aes_gcm_decrypt_output_size(ciphertext.ciphertext.size()));
 
     std::size_t plaintext_length = 0;
     const auto status = Provider::aead_decrypt(
-        key_handle.get(), PSA_ALG_GCM,
+        key_handle.get(), Provider::alg_aes_gcm(),
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,
         ciphertext.ciphertext.data(), ciphertext.ciphertext.size(),
@@ -175,11 +155,7 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
         return std::unexpected(iv.error());
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_CHACHA20);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(chacha20_key_bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
+    auto attrs = Provider::make_chacha20_poly1305_encrypt_attrs();
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -189,18 +165,14 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t output_size =
-        PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_CHACHA20,
-                                     PSA_ALG_CHACHA20_POLY1305,
-                                     plaintext.size());
-    SecureBuffer ciphertext(output_size);
+    SecureBuffer ciphertext(Provider::chacha20_encrypt_output_size(plaintext.size()));
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
 
     std::size_t ciphertext_length = 0;
     const auto status = Provider::aead_encrypt(
-        key_handle.get(), PSA_ALG_CHACHA20_POLY1305,
+        key_handle.get(), Provider::alg_chacha20_poly1305(),
         iv->data(), iv->size(),
         aad_ptr, aad_size,
         plaintext.data(), plaintext.size(),
@@ -235,11 +207,7 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_CHACHA20);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(chacha20_key_bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
+    auto attrs = Provider::make_chacha20_poly1305_decrypt_attrs();
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -252,15 +220,11 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
 
-    const std::size_t plaintext_size =
-        PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_CHACHA20,
-                                     PSA_ALG_CHACHA20_POLY1305,
-                                     ciphertext.ciphertext.size());
-    SecureBuffer plaintext(plaintext_size);
+    SecureBuffer plaintext(Provider::chacha20_decrypt_output_size(ciphertext.ciphertext.size()));
 
     std::size_t plaintext_length = 0;
     const auto status = Provider::aead_decrypt(
-        key_handle.get(), PSA_ALG_CHACHA20_POLY1305,
+        key_handle.get(), Provider::alg_chacha20_poly1305(),
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,
         ciphertext.ciphertext.data(), ciphertext.ciphertext.size(),

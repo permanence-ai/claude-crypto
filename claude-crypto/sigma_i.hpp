@@ -10,10 +10,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstdint>
 #include <expected>
 
-#include <psa/crypto.h>
-#include <psa/crypto_sizes.h>
-#include <psa/crypto_values.h>
-
 #include "aead.hpp"
 #include "crypto_error.hpp"
 #include "defs.hpp"
@@ -96,12 +92,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
-    psa_set_key_bits(&attrs,
-        static_cast<psa_key_bits_t>(shared_secret.size() * bits_per_byte));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_hkdf_derive_attrs(shared_secret.size() * bits_per_byte);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -115,7 +106,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
 
     auto op = Provider::make_kdf_op();
 
-    if (Provider::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != Provider::ok) {
+    if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
@@ -123,7 +114,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     }
 
     if (Provider::key_derivation_input_key(
-            &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_handle.get()) != Provider::ok) {
+            &op, Provider::kdf_step_secret(), key_handle.get()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
@@ -131,7 +122,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     }
 
     if (Provider::key_derivation_input_bytes(
-            &op, PSA_KEY_DERIVATION_INPUT_INFO,
+            &op, Provider::kdf_step_info(),
             info.data(), info.size()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
@@ -318,11 +309,7 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
         return std::unexpected(iv.error());
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(aes256_key_bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
+    auto attrs = Provider::make_aes256_gcm_encrypt_attrs();
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -332,13 +319,11 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t output_size =
-        PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
-    SecureBuffer ciphertext(output_size);
+    SecureBuffer ciphertext(Provider::aes_gcm_encrypt_output_size(plaintext.size()));
 
     std::size_t ciphertext_length = 0;
     const auto status = Provider::aead_encrypt(
-        key_handle.get(), PSA_ALG_GCM,
+        key_handle.get(), Provider::alg_aes_gcm(),
         iv->data(), iv->size(),
         nullptr, 0,
         plaintext.data(), plaintext.size(),
@@ -381,11 +366,7 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(aes256_key_bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
+    auto attrs = Provider::make_aes256_gcm_decrypt_attrs();
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -395,13 +376,11 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t plaintext_size =
-        PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, bundle.ciphertext.size());
-    SecureBuffer plaintext(plaintext_size);
+    SecureBuffer plaintext(Provider::aes_gcm_decrypt_output_size(bundle.ciphertext.size()));
 
     std::size_t plaintext_length = 0;
     const auto status = Provider::aead_decrypt(
-        key_handle.get(), PSA_ALG_GCM,
+        key_handle.get(), Provider::alg_aes_gcm(),
         bundle.iv.data(), bundle.iv.size(),
         nullptr, 0,
         bundle.ciphertext.data(), bundle.ciphertext.size(),

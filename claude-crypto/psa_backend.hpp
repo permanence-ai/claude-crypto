@@ -9,8 +9,11 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstddef>
 
 #include <psa/crypto.h>
+#include <psa/crypto_sizes.h>
+#include <psa/crypto_values.h>
 
 #include "defs.hpp"
+#include "sha_variant.hpp"
 
 
 // Production PSA backend — every method is a direct forwarding call to the
@@ -229,15 +232,278 @@ struct RealPsaBackend {
     static Status key_derivation_abort(KdfOperation* operation) {
         return psa_key_derivation_abort(operation);
     }
+
+    // -------------------------------------------------------------------------
+    // Algorithm constants — provider-native algorithm selectors.
+    // These are the values passed to the low-level API calls above.
+    // -------------------------------------------------------------------------
+    static Algorithm alg_sha(const ShaVariant v) noexcept {
+        switch (v) {
+            case ShaVariant::Sha256:   return PSA_ALG_SHA_256;
+            case ShaVariant::Sha384:   return PSA_ALG_SHA_384;
+            case ShaVariant::Sha512:   return PSA_ALG_SHA_512;
+            case ShaVariant::Sha3_256: return PSA_ALG_SHA3_256;
+            case ShaVariant::Sha3_384: return PSA_ALG_SHA3_384;
+            case ShaVariant::Sha3_512: return PSA_ALG_SHA3_512;
+        }
+    }
+    static Algorithm alg_hmac(const ShaVariant v) noexcept {
+        return PSA_ALG_HMAC(alg_sha(v));
+    }
+    static constexpr Algorithm alg_ecdsa()              noexcept { return PSA_ALG_ECDSA(PSA_ALG_SHA_384); }
+    static constexpr Algorithm alg_ecdh()               noexcept { return PSA_ALG_ECDH; }
+    static constexpr Algorithm alg_hkdf()               noexcept { return PSA_ALG_HKDF(PSA_ALG_SHA_384); }
+    static constexpr Algorithm alg_hkdf_expand()        noexcept { return PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384); }
+    static constexpr Algorithm alg_aes_gcm()            noexcept { return PSA_ALG_GCM; }
+    static constexpr Algorithm alg_chacha20_poly1305()  noexcept { return PSA_ALG_CHACHA20_POLY1305; }
+    static constexpr Algorithm alg_rsa_oaep()           noexcept { return PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384); }
+    static constexpr Algorithm alg_rsa_pss()            noexcept { return PSA_ALG_RSA_PSS(PSA_ALG_SHA_384); }
+
+    // -------------------------------------------------------------------------
+    // KDF step constants.
+    // -------------------------------------------------------------------------
+    static constexpr KdfStep kdf_step_secret() noexcept { return PSA_KEY_DERIVATION_INPUT_SECRET; }
+    static constexpr KdfStep kdf_step_salt()   noexcept { return PSA_KEY_DERIVATION_INPUT_SALT;   }
+    static constexpr KdfStep kdf_step_info()   noexcept { return PSA_KEY_DERIVATION_INPUT_INFO;   }
+
+    // -------------------------------------------------------------------------
+    // Key attribute factories — configure a KeyAttributes object for a specific
+    // operation, hiding psa_set_key_* calls from generic _impl code.
+    // -------------------------------------------------------------------------
+    static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&a, alg_hkdf());
+        return a;
+    }
+    static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&a, alg_hkdf_expand());
+        return a;
+    }
+    static KeyAttributes make_hmac_generate_attrs(const ShaVariant v,
+                                                  const std::size_t key_size_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_HMAC);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE);
+        psa_set_key_algorithm(&a, alg_hmac(v));
+        return a;
+    }
+    static KeyAttributes make_hmac_verify_attrs(const ShaVariant v,
+                                                const std::size_t key_size_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_HMAC);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_VERIFY_MESSAGE);
+        psa_set_key_algorithm(&a, alg_hmac(v));
+        return a;
+    }
+    static KeyAttributes make_ecdsa_generate_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE |
+                                    PSA_KEY_USAGE_VERIFY_MESSAGE |
+                                    PSA_KEY_USAGE_EXPORT);
+        psa_set_key_algorithm(&a, alg_ecdsa());
+        return a;
+    }
+    static KeyAttributes make_ecdsa_sign_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE);
+        psa_set_key_algorithm(&a, alg_ecdsa());
+        return a;
+    }
+    static KeyAttributes make_ecdsa_verify_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_VERIFY_MESSAGE);
+        psa_set_key_algorithm(&a, alg_ecdsa());
+        return a;
+    }
+    static KeyAttributes make_ecdh_generate_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE | PSA_KEY_USAGE_EXPORT);
+        psa_set_key_algorithm(&a, alg_ecdh());
+        return a;
+    }
+    static KeyAttributes make_ecdh_agree_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&a, alg_ecdh());
+        return a;
+    }
+    static KeyAttributes make_aes256_gcm_encrypt_attrs() noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_AES);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(aes256_key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT);
+        psa_set_key_algorithm(&a, alg_aes_gcm());
+        return a;
+    }
+    static KeyAttributes make_aes256_gcm_decrypt_attrs() noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_AES);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(aes256_key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DECRYPT);
+        psa_set_key_algorithm(&a, alg_aes_gcm());
+        return a;
+    }
+    static KeyAttributes make_chacha20_poly1305_encrypt_attrs() noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_CHACHA20);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(chacha20_key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT);
+        psa_set_key_algorithm(&a, alg_chacha20_poly1305());
+        return a;
+    }
+    static KeyAttributes make_chacha20_poly1305_decrypt_attrs() noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_CHACHA20);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(chacha20_key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DECRYPT);
+        psa_set_key_algorithm(&a, alg_chacha20_poly1305());
+        return a;
+    }
+    static KeyAttributes make_rsa_oaep_encrypt_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT);
+        psa_set_key_algorithm(&a, alg_rsa_oaep());
+        return a;
+    }
+    static KeyAttributes make_rsa_oaep_decrypt_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DECRYPT);
+        psa_set_key_algorithm(&a, alg_rsa_oaep());
+        return a;
+    }
+    static KeyAttributes make_rsa_pss_sign_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE);
+        psa_set_key_algorithm(&a, alg_rsa_pss());
+        return a;
+    }
+    static KeyAttributes make_rsa_pss_verify_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_VERIFY_MESSAGE);
+        psa_set_key_algorithm(&a, alg_rsa_pss());
+        return a;
+    }
+    static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
+        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT |
+                                    PSA_KEY_USAGE_SIGN_MESSAGE | PSA_KEY_USAGE_VERIFY_MESSAGE |
+                                    PSA_KEY_USAGE_EXPORT);
+        psa_set_key_algorithm(&a, alg_rsa_oaep());
+        return a;
+    }
+
+    // -------------------------------------------------------------------------
+    // Output size helpers — abstract PSA_*_OUTPUT_SIZE macros.
+    // -------------------------------------------------------------------------
+    static std::size_t ecdsa_sign_output_size(const std::size_t key_bits) noexcept {
+        return PSA_SIGN_OUTPUT_SIZE(
+            PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
+            static_cast<psa_key_bits_t>(key_bits),
+            alg_ecdsa());
+    }
+    static std::size_t ecdh_shared_secret_size(const std::size_t key_bits) noexcept {
+        return PSA_RAW_KEY_AGREEMENT_OUTPUT_SIZE(
+            PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
+            static_cast<psa_key_bits_t>(key_bits));
+    }
+    static std::size_t ec_private_key_export_size(const std::size_t key_bits) noexcept {
+        return PSA_EXPORT_KEY_OUTPUT_SIZE(
+            PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
+            static_cast<psa_key_bits_t>(key_bits));
+    }
+    static std::size_t ec_public_key_export_size(const std::size_t key_bits) noexcept {
+        return PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(
+            PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
+            static_cast<psa_key_bits_t>(key_bits));
+    }
+    static std::size_t aes_gcm_encrypt_output_size(const std::size_t plaintext_size) noexcept {
+        return PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext_size);
+    }
+    static std::size_t aes_gcm_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
+        return PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, ciphertext_size);
+    }
+    static std::size_t chacha20_encrypt_output_size(const std::size_t plaintext_size) noexcept {
+        return PSA_AEAD_ENCRYPT_OUTPUT_SIZE(
+            PSA_KEY_TYPE_CHACHA20, PSA_ALG_CHACHA20_POLY1305, plaintext_size);
+    }
+    static std::size_t chacha20_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
+        return PSA_AEAD_DECRYPT_OUTPUT_SIZE(
+            PSA_KEY_TYPE_CHACHA20, PSA_ALG_CHACHA20_POLY1305, ciphertext_size);
+    }
+    static std::size_t rsa_oaep_encrypt_output_size(const std::size_t key_bits) noexcept {
+        return PSA_ASYMMETRIC_ENCRYPT_OUTPUT_SIZE(
+            PSA_KEY_TYPE_RSA_PUBLIC_KEY,
+            static_cast<psa_key_bits_t>(key_bits),
+            alg_rsa_oaep());
+    }
+    static std::size_t rsa_oaep_decrypt_output_size(const std::size_t key_bits) noexcept {
+        return PSA_ASYMMETRIC_DECRYPT_OUTPUT_SIZE(
+            PSA_KEY_TYPE_RSA_KEY_PAIR,
+            static_cast<psa_key_bits_t>(key_bits),
+            alg_rsa_oaep());
+    }
+    static std::size_t rsa_pss_sign_output_size(const std::size_t key_bits) noexcept {
+        return PSA_SIGN_OUTPUT_SIZE(
+            PSA_KEY_TYPE_RSA_KEY_PAIR,
+            static_cast<psa_key_bits_t>(key_bits),
+            alg_rsa_pss());
+    }
+    static std::size_t rsa_private_key_export_size(const std::size_t key_bits) noexcept {
+        return PSA_EXPORT_KEY_OUTPUT_SIZE(
+            PSA_KEY_TYPE_RSA_KEY_PAIR,
+            static_cast<psa_key_bits_t>(key_bits));
+    }
+    static std::size_t rsa_public_key_export_size(const std::size_t key_bits) noexcept {
+        return PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(
+            PSA_KEY_TYPE_RSA_KEY_PAIR,
+            static_cast<psa_key_bits_t>(key_bits));
+    }
 };
 
 
-// Concept satisfied by any CryptoProvider implementation.  Providers expose
-// associated types (Status, KeyId, Algorithm, KeyAttributes, KdfOperation,
-// KdfStep) and factory functions (null_key_id, make_key_attrs, make_kdf_op)
-// so that _impl bodies never reference PSA/MbedTLS concrete type names directly.
-// A future OpenSSL or hardware-ASM provider supplies its own type aliases and
-// wraps its native API surface behind this same interface.
+// Concept satisfied by any CryptoProvider implementation.  Providers expose:
+//   - Associated types: Status, KeyId, Algorithm, KeyAttributes, KdfOperation, KdfStep
+//   - Status sentinels: ok, err_invalid_sig, err_invalid_arg
+//   - Low-level object factories: null_key_id, make_key_attrs, make_kdf_op
+//   - Algorithm constants: alg_sha, alg_hmac, alg_ecdsa, alg_ecdh, alg_hkdf,
+//     alg_hkdf_expand, alg_aes_gcm, alg_chacha20_poly1305, alg_rsa_oaep, alg_rsa_pss
+//   - KDF step constants: kdf_step_secret, kdf_step_salt, kdf_step_info
+//   - Key attribute factories: make_hkdf_derive_attrs, make_ecdsa_sign_attrs, etc.
+//   - Output size helpers: ecdsa_sign_output_size, aes_gcm_encrypt_output_size, etc.
+//   - Low-level crypto operations: import_key, generate_key, sign_message, etc.
+//
+// _impl bodies use only these provider-neutral names — no PSA/MbedTLS types or
+// macros appear outside the provider structs.  A future OpenSSL or ASM provider
+// supplies its own aliases and wrappers behind this same interface.
 template<typename T>
 concept CryptoProvider = requires(
     T,
@@ -250,20 +516,73 @@ concept CryptoProvider = requires(
     CryptoByte*        buf,
     const CryptoByte*  cbuf,
     std::size_t        len,
-    std::size_t*       len_out)
+    std::size_t*       len_out,
+    ShaVariant         sha_v)
 {
+    // Associated types
     typename T::Status;
     typename T::KeyId;
     typename T::Algorithm;
     typename T::KeyAttributes;
     typename T::KdfOperation;
     typename T::KdfStep;
+    // Status sentinels
     { T::ok }              -> std::convertible_to<typename T::Status>;
     { T::err_invalid_sig } -> std::convertible_to<typename T::Status>;
     { T::err_invalid_arg } -> std::convertible_to<typename T::Status>;
+    // Low-level object factories
     { T::null_key_id() }   -> std::same_as<typename T::KeyId>;
     { T::make_key_attrs() } -> std::same_as<typename T::KeyAttributes>;
     { T::make_kdf_op() }    -> std::same_as<typename T::KdfOperation>;
+    // Algorithm constants
+    { T::alg_sha(sha_v) }              -> std::same_as<typename T::Algorithm>;
+    { T::alg_hmac(sha_v) }             -> std::same_as<typename T::Algorithm>;
+    { T::alg_ecdsa() }                 -> std::same_as<typename T::Algorithm>;
+    { T::alg_ecdh() }                  -> std::same_as<typename T::Algorithm>;
+    { T::alg_hkdf() }                  -> std::same_as<typename T::Algorithm>;
+    { T::alg_hkdf_expand() }           -> std::same_as<typename T::Algorithm>;
+    { T::alg_aes_gcm() }               -> std::same_as<typename T::Algorithm>;
+    { T::alg_chacha20_poly1305() }     -> std::same_as<typename T::Algorithm>;
+    { T::alg_rsa_oaep() }              -> std::same_as<typename T::Algorithm>;
+    { T::alg_rsa_pss() }               -> std::same_as<typename T::Algorithm>;
+    // KDF step constants
+    { T::kdf_step_secret() } -> std::same_as<typename T::KdfStep>;
+    { T::kdf_step_salt() }   -> std::same_as<typename T::KdfStep>;
+    { T::kdf_step_info() }   -> std::same_as<typename T::KdfStep>;
+    // Key attribute factories
+    { T::make_hkdf_derive_attrs(len) }         -> std::same_as<typename T::KeyAttributes>;
+    { T::make_hkdf_expand_derive_attrs(len) }  -> std::same_as<typename T::KeyAttributes>;
+    { T::make_hmac_generate_attrs(sha_v, len) } -> std::same_as<typename T::KeyAttributes>;
+    { T::make_hmac_verify_attrs(sha_v, len) }   -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ecdsa_generate_attrs(len) }      -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ecdsa_sign_attrs(len) }          -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ecdsa_verify_attrs(len) }        -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ecdh_generate_attrs(len) }       -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ecdh_agree_attrs(len) }          -> std::same_as<typename T::KeyAttributes>;
+    { T::make_aes256_gcm_encrypt_attrs() }     -> std::same_as<typename T::KeyAttributes>;
+    { T::make_aes256_gcm_decrypt_attrs() }     -> std::same_as<typename T::KeyAttributes>;
+    { T::make_chacha20_poly1305_encrypt_attrs() } -> std::same_as<typename T::KeyAttributes>;
+    { T::make_chacha20_poly1305_decrypt_attrs() } -> std::same_as<typename T::KeyAttributes>;
+    { T::make_rsa_oaep_encrypt_attrs(len) }    -> std::same_as<typename T::KeyAttributes>;
+    { T::make_rsa_oaep_decrypt_attrs(len) }    -> std::same_as<typename T::KeyAttributes>;
+    { T::make_rsa_pss_sign_attrs(len) }        -> std::same_as<typename T::KeyAttributes>;
+    { T::make_rsa_pss_verify_attrs(len) }      -> std::same_as<typename T::KeyAttributes>;
+    { T::make_rsa_key_pair_attrs(len) }        -> std::same_as<typename T::KeyAttributes>;
+    // Output size helpers
+    { T::ecdsa_sign_output_size(len) }         -> std::same_as<std::size_t>;
+    { T::ecdh_shared_secret_size(len) }        -> std::same_as<std::size_t>;
+    { T::ec_private_key_export_size(len) }     -> std::same_as<std::size_t>;
+    { T::ec_public_key_export_size(len) }      -> std::same_as<std::size_t>;
+    { T::aes_gcm_encrypt_output_size(len) }    -> std::same_as<std::size_t>;
+    { T::aes_gcm_decrypt_output_size(len) }    -> std::same_as<std::size_t>;
+    { T::chacha20_encrypt_output_size(len) }   -> std::same_as<std::size_t>;
+    { T::chacha20_decrypt_output_size(len) }   -> std::same_as<std::size_t>;
+    { T::rsa_oaep_encrypt_output_size(len) }   -> std::same_as<std::size_t>;
+    { T::rsa_oaep_decrypt_output_size(len) }   -> std::same_as<std::size_t>;
+    { T::rsa_pss_sign_output_size(len) }       -> std::same_as<std::size_t>;
+    { T::rsa_private_key_export_size(len) }    -> std::same_as<std::size_t>;
+    { T::rsa_public_key_export_size(len) }     -> std::same_as<std::size_t>;
+    // Low-level crypto operations
     { T::crypto_init() }                                        -> std::same_as<typename T::Status>;
     { T::generate_random(buf, len) }                            -> std::same_as<typename T::Status>;
     { T::import_key(attrs, cbuf, len, key_out) }                -> std::same_as<typename T::Status>;

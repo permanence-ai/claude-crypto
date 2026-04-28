@@ -15,6 +15,7 @@ target_sources(${LIB_NAME} INTERFACE
         psa_backend.hpp
         random.hpp
         secure_buffer.hpp
+        sha_variant.hpp
         sigma.hpp
         sigma_i.hpp
 )

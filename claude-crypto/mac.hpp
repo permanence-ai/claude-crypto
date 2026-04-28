@@ -8,8 +8,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstddef>
 #include <expected>
 
-#include <psa/crypto_values.h>
-
 #include "crypto_error.hpp"
 #include "defs.hpp"
 #include "digests.hpp"
@@ -25,19 +23,13 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     const Message& message)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
-
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * bits_per_byte));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
-    psa_set_key_algorithm(&attrs, alg);
+    auto attrs = Provider::make_hmac_generate_attrs(V, key.size() * bits_per_byte);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -51,7 +43,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     std::size_t mac_length = 0;
 
     const auto status = Provider::mac_compute(
-        key_handle.get(), alg,
+        key_handle.get(), Provider::alg_hmac(V),
         message.data(), message.size(),
         mac.data(), mac.size(),
         &mac_length);
@@ -75,19 +67,13 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<sha_output_size(V)>& mac)
     -> std::expected<bool, CryptoError>
 {
-    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
-
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * bits_per_byte));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
-    psa_set_key_algorithm(&attrs, alg);
+    auto attrs = Provider::make_hmac_verify_attrs(V, key.size() * bits_per_byte);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
@@ -98,7 +84,7 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const auto status = Provider::mac_verify(
-        key_handle.get(), alg,
+        key_handle.get(), Provider::alg_hmac(V),
         message.data(), message.size(),
         mac.data(), mac.size());
 

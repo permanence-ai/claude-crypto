@@ -10,10 +10,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <expected>
 #include <optional>
 
-#include <psa/crypto.h>
-#include <psa/crypto_sizes.h>
-#include <psa/crypto_values.h>
-
 #include "crypto_error.hpp"
 #include "psa_backend.hpp"
 #include "secure_buffer.hpp"
@@ -51,13 +47,9 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
+    constexpr auto key_bits_val = static_cast<std::size_t>(static_cast<std::uint16_t>(KB));
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
-    psa_set_key_bits(&attrs, key_bits_val);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_rsa_oaep_encrypt_attrs(key_bits_val);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -70,11 +62,7 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t output_size =
-        PSA_ASYMMETRIC_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_PUBLIC_KEY,
-                                           key_bits_val,
-                                           PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
-    SecureBuffer ciphertext(output_size);
+    SecureBuffer ciphertext(Provider::rsa_oaep_encrypt_output_size(key_bits_val));
 
     const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
@@ -82,7 +70,7 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     std::size_t ciphertext_length = 0;
     const auto status = Provider::asymmetric_encrypt(
         key_handle.get(),
-        PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384),
+        Provider::alg_rsa_oaep(),
         plaintext.data(), plaintext.size(),
         label_ptr, label_size,
         ciphertext.data(), ciphertext.size(),
@@ -113,13 +101,9 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
+    constexpr auto key_bits_val = static_cast<std::size_t>(static_cast<std::uint16_t>(KB));
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-    psa_set_key_bits(&attrs, key_bits_val);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_rsa_oaep_decrypt_attrs(key_bits_val);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -132,11 +116,7 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t output_size =
-        PSA_ASYMMETRIC_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR,
-                                           key_bits_val,
-                                           PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
-    SecureBuffer plaintext(output_size);
+    SecureBuffer plaintext(Provider::rsa_oaep_decrypt_output_size(key_bits_val));
 
     const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
@@ -144,7 +124,7 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     std::size_t plaintext_length = 0;
     const auto status = Provider::asymmetric_decrypt(
         key_handle.get(),
-        PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384),
+        Provider::alg_rsa_oaep(),
         ciphertext.data(), ciphertext.size(),
         label_ptr, label_size,
         plaintext.data(), plaintext.size(),
@@ -174,13 +154,9 @@ auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
+    constexpr auto key_bits_val = static_cast<std::size_t>(static_cast<std::uint16_t>(KB));
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-    psa_set_key_bits(&attrs, key_bits_val);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_rsa_pss_sign_attrs(key_bits_val);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -193,16 +169,12 @@ auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t signature_size =
-        PSA_SIGN_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR,
-                             key_bits_val,
-                             PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
-    SecureBuffer signature(signature_size);
+    SecureBuffer signature(Provider::rsa_pss_sign_output_size(key_bits_val));
 
     std::size_t signature_length = 0;
     const auto status = Provider::sign_message(
         key_handle.get(),
-        PSA_ALG_RSA_PSS(PSA_ALG_SHA_384),
+        Provider::alg_rsa_pss(),
         message.data(), message.size(),
         signature.data(), signature.size(),
         &signature_length);
@@ -233,13 +205,9 @@ auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
+    constexpr auto key_bits_val = static_cast<std::size_t>(static_cast<std::uint16_t>(KB));
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
-    psa_set_key_bits(&attrs, key_bits_val);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_rsa_pss_verify_attrs(key_bits_val);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -254,7 +222,7 @@ auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     const auto status = Provider::verify_message(
         key_handle.get(),
-        PSA_ALG_RSA_PSS(PSA_ALG_SHA_384),
+        Provider::alg_rsa_pss(),
         message.data(), message.size(),
         signature.data(), signature.size());
 

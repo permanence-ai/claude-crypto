@@ -6,11 +6,8 @@ Copyright Permanence AI, 2026. All rights reserved.
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <expected>
-
-#include <psa/crypto.h>
-#include <psa/crypto_sizes.h>
-#include <psa/crypto_values.h>
 
 #include "crypto_error.hpp"
 #include "defs.hpp"
@@ -59,16 +56,9 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
             "PSA crypto init failed"));
     }
 
-    const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
+    const auto key_bits = ec_curve_key_bits(curve);
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
-    psa_set_key_bits(&attrs, key_bits);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE |
-                                    PSA_KEY_USAGE_VERIFY_MESSAGE |
-                                    PSA_KEY_USAGE_EXPORT);
-    psa_set_key_algorithm(&attrs, PSA_ALG_ECDSA(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_ecdsa_generate_attrs(key_bits);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
@@ -78,9 +68,7 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t private_key_size =
-        PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
-    SecureBuffer private_key_der(private_key_size);
+    SecureBuffer private_key_der(Provider::ec_private_key_export_size(key_bits));
     std::size_t  private_key_length = 0;
 
     if (Provider::export_key(key_handle.get(),
@@ -93,9 +81,7 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     private_key_der.resize(private_key_length);
 
-    const std::size_t public_key_size =
-        PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
-    SecureBuffer public_key_der(public_key_size);
+    SecureBuffer public_key_der(Provider::ec_public_key_export_size(key_bits));
     std::size_t  public_key_length = 0;
 
     if (Provider::export_public_key(key_handle.get(),
@@ -129,14 +115,9 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
+    const auto key_bits = ec_curve_key_bits(curve);
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
-    psa_set_key_bits(&attrs, key_bits);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_ECDSA(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_ecdsa_sign_attrs(key_bits);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -149,16 +130,12 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const std::size_t signature_size =
-        PSA_SIGN_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family),
-                             key_bits,
-                             PSA_ALG_ECDSA(PSA_ALG_SHA_384));
-    SecureBuffer signature(signature_size);
+    SecureBuffer signature(Provider::ecdsa_sign_output_size(key_bits));
     std::size_t  signature_length = 0;
 
     const auto status = Provider::sign_message(
         key_handle.get(),
-        PSA_ALG_ECDSA(PSA_ALG_SHA_384),
+        Provider::alg_ecdsa(),
         message.data(), message.size(),
         signature.data(), signature.size(),
         &signature_length);
@@ -190,14 +167,9 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
+    const auto key_bits = ec_curve_key_bits(curve);
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_PUBLIC_KEY(family));
-    psa_set_key_bits(&attrs, key_bits);
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_ECDSA(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_ecdsa_verify_attrs(key_bits);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -212,7 +184,7 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     const auto status = Provider::verify_message(
         key_handle.get(),
-        PSA_ALG_ECDSA(PSA_ALG_SHA_384),
+        Provider::alg_ecdsa(),
         message.data(), message.size(),
         signature.data(), signature.size());
 

@@ -9,9 +9,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstddef>
 #include <expected>
 
-#include <psa/crypto.h>
-#include <psa/crypto_values.h>
-
 #include "crypto_error.hpp"
 #include "defs.hpp"
 #include "ecc.hpp"
@@ -102,12 +99,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_key_attrs();
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
-    psa_set_key_bits(&attrs,
-        static_cast<psa_key_bits_t>(shared_secret.size() * bits_per_byte));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
-    psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
+    auto attrs = Provider::make_hkdf_derive_attrs(shared_secret.size() * bits_per_byte);
 
     auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
@@ -121,7 +113,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
 
     auto op = Provider::make_kdf_op();
 
-    if (Provider::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != Provider::ok) {
+    if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
@@ -129,7 +121,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     }
 
     if (Provider::key_derivation_input_key(
-            &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_handle.get()) != Provider::ok) {
+            &op, Provider::kdf_step_secret(), key_handle.get()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
@@ -137,7 +129,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     }
 
     if (Provider::key_derivation_input_bytes(
-            &op, PSA_KEY_DERIVATION_INPUT_INFO,
+            &op, Provider::kdf_step_info(),
             info.data(), info.size()) != Provider::ok) {
         Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(

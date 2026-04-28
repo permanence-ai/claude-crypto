@@ -13,6 +13,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "defs.hpp"
 #include "psa_backend.hpp"
+#include "sha_variant.hpp"
 
 
 // GMock-based mock for all PSA operations.  Tests instantiate _impl<MockPsaBackend>
@@ -254,5 +255,121 @@ struct MockPsaBackend {
     }
     static psa_status_t key_derivation_abort(psa_key_derivation_operation_t* op) {
         return g_mock_psa->key_derivation_abort(op);
+    }
+
+    // Algorithm constants, key attribute factories, and output size helpers are
+    // pure functions with no mockable side effects — delegate to RealPsaBackend.
+    static Algorithm alg_sha(const ShaVariant v) noexcept {
+        return RealPsaBackend::alg_sha(v);
+    }
+    static Algorithm alg_hmac(const ShaVariant v) noexcept {
+        return RealPsaBackend::alg_hmac(v);
+    }
+    static constexpr Algorithm alg_ecdsa()             noexcept { return RealPsaBackend::alg_ecdsa(); }
+    static constexpr Algorithm alg_ecdh()              noexcept { return RealPsaBackend::alg_ecdh(); }
+    static constexpr Algorithm alg_hkdf()              noexcept { return RealPsaBackend::alg_hkdf(); }
+    static constexpr Algorithm alg_hkdf_expand()       noexcept { return RealPsaBackend::alg_hkdf_expand(); }
+    static constexpr Algorithm alg_aes_gcm()           noexcept { return RealPsaBackend::alg_aes_gcm(); }
+    static constexpr Algorithm alg_chacha20_poly1305() noexcept { return RealPsaBackend::alg_chacha20_poly1305(); }
+    static constexpr Algorithm alg_rsa_oaep()          noexcept { return RealPsaBackend::alg_rsa_oaep(); }
+    static constexpr Algorithm alg_rsa_pss()           noexcept { return RealPsaBackend::alg_rsa_pss(); }
+
+    static constexpr KdfStep kdf_step_secret() noexcept { return RealPsaBackend::kdf_step_secret(); }
+    static constexpr KdfStep kdf_step_salt()   noexcept { return RealPsaBackend::kdf_step_salt(); }
+    static constexpr KdfStep kdf_step_info()   noexcept { return RealPsaBackend::kdf_step_info(); }
+
+    static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
+        return RealPsaBackend::make_hkdf_derive_attrs(key_size_bits);
+    }
+    static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
+        return RealPsaBackend::make_hkdf_expand_derive_attrs(key_size_bits);
+    }
+    static KeyAttributes make_hmac_generate_attrs(const ShaVariant v, const std::size_t key_size_bits) noexcept {
+        return RealPsaBackend::make_hmac_generate_attrs(v, key_size_bits);
+    }
+    static KeyAttributes make_hmac_verify_attrs(const ShaVariant v, const std::size_t key_size_bits) noexcept {
+        return RealPsaBackend::make_hmac_verify_attrs(v, key_size_bits);
+    }
+    static KeyAttributes make_ecdsa_generate_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_ecdsa_generate_attrs(key_bits);
+    }
+    static KeyAttributes make_ecdsa_sign_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_ecdsa_sign_attrs(key_bits);
+    }
+    static KeyAttributes make_ecdsa_verify_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_ecdsa_verify_attrs(key_bits);
+    }
+    static KeyAttributes make_ecdh_generate_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_ecdh_generate_attrs(key_bits);
+    }
+    static KeyAttributes make_ecdh_agree_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_ecdh_agree_attrs(key_bits);
+    }
+    static KeyAttributes make_aes256_gcm_encrypt_attrs() noexcept {
+        return RealPsaBackend::make_aes256_gcm_encrypt_attrs();
+    }
+    static KeyAttributes make_aes256_gcm_decrypt_attrs() noexcept {
+        return RealPsaBackend::make_aes256_gcm_decrypt_attrs();
+    }
+    static KeyAttributes make_chacha20_poly1305_encrypt_attrs() noexcept {
+        return RealPsaBackend::make_chacha20_poly1305_encrypt_attrs();
+    }
+    static KeyAttributes make_chacha20_poly1305_decrypt_attrs() noexcept {
+        return RealPsaBackend::make_chacha20_poly1305_decrypt_attrs();
+    }
+    static KeyAttributes make_rsa_oaep_encrypt_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_rsa_oaep_encrypt_attrs(key_bits);
+    }
+    static KeyAttributes make_rsa_oaep_decrypt_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_rsa_oaep_decrypt_attrs(key_bits);
+    }
+    static KeyAttributes make_rsa_pss_sign_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_rsa_pss_sign_attrs(key_bits);
+    }
+    static KeyAttributes make_rsa_pss_verify_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_rsa_pss_verify_attrs(key_bits);
+    }
+    static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::make_rsa_key_pair_attrs(key_bits);
+    }
+
+    static std::size_t ecdsa_sign_output_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::ecdsa_sign_output_size(key_bits);
+    }
+    static std::size_t ecdh_shared_secret_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::ecdh_shared_secret_size(key_bits);
+    }
+    static std::size_t ec_private_key_export_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::ec_private_key_export_size(key_bits);
+    }
+    static std::size_t ec_public_key_export_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::ec_public_key_export_size(key_bits);
+    }
+    static std::size_t aes_gcm_encrypt_output_size(const std::size_t plaintext_size) noexcept {
+        return RealPsaBackend::aes_gcm_encrypt_output_size(plaintext_size);
+    }
+    static std::size_t aes_gcm_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
+        return RealPsaBackend::aes_gcm_decrypt_output_size(ciphertext_size);
+    }
+    static std::size_t chacha20_encrypt_output_size(const std::size_t plaintext_size) noexcept {
+        return RealPsaBackend::chacha20_encrypt_output_size(plaintext_size);
+    }
+    static std::size_t chacha20_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
+        return RealPsaBackend::chacha20_decrypt_output_size(ciphertext_size);
+    }
+    static std::size_t rsa_oaep_encrypt_output_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::rsa_oaep_encrypt_output_size(key_bits);
+    }
+    static std::size_t rsa_oaep_decrypt_output_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::rsa_oaep_decrypt_output_size(key_bits);
+    }
+    static std::size_t rsa_pss_sign_output_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::rsa_pss_sign_output_size(key_bits);
+    }
+    static std::size_t rsa_private_key_export_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::rsa_private_key_export_size(key_bits);
+    }
+    static std::size_t rsa_public_key_export_size(const std::size_t key_bits) noexcept {
+        return RealPsaBackend::rsa_public_key_export_size(key_bits);
     }
 };
