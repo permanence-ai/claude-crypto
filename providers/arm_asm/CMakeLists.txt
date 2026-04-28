@@ -4,6 +4,8 @@ add_library(${LIB_NAME} INTERFACE)
 
 target_sources(${LIB_NAME} INTERFACE
         arm_asm_backend.hpp
+        hmac.hpp
+        key_store.hpp
         sha256.hpp
         sha512.hpp
 )
