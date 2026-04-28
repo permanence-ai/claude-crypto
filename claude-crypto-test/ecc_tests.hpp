@@ -56,7 +56,7 @@ TEST_F(EccTests, EcdsaP256SignVerifyRoundTrip) {
     const auto signature = ecdsa_sign(*key_pair, EcCurve::P256, message);
     ASSERT_TRUE(signature.has_value());
 
-    EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = ecdsa_verify(pub, EcCurve::P256, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(*result);
@@ -71,7 +71,7 @@ TEST_F(EccTests, EcdsaP384SignVerifyRoundTrip) {
     const auto signature = ecdsa_sign(*key_pair, EcCurve::P384, message);
     ASSERT_TRUE(signature.has_value());
 
-    EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = ecdsa_verify(pub, EcCurve::P384, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(*result);
@@ -86,7 +86,7 @@ TEST_F(EccTests, EcdsaP521SignVerifyRoundTrip) {
     const auto signature = ecdsa_sign(*key_pair, EcCurve::P521, message);
     ASSERT_TRUE(signature.has_value());
 
-    EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = ecdsa_verify(pub, EcCurve::P521, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(*result);
@@ -103,7 +103,7 @@ TEST_F(EccTests, EcdsaVerifyWithWrongKeyFails) {
     const auto signature = ecdsa_sign(*key_pair, EcCurve::P256, message);
     ASSERT_TRUE(signature.has_value());
 
-    EcPublicKey wrong_pub{ .public_key_der = std::move(wrong_key_pair->public_key_der) };
+    const EcPublicKey wrong_pub{ .public_key_der = std::move(wrong_key_pair->public_key_der) };
     const auto result = ecdsa_verify(wrong_pub, EcCurve::P256, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);
@@ -122,7 +122,7 @@ TEST_F(EccTests, EcdsaVerifyWithTamperedMessageFails) {
 
     std::span(message.data(), message.size()).front() ^= TAMPER_BYTE;
 
-    EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = ecdsa_verify(pub, EcCurve::P256, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);
@@ -141,7 +141,7 @@ TEST_F(EccTests, EcdsaVerifyWithTamperedSignatureFails) {
 
     std::span(signature->data(), signature->size()).front() ^= TAMPER_BYTE;
 
-    EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const EcPublicKey pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = ecdsa_verify(pub, EcCurve::P256, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);

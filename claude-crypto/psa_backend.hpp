@@ -258,7 +258,7 @@ public:
     explicit PsaKeyHandle(const mbedtls_svc_key_id_t id) noexcept
         : id_(id), valid_(true) {}
 
-    ~PsaKeyHandle() {
+    ~PsaKeyHandle() noexcept {  // NOLINT(bugprone-exception-escape)
         if (valid_) {
             Provider::destroy_key(id_);
         }

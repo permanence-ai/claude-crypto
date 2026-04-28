@@ -179,13 +179,13 @@ public:
     [[nodiscard]]
     auto operator[](const std::size_t i) -> CryptoByte& {
         assert(i < N);
-        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access, cppcoreguidelines-pro-bounds-constant-array-index)
     }
 
     [[nodiscard]]
     auto operator[](const std::size_t i) const -> const CryptoByte& {
         assert(i < N);
-        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access, cppcoreguidelines-pro-bounds-constant-array-index)
     }
 
     [[nodiscard]]

@@ -47,7 +47,7 @@ TEST_F(AsymmetricTests, RsaOaep3072EncryptDecryptRoundTrip) {
     ASSERT_TRUE(key_pair.has_value());
 
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
-    RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto ciphertext = rsa_oaep_encrypt(pub, plaintext);
     ASSERT_TRUE(ciphertext.has_value());
 
@@ -68,7 +68,7 @@ TEST_F(AsymmetricTests, RsaOaep4096EncryptDecryptRoundTrip) {
     ASSERT_TRUE(key_pair.has_value());
 
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
-    RsaPublicKey<RsaKeyBits::Bits4096> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits4096> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto ciphertext = rsa_oaep_encrypt(pub, plaintext);
     ASSERT_TRUE(ciphertext.has_value());
 
@@ -97,7 +97,7 @@ TEST_F(AsymmetricTests, RsaOaepRoundTripWithLabel) {
         return std::optional<SecureBuffer>(std::move(buf));
     };
 
-    RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto ciphertext = rsa_oaep_encrypt(pub, plaintext, make_label());
     ASSERT_TRUE(ciphertext.has_value());
 
@@ -120,7 +120,7 @@ TEST_F(AsymmetricTests, RsaOaepDecryptWithWrongKeyFails) {
     ASSERT_TRUE(wrong_key_pair.has_value());
 
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
-    RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto ciphertext = rsa_oaep_encrypt(pub, plaintext);
     ASSERT_TRUE(ciphertext.has_value());
 
@@ -148,7 +148,7 @@ TEST_F(AsymmetricTests, RsaOaepDecryptWithWrongLabelFails) {
         return std::optional<SecureBuffer>(std::move(buf));
     };
 
-    RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto ciphertext = rsa_oaep_encrypt(pub, plaintext, make_label(LABEL_BYTES));
     ASSERT_TRUE(ciphertext.has_value());
 
@@ -168,7 +168,7 @@ TEST_F(AsymmetricTests, RsaPss3072SignVerifyRoundTrip) {
     const auto signature = rsa_pss_sign(*key_pair, message);
     ASSERT_TRUE(signature.has_value());
 
-    RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = rsa_pss_verify(pub, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(*result);
@@ -185,7 +185,7 @@ TEST_F(AsymmetricTests, RsaPss4096SignVerifyRoundTrip) {
     const auto signature = rsa_pss_sign(*key_pair, message);
     ASSERT_TRUE(signature.has_value());
 
-    RsaPublicKey<RsaKeyBits::Bits4096> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits4096> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = rsa_pss_verify(pub, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(*result);
@@ -219,7 +219,7 @@ TEST_F(AsymmetricTests, RsaPssVerifyWithWrongKeyFails) {
     const auto signature = rsa_pss_sign(*key_pair, message);
     ASSERT_TRUE(signature.has_value());
 
-    RsaPublicKey<RsaKeyBits::Bits3072> wrong_pub{ .public_key_der = std::move(wrong_key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> wrong_pub{ .public_key_der = std::move(wrong_key_pair->public_key_der) };
     const auto result = rsa_pss_verify(wrong_pub, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);
@@ -239,7 +239,7 @@ TEST_F(AsymmetricTests, RsaPssVerifyWithTamperedMessageFails) {
 
     std::span(message.data(), message.size()).front() ^= TAMPER_BYTE;
 
-    RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = rsa_pss_verify(pub, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);
@@ -259,7 +259,7 @@ TEST_F(AsymmetricTests, RsaPssVerifyWithTamperedSignatureFails) {
 
     std::span(signature->data(), signature->size()).front() ^= TAMPER_BYTE;
 
-    RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
+    const RsaPublicKey<RsaKeyBits::Bits3072> pub{ .public_key_der = std::move(key_pair->public_key_der) };
     const auto result = rsa_pss_verify(pub, message, *signature);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);

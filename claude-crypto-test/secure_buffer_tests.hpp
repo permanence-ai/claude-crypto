@@ -15,57 +15,69 @@ Copyright Permanence AI, 2026. All rights reserved.
 class SecureBufferTests : public ::testing::Test {};
 
 
+// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access, cppcoreguidelines-pro-bounds-constant-array-index)
 TEST_F(SecureBufferTests, IndexOperatorReadsCorrectElement) {
-    SecureBuffer buf(4);
-    buf[0] = 0x01;
+    constexpr std::size_t buf_size = 4;
+    constexpr CryptoByte  byte_a   = 0x01;
+    constexpr CryptoByte  byte_b   = 0x04;
+    SecureBuffer buf(buf_size);
+    buf[0] = byte_a;
     buf[1] = 0x02;
     buf[2] = 0x03;
-    buf[3] = 0x04;
+    buf[3] = byte_b;
 
-    EXPECT_EQ(buf[0], 0x01);
-    EXPECT_EQ(buf[3], 0x04);
+    EXPECT_EQ(buf[0], byte_a);
+    EXPECT_EQ(buf[3], byte_b);
 }
 
 TEST_F(SecureBufferTests, IndexOperatorConstReadsCorrectElement) {
+    constexpr CryptoByte byte_a = 0xAA;
+    constexpr CryptoByte byte_b = 0xBB;
     SecureBuffer buf(3);
-    buf[0] = 0xAA;
-    buf[2] = 0xBB;
+    buf[0] = byte_a;
+    buf[2] = byte_b;
 
     const SecureBuffer& cbuf = buf;
-    EXPECT_EQ(cbuf[0], 0xAA);
-    EXPECT_EQ(cbuf[2], 0xBB);
+    EXPECT_EQ(cbuf[0], byte_a);
+    EXPECT_EQ(cbuf[2], byte_b);
 }
 
 TEST_F(SecureBufferTests, FixedIndexOperatorReadsCorrectElement) {
+    constexpr CryptoByte byte_a = 0x11;
+    constexpr CryptoByte byte_b = 0x44;
     FixedSecureBuffer<4> buf;
-    buf[0] = 0x11;
-    buf[3] = 0x44;
+    buf[0] = byte_a;
+    buf[3] = byte_b;
 
-    EXPECT_EQ(buf[0], 0x11);
-    EXPECT_EQ(buf[3], 0x44);
+    EXPECT_EQ(buf[0], byte_a);
+    EXPECT_EQ(buf[3], byte_b);
 }
 
 TEST_F(SecureBufferTests, FixedIndexOperatorConstReadsCorrectElement) {
+    constexpr CryptoByte byte_a = 0xCC;
+    constexpr CryptoByte byte_b = 0xDD;
     FixedSecureBuffer<2> buf;
-    buf[0] = 0xCC;
-    buf[1] = 0xDD;
+    buf[0] = byte_a;
+    buf[1] = byte_b;
 
     const FixedSecureBuffer<2>& cbuf = buf;
-    EXPECT_EQ(cbuf[0], 0xCC);
-    EXPECT_EQ(cbuf[1], 0xDD);
+    EXPECT_EQ(cbuf[0], byte_a);
+    EXPECT_EQ(cbuf[1], byte_b);
 }
 
 
 #ifndef NDEBUG
 
 TEST_F(SecureBufferTests, IndexOperatorOutOfBoundsDies) {
-    SecureBuffer buf(4);
-    ASSERT_DEATH((void)buf[4], "");
+    constexpr std::size_t buf_size = 4;
+    SecureBuffer buf(buf_size);
+    ASSERT_DEATH((void)buf[buf_size], "");
 }
 
 TEST_F(SecureBufferTests, IndexOperatorConstOutOfBoundsDies) {
-    const SecureBuffer buf(4);
-    ASSERT_DEATH((void)buf[4], "");
+    constexpr std::size_t buf_size = 4;
+    const SecureBuffer buf(buf_size);
+    ASSERT_DEATH((void)buf[buf_size], "");
 }
 
 TEST_F(SecureBufferTests, IndexOperatorEmptyBufferDies) {
@@ -74,13 +86,16 @@ TEST_F(SecureBufferTests, IndexOperatorEmptyBufferDies) {
 }
 
 TEST_F(SecureBufferTests, FixedIndexOperatorOutOfBoundsDies) {
-    FixedSecureBuffer<4> buf;
-    ASSERT_DEATH((void)buf[4], "");
+    constexpr std::size_t buf_size = 4;
+    FixedSecureBuffer<buf_size> buf;
+    ASSERT_DEATH((void)buf[buf_size], "");
 }
 
 TEST_F(SecureBufferTests, FixedIndexOperatorConstOutOfBoundsDies) {
-    const FixedSecureBuffer<4> buf;
-    ASSERT_DEATH((void)buf[4], "");
+    constexpr std::size_t buf_size = 4;
+    const FixedSecureBuffer<buf_size> buf;
+    ASSERT_DEATH((void)buf[buf_size], "");
 }
 
 #endif  // NDEBUG
+// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access, cppcoreguidelines-pro-bounds-constant-array-index)

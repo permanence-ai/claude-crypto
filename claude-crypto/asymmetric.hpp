@@ -68,7 +68,7 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
             CryptoErrorCode::KeyImportFailed,
             "RSA public key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_ASYMMETRIC_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_PUBLIC_KEY,
@@ -130,7 +130,7 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
             CryptoErrorCode::KeyImportFailed,
             "RSA private key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_ASYMMETRIC_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR,
@@ -191,7 +191,7 @@ auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
             CryptoErrorCode::KeyImportFailed,
             "RSA private key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t signature_size =
         PSA_SIGN_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR,
@@ -250,7 +250,7 @@ auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
             CryptoErrorCode::KeyImportFailed,
             "RSA public key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const psa_status_t status = Provider::verify_message(
         key_handle.get(),

@@ -63,7 +63,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
             CryptoErrorCode::KeyImportFailed,
             "IKM import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
@@ -149,7 +149,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
             CryptoErrorCode::KeyImportFailed,
             "PRK import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
@@ -241,7 +241,7 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
             CryptoErrorCode::KeyGenerationFailed,
             "RSA key generation failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t private_key_size =
         PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR, key_bits_val);

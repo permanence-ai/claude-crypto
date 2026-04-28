@@ -117,7 +117,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
             CryptoErrorCode::KeyImportFailed,
             "SIGMA IKM import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 

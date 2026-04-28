@@ -71,7 +71,7 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
@@ -128,7 +128,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
@@ -187,7 +187,7 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
             CryptoErrorCode::KeyImportFailed,
             "ChaCha20-Poly1305 key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_CHACHA20,
@@ -247,7 +247,7 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
             CryptoErrorCode::KeyImportFailed,
             "ChaCha20-Poly1305 key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;

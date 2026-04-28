@@ -111,7 +111,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I IKM import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
@@ -330,7 +330,7 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
@@ -393,7 +393,7 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t plaintext_size =
         PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, bundle.ciphertext.size());

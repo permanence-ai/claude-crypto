@@ -51,7 +51,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
             CryptoErrorCode::KeyGenerationFailed,
             "ECDH key generation failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t private_key_size =
         PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
@@ -122,7 +122,7 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
             CryptoErrorCode::KeyImportFailed,
             "ECDH private key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t shared_secret_size =
         PSA_RAW_KEY_AGREEMENT_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);

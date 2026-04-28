@@ -76,7 +76,7 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
             CryptoErrorCode::KeyGenerationFailed,
             "ECDSA key generation failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t private_key_size =
         PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
@@ -147,7 +147,7 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
             CryptoErrorCode::KeyImportFailed,
             "ECDSA private key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t signature_size =
         PSA_SIGN_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family),
@@ -208,7 +208,7 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
             CryptoErrorCode::KeyImportFailed,
             "ECDSA public key import failed"));
     }
-    PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const psa_status_t status = Provider::verify_message(
         key_handle.get(),
