@@ -606,10 +606,7 @@ TEST_F(PsaErrorTests, EcdhComputeSharedSecretAgreementFailed) {
 TEST_F(PsaErrorTests, RsaOaepEncryptInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const RsaKeyPair<RsaKeyBits::Bits3072> kp{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = make_random_secure_buffer(128),
-    };
+    const RsaPublicKey<RsaKeyBits::Bits3072> kp{ .public_key_der = make_random_secure_buffer(128) };
     const auto pt     = make_random_secure_buffer(32);
     const auto result = rsa_oaep_encrypt_impl<RsaKeyBits::Bits3072, MockPsaBackend>(kp, pt);
 
@@ -621,10 +618,7 @@ TEST_F(PsaErrorTests, RsaOaepEncryptKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const RsaKeyPair<RsaKeyBits::Bits3072> kp{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = make_random_secure_buffer(128),
-    };
+    const RsaPublicKey<RsaKeyBits::Bits3072> kp{ .public_key_der = make_random_secure_buffer(128) };
     const auto pt     = make_random_secure_buffer(32);
     const auto result = rsa_oaep_encrypt_impl<RsaKeyBits::Bits3072, MockPsaBackend>(kp, pt);
 
@@ -640,10 +634,7 @@ TEST_F(PsaErrorTests, RsaOaepEncryptFailed) {
         .WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const RsaKeyPair<RsaKeyBits::Bits3072> kp{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = make_random_secure_buffer(128),
-    };
+    const RsaPublicKey<RsaKeyBits::Bits3072> kp{ .public_key_der = make_random_secure_buffer(128) };
     const auto pt     = make_random_secure_buffer(32);
     const auto result = rsa_oaep_encrypt_impl<RsaKeyBits::Bits3072, MockPsaBackend>(kp, pt);
 
@@ -749,10 +740,7 @@ TEST_F(PsaErrorTests, RsaPssSignMessageFailed) {
 TEST_F(PsaErrorTests, RsaPssVerifyInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const RsaKeyPair<RsaKeyBits::Bits3072> kp{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = make_random_secure_buffer(128),
-    };
+    const RsaPublicKey<RsaKeyBits::Bits3072> kp{ .public_key_der = make_random_secure_buffer(128) };
     const auto msg    = make_random_secure_buffer(32);
     const auto sig    = make_random_secure_buffer(384);
     const auto result = rsa_pss_verify_impl<RsaKeyBits::Bits3072, MockPsaBackend>(kp, msg, sig);
@@ -765,10 +753,7 @@ TEST_F(PsaErrorTests, RsaPssVerifyKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const RsaKeyPair<RsaKeyBits::Bits3072> kp{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = make_random_secure_buffer(128),
-    };
+    const RsaPublicKey<RsaKeyBits::Bits3072> kp{ .public_key_der = make_random_secure_buffer(128) };
     const auto msg    = make_random_secure_buffer(32);
     const auto sig    = make_random_secure_buffer(384);
     const auto result = rsa_pss_verify_impl<RsaKeyBits::Bits3072, MockPsaBackend>(kp, msg, sig);
@@ -784,10 +769,7 @@ TEST_F(PsaErrorTests, RsaPssVerifyMessageFailed) {
     EXPECT_CALL(*mock_, verify_message(_, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const RsaKeyPair<RsaKeyBits::Bits3072> kp{
-        .private_key_der = SecureBuffer(0),
-        .public_key_der  = make_random_secure_buffer(128),
-    };
+    const RsaPublicKey<RsaKeyBits::Bits3072> kp{ .public_key_der = make_random_secure_buffer(128) };
     const auto msg    = make_random_secure_buffer(32);
     const auto sig    = make_random_secure_buffer(384);
     const auto result = rsa_pss_verify_impl<RsaKeyBits::Bits3072, MockPsaBackend>(kp, msg, sig);

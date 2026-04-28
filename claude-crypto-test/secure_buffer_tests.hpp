@@ -60,27 +60,27 @@ TEST_F(SecureBufferTests, FixedIndexOperatorConstReadsCorrectElement) {
 
 TEST_F(SecureBufferTests, IndexOperatorOutOfBoundsDies) {
     SecureBuffer buf(4);
-    ASSERT_DEATH(buf[4], "");
+    ASSERT_DEATH((void)buf[4], "");
 }
 
 TEST_F(SecureBufferTests, IndexOperatorConstOutOfBoundsDies) {
     const SecureBuffer buf(4);
-    ASSERT_DEATH(buf[4], "");
+    ASSERT_DEATH((void)buf[4], "");
 }
 
 TEST_F(SecureBufferTests, IndexOperatorEmptyBufferDies) {
     SecureBuffer buf(0);
-    ASSERT_DEATH(buf[0], "");
+    ASSERT_DEATH((void)buf[0], "");
 }
 
 TEST_F(SecureBufferTests, FixedIndexOperatorOutOfBoundsDies) {
     FixedSecureBuffer<4> buf;
-    ASSERT_DEATH(buf[4], "");
+    ASSERT_DEATH((void)buf[4], "");
 }
 
 TEST_F(SecureBufferTests, FixedIndexOperatorConstOutOfBoundsDies) {
     const FixedSecureBuffer<4> buf;
-    ASSERT_DEATH(buf[4], "");
+    ASSERT_DEATH((void)buf[4], "");
 }
 
 #endif  // NDEBUG
