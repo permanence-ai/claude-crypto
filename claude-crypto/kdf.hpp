@@ -53,7 +53,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(ikm_ref.size() * BITS_PER_BYTE));
+    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(ikm_ref.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
@@ -143,7 +143,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(prk.size() * BITS_PER_BYTE));
+    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(prk.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384));
 
@@ -176,7 +176,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
             "HKDF-Expand PRK input failed"));
     }
 
-    const CRYPTO_BYTE* info_ptr  = info.has_value() ? info->data() : nullptr;
+    const CryptoByte* info_ptr  = info.has_value() ? info->data() : nullptr;
     const std::size_t   info_size = info.has_value() ? info->size() : 0;
 
     if (PSA::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,

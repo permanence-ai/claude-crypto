@@ -168,7 +168,7 @@ TEST_F(SigmaTests, InitiatorRejectsWrongResponderIdentity) {
 
 
 TEST_F(SigmaTests, InitiatorRejectsTamperedResponderMac) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto initiator = ecdsa_generate_key(EcCurve::P256);
     const auto responder = ecdsa_generate_key(EcCurve::P256);
@@ -200,7 +200,7 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedResponderMac) {
 
 
 TEST_F(SigmaTests, InitiatorRejectsTamperedResponderSignature) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto initiator = ecdsa_generate_key(EcCurve::P256);
     const auto responder = ecdsa_generate_key(EcCurve::P256);
@@ -275,7 +275,7 @@ TEST_F(SigmaTests, ResponderRejectsWrongInitiatorIdentity) {
 
 
 TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorMac) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto initiator = ecdsa_generate_key(EcCurve::P256);
     const auto responder = ecdsa_generate_key(EcCurve::P256);
@@ -319,7 +319,7 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorMac) {
 
 
 TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorSignature) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto initiator = ecdsa_generate_key(EcCurve::P256);
     const auto responder = ecdsa_generate_key(EcCurve::P256);

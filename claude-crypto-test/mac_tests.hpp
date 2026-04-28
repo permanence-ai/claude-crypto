@@ -29,7 +29,7 @@ TEST_F(MacTests, Sha256GenerateProducesExpectedSize) {
     const auto mac = hmac_generate<ShaVariant::Sha256>(key, message);
 
     ASSERT_TRUE(mac.has_value());
-    EXPECT_EQ(mac->size(), SHA256_SIZE_BYTES);
+    EXPECT_EQ(mac->size(), sha256_size_bytes);
 }
 
 
@@ -40,7 +40,7 @@ TEST_F(MacTests, Sha384GenerateProducesExpectedSize) {
     const auto mac = hmac_generate<ShaVariant::Sha384>(key, message);
 
     ASSERT_TRUE(mac.has_value());
-    EXPECT_EQ(mac->size(), SHA384_SIZE_BYTES);
+    EXPECT_EQ(mac->size(), sha384_size_bytes);
 }
 
 
@@ -51,7 +51,7 @@ TEST_F(MacTests, Sha512GenerateProducesExpectedSize) {
     const auto mac = hmac_generate<ShaVariant::Sha512>(key, message);
 
     ASSERT_TRUE(mac.has_value());
-    EXPECT_EQ(mac->size(), SHA512_SIZE_BYTES);
+    EXPECT_EQ(mac->size(), sha512_size_bytes);
 }
 
 
@@ -104,7 +104,7 @@ TEST_F(MacTests, Sha3_256GenerateProducesExpectedSize) {
     const auto mac = hmac_generate<ShaVariant::Sha3_256>(key, message);
 
     ASSERT_TRUE(mac.has_value());
-    EXPECT_EQ(mac->size(), SHA3_256_SIZE_BYTES);
+    EXPECT_EQ(mac->size(), sha3_256_size_bytes);
 }
 
 
@@ -115,7 +115,7 @@ TEST_F(MacTests, Sha3_384GenerateProducesExpectedSize) {
     const auto mac = hmac_generate<ShaVariant::Sha3_384>(key, message);
 
     ASSERT_TRUE(mac.has_value());
-    EXPECT_EQ(mac->size(), SHA3_384_SIZE_BYTES);
+    EXPECT_EQ(mac->size(), sha3_384_size_bytes);
 }
 
 
@@ -126,7 +126,7 @@ TEST_F(MacTests, Sha3_512GenerateProducesExpectedSize) {
     const auto mac = hmac_generate<ShaVariant::Sha3_512>(key, message);
 
     ASSERT_TRUE(mac.has_value());
-    EXPECT_EQ(mac->size(), SHA3_512_SIZE_BYTES);
+    EXPECT_EQ(mac->size(), sha3_512_size_bytes);
 }
 
 
@@ -188,7 +188,7 @@ TEST_F(MacTests, VerifyWithWrongKeyFails) {
 
 
 TEST_F(MacTests, VerifyWithTamperedMessageFails) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto key = make_random_secure_buffer(KEY_SIZE_BYTES);
     auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
@@ -206,7 +206,7 @@ TEST_F(MacTests, VerifyWithTamperedMessageFails) {
 
 
 TEST_F(MacTests, VerifyWithTamperedMacFails) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto key     = make_random_secure_buffer(KEY_SIZE_BYTES);
     const auto message = make_random_secure_buffer(MESSAGE_SIZE_BYTES);

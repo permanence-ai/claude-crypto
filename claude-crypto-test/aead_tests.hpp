@@ -99,7 +99,7 @@ TEST_F(AeadTests, DecryptWithWrongKeyFails) {
 
 TEST_F(AeadTests, DecryptWithTamperedCiphertextFails) {
     constexpr std::size_t  PLAINTEXT_SIZE_BYTES = 96;
-    constexpr CRYPTO_BYTE TAMPER_BYTE          = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE          = 0xFF;
 
     const auto key       = make_random_fixed_secure_buffer<KEY_SIZE_BYTES>();
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);

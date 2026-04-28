@@ -35,7 +35,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * BITS_PER_BYTE));
+    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
     psa_set_key_algorithm(&attrs, alg);
 
@@ -86,7 +86,7 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * BITS_PER_BYTE));
+    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
     psa_set_key_algorithm(&attrs, alg);
 

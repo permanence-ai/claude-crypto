@@ -108,7 +108,7 @@ TEST_F(EcdhTests, P256SharedSecretHasExpectedSize) {
 
     const auto secret = ecdh_compute_shared_secret(*alice, EcCurve::P256, bob->public_key_der);
     ASSERT_TRUE(secret.has_value());
-    EXPECT_EQ(secret->size(), ECDH_P256_SHARED_SECRET_BYTES);
+    EXPECT_EQ(secret->size(), ecdh_p256_shared_secret_bytes);
 }
 
 
@@ -120,7 +120,7 @@ TEST_F(EcdhTests, P384SharedSecretHasExpectedSize) {
 
     const auto secret = ecdh_compute_shared_secret(*alice, EcCurve::P384, bob->public_key_der);
     ASSERT_TRUE(secret.has_value());
-    EXPECT_EQ(secret->size(), ECDH_P384_SHARED_SECRET_BYTES);
+    EXPECT_EQ(secret->size(), ecdh_p384_shared_secret_bytes);
 }
 
 
@@ -132,7 +132,7 @@ TEST_F(EcdhTests, P521SharedSecretHasExpectedSize) {
 
     const auto secret = ecdh_compute_shared_secret(*alice, EcCurve::P521, bob->public_key_der);
     ASSERT_TRUE(secret.has_value());
-    EXPECT_EQ(secret->size(), ECDH_P521_SHARED_SECRET_BYTES);
+    EXPECT_EQ(secret->size(), ecdh_p521_shared_secret_bytes);
 }
 
 

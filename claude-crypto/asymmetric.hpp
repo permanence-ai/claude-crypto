@@ -70,7 +70,7 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
                                            PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
     SecureBuffer ciphertext(output_size);
 
-    const CRYPTO_BYTE* label_ptr  = label.has_value() ? label->data() : nullptr;
+    const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
 
     std::size_t ciphertext_length = 0;
@@ -133,7 +133,7 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
                                            PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
     SecureBuffer plaintext(output_size);
 
-    const CRYPTO_BYTE* label_ptr  = label.has_value() ? label->data() : nullptr;
+    const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
 
     std::size_t plaintext_length = 0;

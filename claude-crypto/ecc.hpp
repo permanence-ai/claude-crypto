@@ -24,16 +24,16 @@ enum class EcCurve : std::uint8_t {
     P521,
 };
 
-constexpr std::size_t P256_KEY_BITS = 256;
-constexpr std::size_t P384_KEY_BITS = 384;
-constexpr std::size_t P521_KEY_BITS = 521;
+constexpr std::size_t p256_key_bits = 256;
+constexpr std::size_t p384_key_bits = 384;
+constexpr std::size_t p521_key_bits = 521;
 
 [[nodiscard]]
 constexpr auto ec_curve_key_bits(const EcCurve curve) -> std::size_t {
     switch (curve) {
-        case EcCurve::P256: return P256_KEY_BITS;
-        case EcCurve::P384: return P384_KEY_BITS;
-        case EcCurve::P521: return P521_KEY_BITS;
+        case EcCurve::P256: return p256_key_bits;
+        case EcCurve::P384: return p384_key_bits;
+        case EcCurve::P521: return p521_key_bits;
     }
 }
 

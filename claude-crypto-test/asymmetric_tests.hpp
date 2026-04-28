@@ -88,7 +88,7 @@ TEST_F(AsymmetricTests, RsaOaepRoundTripWithLabel) {
 
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
 
-    constexpr std::array<CRYPTO_BYTE, 4> LABEL_BYTES = {0x01, 0x02, 0x03, 0x04};
+    constexpr std::array<CryptoByte, 4> LABEL_BYTES = {0x01, 0x02, 0x03, 0x04};
     auto make_label = [&]() {
         SecureBuffer buf(LABEL_BYTES.size());
         std::ranges::copy(LABEL_BYTES, buf.begin());
@@ -136,8 +136,8 @@ TEST_F(AsymmetricTests, RsaOaepDecryptWithWrongLabelFails) {
 
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
 
-    constexpr std::array<CRYPTO_BYTE, 4> LABEL_BYTES       = {0x0A, 0x0B, 0x0C, 0x0D};
-    constexpr std::array<CRYPTO_BYTE, 4> WRONG_LABEL_BYTES = {0x01, 0x02, 0x03, 0x04};
+    constexpr std::array<CryptoByte, 4> LABEL_BYTES       = {0x0A, 0x0B, 0x0C, 0x0D};
+    constexpr std::array<CryptoByte, 4> WRONG_LABEL_BYTES = {0x01, 0x02, 0x03, 0x04};
     auto make_label = [](const auto& bytes) {
         SecureBuffer buf(bytes.size());
         std::ranges::copy(bytes, buf.begin());
@@ -220,7 +220,7 @@ TEST_F(AsymmetricTests, RsaPssVerifyWithWrongKeyFails) {
 
 TEST_F(AsymmetricTests, RsaPssVerifyWithTamperedMessageFails) {
     constexpr std::size_t  MESSAGE_SIZE_BYTES = 64;
-    constexpr CRYPTO_BYTE TAMPER_BYTE        = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE        = 0xFF;
 
     const auto key_pair = generate_rsa_key<RsaKeyBits::Bits3072>();
     ASSERT_TRUE(key_pair.has_value());
@@ -239,7 +239,7 @@ TEST_F(AsymmetricTests, RsaPssVerifyWithTamperedMessageFails) {
 
 TEST_F(AsymmetricTests, RsaPssVerifyWithTamperedSignatureFails) {
     constexpr std::size_t  MESSAGE_SIZE_BYTES = 64;
-    constexpr CRYPTO_BYTE TAMPER_BYTE        = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE        = 0xFF;
 
     const auto key_pair = generate_rsa_key<RsaKeyBits::Bits3072>();
     ASSERT_TRUE(key_pair.has_value());

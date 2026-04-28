@@ -194,7 +194,7 @@ TEST_F(SigmaITests, InitiatorRejectsWrongResponderIdentity) {
 
 
 TEST_F(SigmaITests, InitiatorRejectsTamperedBundle) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto initiator = ecdsa_generate_key(EcCurve::P256);
     const auto responder = ecdsa_generate_key(EcCurve::P256);
@@ -268,7 +268,7 @@ TEST_F(SigmaITests, ResponderRejectsWrongInitiatorIdentity) {
 
 
 TEST_F(SigmaITests, ResponderRejectsTamperedBundle) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto initiator = ecdsa_generate_key(EcCurve::P256);
     const auto responder = ecdsa_generate_key(EcCurve::P256);

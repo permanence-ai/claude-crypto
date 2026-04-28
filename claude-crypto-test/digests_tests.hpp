@@ -27,7 +27,7 @@ TEST_F(DigestsTests, Sha256ProducesExpectedSize) {
     const auto digest = sha<ShaVariant::Sha256>(input);
 
     ASSERT_TRUE(digest.has_value());
-    EXPECT_EQ(digest->size(), SHA256_SIZE_BYTES);
+    EXPECT_EQ(digest->size(), sha256_size_bytes);
 }
 
 
@@ -38,7 +38,7 @@ TEST_F(DigestsTests, Sha384ProducesExpectedSize) {
     const auto digest = sha<ShaVariant::Sha384>(input);
 
     ASSERT_TRUE(digest.has_value());
-    EXPECT_EQ(digest->size(), SHA384_SIZE_BYTES);
+    EXPECT_EQ(digest->size(), sha384_size_bytes);
 }
 
 
@@ -49,7 +49,7 @@ TEST_F(DigestsTests, Sha512ProducesExpectedSize) {
     const auto digest = sha<ShaVariant::Sha512>(input);
 
     ASSERT_TRUE(digest.has_value());
-    EXPECT_EQ(digest->size(), SHA512_SIZE_BYTES);
+    EXPECT_EQ(digest->size(), sha512_size_bytes);
 }
 
 
@@ -60,7 +60,7 @@ TEST_F(DigestsTests, Sha3_256ProducesExpectedSize) {
     const auto digest = sha<ShaVariant::Sha3_256>(input);
 
     ASSERT_TRUE(digest.has_value());
-    EXPECT_EQ(digest->size(), SHA3_256_SIZE_BYTES);
+    EXPECT_EQ(digest->size(), sha3_256_size_bytes);
 }
 
 
@@ -71,7 +71,7 @@ TEST_F(DigestsTests, Sha3_384ProducesExpectedSize) {
     const auto digest = sha<ShaVariant::Sha3_384>(input);
 
     ASSERT_TRUE(digest.has_value());
-    EXPECT_EQ(digest->size(), SHA3_384_SIZE_BYTES);
+    EXPECT_EQ(digest->size(), sha3_384_size_bytes);
 }
 
 
@@ -82,7 +82,7 @@ TEST_F(DigestsTests, Sha3_512ProducesExpectedSize) {
     const auto digest = sha<ShaVariant::Sha3_512>(input);
 
     ASSERT_TRUE(digest.has_value());
-    EXPECT_EQ(digest->size(), SHA3_512_SIZE_BYTES);
+    EXPECT_EQ(digest->size(), sha3_512_size_bytes);
 }
 
 

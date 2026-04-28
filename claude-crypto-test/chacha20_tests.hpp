@@ -33,7 +33,7 @@ TEST_F(ChaCha20Tests, EncryptProducesExpectedSizes) {
     const auto result = chacha20_poly1305_encrypt(key, plaintext);
 
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->iv.size(), CHACHA20_POLY1305_IV_SIZE_BYTES);
+    EXPECT_EQ(result->iv.size(), chacha20_poly1305_iv_size_bytes);
     EXPECT_EQ(result->ciphertext.size(), plaintext.size() + POLY1305_TAG_SIZE_BYTES);
 }
 
@@ -98,7 +98,7 @@ TEST_F(ChaCha20Tests, DecryptWithWrongKeyFails) {
 
 TEST_F(ChaCha20Tests, DecryptWithTamperedCiphertextFails) {
     constexpr std::size_t PLAINTEXT_SIZE_BYTES = 96;
-    constexpr CRYPTO_BYTE TAMPER_BYTE          = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE          = 0xFF;
 
     const auto key       = make_random_fixed_secure_buffer<KEY_SIZE_BYTES>();
     const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);

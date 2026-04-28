@@ -22,8 +22,8 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 
 // Key sizes derived from the shared secret via HKDF-Expand.
-constexpr std::size_t SIGMA_MAC_KEY_SIZE_BYTES     = 48;   // HMAC-SHA-384 key
-constexpr std::size_t SIGMA_SESSION_KEY_SIZE_BYTES = 32;   // AES-256 / ChaCha20 key
+constexpr std::size_t sigma_mac_key_size_bytes     = 48;   // HMAC-SHA-384 key
+constexpr std::size_t sigma_session_key_size_bytes = 32;   // AES-256 / ChaCha20 key
 
 
 struct SigmaMsg1 {
@@ -34,13 +34,13 @@ struct SigmaMsg2 {
     SecureBuffer                              ephemeral_pub_r;
     SecureBuffer                              identity_pub_r;
     SecureBuffer                              signature_r;
-    FixedSecureBuffer<SIGMA_MAC_KEY_SIZE_BYTES> mac_r;
+    FixedSecureBuffer<sigma_mac_key_size_bytes> mac_r;
 };
 
 struct SigmaMsg3 {
     SecureBuffer                              identity_pub_i;
     SecureBuffer                              signature_i;
-    FixedSecureBuffer<SIGMA_MAC_KEY_SIZE_BYTES> mac_i;
+    FixedSecureBuffer<sigma_mac_key_size_bytes> mac_i;
 };
 
 struct SigmaSessionKeys {
@@ -92,8 +92,8 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     const SecureBuffer& shared_secret)
     -> std::expected<SigmaSessionKeys, CryptoError>
 {
-    constexpr std::size_t TOTAL_OUTPUT = SIGMA_MAC_KEY_SIZE_BYTES + SIGMA_SESSION_KEY_SIZE_BYTES;
-    constexpr std::array<CRYPTO_BYTE, 5> INFO = {'s','i','g','m','a'};
+    constexpr std::size_t TOTAL_OUTPUT = sigma_mac_key_size_bytes + sigma_session_key_size_bytes;
+    constexpr std::array<CryptoByte, 5> INFO = {'s','i','g','m','a'};
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -104,7 +104,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
     psa_set_key_bits(&attrs,
-        static_cast<psa_key_bits_t>(shared_secret.size() * BITS_PER_BYTE));
+        static_cast<psa_key_bits_t>(shared_secret.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
@@ -159,12 +159,12 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
 
     cleanup();
 
-    SecureBuffer mac_key(SIGMA_MAC_KEY_SIZE_BYTES);
-    SecureBuffer session_key(SIGMA_SESSION_KEY_SIZE_BYTES);
-    std::ranges::copy_n(output.begin(), static_cast<std::ptrdiff_t>(SIGMA_MAC_KEY_SIZE_BYTES),
+    SecureBuffer mac_key(sigma_mac_key_size_bytes);
+    SecureBuffer session_key(sigma_session_key_size_bytes);
+    std::ranges::copy_n(output.begin(), static_cast<std::ptrdiff_t>(sigma_mac_key_size_bytes),
                         mac_key.begin());
-    std::ranges::copy_n(output.begin() + static_cast<std::ptrdiff_t>(SIGMA_MAC_KEY_SIZE_BYTES),
-                        static_cast<std::ptrdiff_t>(SIGMA_SESSION_KEY_SIZE_BYTES),
+    std::ranges::copy_n(output.begin() + static_cast<std::ptrdiff_t>(sigma_mac_key_size_bytes),
+                        static_cast<std::ptrdiff_t>(sigma_session_key_size_bytes),
                         session_key.begin());
 
     return SigmaSessionKeys{

@@ -19,20 +19,20 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-constexpr std::size_t AES256_KEY_SIZE_BYTES           = 32;
-constexpr std::size_t AES_GCM_IV_SIZE_BYTES            = 12;
-constexpr std::size_t CHACHA20_KEY_SIZE_BYTES           = 32;
-constexpr std::size_t CHACHA20_POLY1305_IV_SIZE_BYTES   = 12;
+constexpr std::size_t aes256_key_size_bytes           = 32;
+constexpr std::size_t aes_gcm_iv_size_bytes            = 12;
+constexpr std::size_t chacha20_key_size_bytes           = 32;
+constexpr std::size_t chacha20_poly1305_iv_size_bytes   = 12;
 
 
 struct AesGcmResult {
-    FixedSecureBuffer<AES_GCM_IV_SIZE_BYTES> iv;
+    FixedSecureBuffer<aes_gcm_iv_size_bytes> iv;
     SecureBuffer                             ciphertext;
 };
 
 
 struct ChaCha20Poly1305Result {
-    FixedSecureBuffer<CHACHA20_POLY1305_IV_SIZE_BYTES> iv;
+    FixedSecureBuffer<chacha20_poly1305_iv_size_bytes> iv;
     SecureBuffer                                       ciphertext;
 };
 
@@ -40,12 +40,12 @@ struct ChaCha20Poly1305Result {
 template<typename PSA = RealPsaBackend, SecureBufferLike Plaintext>
 [[nodiscard]]
 auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<aes256_key_size_bytes>& key,
     const Plaintext& plaintext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {
-    constexpr std::size_t AES256_KEY_BITS = 256;
+    constexpr std::size_t aes256_key_bits = 256;
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -53,14 +53,14 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
             "PSA crypto init failed"));
     }
 
-    auto iv = random_bytes_fixed_impl<AES_GCM_IV_SIZE_BYTES, PSA>();
+    auto iv = random_bytes_fixed_impl<aes_gcm_iv_size_bytes, PSA>();
     if (!iv.has_value()) {
         return std::unexpected(iv.error());
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, AES256_KEY_BITS);
+    psa_set_key_bits(&attrs, aes256_key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
@@ -75,8 +75,8 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
     SecureBuffer ciphertext(output_size);
 
-    const CRYPTO_BYTE* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t   aad_size = aad.has_value() ? aad->size() : 0;
+    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
+    const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
 
     std::size_t ciphertext_length = 0;
     const psa_status_t status = PSA::aead_encrypt(
@@ -105,12 +105,12 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 template<typename PSA = RealPsaBackend>
 [[nodiscard]]
 auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<aes256_key_size_bytes>& key,
     const AesGcmResult& ciphertext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    constexpr std::size_t AES256_KEY_BITS = 256;
+    constexpr std::size_t aes256_key_bits = 256;
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -120,7 +120,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, AES256_KEY_BITS);
+    psa_set_key_bits(&attrs, aes256_key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
@@ -131,8 +131,8 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
             "Key import failed"));
     }
 
-    const CRYPTO_BYTE* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t   aad_size = aad.has_value() ? aad->size() : 0;
+    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
+    const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
 
     const std::size_t plaintext_size =
         PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, ciphertext.ciphertext.size());
@@ -162,12 +162,12 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 template<typename PSA = RealPsaBackend, SecureBufferLike Plaintext>
 [[nodiscard]]
 auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const FixedSecureBuffer<CHACHA20_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<chacha20_key_size_bytes>& key,
     const Plaintext& plaintext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<ChaCha20Poly1305Result, CryptoError>
 {
-    constexpr std::size_t CHACHA20_KEY_BITS = 256;
+    constexpr std::size_t chacha20_key_bits = 256;
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -175,14 +175,14 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
             "PSA crypto init failed"));
     }
 
-    auto iv = random_bytes_fixed_impl<CHACHA20_POLY1305_IV_SIZE_BYTES, PSA>();
+    auto iv = random_bytes_fixed_impl<chacha20_poly1305_iv_size_bytes, PSA>();
     if (!iv.has_value()) {
         return std::unexpected(iv.error());
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_CHACHA20);
-    psa_set_key_bits(&attrs, CHACHA20_KEY_BITS);
+    psa_set_key_bits(&attrs, chacha20_key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
 
@@ -199,8 +199,8 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
                                      plaintext.size());
     SecureBuffer ciphertext(output_size);
 
-    const CRYPTO_BYTE* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
+    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
+    const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
 
     std::size_t ciphertext_length = 0;
     const psa_status_t status = PSA::aead_encrypt(
@@ -230,12 +230,12 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
 template<typename PSA = RealPsaBackend>
 [[nodiscard]]
 auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const FixedSecureBuffer<CHACHA20_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<chacha20_key_size_bytes>& key,
     const ChaCha20Poly1305Result& ciphertext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    constexpr std::size_t CHACHA20_KEY_BITS = 256;
+    constexpr std::size_t chacha20_key_bits = 256;
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -245,7 +245,7 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_CHACHA20);
-    psa_set_key_bits(&attrs, CHACHA20_KEY_BITS);
+    psa_set_key_bits(&attrs, chacha20_key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
 
@@ -256,8 +256,8 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
             "ChaCha20-Poly1305 key import failed"));
     }
 
-    const CRYPTO_BYTE* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
+    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
+    const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
 
     const std::size_t plaintext_size =
         PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_CHACHA20,
@@ -290,7 +290,7 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
 template<SecureBufferLike Plaintext>
 [[nodiscard]]
 auto aes256_gcm_encrypt(
-    const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<aes256_key_size_bytes>& key,
     const Plaintext& plaintext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
@@ -300,7 +300,7 @@ auto aes256_gcm_encrypt(
 
 [[nodiscard]]
 inline auto aes256_gcm_decrypt(
-    const FixedSecureBuffer<AES256_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<aes256_key_size_bytes>& key,
     const AesGcmResult& ciphertext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
@@ -311,7 +311,7 @@ inline auto aes256_gcm_decrypt(
 template<SecureBufferLike Plaintext>
 [[nodiscard]]
 auto chacha20_poly1305_encrypt(
-    const FixedSecureBuffer<CHACHA20_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<chacha20_key_size_bytes>& key,
     const Plaintext& plaintext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<ChaCha20Poly1305Result, CryptoError>
@@ -321,7 +321,7 @@ auto chacha20_poly1305_encrypt(
 
 [[nodiscard]]
 inline auto chacha20_poly1305_decrypt(
-    const FixedSecureBuffer<CHACHA20_KEY_SIZE_BYTES>& key,
+    const FixedSecureBuffer<chacha20_key_size_bytes>& key,
     const ChaCha20Poly1305Result& ciphertext,
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>

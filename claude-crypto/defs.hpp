@@ -9,6 +9,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstdint>
 
 
-using CRYPTO_BYTE = std::uint8_t;
+using CryptoByte = std::uint8_t;
 
-constexpr std::size_t BITS_PER_BYTE = 8;
+constexpr std::size_t bits_per_byte = 8;

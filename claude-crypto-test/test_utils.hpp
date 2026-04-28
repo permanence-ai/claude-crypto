@@ -25,7 +25,7 @@ inline auto make_random_secure_buffer(const std::size_t size) -> SecureBuffer {
     std::uniform_int_distribution<unsigned int> dist(0, MAX_BYTE);
 
     for (auto& byte : std::span(buf.data(), buf.size())) {
-        byte = static_cast<CRYPTO_BYTE>(dist(rng));
+        byte = static_cast<CryptoByte>(dist(rng));
     }
 
     return buf;
@@ -45,7 +45,7 @@ auto make_random_fixed_secure_buffer() -> FixedSecureBuffer<N> {
     std::uniform_int_distribution<unsigned int> dist(0, MAX_BYTE);
 
     for (auto& byte : std::span(buf.data(), buf.size())) {
-        byte = static_cast<CRYPTO_BYTE>(dist(rng));
+        byte = static_cast<CryptoByte>(dist(rng));
     }
 
     return buf;

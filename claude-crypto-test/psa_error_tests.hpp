@@ -159,7 +159,7 @@ TEST_F(PsaErrorTests, HmacVerifyInitFailed) {
 
     const auto key = make_random_secure_buffer(48);
     const auto msg = make_random_secure_buffer(32);
-    const FixedSecureBuffer<SHA384_SIZE_BYTES> mac{};
+    const FixedSecureBuffer<sha384_size_bytes> mac{};
     const auto result = hmac_verify_impl<ShaVariant::Sha384, MockPsaBackend>(key, msg, mac);
 
     ASSERT_FALSE(result.has_value());
@@ -172,7 +172,7 @@ TEST_F(PsaErrorTests, HmacVerifyKeyImportFailed) {
 
     const auto key = make_random_secure_buffer(48);
     const auto msg = make_random_secure_buffer(32);
-    const FixedSecureBuffer<SHA384_SIZE_BYTES> mac{};
+    const FixedSecureBuffer<sha384_size_bytes> mac{};
     const auto result = hmac_verify_impl<ShaVariant::Sha384, MockPsaBackend>(key, msg, mac);
 
     ASSERT_FALSE(result.has_value());
@@ -188,7 +188,7 @@ TEST_F(PsaErrorTests, HmacVerifyMacVerifyFailed) {
 
     const auto key = make_random_secure_buffer(48);
     const auto msg = make_random_secure_buffer(32);
-    const FixedSecureBuffer<SHA384_SIZE_BYTES> mac{};
+    const FixedSecureBuffer<sha384_size_bytes> mac{};
     const auto result = hmac_verify_impl<ShaVariant::Sha384, MockPsaBackend>(key, msg, mac);
 
     ASSERT_FALSE(result.has_value());
@@ -201,7 +201,7 @@ TEST_F(PsaErrorTests, HmacVerifyMacVerifyFailed) {
 TEST_F(PsaErrorTests, AesGcmEncryptInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<AES256_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<aes256_key_size_bytes>();
     const auto pt  = make_random_secure_buffer(32);
     const auto result = aes256_gcm_encrypt_impl<MockPsaBackend>(key, pt);
 
@@ -216,7 +216,7 @@ TEST_F(PsaErrorTests, AesGcmEncryptRandomIvFailed) {
         .WillOnce(Return(PSA_SUCCESS));  // random_bytes_fixed_impl
     EXPECT_CALL(*mock_, generate_random(_, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<AES256_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<aes256_key_size_bytes>();
     const auto pt  = make_random_secure_buffer(32);
     const auto result = aes256_gcm_encrypt_impl<MockPsaBackend>(key, pt);
 
@@ -231,7 +231,7 @@ TEST_F(PsaErrorTests, AesGcmEncryptKeyImportFailed) {
     EXPECT_CALL(*mock_, generate_random(_, _)).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<AES256_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<aes256_key_size_bytes>();
     const auto pt  = make_random_secure_buffer(32);
     const auto result = aes256_gcm_encrypt_impl<MockPsaBackend>(key, pt);
 
@@ -250,7 +250,7 @@ TEST_F(PsaErrorTests, AesGcmEncryptAeadEncryptFailed) {
         .WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto key = make_random_fixed_secure_buffer<AES256_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<aes256_key_size_bytes>();
     const auto pt  = make_random_secure_buffer(32);
     const auto result = aes256_gcm_encrypt_impl<MockPsaBackend>(key, pt);
 
@@ -261,7 +261,7 @@ TEST_F(PsaErrorTests, AesGcmEncryptAeadEncryptFailed) {
 TEST_F(PsaErrorTests, AesGcmDecryptInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<AES256_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<aes256_key_size_bytes>();
     const AesGcmResult ct{ .iv = {}, .ciphertext = make_random_secure_buffer(48) };
     const auto result = aes256_gcm_decrypt_impl<MockPsaBackend>(key, ct);
 
@@ -273,7 +273,7 @@ TEST_F(PsaErrorTests, AesGcmDecryptKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<AES256_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<aes256_key_size_bytes>();
     const AesGcmResult ct{ .iv = {}, .ciphertext = make_random_secure_buffer(48) };
     const auto result = aes256_gcm_decrypt_impl<MockPsaBackend>(key, ct);
 
@@ -289,7 +289,7 @@ TEST_F(PsaErrorTests, AesGcmDecryptAeadDecryptFailed) {
         .WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto key = make_random_fixed_secure_buffer<AES256_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<aes256_key_size_bytes>();
     const AesGcmResult ct{ .iv = {}, .ciphertext = make_random_secure_buffer(48) };
     const auto result = aes256_gcm_decrypt_impl<MockPsaBackend>(key, ct);
 
@@ -300,7 +300,7 @@ TEST_F(PsaErrorTests, AesGcmDecryptAeadDecryptFailed) {
 TEST_F(PsaErrorTests, ChaCha20EncryptInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<CHACHA20_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<chacha20_key_size_bytes>();
     const auto pt  = make_random_secure_buffer(32);
     const auto result = chacha20_poly1305_encrypt_impl<MockPsaBackend>(key, pt);
 
@@ -315,7 +315,7 @@ TEST_F(PsaErrorTests, ChaCha20EncryptKeyImportFailed) {
     EXPECT_CALL(*mock_, generate_random(_, _)).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<CHACHA20_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<chacha20_key_size_bytes>();
     const auto pt  = make_random_secure_buffer(32);
     const auto result = chacha20_poly1305_encrypt_impl<MockPsaBackend>(key, pt);
 
@@ -334,7 +334,7 @@ TEST_F(PsaErrorTests, ChaCha20EncryptAeadEncryptFailed) {
         .WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto key = make_random_fixed_secure_buffer<CHACHA20_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<chacha20_key_size_bytes>();
     const auto pt  = make_random_secure_buffer(32);
     const auto result = chacha20_poly1305_encrypt_impl<MockPsaBackend>(key, pt);
 
@@ -345,7 +345,7 @@ TEST_F(PsaErrorTests, ChaCha20EncryptAeadEncryptFailed) {
 TEST_F(PsaErrorTests, ChaCha20DecryptInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<CHACHA20_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<chacha20_key_size_bytes>();
     const ChaCha20Poly1305Result ct{ .iv = {}, .ciphertext = make_random_secure_buffer(48) };
     const auto result = chacha20_poly1305_decrypt_impl<MockPsaBackend>(key, ct);
 
@@ -357,7 +357,7 @@ TEST_F(PsaErrorTests, ChaCha20DecryptKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const auto key = make_random_fixed_secure_buffer<CHACHA20_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<chacha20_key_size_bytes>();
     const ChaCha20Poly1305Result ct{ .iv = {}, .ciphertext = make_random_secure_buffer(48) };
     const auto result = chacha20_poly1305_decrypt_impl<MockPsaBackend>(key, ct);
 
@@ -373,7 +373,7 @@ TEST_F(PsaErrorTests, ChaCha20DecryptAeadDecryptFailed) {
         .WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto key = make_random_fixed_secure_buffer<CHACHA20_KEY_SIZE_BYTES>();
+    const auto key = make_random_fixed_secure_buffer<chacha20_key_size_bytes>();
     const ChaCha20Poly1305Result ct{ .iv = {}, .ciphertext = make_random_secure_buffer(48) };
     const auto result = chacha20_poly1305_decrypt_impl<MockPsaBackend>(key, ct);
 

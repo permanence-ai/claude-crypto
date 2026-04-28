@@ -27,13 +27,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 
 // Each party's identity bundle is AES-256-GCM encrypted in SIGMA-I.
-constexpr std::size_t SIGMA_I_ENC_KEY_SIZE_BYTES = 32;
+constexpr std::size_t sigma_i_enc_key_size_bytes = 32;
 
 
 // Encrypted identity bundle carried in Msg2 and Msg3.
 // Plaintext is: [uint16_be: id_pub_len][id_pub][uint16_be: sig_len][sig][48-byte mac]
 struct SigmaIBundle {
-    FixedSecureBuffer<AES_GCM_IV_SIZE_BYTES> iv;
+    FixedSecureBuffer<aes_gcm_iv_size_bytes> iv;
     SecureBuffer                             ciphertext;
 };
 
@@ -82,12 +82,12 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     -> std::expected<SigmaIKeys, CryptoError>
 {
     constexpr std::size_t TOTAL_OUTPUT =
-        SIGMA_MAC_KEY_SIZE_BYTES +
-        SIGMA_SESSION_KEY_SIZE_BYTES +
-        SIGMA_I_ENC_KEY_SIZE_BYTES +
-        SIGMA_I_ENC_KEY_SIZE_BYTES;
+        sigma_mac_key_size_bytes +
+        sigma_session_key_size_bytes +
+        sigma_i_enc_key_size_bytes +
+        sigma_i_enc_key_size_bytes;
 
-    constexpr std::array<CRYPTO_BYTE, 7> INFO = {'s','i','g','m','a','-','i'};
+    constexpr std::array<CryptoByte, 7> INFO = {'s','i','g','m','a','-','i'};
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -98,7 +98,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_DERIVE);
     psa_set_key_bits(&attrs,
-        static_cast<psa_key_bits_t>(shared_secret.size() * BITS_PER_BYTE));
+        static_cast<psa_key_bits_t>(shared_secret.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
@@ -162,15 +162,15 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
         return s;
     };
 
-    constexpr std::size_t OFF_SESSION = SIGMA_MAC_KEY_SIZE_BYTES;
-    constexpr std::size_t OFF_ENC_R   = OFF_SESSION + SIGMA_SESSION_KEY_SIZE_BYTES;
-    constexpr std::size_t OFF_ENC_I   = OFF_ENC_R   + SIGMA_I_ENC_KEY_SIZE_BYTES;
+    constexpr std::size_t OFF_SESSION = sigma_mac_key_size_bytes;
+    constexpr std::size_t OFF_ENC_R   = OFF_SESSION + sigma_session_key_size_bytes;
+    constexpr std::size_t OFF_ENC_I   = OFF_ENC_R   + sigma_i_enc_key_size_bytes;
 
     return SigmaIKeys{
-        .mac_key      = slice(0,          SIGMA_MAC_KEY_SIZE_BYTES),
-        .session_key  = slice(OFF_SESSION, SIGMA_SESSION_KEY_SIZE_BYTES),
-        .enc_key_r    = slice(OFF_ENC_R,   SIGMA_I_ENC_KEY_SIZE_BYTES),
-        .enc_key_i    = slice(OFF_ENC_I,   SIGMA_I_ENC_KEY_SIZE_BYTES),
+        .mac_key      = slice(0,          sigma_mac_key_size_bytes),
+        .session_key  = slice(OFF_SESSION, sigma_session_key_size_bytes),
+        .enc_key_r    = slice(OFF_ENC_R,   sigma_i_enc_key_size_bytes),
+        .enc_key_i    = slice(OFF_ENC_I,   sigma_i_enc_key_size_bytes),
     };
 }
 
@@ -188,32 +188,32 @@ inline auto sigma_i_derive_keys(const SecureBuffer& shared_secret)
 inline auto sigma_i_serialize_bundle(
     const SecureBuffer&                          identity_pub,
     const SecureBuffer&                          signature,
-    const FixedSecureBuffer<SIGMA_MAC_KEY_SIZE_BYTES>& mac)
+    const FixedSecureBuffer<sigma_mac_key_size_bytes>& mac)
     -> SecureBuffer
 {
     const std::size_t total =
         2 + identity_pub.size() +
         2 + signature.size() +
-        SIGMA_MAC_KEY_SIZE_BYTES;
+        sigma_mac_key_size_bytes;
 
-    constexpr std::size_t  BYTE_SHIFT = 8U;
-    constexpr CRYPTO_BYTE  BYTE_MASK  = 0xFFU;
+    constexpr std::size_t  byte_shift = 8U;
+    constexpr CryptoByte  byte_mask  = 0xFFU;
 
     SecureBuffer out(total);
     std::size_t  off = 0;
 
     const auto pub_len = static_cast<uint16_t>(identity_pub.size());
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-    out[off++] = static_cast<CRYPTO_BYTE>(pub_len >> BYTE_SHIFT);
-    out[off++] = static_cast<CRYPTO_BYTE>(pub_len & BYTE_MASK);
+    out[off++] = static_cast<CryptoByte>(pub_len >> byte_shift);
+    out[off++] = static_cast<CryptoByte>(pub_len & byte_mask);
     // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     std::ranges::copy(identity_pub, out.begin() + static_cast<std::ptrdiff_t>(off));
     off += identity_pub.size();
 
     const auto sig_len = static_cast<uint16_t>(signature.size());
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-    out[off++] = static_cast<CRYPTO_BYTE>(sig_len >> BYTE_SHIFT);
-    out[off++] = static_cast<CRYPTO_BYTE>(sig_len & BYTE_MASK);
+    out[off++] = static_cast<CryptoByte>(sig_len >> byte_shift);
+    out[off++] = static_cast<CryptoByte>(sig_len & byte_mask);
     // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     std::ranges::copy(signature, out.begin() + static_cast<std::ptrdiff_t>(off));
     off += signature.size();
@@ -227,7 +227,7 @@ inline auto sigma_i_serialize_bundle(
 struct SigmaIBundlePlaintext {
     SecureBuffer                              identity_pub;
     SecureBuffer                              signature;
-    FixedSecureBuffer<SIGMA_MAC_KEY_SIZE_BYTES> mac;
+    FixedSecureBuffer<sigma_mac_key_size_bytes> mac;
 };
 
 
@@ -237,8 +237,8 @@ struct SigmaIBundlePlaintext {
 inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
     -> std::expected<SigmaIBundlePlaintext, CryptoError>
 {
-    constexpr std::size_t MIN_SIZE = 2 + 1 + 2 + 1 + SIGMA_MAC_KEY_SIZE_BYTES;
-    if (plaintext.size() < MIN_SIZE) {
+    constexpr std::size_t min_size = 2 + 1 + 2 + 1 + sigma_mac_key_size_bytes;
+    if (plaintext.size() < min_size) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::SigmaAuthFailed,
             "SIGMA-I bundle too short"));
@@ -246,15 +246,15 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
 
     std::size_t off = 0;
 
-    constexpr std::size_t BYTE_SHIFT = 8U;
+    constexpr std::size_t byte_shift = 8U;
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     const std::size_t pub_len =
-        (static_cast<std::size_t>(plaintext[off]) << BYTE_SHIFT) |
+        (static_cast<std::size_t>(plaintext[off]) << byte_shift) |
          static_cast<std::size_t>(plaintext[off + 1]);
     // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     off += 2;
 
-    if (off + pub_len + 2 + SIGMA_MAC_KEY_SIZE_BYTES > plaintext.size()) {
+    if (off + pub_len + 2 + sigma_mac_key_size_bytes > plaintext.size()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::SigmaAuthFailed,
             "SIGMA-I bundle identity_pub length invalid"));
@@ -269,12 +269,12 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
 
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     const std::size_t sig_len =
-        (static_cast<std::size_t>(plaintext[off]) << BYTE_SHIFT) |
+        (static_cast<std::size_t>(plaintext[off]) << byte_shift) |
          static_cast<std::size_t>(plaintext[off + 1]);
     // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     off += 2;
 
-    if (off + sig_len + SIGMA_MAC_KEY_SIZE_BYTES != plaintext.size()) {
+    if (off + sig_len + sigma_mac_key_size_bytes != plaintext.size()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::SigmaAuthFailed,
             "SIGMA-I bundle signature length invalid"));
@@ -287,10 +287,10 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
         signature.begin());
     off += sig_len;
 
-    FixedSecureBuffer<SIGMA_MAC_KEY_SIZE_BYTES> mac;
+    FixedSecureBuffer<sigma_mac_key_size_bytes> mac;
     std::ranges::copy_n(
         plaintext.begin() + static_cast<std::ptrdiff_t>(off),
-        static_cast<std::ptrdiff_t>(SIGMA_MAC_KEY_SIZE_BYTES),
+        static_cast<std::ptrdiff_t>(sigma_mac_key_size_bytes),
         mac.begin());
 
     return SigmaIBundlePlaintext{
@@ -310,7 +310,7 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
     const SecureBuffer& plaintext)
     -> std::expected<SigmaIBundle, CryptoError>
 {
-    constexpr std::size_t AES256_KEY_BITS = 256;
+    constexpr std::size_t aes256_key_bits = 256;
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -318,14 +318,14 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
             "PSA crypto init failed"));
     }
 
-    auto iv = random_bytes_fixed_impl<AES_GCM_IV_SIZE_BYTES, PSA>();
+    auto iv = random_bytes_fixed_impl<aes_gcm_iv_size_bytes, PSA>();
     if (!iv.has_value()) {
         return std::unexpected(iv.error());
     }
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, AES256_KEY_BITS);
+    psa_set_key_bits(&attrs, aes256_key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
@@ -381,7 +381,7 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
     const SigmaIBundle& bundle)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    constexpr std::size_t AES256_KEY_BITS = 256;
+    constexpr std::size_t aes256_key_bits = 256;
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -391,7 +391,7 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, AES256_KEY_BITS);
+    psa_set_key_bits(&attrs, aes256_key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 

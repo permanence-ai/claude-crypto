@@ -107,7 +107,7 @@ TEST_F(EccTests, EcdsaVerifyWithWrongKeyFails) {
 
 
 TEST_F(EccTests, EcdsaVerifyWithTamperedMessageFails) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto key_pair = ecdsa_generate_key(EcCurve::P256);
     ASSERT_TRUE(key_pair.has_value());
@@ -125,7 +125,7 @@ TEST_F(EccTests, EcdsaVerifyWithTamperedMessageFails) {
 
 
 TEST_F(EccTests, EcdsaVerifyWithTamperedSignatureFails) {
-    constexpr CRYPTO_BYTE TAMPER_BYTE = 0xFF;
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
     const auto key_pair = ecdsa_generate_key(EcCurve::P256);
     ASSERT_TRUE(key_pair.has_value());

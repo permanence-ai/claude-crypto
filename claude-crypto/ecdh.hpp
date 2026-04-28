@@ -19,9 +19,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-constexpr std::size_t ECDH_P256_SHARED_SECRET_BYTES = 32;
-constexpr std::size_t ECDH_P384_SHARED_SECRET_BYTES = 48;
-constexpr std::size_t ECDH_P521_SHARED_SECRET_BYTES = 66;
+constexpr std::size_t ecdh_p256_shared_secret_bytes = 32;
+constexpr std::size_t ecdh_p384_shared_secret_bytes = 48;
+constexpr std::size_t ecdh_p521_shared_secret_bytes = 66;
 
 
 template<typename PSA = RealPsaBackend>
