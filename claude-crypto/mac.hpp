@@ -25,7 +25,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     const Message& message)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(sha_psa_alg(V));
+    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -76,7 +76,7 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<sha_output_size(V)>& mac)
     -> std::expected<bool, CryptoError>
 {
-    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(sha_psa_alg(V));
+    constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(

@@ -19,9 +19,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-constexpr psa_key_bits_t ECDH_P256_SHARED_SECRET_BYTES = 32;
-constexpr psa_key_bits_t ECDH_P384_SHARED_SECRET_BYTES = 48;
-constexpr psa_key_bits_t ECDH_P521_SHARED_SECRET_BYTES = 66;
+constexpr std::size_t ECDH_P256_SHARED_SECRET_BYTES = 32;
+constexpr std::size_t ECDH_P384_SHARED_SECRET_BYTES = 48;
+constexpr std::size_t ECDH_P521_SHARED_SECRET_BYTES = 66;
 
 
 template<typename PSA = RealPsaBackend>
@@ -37,7 +37,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     }
 
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const psa_key_bits_t   key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
@@ -108,7 +108,7 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     }
 
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const psa_key_bits_t   key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));

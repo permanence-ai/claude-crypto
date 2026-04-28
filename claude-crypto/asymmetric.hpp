@@ -19,7 +19,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-enum class RsaKeyBits : psa_key_bits_t {
+enum class RsaKeyBits : std::uint16_t {
     Bits3072 = 3072,
     Bits4096 = 4096,
 };
@@ -46,7 +46,7 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
@@ -109,7 +109,7 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -171,7 +171,7 @@ auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -231,7 +231,7 @@ auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);

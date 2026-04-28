@@ -41,6 +41,7 @@ consteval std::size_t sha_output_size(const ShaVariant v) {
     return SHA3_512_SIZE_BYTES;
 }
 
+namespace detail {
 consteval psa_algorithm_t sha_psa_alg(const ShaVariant v) {
     if (v == ShaVariant::Sha256)   { return PSA_ALG_SHA_256;   }
     if (v == ShaVariant::Sha384)   { return PSA_ALG_SHA_384;   }
@@ -49,6 +50,7 @@ consteval psa_algorithm_t sha_psa_alg(const ShaVariant v) {
     if (v == ShaVariant::Sha3_384) { return PSA_ALG_SHA3_384;  }
     return PSA_ALG_SHA3_512;
 }
+}  // namespace detail
 
 
 template<ShaVariant V, typename PSA = RealPsaBackend, SecureBufferLike Input>
@@ -66,7 +68,7 @@ auto sha_impl(const Input& input)
     std::size_t digest_length = 0;
 
     const psa_status_t status = PSA::hash_compute(
-        sha_psa_alg(V),
+        detail::sha_psa_alg(V),
         input.data(), input.size(),
         digest.data(), digest.size(),
         &digest_length);

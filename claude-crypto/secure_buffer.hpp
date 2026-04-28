@@ -5,8 +5,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #pragma once
 
-#include <mbedtls/platform_util.h>
-
 #include <array>
 #include <concepts>
 #include <cstddef>
@@ -22,6 +20,14 @@ concept SecureBufferLike = requires(const T& t) {
 };
 
 
+namespace detail {
+inline void secure_zero(CRYPTO_BYTE* ptr, const std::size_t size) noexcept {
+    volatile auto* p = static_cast<volatile CRYPTO_BYTE*>(ptr);
+    for (std::size_t i = 0; i < size; ++i) { p[i] = CRYPTO_BYTE{0}; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}
+}  // namespace detail
+
+
 // Dynamic (heap-allocated) secure buffer — zeroised on destruction.
 class SecureBuffer {
 public:
@@ -34,7 +40,7 @@ public:
     SecureBuffer& operator=(SecureBuffer&&) = default;
 
     ~SecureBuffer() {
-        mbedtls_platform_zeroize(data_.data(), data_.size());
+        detail::secure_zero(data_.data(), data_.size());
     }
 
     [[nodiscard]]
@@ -60,7 +66,7 @@ public:
     auto resize(const std::size_t new_size) -> void {
         if (new_size < data_.size()) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            mbedtls_platform_zeroize(data_.data() + new_size, data_.size() - new_size);
+            detail::secure_zero(data_.data() + new_size, data_.size() - new_size);
         }
         data_.resize(new_size);
     }
@@ -114,7 +120,7 @@ public:
     FixedSecureBuffer& operator=(FixedSecureBuffer&&) = default;
 
     ~FixedSecureBuffer() {
-        mbedtls_platform_zeroize(data_.data(), data_.size());
+        detail::secure_zero(data_.data(), N);
     }
 
     [[nodiscard]]

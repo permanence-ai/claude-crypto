@@ -234,7 +234,7 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
             "PSA crypto init failed"));
     }
 
-    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(KB);
+    constexpr auto key_bits_val = static_cast<psa_key_bits_t>(static_cast<std::uint16_t>(KB));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);

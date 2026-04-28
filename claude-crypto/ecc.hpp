@@ -24,12 +24,12 @@ enum class EcCurve : std::uint8_t {
     P521,
 };
 
-constexpr psa_key_bits_t P256_KEY_BITS = 256;
-constexpr psa_key_bits_t P384_KEY_BITS = 384;
-constexpr psa_key_bits_t P521_KEY_BITS = 521;
+constexpr std::size_t P256_KEY_BITS = 256;
+constexpr std::size_t P384_KEY_BITS = 384;
+constexpr std::size_t P521_KEY_BITS = 521;
 
 [[nodiscard]]
-constexpr auto ec_curve_key_bits(const EcCurve curve) -> psa_key_bits_t {
+constexpr auto ec_curve_key_bits(const EcCurve curve) -> std::size_t {
     switch (curve) {
         case EcCurve::P256: return P256_KEY_BITS;
         case EcCurve::P384: return P384_KEY_BITS;
@@ -56,7 +56,7 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
     }
 
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const psa_key_bits_t   key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
@@ -129,7 +129,7 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
 
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const psa_key_bits_t   key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
@@ -191,7 +191,7 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
 
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
-    const psa_key_bits_t   key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_PUBLIC_KEY(family));
