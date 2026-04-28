@@ -14,7 +14,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto random_bytes_impl(const std::size_t length)
     SAFE_CRYPTO_PRE(length > 0)
@@ -38,7 +38,7 @@ auto random_bytes_impl(const std::size_t length)
 }
 
 
-template<std::size_t N, CryptoProvider Provider = RealPsaBackend>
+template<std::size_t N, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto random_bytes_fixed_impl() -> std::expected<FixedSecureBuffer<N>, CryptoError>
 {

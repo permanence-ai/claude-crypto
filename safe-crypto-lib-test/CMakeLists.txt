@@ -30,6 +30,7 @@ target_compile_options(${EXE_NAME} PRIVATE
 
 target_link_libraries(${EXE_NAME} PRIVATE
         safe_crypto_lib
+        safe_crypto_lib_psa_mbedtls  # MockPsaBackend always needs PSA headers + mbedtls
         gmock
         gtest
 )

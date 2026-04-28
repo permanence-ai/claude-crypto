@@ -20,7 +20,7 @@ constexpr std::size_t ecdh_p384_shared_secret_bytes = 48;
 constexpr std::size_t ecdh_p521_shared_secret_bytes = 66;
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const EcCurve curve)
@@ -77,7 +77,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend, SecureBufferLike PeerPublicKey>
+template<CryptoProvider Provider = DefaultProvider, SecureBufferLike PeerPublicKey>
 [[nodiscard]]
 auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-complexity)
     const EccKeyPair& our_key_pair,
@@ -142,6 +142,6 @@ auto ecdh_compute_shared_secret(
     const PeerPublicKey& peer_public_key_der)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return ecdh_compute_shared_secret_impl<RealPsaBackend>(
+    return ecdh_compute_shared_secret_impl<DefaultProvider>(
         our_key_pair, curve, peer_public_key_der);
 }

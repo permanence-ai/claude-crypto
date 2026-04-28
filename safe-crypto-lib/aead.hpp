@@ -32,7 +32,7 @@ struct ChaCha20Poly1305Result {
 };
 
 
-template<CryptoProvider Provider = RealPsaBackend, SecureBufferLike Plaintext>
+template<CryptoProvider Provider = DefaultProvider, SecureBufferLike Plaintext>
 [[nodiscard]]
 auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<aes256_key_size_bytes>& key,
@@ -88,7 +88,7 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<aes256_key_size_bytes>& key,
@@ -136,7 +136,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend, SecureBufferLike Plaintext>
+template<CryptoProvider Provider = DefaultProvider, SecureBufferLike Plaintext>
 [[nodiscard]]
 auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<chacha20_key_size_bytes>& key,
@@ -193,7 +193,7 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<chacha20_key_size_bytes>& key,
@@ -250,7 +250,7 @@ auto aes256_gcm_encrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {
-    return aes256_gcm_encrypt_impl<RealPsaBackend>(key, plaintext, aad);
+    return aes256_gcm_encrypt_impl<DefaultProvider>(key, plaintext, aad);
 }
 
 [[nodiscard]]
@@ -260,7 +260,7 @@ inline auto aes256_gcm_decrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return aes256_gcm_decrypt_impl<RealPsaBackend>(key, ciphertext, aad);
+    return aes256_gcm_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
 }
 
 template<SecureBufferLike Plaintext>
@@ -271,7 +271,7 @@ auto chacha20_poly1305_encrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<ChaCha20Poly1305Result, CryptoError>
 {
-    return chacha20_poly1305_encrypt_impl<RealPsaBackend>(key, plaintext, aad);
+    return chacha20_poly1305_encrypt_impl<DefaultProvider>(key, plaintext, aad);
 }
 
 [[nodiscard]]
@@ -281,5 +281,5 @@ inline auto chacha20_poly1305_decrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return chacha20_poly1305_decrypt_impl<RealPsaBackend>(key, ciphertext, aad);
+    return chacha20_poly1305_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
 }

@@ -15,7 +15,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-template<ShaVariant V, CryptoProvider Provider = RealPsaBackend,
+template<ShaVariant V, CryptoProvider Provider = DefaultProvider,
          SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
 auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
@@ -58,7 +58,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<ShaVariant V, CryptoProvider Provider = RealPsaBackend,
+template<ShaVariant V, CryptoProvider Provider = DefaultProvider,
          SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
 auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
@@ -106,7 +106,7 @@ template<ShaVariant V, SecureBufferLike Key, SecureBufferLike Message>
 auto hmac_generate(const Key& key, const Message& message)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    return hmac_generate_impl<V, RealPsaBackend>(key, message);
+    return hmac_generate_impl<V, DefaultProvider>(key, message);
 }
 
 
@@ -118,5 +118,5 @@ auto hmac_verify(
     const FixedSecureBuffer<sha_output_size(V)>& mac)
     -> std::expected<bool, CryptoError>
 {
-    return hmac_verify_impl<V, RealPsaBackend>(key, message, mac);
+    return hmac_verify_impl<V, DefaultProvider>(key, message, mac);
 }

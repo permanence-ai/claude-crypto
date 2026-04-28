@@ -4,9 +4,10 @@ project(safe_crypto_lib)
 set(CMAKE_CXX_STANDARD 26)
 
 set(SAFE_CRYPTO_ACTIVE_PROVIDER "PSA_MBEDTLS" CACHE STRING
-    "Crypto backend provider. One of: PSA_MBEDTLS, IA_ASM")
+    "Crypto backend provider. One of: PSA_MBEDTLS, ARM_ASM, IA_ASM")
 set_property(CACHE SAFE_CRYPTO_ACTIVE_PROVIDER PROPERTY STRINGS
     "PSA_MBEDTLS"
+    "ARM_ASM"
     "IA_ASM")
 
 include(FetchContent)

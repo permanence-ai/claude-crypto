@@ -84,7 +84,7 @@ inline auto concat_buffers(const SecureBuffer& a, const SecureBuffer& b) -> Secu
 // HKDF rather than HKDF-Expand alone allows shared secrets shorter than the
 // hash output size (e.g. the 32-byte P-256 x-coordinate) to be safely used as
 // input keying material.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& shared_secret)
@@ -171,7 +171,7 @@ inline auto sigma_derive_keys(const SecureBuffer& shared_secret)
 
 
 // Step 1 (Initiator): generate ephemeral key pair, produce Msg1.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_initiator_begin_impl(const EcCurve curve)
     -> std::expected<SigmaInitiatorInitResult, CryptoError>
@@ -205,7 +205,7 @@ inline auto sigma_initiator_begin(const EcCurve curve)
 
 
 // Step 2 (Responder): receive Msg1, run ECDH, sign, MAC, produce Msg2 + session keys.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_responder_respond_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg1&  msg1,
@@ -275,7 +275,7 @@ inline auto sigma_responder_respond(
 
 
 // Step 3 (Initiator): verify Msg2, sign, MAC, produce Msg3 + session keys.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     SigmaInitiatorState        state,
@@ -375,7 +375,7 @@ inline auto sigma_initiator_finish(
 
 
 // Step 4 (Responder): verify Msg3. Returns false on auth failure, error on fault.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_responder_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg3&         msg3,

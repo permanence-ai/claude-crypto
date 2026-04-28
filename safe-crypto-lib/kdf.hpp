@@ -18,7 +18,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const std::size_t output_length,
@@ -118,7 +118,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const std::size_t output_length,
@@ -206,7 +206,7 @@ inline auto expand_key(
 }
 
 
-template<RsaKeyBits KB, CryptoProvider Provider = RealPsaBackend>
+template<RsaKeyBits KB, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     )

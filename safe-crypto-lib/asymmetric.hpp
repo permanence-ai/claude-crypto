@@ -33,7 +33,7 @@ struct RsaKeyPair {
 };
 
 
-template<RsaKeyBits KB, CryptoProvider Provider = RealPsaBackend, SecureBufferLike Plaintext>
+template<RsaKeyBits KB, CryptoProvider Provider = DefaultProvider, SecureBufferLike Plaintext>
 [[nodiscard]]
 auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const RsaPublicKey<KB>& public_key,
@@ -87,7 +87,7 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
 }
 
 
-template<RsaKeyBits KB, CryptoProvider Provider = RealPsaBackend, SecureBufferLike Ciphertext>
+template<RsaKeyBits KB, CryptoProvider Provider = DefaultProvider, SecureBufferLike Ciphertext>
 [[nodiscard]]
 auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
@@ -141,7 +141,7 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
 }
 
 
-template<RsaKeyBits KB, CryptoProvider Provider = RealPsaBackend, SecureBufferLike Message>
+template<RsaKeyBits KB, CryptoProvider Provider = DefaultProvider, SecureBufferLike Message>
 [[nodiscard]]
 auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     const RsaKeyPair<KB>& key_pair,
@@ -190,7 +190,7 @@ auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<RsaKeyBits KB, CryptoProvider Provider = RealPsaBackend,
+template<RsaKeyBits KB, CryptoProvider Provider = DefaultProvider,
          SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
 auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
@@ -247,7 +247,7 @@ auto rsa_oaep_encrypt(
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return rsa_oaep_encrypt_impl<KB, RealPsaBackend>(public_key, plaintext, label);
+    return rsa_oaep_encrypt_impl<KB, DefaultProvider>(public_key, plaintext, label);
 }
 
 template<RsaKeyBits KB, SecureBufferLike Ciphertext>
@@ -258,7 +258,7 @@ auto rsa_oaep_decrypt(
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return rsa_oaep_decrypt_impl<KB, RealPsaBackend>(key_pair, ciphertext, label);
+    return rsa_oaep_decrypt_impl<KB, DefaultProvider>(key_pair, ciphertext, label);
 }
 
 template<RsaKeyBits KB, SecureBufferLike Message>
@@ -268,7 +268,7 @@ auto rsa_pss_sign(
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return rsa_pss_sign_impl<KB, RealPsaBackend>(key_pair, message);
+    return rsa_pss_sign_impl<KB, DefaultProvider>(key_pair, message);
 }
 
 template<RsaKeyBits KB, SecureBufferLike Message, SecureBufferLike Signature>
@@ -279,5 +279,5 @@ auto rsa_pss_verify(
     const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
-    return rsa_pss_verify_impl<KB, RealPsaBackend>(public_key, message, signature);
+    return rsa_pss_verify_impl<KB, DefaultProvider>(public_key, message, signature);
 }

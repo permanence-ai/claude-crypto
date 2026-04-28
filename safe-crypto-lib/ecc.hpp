@@ -44,7 +44,7 @@ struct EccKeyPair {
 };
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const EcCurve curve)
@@ -101,7 +101,7 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend, SecureBufferLike Message>
+template<CryptoProvider Provider = DefaultProvider, SecureBufferLike Message>
 [[nodiscard]]
 auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     const EccKeyPair& key_pair,
@@ -151,7 +151,7 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend,
+template<CryptoProvider Provider = DefaultProvider,
          SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
 auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
@@ -216,7 +216,7 @@ auto ecdsa_sign(
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return ecdsa_sign_impl<RealPsaBackend>(key_pair, curve, message);
+    return ecdsa_sign_impl<DefaultProvider>(key_pair, curve, message);
 }
 
 template<SecureBufferLike Message, SecureBufferLike Signature>
@@ -228,5 +228,5 @@ auto ecdsa_verify(
     const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
-    return ecdsa_verify_impl<RealPsaBackend>(public_key, curve, message, signature);
+    return ecdsa_verify_impl<DefaultProvider>(public_key, curve, message, signature);
 }

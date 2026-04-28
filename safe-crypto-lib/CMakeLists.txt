@@ -28,7 +28,10 @@ target_include_directories(${LIB_NAME} INTERFACE
 )
 
 # Propagate the selected provider's library and compile definition to all consumers.
-if(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "IA_ASM")
+if(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "ARM_ASM")
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_arm_asm)
+    target_compile_definitions(${LIB_NAME} INTERFACE SAFE_CRYPTO_PROVIDER_ARM_ASM)
+elseif(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "IA_ASM")
     target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_ia_asm)
     target_compile_definitions(${LIB_NAME} INTERFACE SAFE_CRYPTO_PROVIDER_IA_ASM)
 elseif(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "PSA_MBEDTLS")
@@ -36,5 +39,5 @@ elseif(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "PSA_MBEDTLS")
 else()
     message(FATAL_ERROR
         "Unknown SAFE_CRYPTO_ACTIVE_PROVIDER '${SAFE_CRYPTO_ACTIVE_PROVIDER}'. "
-        "Valid values: PSA_MBEDTLS, IA_ASM")
+        "Valid values: PSA_MBEDTLS, ARM_ASM, IA_ASM")
 endif()

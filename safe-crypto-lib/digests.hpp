@@ -14,7 +14,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha_variant.hpp"
 
 
-template<ShaVariant V, CryptoProvider Provider = RealPsaBackend, SecureBufferLike Input>
+template<ShaVariant V, CryptoProvider Provider = DefaultProvider, SecureBufferLike Input>
 [[nodiscard]]
 auto sha_impl(const Input& input)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
@@ -49,5 +49,5 @@ template<ShaVariant V, SecureBufferLike Input>
 auto sha(const Input& input)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    return sha_impl<V, RealPsaBackend>(input);
+    return sha_impl<V, DefaultProvider>(input);
 }

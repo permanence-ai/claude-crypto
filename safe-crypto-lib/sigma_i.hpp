@@ -73,7 +73,7 @@ struct SigmaIKeys {
 // Derives all four SIGMA-I keys from the raw ECDH shared secret via a single
 // HKDF(SHA-384) operation.  Using full HKDF allows P-256's 32-byte shared
 // secret to be used as IKM safely.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& shared_secret)
@@ -294,7 +294,7 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
 
 // AES-256-GCM encrypt using a SecureBuffer key (PSA direct — aes256_gcm_encrypt
 // requires FixedSecureBuffer<32> which can't be constructed from a SecureBuffer slice).
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& key,
@@ -356,7 +356,7 @@ inline auto sigma_i_aes_gcm_encrypt(
 }
 
 
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& key,
@@ -413,7 +413,7 @@ inline auto sigma_i_aes_gcm_decrypt(
 
 
 // Step 2 (Responder): receive Msg1, run ECDH, derive keys, encrypt identity bundle.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg1&  msg1,
@@ -489,7 +489,7 @@ inline auto sigma_i_responder_respond(
 
 
 // Step 3 (Initiator): decrypt and verify Msg2, encrypt own identity bundle.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     SigmaInitiatorState        state,
@@ -600,7 +600,7 @@ inline auto sigma_i_initiator_finish(
 
 
 // Step 4 (Responder): decrypt and verify Msg3.
-template<CryptoProvider Provider = RealPsaBackend>
+template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaIMsg3&           msg3,
