@@ -6,6 +6,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #pragma once
 
 #include <array>
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <vector>
@@ -93,11 +94,13 @@ public:
 
     [[nodiscard]]
     auto operator[](const std::size_t i) -> CryptoByte& {
+        assert(i < data_.size());
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
     [[nodiscard]]
     auto operator[](const std::size_t i) const -> const CryptoByte& {
+        assert(i < data_.size());
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
@@ -175,11 +178,13 @@ public:
 
     [[nodiscard]]
     auto operator[](const std::size_t i) -> CryptoByte& {
+        assert(i < N);
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
     [[nodiscard]]
     auto operator[](const std::size_t i) const -> const CryptoByte& {
+        assert(i < N);
         return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
