@@ -1,4 +1,4 @@
-set(LIB_NAME claude_crypto_psa_mbedtls)
+set(LIB_NAME safe_crypto_lib_psa_mbedtls)
 
 add_library(${LIB_NAME} INTERFACE)
 
@@ -11,6 +11,6 @@ target_include_directories(${LIB_NAME} INTERFACE
 )
 
 target_link_libraries(${LIB_NAME} INTERFACE
-        claude_crypto
+        safe_crypto_lib
         mbedtls
 )

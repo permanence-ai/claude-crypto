@@ -1,4 +1,4 @@
-set(EXE_NAME claude_crypto_test)
+set(EXE_NAME safe_crypto_lib_test)
 
 add_executable(${EXE_NAME}
         aead_tests.hpp
@@ -29,7 +29,7 @@ target_compile_options(${EXE_NAME} PRIVATE
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE
-        claude_crypto_psa_mbedtls
+        safe_crypto_lib_psa_mbedtls
         gmock
         gtest
 )

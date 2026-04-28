@@ -16,7 +16,7 @@ cmake -G Ninja -B cmake-build-debug -S .
 cmake --build cmake-build-debug
 
 # Run
-./cmake-build-debug/claude_crypto
+./cmake-build-debug/safe-crypto-lib-test/safe_crypto_lib_test
 ```
 
 For a release build, substitute `cmake-build-release` for `cmake-build-debug` and add `-DCMAKE_BUILD_TYPE=Release` to the configure step.

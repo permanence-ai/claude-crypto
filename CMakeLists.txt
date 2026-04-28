@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(claude_crypto)
+project(safe_crypto_lib)
 
 set(CMAKE_CXX_STANDARD 26)
 
@@ -9,6 +9,6 @@ include(PermGTest)
 include(PermMbedTLS)
 include(CTest)
 
-add_subdirectory(claude-crypto)
+add_subdirectory(safe-crypto-lib)
 add_subdirectory(providers)
-add_subdirectory(claude-crypto-test)
+add_subdirectory(safe-crypto-lib-test)

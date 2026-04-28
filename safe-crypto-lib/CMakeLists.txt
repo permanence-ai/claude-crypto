@@ -1,4 +1,4 @@
-set(LIB_NAME claude_crypto)
+set(LIB_NAME safe_crypto_lib)
 
 add_library(${LIB_NAME} INTERFACE)
 
