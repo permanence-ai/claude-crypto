@@ -71,7 +71,7 @@ struct SigmaInitiatorFinishResult {
 };
 
 
-// Concatenates two buffers into a single SecureBuffer.
+namespace detail {
 [[nodiscard]]
 inline auto concat_buffers(const SecureBuffer& a, const SecureBuffer& b) -> SecureBuffer {
     SecureBuffer out(a.size() + b.size());
@@ -79,6 +79,7 @@ inline auto concat_buffers(const SecureBuffer& a, const SecureBuffer& b) -> Secu
     std::ranges::copy(b, out.begin() + static_cast<std::ptrdiff_t>(a.size()));
     return out;
 }
+}  // namespace detail
 
 
 // Derives K_mac (48 bytes) and K_session (32 bytes) from the raw ECDH shared
@@ -240,7 +241,7 @@ auto sigma_responder_respond_impl(  // NOLINT(readability-function-cognitive-com
     }
 
     // Sign eph_pub_i ‖ eph_pub_r with responder long-term identity key.
-    const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
+    const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
     auto sig_r = ecdsa_sign_impl<PSA>(responder_identity, curve, sign_input);
     if (!sig_r.has_value()) {
         return std::unexpected(sig_r.error());
@@ -325,7 +326,7 @@ auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-comp
     }
 
     // Verify responder signature over eph_pub_i ‖ eph_pub_r.
-    const auto sign_input = concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
+    const auto sign_input = detail::concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
 
     SecureBuffer responder_pub_copy(msg2.identity_pub_r.size());
     std::ranges::copy(msg2.identity_pub_r, responder_pub_copy.begin());
@@ -410,7 +411,7 @@ auto sigma_responder_finish_impl(  // NOLINT(readability-function-cognitive-comp
     }
 
     // Verify initiator signature over eph_pub_i ‖ eph_pub_r.
-    const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
+    const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
 
     SecureBuffer initiator_pub_copy(msg3.identity_pub_i.size());
     std::ranges::copy(msg3.identity_pub_i, initiator_pub_copy.begin());

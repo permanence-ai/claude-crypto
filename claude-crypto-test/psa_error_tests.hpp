@@ -1112,7 +1112,7 @@ TEST_F(PsaErrorTests, SigmaIDeriveKeysInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
     const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_i_derive_keys_impl<MockPsaBackend>(secret);
+    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(secret);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1123,7 +1123,7 @@ TEST_F(PsaErrorTests, SigmaIDeriveKeysImportFailed) {
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
     const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_i_derive_keys_impl<MockPsaBackend>(secret);
+    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(secret);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -1138,7 +1138,7 @@ TEST_F(PsaErrorTests, SigmaIDeriveKeysSetupFailed) {
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
     const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_i_derive_keys_impl<MockPsaBackend>(secret);
+    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(secret);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfSetupFailed);
@@ -1156,7 +1156,7 @@ TEST_F(PsaErrorTests, SigmaIDeriveKeysOutputFailed) {
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
     const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_i_derive_keys_impl<MockPsaBackend>(secret);
+    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(secret);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfOutputFailed);
@@ -1170,7 +1170,7 @@ TEST_F(PsaErrorTests, SigmaIAesGcmEncryptInitFailed) {
 
     const auto key    = make_random_secure_buffer(32);
     const auto pt     = make_random_secure_buffer(64);
-    const auto result = sigma_i_aes_gcm_encrypt_impl<MockPsaBackend>(key, pt);
+    const auto result = detail::sigma_i_aes_gcm_encrypt_impl<MockPsaBackend>(key, pt);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1185,7 +1185,7 @@ TEST_F(PsaErrorTests, SigmaIAesGcmEncryptKeyImportFailed) {
 
     const auto key    = make_random_secure_buffer(32);
     const auto pt     = make_random_secure_buffer(64);
-    const auto result = sigma_i_aes_gcm_encrypt_impl<MockPsaBackend>(key, pt);
+    const auto result = detail::sigma_i_aes_gcm_encrypt_impl<MockPsaBackend>(key, pt);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -1204,7 +1204,7 @@ TEST_F(PsaErrorTests, SigmaIAesGcmEncryptAeadFailed) {
 
     const auto key    = make_random_secure_buffer(32);
     const auto pt     = make_random_secure_buffer(64);
-    const auto result = sigma_i_aes_gcm_encrypt_impl<MockPsaBackend>(key, pt);
+    const auto result = detail::sigma_i_aes_gcm_encrypt_impl<MockPsaBackend>(key, pt);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::EncryptionFailed);
@@ -1215,7 +1215,7 @@ TEST_F(PsaErrorTests, SigmaIAesGcmDecryptInitFailed) {
 
     const auto key = make_random_secure_buffer(32);
     const SigmaIBundle bundle{ .iv = {}, .ciphertext = make_random_secure_buffer(80) };
-    const auto result = sigma_i_aes_gcm_decrypt_impl<MockPsaBackend>(key, bundle);
+    const auto result = detail::sigma_i_aes_gcm_decrypt_impl<MockPsaBackend>(key, bundle);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1227,7 +1227,7 @@ TEST_F(PsaErrorTests, SigmaIAesGcmDecryptKeyImportFailed) {
 
     const auto key = make_random_secure_buffer(32);
     const SigmaIBundle bundle{ .iv = {}, .ciphertext = make_random_secure_buffer(80) };
-    const auto result = sigma_i_aes_gcm_decrypt_impl<MockPsaBackend>(key, bundle);
+    const auto result = detail::sigma_i_aes_gcm_decrypt_impl<MockPsaBackend>(key, bundle);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -1243,7 +1243,7 @@ TEST_F(PsaErrorTests, SigmaIAesGcmDecryptAeadFailed) {
 
     const auto key = make_random_secure_buffer(32);
     const SigmaIBundle bundle{ .iv = {}, .ciphertext = make_random_secure_buffer(80) };
-    const auto result = sigma_i_aes_gcm_decrypt_impl<MockPsaBackend>(key, bundle);
+    const auto result = detail::sigma_i_aes_gcm_decrypt_impl<MockPsaBackend>(key, bundle);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::SigmaAuthFailed);

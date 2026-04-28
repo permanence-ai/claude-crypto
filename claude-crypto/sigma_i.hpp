@@ -63,7 +63,8 @@ struct SigmaIInitiatorFinishResult {
 };
 
 
-// Internal key material — not exposed outside this header.
+namespace detail {
+
 struct SigmaIKeys {
     SecureBuffer mac_key;      // 48 bytes — HMAC-SHA-384
     SecureBuffer session_key;  // 32 bytes — application session key
@@ -430,6 +431,8 @@ inline auto sigma_i_aes_gcm_decrypt(
     return sigma_i_aes_gcm_decrypt_impl(key, bundle);
 }
 
+}  // namespace detail
+
 
 // Step 2 (Responder): receive Msg1, run ECDH, derive keys, encrypt identity bundle.
 template<typename PSA = RealPsaBackend>
@@ -451,13 +454,13 @@ auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-c
         return std::unexpected(shared_secret.error());
     }
 
-    auto keys = sigma_i_derive_keys_impl<PSA>(*shared_secret);
+    auto keys = detail::sigma_i_derive_keys_impl<PSA>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
 
     // Sign eph_pub_i ‖ eph_pub_r.
-    const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
+    const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
     auto sig_r = ecdsa_sign_impl<PSA>(responder_identity, curve, sign_input);
     if (!sig_r.has_value()) {
         return std::unexpected(sig_r.error());
@@ -471,9 +474,9 @@ auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-c
     }
 
     // Encrypt the identity bundle.
-    const auto plaintext_r = sigma_i_serialize_bundle(
+    const auto plaintext_r = detail::sigma_i_serialize_bundle(
         responder_identity.public_key_der, *sig_r, *mac_r);
-    auto bundle_r = sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_r, plaintext_r);
+    auto bundle_r = detail::sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_r, plaintext_r);
     if (!bundle_r.has_value()) {
         return std::unexpected(bundle_r.error());
     }
@@ -524,18 +527,18 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
         return std::unexpected(shared_secret.error());
     }
 
-    auto keys = sigma_i_derive_keys_impl<PSA>(*shared_secret);
+    auto keys = detail::sigma_i_derive_keys_impl<PSA>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
 
     // Decrypt the responder bundle.
-    auto plaintext_r = sigma_i_aes_gcm_decrypt_impl<PSA>(keys->enc_key_r, msg2.bundle_r);
+    auto plaintext_r = detail::sigma_i_aes_gcm_decrypt_impl<PSA>(keys->enc_key_r, msg2.bundle_r);
     if (!plaintext_r.has_value()) {
         return std::unexpected(plaintext_r.error());
     }
 
-    auto bundle_r = sigma_i_deserialize_bundle(*plaintext_r);
+    auto bundle_r = detail::sigma_i_deserialize_bundle(*plaintext_r);
     if (!bundle_r.has_value()) {
         return std::unexpected(bundle_r.error());
     }
@@ -561,7 +564,7 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     }
 
     // Verify responder signature.
-    const auto sign_input = concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
+    const auto sign_input = detail::concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
     SecureBuffer responder_pub_copy(bundle_r->identity_pub.size());
     std::ranges::copy(bundle_r->identity_pub, responder_pub_copy.begin());
     const EcPublicKey responder_pub_only{ .public_key_der = std::move(responder_pub_copy) };
@@ -588,9 +591,9 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     }
 
     // Encrypt the initiator bundle with K_enc_i.
-    const auto plaintext_i = sigma_i_serialize_bundle(
+    const auto plaintext_i = detail::sigma_i_serialize_bundle(
         initiator_identity.public_key_der, *sig_i, *mac_i);
-    auto bundle_i = sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_i, plaintext_i);
+    auto bundle_i = detail::sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_i, plaintext_i);
     if (!bundle_i.has_value()) {
         return std::unexpected(bundle_i.error());
     }
@@ -631,12 +634,12 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
     -> std::expected<bool, CryptoError>
 {
     // Decrypt the initiator bundle with K_enc_i.
-    auto plaintext_i = sigma_i_aes_gcm_decrypt_impl<PSA>(responder_state.enc_key_i, msg3.bundle_i);
+    auto plaintext_i = detail::sigma_i_aes_gcm_decrypt_impl<PSA>(responder_state.enc_key_i, msg3.bundle_i);
     if (!plaintext_i.has_value()) {
         return false;
     }
 
-    auto bundle_i = sigma_i_deserialize_bundle(*plaintext_i);
+    auto bundle_i = detail::sigma_i_deserialize_bundle(*plaintext_i);
     if (!bundle_i.has_value()) {
         return false;
     }
@@ -658,7 +661,7 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
     }
 
     // Verify initiator signature.
-    const auto sign_input = concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
+    const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
     SecureBuffer initiator_pub_copy(bundle_i->identity_pub.size());
     std::ranges::copy(bundle_i->identity_pub, initiator_pub_copy.begin());
     const EcPublicKey initiator_pub_only{ .public_key_der = std::move(initiator_pub_copy) };
