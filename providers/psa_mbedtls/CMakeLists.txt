@@ -11,6 +11,5 @@ target_include_directories(${LIB_NAME} INTERFACE
 )
 
 target_link_libraries(${LIB_NAME} INTERFACE
-        safe_crypto_lib
         mbedtls
 )

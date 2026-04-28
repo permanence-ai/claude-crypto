@@ -25,3 +25,15 @@ target_sources(${LIB_NAME} INTERFACE
 target_include_directories(${LIB_NAME} INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+# Propagate the selected provider's library and compile definition to all consumers.
+if(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "IA_ASM")
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_ia_asm)
+    target_compile_definitions(${LIB_NAME} INTERFACE SAFE_CRYPTO_PROVIDER_IA_ASM)
+elseif(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "PSA_MBEDTLS")
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_psa_mbedtls)
+else()
+    message(FATAL_ERROR
+        "Unknown SAFE_CRYPTO_ACTIVE_PROVIDER '${SAFE_CRYPTO_ACTIVE_PROVIDER}'. "
+        "Valid values: PSA_MBEDTLS, IA_ASM")
+endif()

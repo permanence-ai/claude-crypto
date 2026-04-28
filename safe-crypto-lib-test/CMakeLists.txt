@@ -29,7 +29,7 @@ target_compile_options(${EXE_NAME} PRIVATE
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE
-        safe_crypto_lib_psa_mbedtls
+        safe_crypto_lib
         gmock
         gtest
 )
