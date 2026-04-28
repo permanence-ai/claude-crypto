@@ -27,20 +27,20 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 {
     constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
 
-    if (Provider::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
     }
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+    auto attrs = Provider::make_key_attrs();
     psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
     psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
     psa_set_key_algorithm(&attrs, alg);
 
-    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    auto raw_key_id = Provider::null_key_id();
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
@@ -50,13 +50,13 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     FixedSecureBuffer<sha_output_size(V)> mac;
     std::size_t mac_length = 0;
 
-    const psa_status_t status = Provider::mac_compute(
+    const auto status = Provider::mac_compute(
         key_handle.get(), alg,
         message.data(), message.size(),
         mac.data(), mac.size(),
         &mac_length);
 
-    if (status != PSA_SUCCESS) {
+    if (status != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::MacGenerationFailed,
             "HMAC generation failed"));
@@ -77,35 +77,35 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 {
     constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
 
-    if (Provider::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
     }
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+    auto attrs = Provider::make_key_attrs();
     psa_set_key_type(&attrs, PSA_KEY_TYPE_HMAC);
     psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(key.size() * bits_per_byte));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
     psa_set_key_algorithm(&attrs, alg);
 
-    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    auto raw_key_id = Provider::null_key_id();
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
     const PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const psa_status_t status = Provider::mac_verify(
+    const auto status = Provider::mac_verify(
         key_handle.get(), alg,
         message.data(), message.size(),
         mac.data(), mac.size());
 
-    if (status == PSA_ERROR_INVALID_SIGNATURE) {
+    if (status == Provider::err_invalid_sig) {
         return false;
     }
-    if (status != PSA_SUCCESS) {
+    if (status != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::VerificationFailed,
             "HMAC verification failed"));

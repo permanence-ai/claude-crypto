@@ -17,7 +17,7 @@ template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto random_bytes_impl(const std::size_t length) -> std::expected<SecureBuffer, CryptoError>
 {
-    if (Provider::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -25,7 +25,7 @@ auto random_bytes_impl(const std::size_t length) -> std::expected<SecureBuffer, 
 
     SecureBuffer output(length);
 
-    if (Provider::generate_random(output.data(), output.size()) != PSA_SUCCESS) {
+    if (Provider::generate_random(output.data(), output.size()) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::RandomGenerationFailed,
             "Random byte generation failed"));
@@ -39,7 +39,7 @@ template<std::size_t N, CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto random_bytes_fixed_impl() -> std::expected<FixedSecureBuffer<N>, CryptoError>
 {
-    if (Provider::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -47,7 +47,7 @@ auto random_bytes_fixed_impl() -> std::expected<FixedSecureBuffer<N>, CryptoErro
 
     FixedSecureBuffer<N> output;
 
-    if (Provider::generate_random(output.data(), output.size()) != PSA_SUCCESS) {
+    if (Provider::generate_random(output.data(), output.size()) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::RandomGenerationFailed,
             "Random byte generation failed"));

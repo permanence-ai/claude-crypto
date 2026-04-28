@@ -17,73 +17,100 @@ Copyright Permanence AI, 2026. All rights reserved.
 // corresponding PSA C function.  Tests substitute MockPsaBackend to exercise
 // error branches without needing to induce real PSA failures.
 struct RealPsaBackend {
-    static psa_status_t crypto_init() {
+    // Associated types — insulate callers from PSA/MbedTLS concrete type names.
+    using Status        = psa_status_t;
+    using KeyId         = mbedtls_svc_key_id_t;
+    using Algorithm     = psa_algorithm_t;
+    using KeyAttributes = psa_key_attributes_t;
+    using KdfOperation  = psa_key_derivation_operation_t;
+    using KdfStep       = psa_key_derivation_step_t;
+
+    // Status sentinels — avoids PSA_SUCCESS / PSA_ERROR_* leaking into generic code.
+    static constexpr Status ok              = PSA_SUCCESS;
+    static constexpr Status err_invalid_sig = PSA_ERROR_INVALID_SIGNATURE;
+    static constexpr Status err_invalid_arg = PSA_ERROR_INVALID_ARGUMENT;
+
+    // Object factories for provider-specific init macros.
+    static KeyId null_key_id() noexcept {
+        const KeyId k = MBEDTLS_SVC_KEY_ID_INIT;
+        return k;
+    }
+    static KeyAttributes make_key_attrs() noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        return a;
+    }
+    static KdfOperation make_kdf_op() noexcept {
+        KdfOperation o = PSA_KEY_DERIVATION_OPERATION_INIT;
+        return o;
+    }
+
+    static Status crypto_init() {
         return psa_crypto_init();
     }
 
-    static psa_status_t generate_random(CryptoByte* output, const std::size_t output_size) {
+    static Status generate_random(CryptoByte* output, const std::size_t output_size) {
         return psa_generate_random(output, output_size);
     }
 
-    static psa_status_t hash_compute(
-        const psa_algorithm_t alg,
+    static Status hash_compute(
+        const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* hash, const std::size_t hash_size, std::size_t* hash_length)
     {
         return psa_hash_compute(alg, input, input_length, hash, hash_size, hash_length);
     }
 
-    static psa_status_t import_key(
-        const psa_key_attributes_t* attributes,
+    static Status import_key(
+        const KeyAttributes* attributes,
         const CryptoByte* data, const std::size_t data_length,
-        mbedtls_svc_key_id_t* key)
+        KeyId* key)
     {
         return psa_import_key(attributes, data, data_length, key);
     }
 
-    static psa_status_t generate_key(
-        const psa_key_attributes_t* attributes,
-        mbedtls_svc_key_id_t* key)
+    static Status generate_key(
+        const KeyAttributes* attributes,
+        KeyId* key)
     {
         return psa_generate_key(attributes, key);
     }
 
-    static psa_status_t destroy_key(const mbedtls_svc_key_id_t key) {
+    static Status destroy_key(const KeyId key) {
         return psa_destroy_key(key);
     }
 
-    static psa_status_t export_key(
-        const mbedtls_svc_key_id_t key,
+    static Status export_key(
+        const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length)
     {
         return psa_export_key(key, data, data_size, data_length);
     }
 
-    static psa_status_t export_public_key(
-        const mbedtls_svc_key_id_t key,
+    static Status export_public_key(
+        const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length)
     {
         return psa_export_public_key(key, data, data_size, data_length);
     }
 
-    static psa_status_t mac_compute(  // NOLINT(readability-function-size)
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status mac_compute(  // NOLINT(readability-function-size)
+        const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* mac, const std::size_t mac_size, std::size_t* mac_length)
     {
         return psa_mac_compute(key, alg, input, input_length, mac, mac_size, mac_length);
     }
 
-    static psa_status_t mac_verify(
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status mac_verify(
+        const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* mac, const std::size_t mac_length)
     {
         return psa_mac_verify(key, alg, input, input_length, mac, mac_length);
     }
 
-    static psa_status_t aead_encrypt(  // NOLINT(readability-function-size)
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status aead_encrypt(  // NOLINT(readability-function-size)
+        const KeyId key, const Algorithm alg,
         const CryptoByte* nonce, const std::size_t nonce_length,
         const CryptoByte* additional_data, const std::size_t additional_data_length,
         const CryptoByte* plaintext, const std::size_t plaintext_length,
@@ -98,8 +125,8 @@ struct RealPsaBackend {
             ciphertext, ciphertext_size, ciphertext_length);
     }
 
-    static psa_status_t aead_decrypt(  // NOLINT(readability-function-size)
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status aead_decrypt(  // NOLINT(readability-function-size)
+        const KeyId key, const Algorithm alg,
         const CryptoByte* nonce, const std::size_t nonce_length,
         const CryptoByte* additional_data, const std::size_t additional_data_length,
         const CryptoByte* ciphertext, const std::size_t ciphertext_length,
@@ -114,8 +141,8 @@ struct RealPsaBackend {
             plaintext, plaintext_size, plaintext_length);
     }
 
-    static psa_status_t sign_message(  // NOLINT(readability-function-size)
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status sign_message(  // NOLINT(readability-function-size)
+        const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* signature, const std::size_t signature_size,
         std::size_t* signature_length)
@@ -125,8 +152,8 @@ struct RealPsaBackend {
             signature, signature_size, signature_length);
     }
 
-    static psa_status_t verify_message(
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status verify_message(
+        const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* signature, const std::size_t signature_length)
     {
@@ -134,9 +161,9 @@ struct RealPsaBackend {
             key, alg, input, input_length, signature, signature_length);
     }
 
-    static psa_status_t raw_key_agreement(  // NOLINT(readability-function-size)
-        const psa_algorithm_t alg,
-        const mbedtls_svc_key_id_t private_key,
+    static Status raw_key_agreement(  // NOLINT(readability-function-size)
+        const Algorithm alg,
+        const KeyId private_key,
         const CryptoByte* peer_key, const std::size_t peer_key_length,
         CryptoByte* output, const std::size_t output_size,
         std::size_t* output_length)
@@ -146,8 +173,8 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
-    static psa_status_t asymmetric_encrypt(  // NOLINT(readability-function-size)
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
+        const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
         CryptoByte* output, const std::size_t output_size,
@@ -158,8 +185,8 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
-    static psa_status_t asymmetric_decrypt(  // NOLINT(readability-function-size)
-        const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
+    static Status asymmetric_decrypt(  // NOLINT(readability-function-size)
+        const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
         CryptoByte* output, const std::size_t output_size,
@@ -170,92 +197,106 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
-    static psa_status_t key_derivation_setup(
-        psa_key_derivation_operation_t* operation, const psa_algorithm_t alg)
+    static Status key_derivation_setup(
+        KdfOperation* operation, const Algorithm alg)
     {
         return psa_key_derivation_setup(operation, alg);
     }
 
-    static psa_status_t key_derivation_input_key(
-        psa_key_derivation_operation_t* operation,
-        const psa_key_derivation_step_t step,
-        const mbedtls_svc_key_id_t key)
+    static Status key_derivation_input_key(
+        KdfOperation* operation,
+        const KdfStep step,
+        const KeyId key)
     {
         return psa_key_derivation_input_key(operation, step, key);
     }
 
-    static psa_status_t key_derivation_input_bytes(
-        psa_key_derivation_operation_t* operation,
-        const psa_key_derivation_step_t step,
+    static Status key_derivation_input_bytes(
+        KdfOperation* operation,
+        const KdfStep step,
         const CryptoByte* data, const std::size_t data_length)
     {
         return psa_key_derivation_input_bytes(operation, step, data, data_length);
     }
 
-    static psa_status_t key_derivation_output_bytes(
-        psa_key_derivation_operation_t* operation,
+    static Status key_derivation_output_bytes(
+        KdfOperation* operation,
         CryptoByte* output, const std::size_t output_length)
     {
         return psa_key_derivation_output_bytes(operation, output, output_length);
     }
 
-    static psa_status_t key_derivation_abort(psa_key_derivation_operation_t* operation) {
+    static Status key_derivation_abort(KdfOperation* operation) {
         return psa_key_derivation_abort(operation);
     }
 };
 
 
-// Concept satisfied by any type that provides the full PSA Crypto C API surface
-// used by this library.  The current wire type is the PSA Crypto API from
-// MbedTLS, so all key handles are mbedtls_svc_key_id_t and algorithm selectors
-// are psa_algorithm_t.  A future provider (OpenSSL, hardware) would either
-// implement a PSA-compatible shim or this concept would need to grow associated
-// types to abstract over the handle and algorithm representations.
+// Concept satisfied by any CryptoProvider implementation.  Providers expose
+// associated types (Status, KeyId, Algorithm, KeyAttributes, KdfOperation,
+// KdfStep) and factory functions (null_key_id, make_key_attrs, make_kdf_op)
+// so that _impl bodies never reference PSA/MbedTLS concrete type names directly.
+// A future OpenSSL or hardware-ASM provider supplies its own type aliases and
+// wraps its native API surface behind this same interface.
 template<typename T>
 concept CryptoProvider = requires(
     T,
-    psa_key_attributes_t*      attrs,
-    mbedtls_svc_key_id_t       key,
-    mbedtls_svc_key_id_t*      key_out,
-    psa_algorithm_t            alg,
-    psa_key_derivation_step_t  step,
-    psa_key_derivation_operation_t* op,
-    CryptoByte*                buf,
-    const CryptoByte*          cbuf,
-    std::size_t                len,
-    std::size_t*               len_out)
+    T::KeyAttributes*  attrs,
+    T::KeyId           key,
+    T::KeyId*          key_out,
+    T::Algorithm       alg,
+    T::KdfStep         step,
+    T::KdfOperation*   op,
+    CryptoByte*        buf,
+    const CryptoByte*  cbuf,
+    std::size_t        len,
+    std::size_t*       len_out)
 {
-    { T::crypto_init() }                                        -> std::same_as<psa_status_t>;
-    { T::generate_random(buf, len) }                            -> std::same_as<psa_status_t>;
-    { T::import_key(attrs, cbuf, len, key_out) }                -> std::same_as<psa_status_t>;
-    { T::generate_key(attrs, key_out) }                         -> std::same_as<psa_status_t>;
-    { T::destroy_key(key) }                                     -> std::same_as<psa_status_t>;
-    { T::export_key(key, buf, len, len_out) }                   -> std::same_as<psa_status_t>;
-    { T::export_public_key(key, buf, len, len_out) }            -> std::same_as<psa_status_t>;
-    { T::sign_message(key, alg, cbuf, len, buf, len, len_out) } -> std::same_as<psa_status_t>;
-    { T::verify_message(key, alg, cbuf, len, cbuf, len) }       -> std::same_as<psa_status_t>;
-    { T::mac_compute(key, alg, cbuf, len, buf, len, len_out) }  -> std::same_as<psa_status_t>;
-    { T::mac_verify(key, alg, cbuf, len, cbuf, len) }           -> std::same_as<psa_status_t>;
-    { T::aead_encrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<psa_status_t>;
-    { T::aead_decrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<psa_status_t>;
-    { T::asymmetric_encrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<psa_status_t>;
-    { T::asymmetric_decrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<psa_status_t>;
-    { T::raw_key_agreement(alg, key, cbuf, len, buf, len, len_out) }                  -> std::same_as<psa_status_t>;
-    { T::hash_compute(alg, cbuf, len, buf, len, len_out) }                            -> std::same_as<psa_status_t>;
-    { T::key_derivation_setup(op, alg) }                        -> std::same_as<psa_status_t>;
-    { T::key_derivation_input_key(op, step, key) }              -> std::same_as<psa_status_t>;
-    { T::key_derivation_input_bytes(op, step, cbuf, len) }      -> std::same_as<psa_status_t>;
-    { T::key_derivation_output_bytes(op, buf, len) }            -> std::same_as<psa_status_t>;
-    { T::key_derivation_abort(op) }                             -> std::same_as<psa_status_t>;
+    typename T::Status;
+    typename T::KeyId;
+    typename T::Algorithm;
+    typename T::KeyAttributes;
+    typename T::KdfOperation;
+    typename T::KdfStep;
+    { T::ok }              -> std::convertible_to<typename T::Status>;
+    { T::err_invalid_sig } -> std::convertible_to<typename T::Status>;
+    { T::err_invalid_arg } -> std::convertible_to<typename T::Status>;
+    { T::null_key_id() }   -> std::same_as<typename T::KeyId>;
+    { T::make_key_attrs() } -> std::same_as<typename T::KeyAttributes>;
+    { T::make_kdf_op() }    -> std::same_as<typename T::KdfOperation>;
+    { T::crypto_init() }                                        -> std::same_as<typename T::Status>;
+    { T::generate_random(buf, len) }                            -> std::same_as<typename T::Status>;
+    { T::import_key(attrs, cbuf, len, key_out) }                -> std::same_as<typename T::Status>;
+    { T::generate_key(attrs, key_out) }                         -> std::same_as<typename T::Status>;
+    { T::destroy_key(key) }                                     -> std::same_as<typename T::Status>;
+    { T::export_key(key, buf, len, len_out) }                   -> std::same_as<typename T::Status>;
+    { T::export_public_key(key, buf, len, len_out) }            -> std::same_as<typename T::Status>;
+    { T::sign_message(key, alg, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
+    { T::verify_message(key, alg, cbuf, len, cbuf, len) }       -> std::same_as<typename T::Status>;
+    { T::mac_compute(key, alg, cbuf, len, buf, len, len_out) }  -> std::same_as<typename T::Status>;
+    { T::mac_verify(key, alg, cbuf, len, cbuf, len) }           -> std::same_as<typename T::Status>;
+    { T::aead_encrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
+    { T::aead_decrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
+    { T::asymmetric_encrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<typename T::Status>;
+    { T::asymmetric_decrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<typename T::Status>;
+    { T::raw_key_agreement(alg, key, cbuf, len, buf, len, len_out) }                  -> std::same_as<typename T::Status>;
+    { T::hash_compute(alg, cbuf, len, buf, len, len_out) }                            -> std::same_as<typename T::Status>;
+    { T::key_derivation_setup(op, alg) }                        -> std::same_as<typename T::Status>;
+    { T::key_derivation_input_key(op, step, key) }              -> std::same_as<typename T::Status>;
+    { T::key_derivation_input_bytes(op, step, cbuf, len) }      -> std::same_as<typename T::Status>;
+    { T::key_derivation_output_bytes(op, buf, len) }            -> std::same_as<typename T::Status>;
+    { T::key_derivation_abort(op) }                             -> std::same_as<typename T::Status>;
 };
 
 
 template<CryptoProvider Provider>
 class PsaKeyHandle {
 public:
+    using KeyId = Provider::KeyId;
+
     PsaKeyHandle() = default;
 
-    explicit PsaKeyHandle(const mbedtls_svc_key_id_t id) noexcept
+    explicit PsaKeyHandle(const KeyId id) noexcept
         : id_(id), valid_(true) {}
 
     ~PsaKeyHandle() noexcept {  // NOLINT(bugprone-exception-escape)
@@ -283,7 +324,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] auto get() const noexcept -> mbedtls_svc_key_id_t { return id_; }
+    [[nodiscard]] auto get() const noexcept -> KeyId { return id_; }
 
     void reset() noexcept {
         if (valid_) {
@@ -293,6 +334,6 @@ public:
     }
 
 private:
-    mbedtls_svc_key_id_t id_    = MBEDTLS_SVC_KEY_ID_INIT;
-    bool                 valid_ = false;
+    KeyId id_    = Provider::null_key_id();
+    bool  valid_ = false;
 };

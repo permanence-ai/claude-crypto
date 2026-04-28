@@ -93,6 +93,30 @@ public:
 inline MockPsaOps* g_mock_psa = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 struct MockPsaBackend {
+    using Status        = psa_status_t;
+    using KeyId         = mbedtls_svc_key_id_t;
+    using Algorithm     = psa_algorithm_t;
+    using KeyAttributes = psa_key_attributes_t;
+    using KdfOperation  = psa_key_derivation_operation_t;
+    using KdfStep       = psa_key_derivation_step_t;
+
+    static constexpr Status ok              = PSA_SUCCESS;
+    static constexpr Status err_invalid_sig = PSA_ERROR_INVALID_SIGNATURE;
+    static constexpr Status err_invalid_arg = PSA_ERROR_INVALID_ARGUMENT;
+
+    static KeyId null_key_id() noexcept {
+        const KeyId k = MBEDTLS_SVC_KEY_ID_INIT;
+        return k;
+    }
+    static KeyAttributes make_key_attrs() noexcept {
+        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        return a;
+    }
+    static KdfOperation make_kdf_op() noexcept {
+        KdfOperation o = PSA_KEY_DERIVATION_OPERATION_INIT;
+        return o;
+    }
+
     static psa_status_t crypto_init() {
         return g_mock_psa->crypto_init();
     }

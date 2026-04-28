@@ -58,7 +58,7 @@ template<ShaVariant V, CryptoProvider Provider = RealPsaBackend, SecureBufferLik
 auto sha_impl(const Input& input)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    if (Provider::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -67,13 +67,13 @@ auto sha_impl(const Input& input)
     FixedSecureBuffer<sha_output_size(V)> digest;
     std::size_t digest_length = 0;
 
-    const psa_status_t status = Provider::hash_compute(
+    const auto status = Provider::hash_compute(
         detail::sha_psa_alg(V),
         input.data(), input.size(),
         digest.data(), digest.size(),
         &digest_length);
 
-    if (status != PSA_SUCCESS) {
+    if (status != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::DigestFailed,
             "SHA computation failed"));

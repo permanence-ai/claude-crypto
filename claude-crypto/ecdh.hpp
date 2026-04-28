@@ -30,7 +30,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     const EcCurve curve)
     -> std::expected<EccKeyPair, CryptoError>
 {
-    if (Provider::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -39,14 +39,14 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
     const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+    auto attrs = Provider::make_key_attrs();
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
     psa_set_key_bits(&attrs, key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE | PSA_KEY_USAGE_EXPORT);
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDH);
 
-    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (Provider::generate_key(&attrs, &raw_key_id) != PSA_SUCCESS) {
+    auto raw_key_id = Provider::null_key_id();
+    if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ECDH key generation failed"));
@@ -61,7 +61,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     if (Provider::export_key(key_handle.get(),
                         private_key_der.data(),
                         private_key_der.size(),
-                        &private_key_length) != PSA_SUCCESS) {
+                        &private_key_length) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDH private key export failed"));
@@ -76,7 +76,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     if (Provider::export_public_key(key_handle.get(),
                                public_key_der.data(),
                                public_key_der.size(),
-                               &public_key_length) != PSA_SUCCESS) {
+                               &public_key_length) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDH public key export failed"));
@@ -98,7 +98,7 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     const PeerPublicKey& peer_public_key_der)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (Provider::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -107,17 +107,17 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     const psa_ecc_family_t family   = PSA_ECC_FAMILY_SECP_R1;
     const auto key_bits = static_cast<psa_key_bits_t>(ec_curve_key_bits(curve));
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+    auto attrs = Provider::make_key_attrs();
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(family));
     psa_set_key_bits(&attrs, key_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDH);
 
-    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    auto raw_key_id = Provider::null_key_id();
     if (Provider::import_key(&attrs,
                         our_key_pair.private_key_der.data(),
                         our_key_pair.private_key_der.size(),
-                        &raw_key_id) != PSA_SUCCESS) {
+                        &raw_key_id) != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ECDH private key import failed"));
@@ -129,14 +129,14 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     SecureBuffer shared_secret(shared_secret_size);
     std::size_t  shared_secret_length = 0;
 
-    const psa_status_t status = Provider::raw_key_agreement(
+    const auto status = Provider::raw_key_agreement(
         PSA_ALG_ECDH,
         key_handle.get(),
         peer_public_key_der.data(), peer_public_key_der.size(),
         shared_secret.data(), shared_secret.size(),
         &shared_secret_length);
 
-    if (status != PSA_SUCCESS) {
+    if (status != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyAgreementFailed,
             "ECDH key agreement failed"));
