@@ -8,6 +8,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstddef>
 
 #include "defs.hpp"
+#include "sha256.hpp"
 #include "sha_variant.hpp"
 
 
@@ -36,8 +37,17 @@ struct ArmAsmBackend {
 
     static Status crypto_init()                                               { return ok; }
     static Status generate_random(CryptoByte*, std::size_t)                   { return err_invalid_arg; }
-    static Status hash_compute(Algorithm, const CryptoByte*, std::size_t,
-                               CryptoByte*, std::size_t, std::size_t*)        { return err_invalid_arg; }
+    static Status hash_compute(Algorithm alg, const CryptoByte* input, std::size_t input_len,
+                               CryptoByte* output, std::size_t output_size, std::size_t* output_len)
+    {
+        if (alg == alg_sha(ShaVariant::Sha256)) {
+            if (output_size < sha256_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::sha256(input, input_len, output);
+            *output_len = sha256_size_bytes;
+            return ok;
+        }
+        return err_invalid_arg;
+    }
     static Status import_key(const KeyAttributes*, const CryptoByte*,
                              std::size_t, KeyId*)                             { return err_invalid_arg; }
     static Status generate_key(const KeyAttributes*, KeyId*)                  { return err_invalid_arg; }
@@ -84,8 +94,12 @@ struct ArmAsmBackend {
                                               CryptoByte*, std::size_t)       { return err_invalid_arg; }
     static Status key_derivation_abort(KdfOperation*)                         { return ok; }
 
-    static Algorithm alg_sha(ShaVariant)       noexcept { return 0U; }
-    static Algorithm alg_hmac(ShaVariant)      noexcept { return 0U; }
+    // Algorithm tag encoding: low byte = base type, high byte = SHA variant index.
+    static constexpr Algorithm alg_base_hash = 0x0100U;
+    static constexpr Algorithm alg_base_hmac = 0x0200U;
+
+    static Algorithm alg_sha(ShaVariant v)  noexcept { return alg_base_hash | static_cast<Algorithm>(v); }
+    static Algorithm alg_hmac(ShaVariant v) noexcept { return alg_base_hmac | static_cast<Algorithm>(v); }
     static constexpr Algorithm alg_ecdsa()             noexcept { return 0U; }
     static constexpr Algorithm alg_ecdh()              noexcept { return 0U; }
     static constexpr Algorithm alg_hkdf()              noexcept { return 0U; }
