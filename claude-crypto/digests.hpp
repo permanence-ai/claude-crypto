@@ -53,12 +53,12 @@ consteval psa_algorithm_t sha_psa_alg(const ShaVariant v) {
 }  // namespace detail
 
 
-template<ShaVariant V, typename PSA = RealPsaBackend, SecureBufferLike Input>
+template<ShaVariant V, CryptoProvider Provider = RealPsaBackend, SecureBufferLike Input>
 [[nodiscard]]
 auto sha_impl(const Input& input)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -67,7 +67,7 @@ auto sha_impl(const Input& input)
     FixedSecureBuffer<sha_output_size(V)> digest;
     std::size_t digest_length = 0;
 
-    const psa_status_t status = PSA::hash_compute(
+    const psa_status_t status = Provider::hash_compute(
         detail::sha_psa_alg(V),
         input.data(), input.size(),
         digest.data(), digest.size(),

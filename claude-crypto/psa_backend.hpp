@@ -5,6 +5,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #pragma once
 
+#include <concepts>
 #include <cstddef>
 
 #include <psa/crypto.h>
@@ -204,7 +205,52 @@ struct RealPsaBackend {
 };
 
 
-template<typename PSA>
+// Concept satisfied by any type that provides the full PSA Crypto C API surface
+// used by this library.  The current wire type is the PSA Crypto API from
+// MbedTLS, so all key handles are mbedtls_svc_key_id_t and algorithm selectors
+// are psa_algorithm_t.  A future provider (OpenSSL, hardware) would either
+// implement a PSA-compatible shim or this concept would need to grow associated
+// types to abstract over the handle and algorithm representations.
+template<typename T>
+concept CryptoProvider = requires(
+    T,
+    psa_key_attributes_t*      attrs,
+    mbedtls_svc_key_id_t       key,
+    mbedtls_svc_key_id_t*      key_out,
+    psa_algorithm_t            alg,
+    psa_key_derivation_step_t  step,
+    psa_key_derivation_operation_t* op,
+    CryptoByte*                buf,
+    const CryptoByte*          cbuf,
+    std::size_t                len,
+    std::size_t*               len_out)
+{
+    { T::crypto_init() }                                        -> std::same_as<psa_status_t>;
+    { T::generate_random(buf, len) }                            -> std::same_as<psa_status_t>;
+    { T::import_key(attrs, cbuf, len, key_out) }                -> std::same_as<psa_status_t>;
+    { T::generate_key(attrs, key_out) }                         -> std::same_as<psa_status_t>;
+    { T::destroy_key(key) }                                     -> std::same_as<psa_status_t>;
+    { T::export_key(key, buf, len, len_out) }                   -> std::same_as<psa_status_t>;
+    { T::export_public_key(key, buf, len, len_out) }            -> std::same_as<psa_status_t>;
+    { T::sign_message(key, alg, cbuf, len, buf, len, len_out) } -> std::same_as<psa_status_t>;
+    { T::verify_message(key, alg, cbuf, len, cbuf, len) }       -> std::same_as<psa_status_t>;
+    { T::mac_compute(key, alg, cbuf, len, buf, len, len_out) }  -> std::same_as<psa_status_t>;
+    { T::mac_verify(key, alg, cbuf, len, cbuf, len) }           -> std::same_as<psa_status_t>;
+    { T::aead_encrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<psa_status_t>;
+    { T::aead_decrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<psa_status_t>;
+    { T::asymmetric_encrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<psa_status_t>;
+    { T::asymmetric_decrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<psa_status_t>;
+    { T::raw_key_agreement(alg, key, cbuf, len, buf, len, len_out) }                  -> std::same_as<psa_status_t>;
+    { T::hash_compute(alg, cbuf, len, buf, len, len_out) }                            -> std::same_as<psa_status_t>;
+    { T::key_derivation_setup(op, alg) }                        -> std::same_as<psa_status_t>;
+    { T::key_derivation_input_key(op, step, key) }              -> std::same_as<psa_status_t>;
+    { T::key_derivation_input_bytes(op, step, cbuf, len) }      -> std::same_as<psa_status_t>;
+    { T::key_derivation_output_bytes(op, buf, len) }            -> std::same_as<psa_status_t>;
+    { T::key_derivation_abort(op) }                             -> std::same_as<psa_status_t>;
+};
+
+
+template<CryptoProvider Provider>
 class PsaKeyHandle {
 public:
     PsaKeyHandle() = default;
@@ -214,7 +260,7 @@ public:
 
     ~PsaKeyHandle() {
         if (valid_) {
-            PSA::destroy_key(id_);
+            Provider::destroy_key(id_);
         }
     }
 
@@ -241,7 +287,7 @@ public:
 
     void reset() noexcept {
         if (valid_) {
-            PSA::destroy_key(id_);
+            Provider::destroy_key(id_);
             valid_ = false;
         }
     }

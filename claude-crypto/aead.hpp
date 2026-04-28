@@ -40,7 +40,7 @@ struct ChaCha20Poly1305Result {
 };
 
 
-template<typename PSA = RealPsaBackend, SecureBufferLike Plaintext>
+template<CryptoProvider Provider = RealPsaBackend, SecureBufferLike Plaintext>
 [[nodiscard]]
 auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<aes256_key_size_bytes>& key,
@@ -48,13 +48,13 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
     }
 
-    auto iv = random_bytes_fixed_impl<aes_gcm_iv_size_bytes, PSA>();
+    auto iv = random_bytes_fixed_impl<aes_gcm_iv_size_bytes, Provider>();
     if (!iv.has_value()) {
         return std::unexpected(iv.error());
     }
@@ -66,12 +66,12 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
@@ -81,7 +81,7 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
 
     std::size_t ciphertext_length = 0;
-    const psa_status_t status = PSA::aead_encrypt(
+    const psa_status_t status = Provider::aead_encrypt(
         key_handle.get(), PSA_ALG_GCM,
         iv->data(), iv->size(),
         aad_ptr, aad_size,
@@ -102,7 +102,7 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<aes256_key_size_bytes>& key,
@@ -110,7 +110,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -123,12 +123,12 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
@@ -138,7 +138,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     SecureBuffer plaintext(plaintext_size);
 
     std::size_t plaintext_length = 0;
-    const psa_status_t status = PSA::aead_decrypt(
+    const psa_status_t status = Provider::aead_decrypt(
         key_handle.get(), PSA_ALG_GCM,
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,
@@ -156,7 +156,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 }
 
 
-template<typename PSA = RealPsaBackend, SecureBufferLike Plaintext>
+template<CryptoProvider Provider = RealPsaBackend, SecureBufferLike Plaintext>
 [[nodiscard]]
 auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<chacha20_key_size_bytes>& key,
@@ -164,13 +164,13 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<ChaCha20Poly1305Result, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
     }
 
-    auto iv = random_bytes_fixed_impl<chacha20_poly1305_iv_size_bytes, PSA>();
+    auto iv = random_bytes_fixed_impl<chacha20_poly1305_iv_size_bytes, Provider>();
     if (!iv.has_value()) {
         return std::unexpected(iv.error());
     }
@@ -182,12 +182,12 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
     psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ChaCha20-Poly1305 key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_CHACHA20,
@@ -199,7 +199,7 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
 
     std::size_t ciphertext_length = 0;
-    const psa_status_t status = PSA::aead_encrypt(
+    const psa_status_t status = Provider::aead_encrypt(
         key_handle.get(), PSA_ALG_CHACHA20_POLY1305,
         iv->data(), iv->size(),
         aad_ptr, aad_size,
@@ -221,7 +221,7 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
 }
 
 
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<chacha20_key_size_bytes>& key,
@@ -229,7 +229,7 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -242,12 +242,12 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
     psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ChaCha20-Poly1305 key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
@@ -259,7 +259,7 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
     SecureBuffer plaintext(plaintext_size);
 
     std::size_t plaintext_length = 0;
-    const psa_status_t status = PSA::aead_decrypt(
+    const psa_status_t status = Provider::aead_decrypt(
         key_handle.get(), PSA_ALG_CHACHA20_POLY1305,
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,

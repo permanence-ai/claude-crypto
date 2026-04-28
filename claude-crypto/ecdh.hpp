@@ -24,13 +24,13 @@ constexpr std::size_t ecdh_p384_shared_secret_bytes = 48;
 constexpr std::size_t ecdh_p521_shared_secret_bytes = 66;
 
 
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     const EcCurve curve)
     -> std::expected<EccKeyPair, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -46,19 +46,19 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDH);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::generate_key(&attrs, &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::generate_key(&attrs, &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ECDH key generation failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t private_key_size =
         PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
     SecureBuffer private_key_der(private_key_size);
     std::size_t  private_key_length = 0;
 
-    if (PSA::export_key(key_handle.get(),
+    if (Provider::export_key(key_handle.get(),
                         private_key_der.data(),
                         private_key_der.size(),
                         &private_key_length) != PSA_SUCCESS) {
@@ -73,7 +73,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     SecureBuffer public_key_der(public_key_size);
     std::size_t  public_key_length = 0;
 
-    if (PSA::export_public_key(key_handle.get(),
+    if (Provider::export_public_key(key_handle.get(),
                                public_key_der.data(),
                                public_key_der.size(),
                                &public_key_length) != PSA_SUCCESS) {
@@ -90,7 +90,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
 }
 
 
-template<typename PSA = RealPsaBackend, SecureBufferLike PeerPublicKey>
+template<CryptoProvider Provider = RealPsaBackend, SecureBufferLike PeerPublicKey>
 [[nodiscard]]
 auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-complexity)
     const EccKeyPair& our_key_pair,
@@ -98,7 +98,7 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     const PeerPublicKey& peer_public_key_der)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -114,7 +114,7 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDH);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs,
+    if (Provider::import_key(&attrs,
                         our_key_pair.private_key_der.data(),
                         our_key_pair.private_key_der.size(),
                         &raw_key_id) != PSA_SUCCESS) {
@@ -122,14 +122,14 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
             CryptoErrorCode::KeyImportFailed,
             "ECDH private key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t shared_secret_size =
         PSA_RAW_KEY_AGREEMENT_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
     SecureBuffer shared_secret(shared_secret_size);
     std::size_t  shared_secret_length = 0;
 
-    const psa_status_t status = PSA::raw_key_agreement(
+    const psa_status_t status = Provider::raw_key_agreement(
         PSA_ALG_ECDH,
         key_handle.get(),
         peer_public_key_der.data(), peer_public_key_der.size(),

@@ -17,7 +17,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "secure_buffer.hpp"
 
 
-template<ShaVariant V, typename PSA = RealPsaBackend,
+template<ShaVariant V, CryptoProvider Provider = RealPsaBackend,
          SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
 auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
@@ -27,7 +27,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 {
     constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
 
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -40,17 +40,17 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_algorithm(&attrs, alg);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     FixedSecureBuffer<sha_output_size(V)> mac;
     std::size_t mac_length = 0;
 
-    const psa_status_t status = PSA::mac_compute(
+    const psa_status_t status = Provider::mac_compute(
         key_handle.get(), alg,
         message.data(), message.size(),
         mac.data(), mac.size(),
@@ -66,7 +66,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
-template<ShaVariant V, typename PSA = RealPsaBackend,
+template<ShaVariant V, CryptoProvider Provider = RealPsaBackend,
          SecureBufferLike Key, SecureBufferLike Message>
 [[nodiscard]]
 auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
@@ -77,7 +77,7 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 {
     constexpr psa_algorithm_t alg = PSA_ALG_HMAC(detail::sha_psa_alg(V));
 
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -90,14 +90,14 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_algorithm(&attrs, alg);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
-    const psa_status_t status = PSA::mac_verify(
+    const psa_status_t status = Provider::mac_verify(
         key_handle.get(), alg,
         message.data(), message.size(),
         mac.data(), mac.size());

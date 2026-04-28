@@ -76,7 +76,7 @@ struct SigmaIKeys {
 // Derives all four SIGMA-I keys from the raw ECDH shared secret via a single
 // HKDF(SHA-384) operation.  Using full HKDF allows P-256's 32-byte shared
 // secret to be used as IKM safely.
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& shared_secret)
@@ -90,7 +90,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
 
     constexpr std::array<CryptoByte, 7> info = {'s','i','g','m','a','-','i'};
 
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -104,51 +104,51 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs,
+    if (Provider::import_key(&attrs,
                         shared_secret.data(), shared_secret.size(),
                         &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I IKM import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
-    if (PSA::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
-        PSA::key_derivation_abort(&op);
+    if (Provider::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
+        Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "SIGMA-I HKDF setup failed"));
     }
 
-    if (PSA::key_derivation_input_key(
+    if (Provider::key_derivation_input_key(
             &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_handle.get()) != PSA_SUCCESS) {
-        PSA::key_derivation_abort(&op);
+        Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA-I HKDF secret input failed"));
     }
 
-    if (PSA::key_derivation_input_bytes(
+    if (Provider::key_derivation_input_bytes(
             &op, PSA_KEY_DERIVATION_INPUT_INFO,
             info.data(), info.size()) != PSA_SUCCESS) {
-        PSA::key_derivation_abort(&op);
+        Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA-I HKDF info input failed"));
     }
 
     SecureBuffer output(total_output);
-    if (PSA::key_derivation_output_bytes(
+    if (Provider::key_derivation_output_bytes(
             &op, output.data(), output.size()) != PSA_SUCCESS) {
-        PSA::key_derivation_abort(&op);
+        Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "SIGMA-I HKDF output failed"));
     }
 
-    PSA::key_derivation_abort(&op);
+    Provider::key_derivation_abort(&op);
 
     auto slice = [&](const std::size_t offset, const std::size_t len) {
         SecureBuffer s(len);
@@ -300,20 +300,20 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
 
 // AES-256-GCM encrypt using a SecureBuffer key (PSA direct — aes256_gcm_encrypt
 // requires FixedSecureBuffer<32> which can't be constructed from a SecureBuffer slice).
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& key,
     const SecureBuffer& plaintext)
     -> std::expected<SigmaIBundle, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
     }
 
-    auto iv = random_bytes_fixed_impl<aes_gcm_iv_size_bytes, PSA>();
+    auto iv = random_bytes_fixed_impl<aes_gcm_iv_size_bytes, Provider>();
     if (!iv.has_value()) {
         return std::unexpected(iv.error());
     }
@@ -325,19 +325,19 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
     SecureBuffer ciphertext(output_size);
 
     std::size_t ciphertext_length = 0;
-    const psa_status_t status = PSA::aead_encrypt(
+    const psa_status_t status = Provider::aead_encrypt(
         key_handle.get(), PSA_ALG_GCM,
         iv->data(), iv->size(),
         nullptr, 0,
@@ -368,14 +368,14 @@ inline auto sigma_i_aes_gcm_encrypt(
 }
 
 
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SecureBuffer& key,
     const SigmaIBundle& bundle)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    if (PSA::crypto_init() != PSA_SUCCESS) {
+    if (Provider::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
             "PSA crypto init failed"));
@@ -388,19 +388,19 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
     mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
+    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
-    PsaKeyHandle<PSA> key_handle(raw_key_id);
+    PsaKeyHandle<Provider> key_handle(raw_key_id);
 
     const std::size_t plaintext_size =
         PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, bundle.ciphertext.size());
     SecureBuffer plaintext(plaintext_size);
 
     std::size_t plaintext_length = 0;
-    const psa_status_t status = PSA::aead_decrypt(
+    const psa_status_t status = Provider::aead_decrypt(
         key_handle.get(), PSA_ALG_GCM,
         bundle.iv.data(), bundle.iv.size(),
         nullptr, 0,
@@ -431,7 +431,7 @@ inline auto sigma_i_aes_gcm_decrypt(
 
 
 // Step 2 (Responder): receive Msg1, run ECDH, derive keys, encrypt identity bundle.
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg1&  msg1,
@@ -439,31 +439,31 @@ auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-c
     const EcCurve     curve)
     -> std::expected<SigmaIResponderRespondResult, CryptoError>
 {
-    auto eph_r = ecdh_generate_key_impl<PSA>(curve);
+    auto eph_r = ecdh_generate_key_impl<Provider>(curve);
     if (!eph_r.has_value()) {
         return std::unexpected(eph_r.error());
     }
 
-    auto shared_secret = ecdh_compute_shared_secret_impl<PSA>(
+    auto shared_secret = ecdh_compute_shared_secret_impl<Provider>(
         *eph_r, curve, msg1.ephemeral_pub_i);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
 
-    auto keys = detail::sigma_i_derive_keys_impl<PSA>(*shared_secret);
+    auto keys = detail::sigma_i_derive_keys_impl<Provider>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
 
     // Sign eph_pub_i ‖ eph_pub_r.
     const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
-    auto sig_r = ecdsa_sign_impl<PSA>(responder_identity, curve, sign_input);
+    auto sig_r = ecdsa_sign_impl<Provider>(responder_identity, curve, sign_input);
     if (!sig_r.has_value()) {
         return std::unexpected(sig_r.error());
     }
 
     // MAC over responder identity.
-    auto mac_r = hmac_generate_impl<ShaVariant::Sha384, PSA>(
+    auto mac_r = hmac_generate_impl<ShaVariant::Sha384, Provider>(
         keys->mac_key, responder_identity.public_key_der);
     if (!mac_r.has_value()) {
         return std::unexpected(mac_r.error());
@@ -472,7 +472,7 @@ auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-c
     // Encrypt the identity bundle.
     const auto plaintext_r = detail::sigma_i_serialize_bundle(
         responder_identity.public_key_der, *sig_r, *mac_r);
-    auto bundle_r = detail::sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_r, plaintext_r);
+    auto bundle_r = detail::sigma_i_aes_gcm_encrypt_impl<Provider>(keys->enc_key_r, plaintext_r);
     if (!bundle_r.has_value()) {
         return std::unexpected(bundle_r.error());
     }
@@ -507,7 +507,7 @@ inline auto sigma_i_responder_respond(
 
 
 // Step 3 (Initiator): decrypt and verify Msg2, encrypt own identity bundle.
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     SigmaInitiatorState        state,
@@ -517,19 +517,19 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     const EcCurve              curve)
     -> std::expected<SigmaIInitiatorFinishResult, CryptoError>
 {
-    auto shared_secret = ecdh_compute_shared_secret_impl<PSA>(
+    auto shared_secret = ecdh_compute_shared_secret_impl<Provider>(
         state.ephemeral_key_pair, curve, msg2.ephemeral_pub_r);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
 
-    auto keys = detail::sigma_i_derive_keys_impl<PSA>(*shared_secret);
+    auto keys = detail::sigma_i_derive_keys_impl<Provider>(*shared_secret);
     if (!keys.has_value()) {
         return std::unexpected(keys.error());
     }
 
     // Decrypt the responder bundle.
-    auto plaintext_r = detail::sigma_i_aes_gcm_decrypt_impl<PSA>(keys->enc_key_r, msg2.bundle_r);
+    auto plaintext_r = detail::sigma_i_aes_gcm_decrypt_impl<Provider>(keys->enc_key_r, msg2.bundle_r);
     if (!plaintext_r.has_value()) {
         return std::unexpected(plaintext_r.error());
     }
@@ -548,7 +548,7 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     }
 
     // Verify HMAC over responder identity.
-    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, PSA>(
+    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, Provider>(
         keys->mac_key, bundle_r->identity_pub, bundle_r->mac);
     if (!mac_ok.has_value()) {
         return std::unexpected(mac_ok.error());
@@ -564,7 +564,7 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     SecureBuffer responder_pub_copy(bundle_r->identity_pub.size());
     std::ranges::copy(bundle_r->identity_pub, responder_pub_copy.begin());
     const EcPublicKey responder_pub_only{ .public_key_der = std::move(responder_pub_copy) };
-    auto sig_ok = ecdsa_verify_impl<PSA>(responder_pub_only, curve, sign_input, bundle_r->signature);
+    auto sig_ok = ecdsa_verify_impl<Provider>(responder_pub_only, curve, sign_input, bundle_r->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
@@ -575,12 +575,12 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     }
 
     // Sign and MAC for the initiator bundle.
-    auto sig_i = ecdsa_sign_impl<PSA>(initiator_identity, curve, sign_input);
+    auto sig_i = ecdsa_sign_impl<Provider>(initiator_identity, curve, sign_input);
     if (!sig_i.has_value()) {
         return std::unexpected(sig_i.error());
     }
 
-    auto mac_i = hmac_generate_impl<ShaVariant::Sha384, PSA>(
+    auto mac_i = hmac_generate_impl<ShaVariant::Sha384, Provider>(
         keys->mac_key, initiator_identity.public_key_der);
     if (!mac_i.has_value()) {
         return std::unexpected(mac_i.error());
@@ -589,7 +589,7 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     // Encrypt the initiator bundle with K_enc_i.
     const auto plaintext_i = detail::sigma_i_serialize_bundle(
         initiator_identity.public_key_der, *sig_i, *mac_i);
-    auto bundle_i = detail::sigma_i_aes_gcm_encrypt_impl<PSA>(keys->enc_key_i, plaintext_i);
+    auto bundle_i = detail::sigma_i_aes_gcm_encrypt_impl<Provider>(keys->enc_key_i, plaintext_i);
     if (!bundle_i.has_value()) {
         return std::unexpected(bundle_i.error());
     }
@@ -618,7 +618,7 @@ inline auto sigma_i_initiator_finish(
 
 
 // Step 4 (Responder): decrypt and verify Msg3.
-template<typename PSA = RealPsaBackend>
+template<CryptoProvider Provider = RealPsaBackend>
 [[nodiscard]]
 auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaIMsg3&           msg3,
@@ -630,7 +630,7 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
     -> std::expected<bool, CryptoError>
 {
     // Decrypt the initiator bundle with K_enc_i.
-    auto plaintext_i = detail::sigma_i_aes_gcm_decrypt_impl<PSA>(responder_state.enc_key_i, msg3.bundle_i);
+    auto plaintext_i = detail::sigma_i_aes_gcm_decrypt_impl<Provider>(responder_state.enc_key_i, msg3.bundle_i);
     if (!plaintext_i.has_value()) {
         return false;
     }
@@ -647,7 +647,7 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
     }
 
     // Verify HMAC.
-    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, PSA>(
+    auto mac_ok = hmac_verify_impl<ShaVariant::Sha384, Provider>(
         responder_state.session_keys.mac_key, bundle_i->identity_pub, bundle_i->mac);
     if (!mac_ok.has_value()) {
         return std::unexpected(mac_ok.error());
@@ -661,7 +661,7 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
     SecureBuffer initiator_pub_copy(bundle_i->identity_pub.size());
     std::ranges::copy(bundle_i->identity_pub, initiator_pub_copy.begin());
     const EcPublicKey initiator_pub_only{ .public_key_der = std::move(initiator_pub_copy) };
-    auto sig_ok = ecdsa_verify_impl<PSA>(initiator_pub_only, curve, sign_input, bundle_i->signature);
+    auto sig_ok = ecdsa_verify_impl<Provider>(initiator_pub_only, curve, sign_input, bundle_i->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
