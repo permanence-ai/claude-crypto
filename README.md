@@ -55,7 +55,7 @@ The companion macro `SAFE_CRYPTO_CONTRACTS_ENFORCED` is defined when contracts p
 
 All crypto operations are templated on a `CryptoProvider` concept defined in `crypto_provider.hpp`. The concept requires associated types (`Status`, `KeyId`, `Algorithm`, `KeyAttributes`, `KdfOperation`, `KdfStep`), status sentinels, object factories, algorithm constants, and all low-level crypto primitives.
 
-The default provider (`RealPsaBackend`) forwards to PSA/MbedTLS. A second provider (`IaAsmBackend`) stub is included as a starting point for an assembly implementation. Tests use `MockPsaBackend` (GMock) to exercise every error path without inducing real PSA failures.
+The default provider (`RealPsaBackend`) forwards to PSA/MbedTLS. A second provider (`ArmAsmBackend`) implements hashing and HMAC directly via ARM Crypto Extension intrinsics — see [ARM ASM provider](#arm-asm-provider) below. Tests use `MockPsaBackend` (GMock) to exercise every error path without inducing real PSA failures.
 
 ### No PSA types in library headers
 
@@ -67,14 +67,48 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 
 `PsaKeyHandle<Provider>` is an RAII wrapper around a PSA key ID. It calls `destroy_key` in its destructor and on every move-assignment path, ensuring that imported and generated keys are destroyed even when an error is returned mid-function. `get()` carries a precondition that the handle is valid, making use-after-move a detectable bug rather than silent UB.
 
+### ARM ASM provider
+
+`providers/arm_asm/` is a header-only provider targeting ARMv8.2-A+crypto+sha3 (Apple Silicon M1 and later). It uses ARM Crypto Extension intrinsics directly — no MbedTLS dependency — compiled with `-march=armv8.2-a+crypto+sha3`.
+
+**Implemented operations:**
+
+| Operation | Notes |
+|---|---|
+| SHA-256 | `vsha256h_u32` / `vsha256h2_u32` compression intrinsics; full padding |
+| SHA-384 | `vsha512hq_u64` / `vsha512h2q_u64` with SHA-384 initial state; first 48 bytes of output |
+| SHA-512 | Same compression function, SHA-512 initial state; 64-byte output |
+| HMAC-SHA-256 | Incremental `Sha256Ctx`; key hashing when key > 64 bytes |
+| HMAC-SHA-384 | Incremental `Sha512Ctx` initialised with SHA-384 H₀; key hashing uses SHA-384 |
+| HMAC-SHA-512 | Incremental `Sha512Ctx` initialised with SHA-512 H₀ |
+| Key store | 16-slot static store (up to 512 bytes/key); keys zeroized on destroy |
+| `import_key` / `destroy_key` | Full implementation backed by the key store |
+| `mac_compute` / `mac_verify` | HMAC dispatch; `mac_verify` uses a constant-time compare |
+
+**Not yet implemented** (return `err_invalid_arg`): random generation, AEAD, ECDSA/ECDH, RSA, KDF, key generation/export.
+
+**SHA-512 compression loop detail.** The two-round step pattern cycles through four roles (ab/cd/ef/gh) every eight rounds. Each step requires cross-pair word interleaving that cannot be expressed as a simple state rotation:
+
+```cpp
+// Rounds 0,1 — targets gh, updates cd
+initial_sum = vaddq_u64(s0, vld1q_u64(sha512_k));
+sum         = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), gh);
+intermed    = vsha512hq_u64(sum, vextq_u64(ef, gh, 1), vextq_u64(cd, ef, 1));
+gh          = vsha512h2q_u64(intermed, cd, ab);
+cd          = vaddq_u64(cd, intermed);
+```
+
+Rounds 16–79 interleave message schedule (`vsha512su0q_u64` / `vsha512su1q_u64`) with compression, processing eight word pairs per loop iteration.
+
 ## Directory layout
 
 ```
 safe-crypto-lib/          # INTERFACE library — headers only, no PSA dependency
 providers/
-  psa_mbedtls/            # INTERFACE library — RealPsaBackend, links mbedtls
-  ia_asm/                 # INTERFACE library stub — IaAsmBackend skeleton
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend
+  psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
+  arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
+  ia_asm/                 # INTERFACE library stub — skeleton only
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (209 tests)
 cmake/                    # FetchContent modules for MbedTLS and GoogleTest
 ```
 
@@ -100,11 +134,12 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | Value | Backend | Status |
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
-| `IA_ASM` | Native assembly | Stub (in development) |
+| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing and HMAC |
+| `IA_ASM` | Native assembly | Stub only |
 
 ```bash
-# Use the IA ASM provider
-cmake -G Ninja -B cmake-build-debug -S . -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM
+# Use the ARM ASM provider
+cmake -G Ninja -B cmake-build-debug -S . -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM
 ```
 
 Specifying an unrecognised value is a configure-time fatal error that lists the valid choices. Adding a new provider means creating a `providers/<name>/` subdirectory with a backend struct and CMakeLists, then registering it in the top-level `SAFE_CRYPTO_ACTIVE_PROVIDER` string list.
