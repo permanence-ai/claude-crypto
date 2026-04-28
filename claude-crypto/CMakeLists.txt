@@ -6,6 +6,7 @@ target_sources(${LIB_NAME} INTERFACE
         aead.hpp
         asymmetric.hpp
         crypto_error.hpp
+        crypto_provider.hpp
         defs.hpp
         digests.hpp
         ecc.hpp
@@ -13,6 +14,7 @@ target_sources(${LIB_NAME} INTERFACE
         kdf.hpp
         mac.hpp
         psa_backend.hpp
+        provider.hpp
         random.hpp
         secure_buffer.hpp
         sha_variant.hpp
@@ -22,8 +24,4 @@ target_sources(${LIB_NAME} INTERFACE
 
 target_include_directories(${LIB_NAME} INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-target_link_libraries(${LIB_NAME} INTERFACE
-        mbedtls
 )

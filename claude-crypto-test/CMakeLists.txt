@@ -29,9 +29,9 @@ target_compile_options(${EXE_NAME} PRIVATE
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE
+        claude_crypto_psa_mbedtls
         gmock
         gtest
-        claude_crypto
 )
 
 include(GoogleTest)

@@ -11,8 +11,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <gmock/gmock.h>
 #include <psa/crypto.h>
 
+#include "crypto_provider.hpp"
 #include "defs.hpp"
-#include "psa_backend.hpp"
+#include "psa_mbedtls_backend.hpp"
 #include "sha_variant.hpp"
 
 

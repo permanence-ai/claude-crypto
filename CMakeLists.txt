@@ -10,4 +10,5 @@ include(PermMbedTLS)
 include(CTest)
 
 add_subdirectory(claude-crypto)
+add_subdirectory(providers)
 add_subdirectory(claude-crypto-test)
