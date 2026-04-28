@@ -93,11 +93,21 @@ public:
 
     [[nodiscard]]
     auto operator[](const std::size_t i) -> CryptoByte& {
-        return data_.at(i);
+        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
     [[nodiscard]]
     auto operator[](const std::size_t i) const -> const CryptoByte& {
+        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    }
+
+    [[nodiscard]]
+    auto at(const std::size_t i) -> CryptoByte& {
+        return data_.at(i);
+    }
+
+    [[nodiscard]]
+    auto at(const std::size_t i) const -> const CryptoByte& {
         return data_.at(i);
     }
 
@@ -165,11 +175,21 @@ public:
 
     [[nodiscard]]
     auto operator[](const std::size_t i) -> CryptoByte& {
-        return data_.at(i);
+        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     }
 
     [[nodiscard]]
     auto operator[](const std::size_t i) const -> const CryptoByte& {
+        return data_[i];  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    }
+
+    [[nodiscard]]
+    auto at(const std::size_t i) -> CryptoByte& {
+        return data_.at(i);
+    }
+
+    [[nodiscard]]
+    auto at(const std::size_t i) const -> const CryptoByte& {
         return data_.at(i);
     }
 
