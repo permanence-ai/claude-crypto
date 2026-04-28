@@ -9,6 +9,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "defs.hpp"
 #include "sha256.hpp"
+#include "sha512.hpp"
 #include "sha_variant.hpp"
 
 
@@ -44,6 +45,18 @@ struct ArmAsmBackend {
             if (output_size < sha256_size_bytes) { return err_invalid_arg; }
             arm_asm::detail::sha256(input, input_len, output);
             *output_len = sha256_size_bytes;
+            return ok;
+        }
+        if (alg == alg_sha(ShaVariant::Sha512)) {
+            if (output_size < sha512_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::sha512(input, input_len, output);
+            *output_len = sha512_size_bytes;
+            return ok;
+        }
+        if (alg == alg_sha(ShaVariant::Sha384)) {
+            if (output_size < sha384_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::sha384(input, input_len, output);
+            *output_len = sha384_size_bytes;
             return ok;
         }
         return err_invalid_arg;
