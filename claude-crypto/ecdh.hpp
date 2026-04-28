@@ -45,23 +45,23 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE | PSA_KEY_USAGE_EXPORT);
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDH);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::generate_key(&attrs, &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::generate_key(&attrs, &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ECDH key generation failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t private_key_size =
         PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
     SecureBuffer private_key_der(private_key_size);
     std::size_t  private_key_length = 0;
 
-    if (PSA::export_key(key_id,
+    if (PSA::export_key(key_handle.get(),
                         private_key_der.data(),
                         private_key_der.size(),
                         &private_key_length) != PSA_SUCCESS) {
-        PSA::destroy_key(key_id);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDH private key export failed"));
@@ -73,18 +73,15 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     SecureBuffer public_key_der(public_key_size);
     std::size_t  public_key_length = 0;
 
-    if (PSA::export_public_key(key_id,
+    if (PSA::export_public_key(key_handle.get(),
                                public_key_der.data(),
                                public_key_der.size(),
                                &public_key_length) != PSA_SUCCESS) {
-        PSA::destroy_key(key_id);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDH public key export failed"));
     }
     public_key_der.resize(public_key_length);
-
-    PSA::destroy_key(key_id);
 
     return EccKeyPair{
         .private_key_der = std::move(private_key_der),
@@ -116,15 +113,16 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDH);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (PSA::import_key(&attrs,
                         our_key_pair.private_key_der.data(),
                         our_key_pair.private_key_der.size(),
-                        &key_id) != PSA_SUCCESS) {
+                        &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ECDH private key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t shared_secret_size =
         PSA_RAW_KEY_AGREEMENT_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
@@ -133,12 +131,10 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
 
     const psa_status_t status = PSA::raw_key_agreement(
         PSA_ALG_ECDH,
-        key_id,
+        key_handle.get(),
         peer_public_key_der.data(), peer_public_key_der.size(),
         shared_secret.data(), shared_secret.size(),
         &shared_secret_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(

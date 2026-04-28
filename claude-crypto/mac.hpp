@@ -39,23 +39,22 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
     psa_set_key_algorithm(&attrs, alg);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     FixedSecureBuffer<sha_output_size(V)> mac;
     std::size_t mac_length = 0;
 
     const psa_status_t status = PSA::mac_compute(
-        key_id, alg,
+        key_handle.get(), alg,
         message.data(), message.size(),
         mac.data(), mac.size(),
         &mac_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -90,19 +89,18 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
     psa_set_key_algorithm(&attrs, alg);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const psa_status_t status = PSA::mac_verify(
-        key_id, alg,
+        key_handle.get(), alg,
         message.data(), message.size(),
         mac.data(), mac.size());
-
-    PSA::destroy_key(key_id);
 
     if (status == PSA_ERROR_INVALID_SIGNATURE) {
         return false;

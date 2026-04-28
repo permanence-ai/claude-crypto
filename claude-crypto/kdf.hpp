@@ -57,22 +57,18 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, ikm_ref.data(), ikm_ref.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, ikm_ref.data(), ikm_ref.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "IKM import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
-    auto cleanup = [&]() {
-        PSA::key_derivation_abort(&op);
-        PSA::destroy_key(key_id);
-    };
-
     if (PSA::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "HKDF setup failed"));
@@ -81,7 +77,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     if (salt.has_value()) {
         if (PSA::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_SALT,
                                             salt->data(), salt->size()) != PSA_SUCCESS) {
-            cleanup();
+            PSA::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
                 CryptoErrorCode::KdfInputFailed,
                 "HKDF salt input failed"));
@@ -89,8 +85,8 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
 
     if (PSA::key_derivation_input_key(&op, PSA_KEY_DERIVATION_INPUT_SECRET,
-                                      key_id) != PSA_SUCCESS) {
-        cleanup();
+                                      key_handle.get()) != PSA_SUCCESS) {
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "HKDF secret input failed"));
@@ -99,7 +95,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     if (info.has_value()) {
         if (PSA::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
                                             info->data(), info->size()) != PSA_SUCCESS) {
-            cleanup();
+            PSA::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
                 CryptoErrorCode::KdfInputFailed,
                 "HKDF info input failed"));
@@ -107,7 +103,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     } else {
         if (PSA::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
                                             nullptr, 0) != PSA_SUCCESS) {
-            cleanup();
+            PSA::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
                 CryptoErrorCode::KdfInputFailed,
                 "HKDF info input failed"));
@@ -116,13 +112,13 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     SecureBuffer output(output_length);
     if (PSA::key_derivation_output_bytes(&op, output.data(), output.size()) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "HKDF output failed"));
     }
 
-    cleanup();
+    PSA::key_derivation_abort(&op);
     return output;
 }
 
@@ -147,30 +143,26 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, prk.data(), prk.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, prk.data(), prk.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "PRK import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
-    auto cleanup = [&]() {
-        PSA::key_derivation_abort(&op);
-        PSA::destroy_key(key_id);
-    };
-
     if (PSA::key_derivation_setup(&op, PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "HKDF-Expand setup failed"));
     }
 
     if (PSA::key_derivation_input_key(&op, PSA_KEY_DERIVATION_INPUT_SECRET,
-                                      key_id) != PSA_SUCCESS) {
-        cleanup();
+                                      key_handle.get()) != PSA_SUCCESS) {
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "HKDF-Expand PRK input failed"));
@@ -181,7 +173,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     if (PSA::key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
                                         info_ptr, info_size) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "HKDF-Expand info input failed"));
@@ -189,13 +181,13 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     SecureBuffer output(output_length);
     if (PSA::key_derivation_output_bytes(&op, output.data(), output.size()) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "HKDF-Expand output failed"));
     }
 
-    cleanup();
+    PSA::key_derivation_abort(&op);
     return output;
 }
 
@@ -243,23 +235,23 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
                                     PSA_KEY_USAGE_EXPORT);
     psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::generate_key(&attrs, &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::generate_key(&attrs, &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "RSA key generation failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t private_key_size =
         PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_RSA_KEY_PAIR, key_bits_val);
     SecureBuffer private_key_der(private_key_size);
     std::size_t private_key_length = 0;
 
-    if (PSA::export_key(key_id,
+    if (PSA::export_key(key_handle.get(),
                         private_key_der.data(),
                         private_key_der.size(),
                         &private_key_length) != PSA_SUCCESS) {
-        PSA::destroy_key(key_id);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "RSA private key export failed"));
@@ -271,18 +263,15 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
     SecureBuffer public_key_der(public_key_size);
     std::size_t public_key_length = 0;
 
-    if (PSA::export_public_key(key_id,
+    if (PSA::export_public_key(key_handle.get(),
                                public_key_der.data(),
                                public_key_der.size(),
                                &public_key_length) != PSA_SUCCESS) {
-        PSA::destroy_key(key_id);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "RSA public key export failed"));
     }
     public_key_der.resize(public_key_length);
-
-    PSA::destroy_key(key_id);
 
     return RsaKeyPair<KB>{
         .private_key_der = std::move(private_key_der),

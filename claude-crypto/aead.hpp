@@ -64,12 +64,13 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
@@ -80,14 +81,12 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 
     std::size_t ciphertext_length = 0;
     const psa_status_t status = PSA::aead_encrypt(
-        key_id, PSA_ALG_GCM,
+        key_handle.get(), PSA_ALG_GCM,
         iv->data(), iv->size(),
         aad_ptr, aad_size,
         plaintext.data(), plaintext.size(),
         ciphertext.data(), ciphertext.size(),
         &ciphertext_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -124,12 +123,13 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
@@ -140,14 +140,12 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 
     std::size_t plaintext_length = 0;
     const psa_status_t status = PSA::aead_decrypt(
-        key_id, PSA_ALG_GCM,
+        key_handle.get(), PSA_ALG_GCM,
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,
         ciphertext.ciphertext.data(), ciphertext.ciphertext.size(),
         plaintext.data(), plaintext.size(),
         &plaintext_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -186,12 +184,13 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ChaCha20-Poly1305 key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_CHACHA20,
@@ -204,14 +203,12 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
 
     std::size_t ciphertext_length = 0;
     const psa_status_t status = PSA::aead_encrypt(
-        key_id, PSA_ALG_CHACHA20_POLY1305,
+        key_handle.get(), PSA_ALG_CHACHA20_POLY1305,
         iv->data(), iv->size(),
         aad_ptr, aad_size,
         plaintext.data(), plaintext.size(),
         ciphertext.data(), ciphertext.size(),
         &ciphertext_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -249,12 +246,13 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_CHACHA20_POLY1305);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ChaCha20-Poly1305 key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
@@ -267,14 +265,12 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
 
     std::size_t plaintext_length = 0;
     const psa_status_t status = PSA::aead_decrypt(
-        key_id, PSA_ALG_CHACHA20_POLY1305,
+        key_handle.get(), PSA_ALG_CHACHA20_POLY1305,
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,
         ciphertext.ciphertext.data(), ciphertext.ciphertext.size(),
         plaintext.data(), plaintext.size(),
         &plaintext_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(

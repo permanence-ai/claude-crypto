@@ -102,32 +102,28 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (PSA::import_key(&attrs,
                         shared_secret.data(), shared_secret.size(),
-                        &key_id) != PSA_SUCCESS) {
+                        &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I IKM import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
-    auto cleanup = [&]() {
-        PSA::key_derivation_abort(&op);
-        PSA::destroy_key(key_id);
-    };
-
     if (PSA::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "SIGMA-I HKDF setup failed"));
     }
 
     if (PSA::key_derivation_input_key(
-            &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_id) != PSA_SUCCESS) {
-        cleanup();
+            &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_handle.get()) != PSA_SUCCESS) {
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA-I HKDF secret input failed"));
@@ -136,7 +132,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     if (PSA::key_derivation_input_bytes(
             &op, PSA_KEY_DERIVATION_INPUT_INFO,
             INFO.data(), INFO.size()) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA-I HKDF info input failed"));
@@ -145,13 +141,13 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     SecureBuffer output(TOTAL_OUTPUT);
     if (PSA::key_derivation_output_bytes(
             &op, output.data(), output.size()) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "SIGMA-I HKDF output failed"));
     }
 
-    cleanup();
+    PSA::key_derivation_abort(&op);
 
     auto slice = [&](const std::size_t offset, const std::size_t len) {
         SecureBuffer s(len);
@@ -329,12 +325,13 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t output_size =
         PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext.size());
@@ -342,14 +339,12 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     std::size_t ciphertext_length = 0;
     const psa_status_t status = PSA::aead_encrypt(
-        key_id, PSA_ALG_GCM,
+        key_handle.get(), PSA_ALG_GCM,
         iv->data(), iv->size(),
         nullptr, 0,
         plaintext.data(), plaintext.size(),
         ciphertext.data(), ciphertext.size(),
         &ciphertext_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -395,12 +390,13 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::import_key(&attrs, key.data(), key.size(), &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::import_key(&attrs, key.data(), key.size(), &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t plaintext_size =
         PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, bundle.ciphertext.size());
@@ -408,14 +404,12 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     std::size_t plaintext_length = 0;
     const psa_status_t status = PSA::aead_decrypt(
-        key_id, PSA_ALG_GCM,
+        key_handle.get(), PSA_ALG_GCM,
         bundle.iv.data(), bundle.iv.size(),
         nullptr, 0,
         bundle.ciphertext.data(), bundle.ciphertext.size(),
         plaintext.data(), plaintext.size(),
         &plaintext_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(

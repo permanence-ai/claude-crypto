@@ -202,3 +202,51 @@ struct RealPsaBackend {
         return psa_key_derivation_abort(operation);
     }
 };
+
+
+template<typename PSA>
+class PsaKeyHandle {
+public:
+    PsaKeyHandle() = default;
+
+    explicit PsaKeyHandle(const mbedtls_svc_key_id_t id) noexcept
+        : id_(id), valid_(true) {}
+
+    ~PsaKeyHandle() {
+        if (valid_) {
+            PSA::destroy_key(id_);
+        }
+    }
+
+    PsaKeyHandle(const PsaKeyHandle&)            = delete;
+    PsaKeyHandle& operator=(const PsaKeyHandle&) = delete;
+
+    PsaKeyHandle(PsaKeyHandle&& other) noexcept
+        : id_(other.id_), valid_(other.valid_)
+    {
+        other.valid_ = false;
+    }
+
+    PsaKeyHandle& operator=(PsaKeyHandle&& other) noexcept {
+        if (this != &other) {
+            reset();
+            id_          = other.id_;
+            valid_       = other.valid_;
+            other.valid_ = false;
+        }
+        return *this;
+    }
+
+    [[nodiscard]] auto get() const noexcept -> mbedtls_svc_key_id_t { return id_; }
+
+    void reset() noexcept {
+        if (valid_) {
+            PSA::destroy_key(id_);
+            valid_ = false;
+        }
+    }
+
+private:
+    mbedtls_svc_key_id_t id_    = MBEDTLS_SVC_KEY_ID_INIT;
+    bool                 valid_ = false;
+};

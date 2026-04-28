@@ -66,23 +66,23 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
                                     PSA_KEY_USAGE_EXPORT);
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDSA(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (PSA::generate_key(&attrs, &key_id) != PSA_SUCCESS) {
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    if (PSA::generate_key(&attrs, &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ECDSA key generation failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t private_key_size =
         PSA_EXPORT_KEY_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family), key_bits);
     SecureBuffer private_key_der(private_key_size);
     std::size_t  private_key_length = 0;
 
-    if (PSA::export_key(key_id,
+    if (PSA::export_key(key_handle.get(),
                         private_key_der.data(),
                         private_key_der.size(),
                         &private_key_length) != PSA_SUCCESS) {
-        PSA::destroy_key(key_id);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDSA private key export failed"));
@@ -94,18 +94,15 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
     SecureBuffer public_key_der(public_key_size);
     std::size_t  public_key_length = 0;
 
-    if (PSA::export_public_key(key_id,
+    if (PSA::export_public_key(key_handle.get(),
                                public_key_der.data(),
                                public_key_der.size(),
                                &public_key_length) != PSA_SUCCESS) {
-        PSA::destroy_key(key_id);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDSA public key export failed"));
     }
     public_key_der.resize(public_key_length);
-
-    PSA::destroy_key(key_id);
 
     return EccKeyPair{
         .private_key_der = std::move(private_key_der),
@@ -137,15 +134,16 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDSA(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (PSA::import_key(&attrs,
                         key_pair.private_key_der.data(),
                         key_pair.private_key_der.size(),
-                        &key_id) != PSA_SUCCESS) {
+                        &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ECDSA private key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const std::size_t signature_size =
         PSA_SIGN_OUTPUT_SIZE(PSA_KEY_TYPE_ECC_KEY_PAIR(family),
@@ -155,13 +153,11 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     std::size_t  signature_length = 0;
 
     const psa_status_t status = PSA::sign_message(
-        key_id,
+        key_handle.get(),
         PSA_ALG_ECDSA(PSA_ALG_SHA_384),
         message.data(), message.size(),
         signature.data(), signature.size(),
         &signature_length);
-
-    PSA::destroy_key(key_id);
 
     if (status != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -199,23 +195,22 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
     psa_set_key_algorithm(&attrs, PSA_ALG_ECDSA(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (PSA::import_key(&attrs,
                         key_pair.public_key_der.data(),
                         key_pair.public_key_der.size(),
-                        &key_id) != PSA_SUCCESS) {
+                        &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ECDSA public key import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     const psa_status_t status = PSA::verify_message(
-        key_id,
+        key_handle.get(),
         PSA_ALG_ECDSA(PSA_ALG_SHA_384),
         message.data(), message.size(),
         signature.data(), signature.size());
-
-    PSA::destroy_key(key_id);
 
     if (status == PSA_ERROR_INVALID_SIGNATURE || status == PSA_ERROR_INVALID_ARGUMENT) {
         return false;

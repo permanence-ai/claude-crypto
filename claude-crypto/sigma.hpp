@@ -108,32 +108,28 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DERIVE);
     psa_set_key_algorithm(&attrs, PSA_ALG_HKDF(PSA_ALG_SHA_384));
 
-    mbedtls_svc_key_id_t key_id = MBEDTLS_SVC_KEY_ID_INIT;
+    mbedtls_svc_key_id_t raw_key_id = MBEDTLS_SVC_KEY_ID_INIT;
     if (PSA::import_key(&attrs,
                         shared_secret.data(), shared_secret.size(),
-                        &key_id) != PSA_SUCCESS) {
+                        &raw_key_id) != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA IKM import failed"));
     }
+    PsaKeyHandle<PSA> key_handle(raw_key_id);
 
     psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
-    auto cleanup = [&]() {
-        PSA::key_derivation_abort(&op);
-        PSA::destroy_key(key_id);
-    };
-
     if (PSA::key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_384)) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "SIGMA HKDF setup failed"));
     }
 
     if (PSA::key_derivation_input_key(
-            &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_id) != PSA_SUCCESS) {
-        cleanup();
+            &op, PSA_KEY_DERIVATION_INPUT_SECRET, key_handle.get()) != PSA_SUCCESS) {
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA HKDF secret input failed"));
@@ -142,7 +138,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     if (PSA::key_derivation_input_bytes(
             &op, PSA_KEY_DERIVATION_INPUT_INFO,
             INFO.data(), INFO.size()) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA HKDF info input failed"));
@@ -151,13 +147,13 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     SecureBuffer output(TOTAL_OUTPUT);
     if (PSA::key_derivation_output_bytes(
             &op, output.data(), output.size()) != PSA_SUCCESS) {
-        cleanup();
+        PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "SIGMA HKDF output failed"));
     }
 
-    cleanup();
+    PSA::key_derivation_abort(&op);
 
     SecureBuffer mac_key(sigma_mac_key_size_bytes);
     SecureBuffer session_key(sigma_session_key_size_bytes);
