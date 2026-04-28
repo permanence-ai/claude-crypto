@@ -93,8 +93,8 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     const SecureBuffer& shared_secret)
     -> std::expected<SigmaSessionKeys, CryptoError>
 {
-    constexpr std::size_t TOTAL_OUTPUT = sigma_mac_key_size_bytes + sigma_session_key_size_bytes;
-    constexpr std::array<CryptoByte, 5> INFO = {'s','i','g','m','a'};
+    constexpr std::size_t total_output = sigma_mac_key_size_bytes + sigma_session_key_size_bytes;
+    constexpr std::array<CryptoByte, 5> info = {'s','i','g','m','a'};
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -138,14 +138,14 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
 
     if (PSA::key_derivation_input_bytes(
             &op, PSA_KEY_DERIVATION_INPUT_INFO,
-            INFO.data(), INFO.size()) != PSA_SUCCESS) {
+            info.data(), info.size()) != PSA_SUCCESS) {
         PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA HKDF info input failed"));
     }
 
-    SecureBuffer output(TOTAL_OUTPUT);
+    SecureBuffer output(total_output);
     if (PSA::key_derivation_output_bytes(
             &op, output.data(), output.size()) != PSA_SUCCESS) {
         PSA::key_derivation_abort(&op);

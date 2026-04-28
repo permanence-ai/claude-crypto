@@ -82,13 +82,13 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     const SecureBuffer& shared_secret)
     -> std::expected<SigmaIKeys, CryptoError>
 {
-    constexpr std::size_t TOTAL_OUTPUT =
+    constexpr std::size_t total_output =
         sigma_mac_key_size_bytes +
         sigma_session_key_size_bytes +
         sigma_i_enc_key_size_bytes +
         sigma_i_enc_key_size_bytes;
 
-    constexpr std::array<CryptoByte, 7> INFO = {'s','i','g','m','a','-','i'};
+    constexpr std::array<CryptoByte, 7> info = {'s','i','g','m','a','-','i'};
 
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
@@ -132,14 +132,14 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
 
     if (PSA::key_derivation_input_bytes(
             &op, PSA_KEY_DERIVATION_INPUT_INFO,
-            INFO.data(), INFO.size()) != PSA_SUCCESS) {
+            info.data(), info.size()) != PSA_SUCCESS) {
         PSA::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA-I HKDF info input failed"));
     }
 
-    SecureBuffer output(TOTAL_OUTPUT);
+    SecureBuffer output(total_output);
     if (PSA::key_derivation_output_bytes(
             &op, output.data(), output.size()) != PSA_SUCCESS) {
         PSA::key_derivation_abort(&op);
@@ -159,15 +159,15 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
         return s;
     };
 
-    constexpr std::size_t OFF_SESSION = sigma_mac_key_size_bytes;
-    constexpr std::size_t OFF_ENC_R   = OFF_SESSION + sigma_session_key_size_bytes;
-    constexpr std::size_t OFF_ENC_I   = OFF_ENC_R   + sigma_i_enc_key_size_bytes;
+    constexpr std::size_t off_session = sigma_mac_key_size_bytes;
+    constexpr std::size_t off_enc_r   = off_session + sigma_session_key_size_bytes;
+    constexpr std::size_t off_enc_i   = off_enc_r   + sigma_i_enc_key_size_bytes;
 
     return SigmaIKeys{
-        .mac_key      = slice(0,          sigma_mac_key_size_bytes),
-        .session_key  = slice(OFF_SESSION, sigma_session_key_size_bytes),
-        .enc_key_r    = slice(OFF_ENC_R,   sigma_i_enc_key_size_bytes),
-        .enc_key_i    = slice(OFF_ENC_I,   sigma_i_enc_key_size_bytes),
+        .mac_key      = slice(0,           sigma_mac_key_size_bytes),
+        .session_key  = slice(off_session, sigma_session_key_size_bytes),
+        .enc_key_r    = slice(off_enc_r,   sigma_i_enc_key_size_bytes),
+        .enc_key_i    = slice(off_enc_i,   sigma_i_enc_key_size_bytes),
     };
 }
 
@@ -307,8 +307,6 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
     const SecureBuffer& plaintext)
     -> std::expected<SigmaIBundle, CryptoError>
 {
-    constexpr std::size_t aes256_key_bits = 256;
-
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
@@ -322,7 +320,7 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, aes256_key_bits);
+    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(aes256_key_bits));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
@@ -377,8 +375,6 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
     const SigmaIBundle& bundle)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    constexpr std::size_t aes256_key_bits = 256;
-
     if (PSA::crypto_init() != PSA_SUCCESS) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
@@ -387,7 +383,7 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
-    psa_set_key_bits(&attrs, aes256_key_bits);
+    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(aes256_key_bits));
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
     psa_set_key_algorithm(&attrs, PSA_ALG_GCM);
 
