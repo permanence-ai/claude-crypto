@@ -12,6 +12,7 @@ set_property(CACHE SAFE_CRYPTO_ACTIVE_PROVIDER PROPERTY STRINGS
 
 include(FetchContent)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(PermGBenchmark)
 include(PermGTest)
 include(PermMbedTLS)
 include(CTest)
@@ -20,4 +21,5 @@ include(CTest)
 # when safe-crypto-lib selects and links the active one.
 add_subdirectory(providers)
 add_subdirectory(safe-crypto-lib)
+add_subdirectory(safe-crypto-lib-bench)
 add_subdirectory(safe-crypto-lib-test)
