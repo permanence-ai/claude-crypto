@@ -163,22 +163,29 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 
 | Operation | PSA/MbedTLS | ARM ASM | Speedup |
 |---|---|---|---|
-| SHA-256 | 363 MB/s | 2,417 MB/s | **6.7×** |
-| SHA-384 | 521 MB/s | 1,522 MB/s | **2.9×** |
-| SHA-512 | 521 MB/s | 1,558 MB/s | **3.0×** |
-| HMAC-SHA-256 | 360 MB/s | 2,296 MB/s | **6.4×** |
-| HMAC-SHA-384 | 514 MB/s | 1,546 MB/s | **3.0×** |
-| HMAC-SHA-512 | 514 MB/s | 1,537 MB/s | **3.0×** |
-| AES-256-GCM encrypt | 1,113 MB/s | 1,285 MB/s | 1.2× |
-| AES-256-GCM decrypt | 1,019 MB/s | 1,277 MB/s | 1.3× |
-| ChaCha20-Poly1305 encrypt | 572 MB/s | 349 MB/s | 0.6× |
-| ChaCha20-Poly1305 decrypt | 571 MB/s | 359 MB/s | 0.6× |
-| HKDF-SHA-384 (48 B output) | 352 K ops/s | 732 K ops/s | **2.1×** |
+| SHA-256 | 374 MB/s | 2,606 MB/s | **7.0×** |
+| SHA-384 | 512 MB/s | 1,719 MB/s | **3.4×** |
+| SHA-512 | 548 MB/s | 1,726 MB/s | **3.1×** |
+| SHA3-256 | 397 MB/s | 251 MB/s | 0.6× |
+| SHA3-384 | 311 MB/s | 193 MB/s | 0.6× |
+| SHA3-512 | 219 MB/s | 133 MB/s | 0.6× |
+| HMAC-SHA-256 | 376 MB/s | 2,370 MB/s | **6.3×** |
+| HMAC-SHA-384 | 543 MB/s | 1,644 MB/s | **3.0×** |
+| HMAC-SHA-512 | 505 MB/s | 1,686 MB/s | **3.3×** |
+| HMAC-SHA3-256 | 388 MB/s | 246 MB/s | 0.6× |
+| HMAC-SHA3-384 | 302 MB/s | 194 MB/s | 0.6× |
+| HMAC-SHA3-512 | 218 MB/s | 134 MB/s | 0.6× |
+| AES-256-GCM encrypt | 1,186 MB/s | 1,363 MB/s | 1.1× |
+| AES-256-GCM decrypt | 1,180 MB/s | 1,315 MB/s | 1.1× |
+| ChaCha20-Poly1305 encrypt | 605 MB/s | 383 MB/s | 0.6× |
+| ChaCha20-Poly1305 decrypt | 604 MB/s | 365 MB/s | 0.6× |
+| HKDF-SHA-384 (48 B output) | 325 K ops/s | 746 K ops/s | **2.3×** |
 
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
-- **ChaCha20-Poly1305** is faster in MbedTLS — the ARM ASM Poly1305 uses a portable 5-limb scalar implementation; MbedTLS's is more optimised and this is the primary opportunity for future improvement.
+- **SHA3 / HMAC-SHA3** is slower in the ARM ASM provider than MbedTLS despite using the ARM SHA3 extension (`veor3q_u64`, `vrax1q_u64`, `vbcaxq_u64`). The bottleneck is the ρ+π step, which uses a scalar lookup-table loop over 25 lanes — MbedTLS's Keccak is more aggressively unrolled. Vectorising ρ+π is the primary opportunity for improvement.
+- **ChaCha20-Poly1305** is faster in MbedTLS — the ARM ASM Poly1305 uses a portable 5-limb scalar implementation; MbedTLS's is more optimised and this is a secondary improvement opportunity.
 
 ## Provider selection
 
