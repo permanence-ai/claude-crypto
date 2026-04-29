@@ -117,7 +117,8 @@ providers/
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (229 tests)
-cmake/                    # FetchContent modules for MbedTLS and GoogleTest
+safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
+cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
 
 ## Build
@@ -134,6 +135,44 @@ cmake --build cmake-build-debug
 ```
 
 For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYPE=Release`.
+
+## Benchmarks
+
+`safe-crypto-lib-bench` uses Google Benchmark (via FetchContent) to measure throughput across all symmetric operations. Both `RealPsaBackend` and `ArmAsmBackend` are instantiated in the same binary so results are directly comparable. Payloads are swept across 64 B / 1 KiB / 16 KiB / 256 KiB; throughput is reported in GB/s or MB/s via `SetBytesProcessed`.
+
+```bash
+# Build and run (Release mandatory for meaningful numbers)
+cmake -G Ninja -B cmake-build-release -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build cmake-build-release --target safe_crypto_lib_bench
+./cmake-build-release/safe-crypto-lib-bench/safe_crypto_lib_bench
+
+# Filter to one family
+./cmake-build-release/safe-crypto-lib-bench/safe_crypto_lib_bench --benchmark_filter=SHA256
+
+# Machine-readable output
+./cmake-build-release/safe-crypto-lib-bench/safe_crypto_lib_bench --benchmark_format=json > results.json
+```
+
+**Representative results — Apple M3 Pro, Release build (256 KiB payload):**
+
+| Operation | PSA/MbedTLS | ARM ASM | Speedup |
+|---|---|---|---|
+| SHA-256 | 363 MB/s | 2,417 MB/s | **6.7×** |
+| SHA-384 | 521 MB/s | 1,522 MB/s | **2.9×** |
+| SHA-512 | 521 MB/s | 1,558 MB/s | **3.0×** |
+| HMAC-SHA-256 | 360 MB/s | 2,296 MB/s | **6.4×** |
+| HMAC-SHA-384 | 514 MB/s | 1,546 MB/s | **3.0×** |
+| HMAC-SHA-512 | 514 MB/s | 1,537 MB/s | **3.0×** |
+| AES-256-GCM encrypt | 1,113 MB/s | 1,285 MB/s | 1.2× |
+| AES-256-GCM decrypt | 1,019 MB/s | 1,277 MB/s | 1.3× |
+| ChaCha20-Poly1305 encrypt | 572 MB/s | 349 MB/s | 0.6× |
+| ChaCha20-Poly1305 decrypt | 571 MB/s | 359 MB/s | 0.6× |
+| HKDF-SHA-384 (48 B output) | 352 K ops/s | 732 K ops/s | **2.1×** |
+
+Notable findings:
+- **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
+- **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
+- **ChaCha20-Poly1305** is faster in MbedTLS — the ARM ASM Poly1305 uses a portable 5-limb scalar implementation; MbedTLS's is more optimised and this is the primary opportunity for future improvement.
 
 ## Provider selection
 
@@ -158,3 +197,4 @@ Specifying an unrecognised value is a configure-time fatal error that lists the 
 - **Build system:** CMake 3.31 + Ninja
 - **Crypto backend:** MbedTLS 4.1.0 (PSA Crypto API, via FetchContent)
 - **Test framework:** GoogleTest + GMock (via FetchContent)
+- **Benchmark framework:** Google Benchmark 1.9.1 (via FetchContent)
