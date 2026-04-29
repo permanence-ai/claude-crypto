@@ -21,7 +21,14 @@ Copyright Permanence AI, 2026. All rights reserved.
 //
 // Implementation uses a 130-bit accumulator split into five 26-bit limbs
 // so partial products fit in 64-bit values without overflow.
-// ARM NEON vmull_u64 / vmlal_u64 are used for 64-bit multiply-accumulate.
+//
+// Two-block parallel processing:
+//   For each pair of full blocks (m1, m2), the serial result
+//     h' = ((h + m1) * r + m2) * r
+//   equals:
+//     h' = (h + m1) * r² + m2 * r
+//   m2 * r has no dependency on h, so the CPU can execute it alongside
+//   the (h + m1) * r² chain.  r² is precomputed once per message.
 
 #include <arm_neon.h>
 #include <array>
@@ -193,6 +200,45 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     store_le128(tag, tlo, thi);
 }
 
+// Compute r² = r * r mod 2^130-5 (precomputed once per message for pair processing).
+static inline Poly1305Limbs poly1305_square_r(const Poly1305Limbs& r) noexcept {
+    Poly1305Limbs r2 = r;
+    poly1305_multiply(r2, r);
+    return r2;
+}
+
+// Process two full 16-byte blocks in parallel.
+// Equivalent to two serial steps but breaks the dependency chain:
+//   h = (h + m1) * r² + m2 * r
+// m2 * r is independent of h, so it executes while (h + m1) * r² is in flight.
+[[gnu::target("neon")]]
+static inline void poly1305_process_pair(
+    Poly1305Limbs& h,
+    uint64_t m1lo, uint64_t m1hi,
+    uint64_t m2lo, uint64_t m2hi,
+    const Poly1305Limbs& r,
+    const Poly1305Limbs& r2) noexcept
+{
+    // Compute m2 * r first — no dependency on h, CPU can issue early.
+    Poly1305Limbs m2 = block_to_limbs(m2lo, m2hi, 1U);
+    poly1305_multiply(m2, r);
+
+    // Advance the accumulator: h = (h + m1) * r²
+    poly1305_add_block(h, m1lo, m1hi, 1U);
+    poly1305_multiply(h, r2);
+
+    // Combine: h += m2 * r, then carry-normalize.
+    h.h[0] += m2.h[0]; h.h[1] += m2.h[1]; h.h[2] += m2.h[2];
+    h.h[3] += m2.h[3]; h.h[4] += m2.h[4];
+    uint64_t c;
+    c = h.h[0] >> 26U; h.h[0] &= 0x3FFFFFFU; h.h[1] += c;
+    c = h.h[1] >> 26U; h.h[1] &= 0x3FFFFFFU; h.h[2] += c;
+    c = h.h[2] >> 26U; h.h[2] &= 0x3FFFFFFU; h.h[3] += c;
+    c = h.h[3] >> 26U; h.h[3] &= 0x3FFFFFFU; h.h[4] += c;
+    c = h.h[4] >> 26U; h.h[4] &= 0x3FFFFFFU; h.h[0] += c * 5U;
+    c = h.h[0] >> 26U; h.h[0] &= 0x3FFFFFFU; h.h[1] += c;
+}
+
 
 // Compute a Poly1305 tag over msg[] using the 32-byte one-time key.
 // key[0..15] = r, key[16..31] = s.
@@ -201,21 +247,35 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
                           std::size_t msg_len, uint8_t tag[16]) noexcept
 {
     // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const Poly1305Limbs r = clamp_r(key);
+    const Poly1305Limbs r  = clamp_r(key);
+    const Poly1305Limbs r2 = poly1305_square_r(r);
     Poly1305Limbs h{};
 
-    // Process full 16-byte blocks.
     std::size_t offset = 0;
-    while (msg_len - offset >= 16) {
+
+    // Process pairs of full 16-byte blocks using r².
+    while (offset + 32 <= msg_len) {
+        uint64_t lo1 = 0; uint64_t hi1 = 0;
+        uint64_t lo2 = 0; uint64_t hi2 = 0;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        load_le128(msg + offset,      lo1, hi1);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        load_le128(msg + offset + 16, lo2, hi2);
+        poly1305_process_pair(h, lo1, hi1, lo2, hi2, r, r2);
+        offset += 32;
+    }
+
+    // Remaining single full block.
+    if (offset + 16 <= msg_len) {
         uint64_t lo = 0; uint64_t hi = 0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         load_le128(msg + offset, lo, hi);
-        poly1305_add_block(h, lo, hi, 1U);  // top bit = 1 for full block
+        poly1305_add_block(h, lo, hi, 1U);
         poly1305_multiply(h, r);
         offset += 16;
     }
 
-    // Process the final partial block (if any).
+    // Final partial block (if any).
     if (offset < msg_len) {
         std::array<uint8_t, 16> buf{};
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -223,7 +283,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
         buf[msg_len - offset] = 0x01U;  // RFC 8439: append 0x01 pad byte
         uint64_t lo = 0; uint64_t hi = 0;
         load_le128(buf.data(), lo, hi);
-        poly1305_add_block(h, lo, hi, 0U);  // top bit = 0 (already embedded)
+        poly1305_add_block(h, lo, hi, 0U);  // top bit already embedded
         poly1305_multiply(h, r);
     }
 

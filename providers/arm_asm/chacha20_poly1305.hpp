@@ -49,6 +49,7 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 
 // Build the Poly1305 input: aad_padded ‖ ct_padded ‖ len64(aad) ‖ len64(ct).
 // Feeds data into Poly1305 block-by-block without a large stack allocation.
+// Uses 2-block parallel processing via r² to break the serial dependency chain.
 [[gnu::target("neon")]]
 static inline void poly1305_feed(const uint8_t* otk,
                                   const uint8_t* aad, std::size_t aad_len,
@@ -60,7 +61,8 @@ static inline void poly1305_feed(const uint8_t* otk,
     // We re-implement the MAC computation inline here to avoid building a huge
     // intermediate buffer.  We walk through the fields in order:
     //   aad (padded to 16), ct (padded to 16), length block (16 bytes).
-    const Poly1305Limbs r = clamp_r(otk);
+    const Poly1305Limbs r  = clamp_r(otk);
+    const Poly1305Limbs r2 = poly1305_square_r(r);
     Poly1305Limbs h{};
 
     // Helper: feed one field (data, len) followed by zero-padding to 16 bytes.
@@ -69,8 +71,19 @@ static inline void poly1305_feed(const uint8_t* otk,
     // the field format, not a Poly1305 partial-block marker.
     auto feed_field = [&](const uint8_t* data, std::size_t len) noexcept {
         std::size_t off = 0;
-        // Full blocks.
-        while (len - off >= 16) {
+        // Process pairs of full 16-byte blocks with r².
+        while (len - off >= 32) {
+            uint64_t lo1 = 0; uint64_t hi1 = 0;
+            uint64_t lo2 = 0; uint64_t hi2 = 0;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            load_le128(data + off,      lo1, hi1);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            load_le128(data + off + 16, lo2, hi2);
+            poly1305_process_pair(h, lo1, hi1, lo2, hi2, r, r2);
+            off += 32;
+        }
+        // Remaining single full block.
+        if (len - off >= 16) {
             uint64_t lo = 0; uint64_t hi = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             load_le128(data + off, lo, hi);
