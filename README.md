@@ -213,15 +213,15 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | SHA-256 | 374 MB/s | 2,606 MB/s | **7.0×** |
 | SHA-384 | 512 MB/s | 1,719 MB/s | **3.4×** |
 | SHA-512 | 548 MB/s | 1,726 MB/s | **3.1×** |
-| SHA3-256 | 397 MB/s | 251 MB/s | 0.6× |
-| SHA3-384 | 311 MB/s | 193 MB/s | 0.6× |
-| SHA3-512 | 219 MB/s | 133 MB/s | 0.6× |
+| SHA3-256 | 366 MB/s | 459 MB/s | **1.3×** |
+| SHA3-384 | 292 MB/s | 349 MB/s | **1.2×** |
+| SHA3-512 | 200 MB/s | 243 MB/s | **1.2×** |
 | HMAC-SHA-256 | 376 MB/s | 2,370 MB/s | **6.3×** |
 | HMAC-SHA-384 | 543 MB/s | 1,644 MB/s | **3.0×** |
 | HMAC-SHA-512 | 505 MB/s | 1,686 MB/s | **3.3×** |
-| HMAC-SHA3-256 | 388 MB/s | 246 MB/s | 0.6× |
-| HMAC-SHA3-384 | 302 MB/s | 194 MB/s | 0.6× |
-| HMAC-SHA3-512 | 218 MB/s | 134 MB/s | 0.6× |
+| HMAC-SHA3-256 | 359 MB/s | 455 MB/s | **1.3×** |
+| HMAC-SHA3-384 | 287 MB/s | 350 MB/s | **1.2×** |
+| HMAC-SHA3-512 | 199 MB/s | 242 MB/s | **1.2×** |
 | AES-256-GCM encrypt | 1,186 MB/s | 1,363 MB/s | 1.1× |
 | AES-256-GCM decrypt | 1,180 MB/s | 1,315 MB/s | 1.1× |
 | ChaCha20-Poly1305 encrypt | 605 MB/s | 383 MB/s | 0.6× |
@@ -231,7 +231,7 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
-- **SHA3 / HMAC-SHA3** is slower in the ARM ASM provider than MbedTLS despite using the ARM SHA3 extension (`veor3q_u64`, `vrax1q_u64`, `vbcaxq_u64`). The bottleneck is the ρ+π step, which uses a scalar lookup-table loop over 25 lanes — MbedTLS's Keccak is more aggressively unrolled. Vectorising ρ+π is the primary opportunity for improvement.
+- **SHA3 / HMAC-SHA3** beats PSA at 1.2–1.3× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
 - **ChaCha20-Poly1305** is faster in MbedTLS — the ARM ASM Poly1305 uses a portable 5-limb scalar implementation; MbedTLS's is more optimised and this is a secondary improvement opportunity.
 
 ## Provider selection
