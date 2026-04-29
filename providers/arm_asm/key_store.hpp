@@ -38,6 +38,7 @@ inline KeySlot& key_slot(std::size_t idx) noexcept {
 }
 
 // Returns 0 on failure, otherwise a KeyId in [1..capacity].
+[[nodiscard]]
 inline unsigned int key_store_import(const CryptoByte* key, std::size_t key_len) noexcept {
     if (key_len > key_store_max_bytes) { return 0U; }
     for (std::size_t i = 0; i < key_store_capacity; ++i) {
@@ -52,6 +53,7 @@ inline unsigned int key_store_import(const CryptoByte* key, std::size_t key_len)
 }
 
 // Returns true if the KeyId is valid and in use.
+[[nodiscard]]
 inline bool key_store_get(unsigned int id,
                            const CryptoByte** out_key,
                            std::size_t* out_len) noexcept {

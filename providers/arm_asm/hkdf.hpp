@@ -79,6 +79,7 @@ struct HkdfState {
 
 
 // Returns 0 on success, non-zero on failure.
+[[nodiscard]]
 inline int hkdf_setup(HkdfState* op, HkdfAlg alg) noexcept {
     if (op == nullptr) { return 1; }
     op->zeroize();
@@ -87,6 +88,7 @@ inline int hkdf_setup(HkdfState* op, HkdfAlg alg) noexcept {
     return 0;
 }
 
+[[nodiscard]]
 inline int hkdf_input_key(HkdfState* op, unsigned int key_id) noexcept {
     if (op == nullptr) { return 1; }
     if (op->phase != HkdfPhase::Setup) { return 1; }
@@ -96,6 +98,7 @@ inline int hkdf_input_key(HkdfState* op, unsigned int key_id) noexcept {
 }
 
 // step: 0 = salt, 1 = info (matches kdf_step_salt / kdf_step_info constants)
+[[nodiscard]]
 inline int hkdf_input_bytes(HkdfState* op, unsigned int step,
                              const uint8_t* data, std::size_t len) noexcept {
     if (op == nullptr) { return 1; }
@@ -131,6 +134,7 @@ inline int hkdf_input_bytes(HkdfState* op, unsigned int step,
 // prk, prk_len: the pseudo-random key (HashLen bytes).
 // info, info_len: context string.
 // out, out_len: output buffer; out_len must be <= hkdf_max_output.
+[[nodiscard]]
 inline int hkdf_expand(const uint8_t* prk, std::size_t prk_len,
                         const uint8_t* info, std::size_t info_len,
                         uint8_t* out, std::size_t out_len) noexcept {
@@ -171,6 +175,7 @@ inline int hkdf_expand(const uint8_t* prk, std::size_t prk_len,
 }
 
 // Execute the KDF and write output bytes.
+[[nodiscard]]
 inline int hkdf_output_bytes(HkdfState* op, uint8_t* out, std::size_t len) noexcept {
     if (op == nullptr) { return 1; }
     if (op->phase != HkdfPhase::InfoSet) { return 1; }

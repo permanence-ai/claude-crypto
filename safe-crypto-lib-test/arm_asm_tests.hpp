@@ -297,8 +297,8 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc1Sha384) {
     std::array<uint8_t, 42> okm{};
     ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
               ArmAsmBackend::ok);
-    ArmAsmBackend::key_derivation_abort(&op);
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::key_derivation_abort(&op);
+    (void)ArmAsmBackend::destroy_key(id);
 
     for (std::size_t i = 0; i < 42; ++i) {
         EXPECT_EQ(okm[i], expected_okm[i]) << "OKM byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -333,8 +333,8 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc2NoSaltNoInfo) {
     std::array<uint8_t, 42> okm{};
     ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
               ArmAsmBackend::ok);
-    ArmAsmBackend::key_derivation_abort(&op);
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::key_derivation_abort(&op);
+    (void)ArmAsmBackend::destroy_key(id);
 
     for (std::size_t i = 0; i < 42; ++i) {
         EXPECT_EQ(okm[i], expected_okm[i]) << "OKM byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -373,8 +373,8 @@ TEST_F(ArmAsmHkdfTests, SigmaStyleHkdf80Bytes) {
     std::array<uint8_t, 80> okm{};
     ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
               ArmAsmBackend::ok);
-    ArmAsmBackend::key_derivation_abort(&op);
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::key_derivation_abort(&op);
+    (void)ArmAsmBackend::destroy_key(id);
 
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(okm[i], expected_mac[i]) << "mac_key byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -464,7 +464,7 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
         EXPECT_EQ(recovered[i], pt[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 
-    ArmAsmBackend::destroy_key(enc_id);
+    (void)ArmAsmBackend::destroy_key(enc_id);
 }
 
 TEST_F(ArmAsmKeyMgmtTests, ExportImportedKeyReturnsOriginalBytes) {
@@ -489,7 +489,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportImportedKeyReturnsOriginalBytes) {
         EXPECT_EQ(exported[i], original[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::destroy_key(id);
 }
 
 TEST_F(ArmAsmKeyMgmtTests, ExportGeneratedKeyHasCorrectSize) {
@@ -504,7 +504,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportGeneratedKeyHasCorrectSize) {
               ArmAsmBackend::ok);
     EXPECT_EQ(len, aes256_key_size_bytes);
 
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::destroy_key(id);
 }
 
 TEST_F(ArmAsmKeyMgmtTests, GenerateKeyZeroSizeAttrsReturnsError) {
@@ -537,7 +537,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportKeyBufferTooSmallReturnsError) {
     EXPECT_NE(ArmAsmBackend::export_key(id, small_buf.data(), small_buf.size(), &len),
               ArmAsmBackend::ok);
 
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::destroy_key(id);
 }
 
 // ---------------------------------------------------------------------------
@@ -639,7 +639,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282EncryptWithAad) {
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(out[114 + i], expected_tag[i]) << "tag byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-avoid-magic-numbers)
     }
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::destroy_key(id);
 }
 
 // RFC 8439 §2.8.2 decrypt: feed ct‖tag back through aead_decrypt.
@@ -701,7 +701,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282DecryptWithAad) {
     for (std::size_t i = 0; i < 114; ++i) {
         EXPECT_EQ(pt[i], expected_pt[i]) << "pt byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::destroy_key(id);
 }
 
 // Short KAT: 16-byte PT, 4-byte AAD, key=0x00..1f, nonce=0x00..0b.
@@ -753,7 +753,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, ShortVectorRoundTrip) {
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(recovered[i], pt[i]) << "pt byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::destroy_key(id);
 }
 
 // Tampered tag must be rejected and output zeroized.
@@ -792,7 +792,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(out[i], 0) << "output not zeroized at byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
-    ArmAsmBackend::destroy_key(id);
+    (void)ArmAsmBackend::destroy_key(id);
 }
 
 // ---------------------------------------------------------------------------

@@ -38,12 +38,15 @@ namespace arm_asm::detail {
 // Number of lanes the sponge XORs per round = rate_bytes / 8.
 // SHA3-256: 17, SHA3-384: 13, SHA3-512: 9.
 
+// Maximum sponge rate across all SHA-3 variants (SHA3-256 rate = 136 bytes).
+constexpr std::size_t sha3_max_rate_bytes = 136;
+
 // Incremental SHA-3 context.  Holds the 1600-bit Keccak state, a partial block
 // buffer sized to the maximum rate (SHA3-256, 136 bytes), and state metadata.
 struct Sha3Ctx {
     // NOLINT(misc-non-private-member-variables-in-classes) — plain aggregate.
     std::array<uint64_t, 25> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::array<uint8_t, 136> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint8_t, sha3_max_rate_bytes> buf{}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t rate_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t out_bytes{0};  // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t buf_used{0};   // NOLINT(misc-non-private-member-variables-in-classes)

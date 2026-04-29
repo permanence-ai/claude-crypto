@@ -42,6 +42,7 @@ constexpr std::size_t aes256_schedule_bytes  = aes256_round_key_count * aes256_r
 using Aes256Schedule = std::array<uint8_t, aes256_schedule_bytes>;
 
 
+[[nodiscard]]
 [[gnu::target("aes,neon")]]
 inline uint32_t aes_sub_word(uint32_t w) noexcept {
     // Apply SubBytes to each byte of w using vaeseq_u8 on a zero block.
@@ -55,6 +56,7 @@ inline uint32_t aes_sub_word(uint32_t w) noexcept {
     return vgetq_lane_u32(vreinterpretq_u32_u8(v), 0);
 }
 
+[[nodiscard]]
 static inline uint32_t aes_rot_word(uint32_t w) noexcept {
     return (w << (32U - 8U)) | (w >> 8U);
 }
@@ -98,6 +100,7 @@ inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) n
 
 // Encrypt a single 16-byte block under the pre-expanded AES-256 schedule.
 // The result is written back to block.
+[[nodiscard]]
 [[gnu::target("aes,neon")]]
 inline uint8x16_t aes256_encrypt_block(uint8x16_t block,
                                        const Aes256Schedule& sched) noexcept

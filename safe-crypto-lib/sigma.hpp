@@ -114,7 +114,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     auto op = Provider::make_kdf_op();
 
     if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "SIGMA HKDF setup failed"));
@@ -122,7 +122,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
 
     if (Provider::key_derivation_input_key(
             &op, Provider::kdf_step_secret(), key_handle.get()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA HKDF secret input failed"));
@@ -131,7 +131,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     if (Provider::key_derivation_input_bytes(
             &op, Provider::kdf_step_info(),
             info.data(), info.size()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA HKDF info input failed"));
@@ -140,13 +140,13 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     SecureBuffer output(total_output);
     if (Provider::key_derivation_output_bytes(
             &op, output.data(), output.size()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "SIGMA HKDF output failed"));
     }
 
-    Provider::key_derivation_abort(&op);
+    (void)Provider::key_derivation_abort(&op);
 
     SecureBuffer mac_key(sigma_mac_key_size_bytes);
     SecureBuffer session_key(sigma_session_key_size_bytes);

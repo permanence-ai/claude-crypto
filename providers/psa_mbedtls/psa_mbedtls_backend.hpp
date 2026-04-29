@@ -33,27 +33,33 @@ struct RealPsaBackend {
     static constexpr Status err_invalid_arg = PSA_ERROR_INVALID_ARGUMENT;
 
     // Object factories for provider-specific init macros.
+    [[nodiscard]]
     static KeyId null_key_id() noexcept {
         const KeyId k = MBEDTLS_SVC_KEY_ID_INIT;
         return k;
     }
+    [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         return a;
     }
+    [[nodiscard]]
     static KdfOperation make_kdf_op() noexcept {
         KdfOperation o = PSA_KEY_DERIVATION_OPERATION_INIT;
         return o;
     }
 
+    [[nodiscard]]
     static Status crypto_init() {
         return psa_crypto_init();
     }
 
+    [[nodiscard]]
     static Status generate_random(CryptoByte* output, const std::size_t output_size) {
         return psa_generate_random(output, output_size);
     }
 
+    [[nodiscard]]
     static Status hash_compute(
         const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -62,6 +68,7 @@ struct RealPsaBackend {
         return psa_hash_compute(alg, input, input_length, hash, hash_size, hash_length);
     }
 
+    [[nodiscard]]
     static Status import_key(
         const KeyAttributes* attributes,
         const CryptoByte* data, const std::size_t data_length,
@@ -70,6 +77,7 @@ struct RealPsaBackend {
         return psa_import_key(attributes, data, data_length, key);
     }
 
+    [[nodiscard]]
     static Status generate_key(
         const KeyAttributes* attributes,
         KeyId* key)
@@ -77,10 +85,12 @@ struct RealPsaBackend {
         return psa_generate_key(attributes, key);
     }
 
+    [[nodiscard]]
     static Status destroy_key(const KeyId key) {
         return psa_destroy_key(key);
     }
 
+    [[nodiscard]]
     static Status export_key(
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length)
@@ -88,6 +98,7 @@ struct RealPsaBackend {
         return psa_export_key(key, data, data_size, data_length);
     }
 
+    [[nodiscard]]
     static Status export_public_key(
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length)
@@ -95,6 +106,7 @@ struct RealPsaBackend {
         return psa_export_public_key(key, data, data_size, data_length);
     }
 
+    [[nodiscard]]
     static Status mac_compute(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -103,6 +115,7 @@ struct RealPsaBackend {
         return psa_mac_compute(key, alg, input, input_length, mac, mac_size, mac_length);
     }
 
+    [[nodiscard]]
     static Status mac_verify(
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -111,6 +124,7 @@ struct RealPsaBackend {
         return psa_mac_verify(key, alg, input, input_length, mac, mac_length);
     }
 
+    [[nodiscard]]
     static Status aead_encrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* nonce, const std::size_t nonce_length,
@@ -127,6 +141,7 @@ struct RealPsaBackend {
             ciphertext, ciphertext_size, ciphertext_length);
     }
 
+    [[nodiscard]]
     static Status aead_decrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* nonce, const std::size_t nonce_length,
@@ -143,6 +158,7 @@ struct RealPsaBackend {
             plaintext, plaintext_size, plaintext_length);
     }
 
+    [[nodiscard]]
     static Status sign_message(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -154,6 +170,7 @@ struct RealPsaBackend {
             signature, signature_size, signature_length);
     }
 
+    [[nodiscard]]
     static Status verify_message(
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -163,6 +180,7 @@ struct RealPsaBackend {
             key, alg, input, input_length, signature, signature_length);
     }
 
+    [[nodiscard]]
     static Status raw_key_agreement(  // NOLINT(readability-function-size)
         const Algorithm alg,
         const KeyId private_key,
@@ -175,6 +193,7 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
+    [[nodiscard]]
     static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -187,6 +206,7 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
+    [[nodiscard]]
     static Status asymmetric_decrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -199,12 +219,14 @@ struct RealPsaBackend {
             output, output_size, output_length);
     }
 
+    [[nodiscard]]
     static Status key_derivation_setup(
         KdfOperation* operation, const Algorithm alg)
     {
         return psa_key_derivation_setup(operation, alg);
     }
 
+    [[nodiscard]]
     static Status key_derivation_input_key(
         KdfOperation* operation,
         const KdfStep step,
@@ -213,6 +235,7 @@ struct RealPsaBackend {
         return psa_key_derivation_input_key(operation, step, key);
     }
 
+    [[nodiscard]]
     static Status key_derivation_input_bytes(
         KdfOperation* operation,
         const KdfStep step,
@@ -221,6 +244,7 @@ struct RealPsaBackend {
         return psa_key_derivation_input_bytes(operation, step, data, data_length);
     }
 
+    [[nodiscard]]
     static Status key_derivation_output_bytes(
         KdfOperation* operation,
         CryptoByte* output, const std::size_t output_length)
@@ -228,6 +252,7 @@ struct RealPsaBackend {
         return psa_key_derivation_output_bytes(operation, output, output_length);
     }
 
+    [[nodiscard]]
     static Status key_derivation_abort(KdfOperation* operation) {
         return psa_key_derivation_abort(operation);
     }
@@ -235,6 +260,7 @@ struct RealPsaBackend {
     // -------------------------------------------------------------------------
     // Algorithm constants — provider-native algorithm selectors.
     // -------------------------------------------------------------------------
+    [[nodiscard]]
     static Algorithm alg_sha(const ShaVariant v) noexcept {
         switch (v) {
             case ShaVariant::Sha256:   return PSA_ALG_SHA_256;
@@ -245,28 +271,41 @@ struct RealPsaBackend {
             case ShaVariant::Sha3_512: return PSA_ALG_SHA3_512;
         }
     }
+    [[nodiscard]]
     static Algorithm alg_hmac(const ShaVariant v) noexcept {
         return PSA_ALG_HMAC(alg_sha(v));
     }
+    [[nodiscard]]
     static constexpr Algorithm alg_ecdsa()              noexcept { return PSA_ALG_ECDSA(PSA_ALG_SHA_384); }
+    [[nodiscard]]
     static constexpr Algorithm alg_ecdh()               noexcept { return PSA_ALG_ECDH; }
+    [[nodiscard]]
     static constexpr Algorithm alg_hkdf()               noexcept { return PSA_ALG_HKDF(PSA_ALG_SHA_384); }
+    [[nodiscard]]
     static constexpr Algorithm alg_hkdf_expand()        noexcept { return PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384); }
+    [[nodiscard]]
     static constexpr Algorithm alg_aes_gcm()            noexcept { return PSA_ALG_GCM; }
+    [[nodiscard]]
     static constexpr Algorithm alg_chacha20_poly1305()  noexcept { return PSA_ALG_CHACHA20_POLY1305; }
+    [[nodiscard]]
     static constexpr Algorithm alg_rsa_oaep()           noexcept { return PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384); }
+    [[nodiscard]]
     static constexpr Algorithm alg_rsa_pss()            noexcept { return PSA_ALG_RSA_PSS(PSA_ALG_SHA_384); }
 
     // -------------------------------------------------------------------------
     // KDF step constants.
     // -------------------------------------------------------------------------
+    [[nodiscard]]
     static constexpr KdfStep kdf_step_secret() noexcept { return PSA_KEY_DERIVATION_INPUT_SECRET; }
+    [[nodiscard]]
     static constexpr KdfStep kdf_step_salt()   noexcept { return PSA_KEY_DERIVATION_INPUT_SALT;   }
+    [[nodiscard]]
     static constexpr KdfStep kdf_step_info()   noexcept { return PSA_KEY_DERIVATION_INPUT_INFO;   }
 
     // -------------------------------------------------------------------------
     // Key attribute factories.
     // -------------------------------------------------------------------------
+    [[nodiscard]]
     static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
@@ -275,6 +314,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_hkdf());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
@@ -283,6 +323,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_hkdf_expand());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(const ShaVariant v,
                                                   const std::size_t key_size_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
@@ -292,6 +333,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_hmac(v));
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_hmac_verify_attrs(const ShaVariant v,
                                                 const std::size_t key_size_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
@@ -301,6 +343,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_hmac(v));
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_ecdsa_generate_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
@@ -311,6 +354,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_ecdsa());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_ecdsa_sign_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
@@ -319,6 +363,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_ecdsa());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_ecdsa_verify_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
@@ -327,6 +372,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_ecdsa());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_ecdh_generate_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
@@ -335,6 +381,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_ecdh());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_ecdh_agree_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
@@ -343,6 +390,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_ecdh());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_aes256_gcm_encrypt_attrs() noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_AES);
@@ -351,6 +399,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_aes_gcm());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_aes256_gcm_decrypt_attrs() noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_AES);
@@ -359,6 +408,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_aes_gcm());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_encrypt_attrs() noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_CHACHA20);
@@ -367,6 +417,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_chacha20_poly1305());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_decrypt_attrs() noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_CHACHA20);
@@ -375,6 +426,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_chacha20_poly1305());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_rsa_oaep_encrypt_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
@@ -383,6 +435,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_rsa_oaep());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_rsa_oaep_decrypt_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -391,6 +444,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_rsa_oaep());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_rsa_pss_sign_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -399,6 +453,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_rsa_pss());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_rsa_pss_verify_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
@@ -407,6 +462,7 @@ struct RealPsaBackend {
         psa_set_key_algorithm(&a, alg_rsa_pss());
         return a;
     }
+    [[nodiscard]]
     static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
         KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -421,64 +477,77 @@ struct RealPsaBackend {
     // -------------------------------------------------------------------------
     // Output size helpers — abstract PSA_*_OUTPUT_SIZE macros.
     // -------------------------------------------------------------------------
+    [[nodiscard]]
     static std::size_t ecdsa_sign_output_size(const std::size_t key_bits) noexcept {
         return PSA_SIGN_OUTPUT_SIZE(
             PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
             static_cast<psa_key_bits_t>(key_bits),
             alg_ecdsa());
     }
+    [[nodiscard]]
     static std::size_t ecdh_shared_secret_size(const std::size_t key_bits) noexcept {
         return PSA_RAW_KEY_AGREEMENT_OUTPUT_SIZE(
             PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
             static_cast<psa_key_bits_t>(key_bits));
     }
+    [[nodiscard]]
     static std::size_t ec_private_key_export_size(const std::size_t key_bits) noexcept {
         return PSA_EXPORT_KEY_OUTPUT_SIZE(
             PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
             static_cast<psa_key_bits_t>(key_bits));
     }
+    [[nodiscard]]
     static std::size_t ec_public_key_export_size(const std::size_t key_bits) noexcept {
         return PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(
             PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1),
             static_cast<psa_key_bits_t>(key_bits));
     }
+    [[nodiscard]]
     static std::size_t aes_gcm_encrypt_output_size(const std::size_t plaintext_size) noexcept {
         return PSA_AEAD_ENCRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, plaintext_size);
     }
+    [[nodiscard]]
     static std::size_t aes_gcm_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
         return PSA_AEAD_DECRYPT_OUTPUT_SIZE(PSA_KEY_TYPE_AES, PSA_ALG_GCM, ciphertext_size);
     }
+    [[nodiscard]]
     static std::size_t chacha20_encrypt_output_size(const std::size_t plaintext_size) noexcept {
         return PSA_AEAD_ENCRYPT_OUTPUT_SIZE(
             PSA_KEY_TYPE_CHACHA20, PSA_ALG_CHACHA20_POLY1305, plaintext_size);
     }
+    [[nodiscard]]
     static std::size_t chacha20_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
         return PSA_AEAD_DECRYPT_OUTPUT_SIZE(
             PSA_KEY_TYPE_CHACHA20, PSA_ALG_CHACHA20_POLY1305, ciphertext_size);
     }
+    [[nodiscard]]
     static std::size_t rsa_oaep_encrypt_output_size(const std::size_t key_bits) noexcept {
         return PSA_ASYMMETRIC_ENCRYPT_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_PUBLIC_KEY,
             static_cast<psa_key_bits_t>(key_bits),
             alg_rsa_oaep());
     }
+    [[nodiscard]]
     static std::size_t rsa_oaep_decrypt_output_size(const std::size_t key_bits) noexcept {
         return PSA_ASYMMETRIC_DECRYPT_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_KEY_PAIR,
             static_cast<psa_key_bits_t>(key_bits),
             alg_rsa_oaep());
     }
+    [[nodiscard]]
     static std::size_t rsa_pss_sign_output_size(const std::size_t key_bits) noexcept {
         return PSA_SIGN_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_KEY_PAIR,
             static_cast<psa_key_bits_t>(key_bits),
             alg_rsa_pss());
     }
+    [[nodiscard]]
     static std::size_t rsa_private_key_export_size(const std::size_t key_bits) noexcept {
         return PSA_EXPORT_KEY_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_KEY_PAIR,
             static_cast<psa_key_bits_t>(key_bits));
     }
+    [[nodiscard]]
     static std::size_t rsa_public_key_export_size(const std::size_t key_bits) noexcept {
         return PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_KEY_PAIR,

@@ -73,33 +73,30 @@ static inline void poly1305_feed(const uint8_t* otk,
         std::size_t off = 0;
         // Process groups of four full 16-byte blocks with r⁴.
         while (len - off >= 64) {
-            uint64_t lo0=0,hi0=0, lo1=0,hi1=0, lo2=0,hi2=0, lo3=0,hi3=0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            load_le128(data + off,      lo0, hi0);
+            const auto [lo0, hi0] = load_le128(data + off);
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            load_le128(data + off + 16, lo1, hi1);
+            const auto [lo1, hi1] = load_le128(data + off + 16);
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            load_le128(data + off + 32, lo2, hi2);
+            const auto [lo2, hi2] = load_le128(data + off + 32);
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            load_le128(data + off + 48, lo3, hi3);
+            const auto [lo3, hi3] = load_le128(data + off + 48);
             poly1305_process_quad(h, lo0, hi0, lo1, hi1, lo2, hi2, lo3, hi3, pw);
             off += 64;
         }
         // Remaining pair of full blocks.
         if (len - off >= 32) {
-            uint64_t lo1=0,hi1=0, lo2=0,hi2=0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            load_le128(data + off,      lo1, hi1);
+            const auto [lo1, hi1] = load_le128(data + off);
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            load_le128(data + off + 16, lo2, hi2);
+            const auto [lo2, hi2] = load_le128(data + off + 16);
             poly1305_process_pair(h, lo1, hi1, lo2, hi2, pw);
             off += 32;
         }
         // Remaining single full block.
         if (len - off >= 16) {
-            uint64_t lo = 0; uint64_t hi = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            load_le128(data + off, lo, hi);
+            const auto [lo, hi] = load_le128(data + off);
             poly1305_add_block(h, lo, hi, 1U);
             poly1305_multiply_precomp(h, pw.p1);
             off += 16;
@@ -109,8 +106,7 @@ static inline void poly1305_feed(const uint8_t* otk,
             std::array<uint8_t, 16> buf{};
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             std::memcpy(buf.data(), data + off, len - off);
-            uint64_t lo = 0; uint64_t hi = 0;
-            load_le128(buf.data(), lo, hi);
+            const auto [lo, hi] = load_le128(buf.data());
             poly1305_add_block(h, lo, hi, 1U);
             poly1305_multiply_precomp(h, pw.p1);
         }
@@ -123,8 +119,7 @@ static inline void poly1305_feed(const uint8_t* otk,
     std::array<uint8_t, 16> len_block{};
     store_le64(len_block.data(),     static_cast<uint64_t>(aad_len));
     store_le64(len_block.data() + 8, static_cast<uint64_t>(ct_len)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint64_t lo = 0; uint64_t hi = 0;
-    load_le128(len_block.data(), lo, hi);
+    const auto [lo, hi] = load_le128(len_block.data());
     poly1305_add_block(h, lo, hi, 1U);
     poly1305_multiply_precomp(h, pw.p1);
 

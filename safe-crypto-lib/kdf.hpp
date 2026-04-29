@@ -63,7 +63,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto op = Provider::make_kdf_op();
 
     if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "HKDF setup failed"));
@@ -72,7 +72,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     if (salt.has_value()) {
         if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_salt(),
                                             salt->data(), salt->size()) != Provider::ok) {
-            Provider::key_derivation_abort(&op);
+            (void)Provider::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
                 CryptoErrorCode::KdfInputFailed,
                 "HKDF salt input failed"));
@@ -81,7 +81,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(),
                                       key_handle.get()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "HKDF secret input failed"));
@@ -90,7 +90,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     if (info.has_value()) {
         if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
                                             info->data(), info->size()) != Provider::ok) {
-            Provider::key_derivation_abort(&op);
+            (void)Provider::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
                 CryptoErrorCode::KdfInputFailed,
                 "HKDF info input failed"));
@@ -98,7 +98,7 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     } else {
         if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
                                             nullptr, 0) != Provider::ok) {
-            Provider::key_derivation_abort(&op);
+            (void)Provider::key_derivation_abort(&op);
             return std::unexpected(CryptoError(
                 CryptoErrorCode::KdfInputFailed,
                 "HKDF info input failed"));
@@ -107,13 +107,13 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     SecureBuffer output(output_length);
     if (Provider::key_derivation_output_bytes(&op, output.data(), output.size()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "HKDF output failed"));
     }
 
-    Provider::key_derivation_abort(&op);
+    (void)Provider::key_derivation_abort(&op);
     return output;
 }
 
@@ -146,7 +146,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto op = Provider::make_kdf_op();
 
     if (Provider::key_derivation_setup(&op, Provider::alg_hkdf_expand()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "HKDF-Expand setup failed"));
@@ -154,7 +154,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(),
                                       key_handle.get()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "HKDF-Expand PRK input failed"));
@@ -165,7 +165,7 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
                                         info_ptr, info_size) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "HKDF-Expand info input failed"));
@@ -173,13 +173,13 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     SecureBuffer output(output_length);
     if (Provider::key_derivation_output_bytes(&op, output.data(), output.size()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "HKDF-Expand output failed"));
     }
 
-    Provider::key_derivation_abort(&op);
+    (void)Provider::key_derivation_abort(&op);
     return output;
 }
 

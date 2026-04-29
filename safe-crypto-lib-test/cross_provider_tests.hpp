@@ -163,7 +163,7 @@ static void run_hmac_parity_test(const char* label) {
         msg.data(), msg.size(),
         psa_out.data(), psa_out.size(), &psa_len), RealPsaBackend::ok)
         << label << " PSA mac_compute failed";
-    RealPsaBackend::destroy_key(psa_id);
+    (void)RealPsaBackend::destroy_key(psa_id);
 
     // Import key into ARM ASM store.
     auto arm_attrs = ArmAsmBackend::make_hmac_generate_attrs(V, key.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -176,7 +176,7 @@ static void run_hmac_parity_test(const char* label) {
         msg.data(), msg.size(),
         arm_out.data(), arm_out.size(), &arm_len), ArmAsmBackend::ok)
         << label << " ARM mac_compute failed";
-    ArmAsmBackend::destroy_key(arm_id);
+    (void)ArmAsmBackend::destroy_key(arm_id);
 
     ASSERT_EQ(psa_len, arm_len) << label << " output length mismatch";
     expect_equal_outputs(psa_out, arm_out, label);
@@ -215,7 +215,7 @@ TEST_F(CrossProviderAesGcmTests, EncryptParity) {
         aad.data(), aad.size(),
         pt_arr.data(), pt_arr.size(),
         psa_ct.data(), psa_ct.size(), &psa_ct_len), RealPsaBackend::ok);
-    RealPsaBackend::destroy_key(psa_id);
+    (void)RealPsaBackend::destroy_key(psa_id);
 
     // ARM ASM encrypt — same key, nonce, AAD, plaintext
     auto arm_attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
@@ -230,7 +230,7 @@ TEST_F(CrossProviderAesGcmTests, EncryptParity) {
         aad.data(), aad.size(),
         pt_arr.data(), pt_arr.size(),
         arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
-    ArmAsmBackend::destroy_key(arm_id);
+    (void)ArmAsmBackend::destroy_key(arm_id);
 
     ASSERT_EQ(psa_ct_len, arm_ct_len);
     expect_equal_outputs(psa_ct, arm_ct, "AES-256-GCM encrypt");
@@ -253,7 +253,7 @@ TEST_F(CrossProviderAesGcmTests, DecryptParity) {
         nonce.data(), nonce.size(), nullptr, 0,
         pt_arr.data(), pt_arr.size(),
         ct.data(), ct.size(), &ct_len), RealPsaBackend::ok);
-    RealPsaBackend::destroy_key(psa_enc_id);
+    (void)RealPsaBackend::destroy_key(psa_enc_id);
 
     // PSA decrypt
     auto psa_dec_attrs = RealPsaBackend::make_aes256_gcm_decrypt_attrs();
@@ -267,7 +267,7 @@ TEST_F(CrossProviderAesGcmTests, DecryptParity) {
         nonce.data(), nonce.size(), nullptr, 0,
         ct.data(), ct_len,
         psa_pt.data(), psa_pt.size(), &psa_pt_len), RealPsaBackend::ok);
-    RealPsaBackend::destroy_key(psa_dec_id);
+    (void)RealPsaBackend::destroy_key(psa_dec_id);
 
     // ARM ASM decrypt of same ciphertext
     auto arm_dec_attrs = ArmAsmBackend::make_aes256_gcm_decrypt_attrs();
@@ -281,7 +281,7 @@ TEST_F(CrossProviderAesGcmTests, DecryptParity) {
         nonce.data(), nonce.size(), nullptr, 0,
         ct.data(), ct_len,
         arm_pt.data(), arm_pt.size(), &arm_pt_len), ArmAsmBackend::ok);
-    ArmAsmBackend::destroy_key(arm_dec_id);
+    (void)ArmAsmBackend::destroy_key(arm_dec_id);
 
     ASSERT_EQ(psa_pt_len, arm_pt_len);
     expect_equal_outputs(psa_pt, arm_pt, "AES-256-GCM decrypt");
@@ -312,7 +312,7 @@ TEST_F(CrossProviderChaCha20Tests, EncryptParity) {
         aad.data(), aad.size(),
         pt_arr.data(), pt_arr.size(),
         psa_ct.data(), psa_ct.size(), &psa_ct_len), RealPsaBackend::ok);
-    RealPsaBackend::destroy_key(psa_id);
+    (void)RealPsaBackend::destroy_key(psa_id);
 
     auto arm_attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
     ArmAsmBackend::KeyId arm_id = ArmAsmBackend::null_key_id();
@@ -326,7 +326,7 @@ TEST_F(CrossProviderChaCha20Tests, EncryptParity) {
         aad.data(), aad.size(),
         pt_arr.data(), pt_arr.size(),
         arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
-    ArmAsmBackend::destroy_key(arm_id);
+    (void)ArmAsmBackend::destroy_key(arm_id);
 
     ASSERT_EQ(psa_ct_len, arm_ct_len);
     expect_equal_outputs(psa_ct, arm_ct, "ChaCha20-Poly1305 encrypt");
@@ -349,7 +349,7 @@ TEST_F(CrossProviderChaCha20Tests, DecryptParity) {
         nonce.data(), nonce.size(), nullptr, 0,
         pt_arr.data(), pt_arr.size(),
         ct.data(), ct.size(), &ct_len), RealPsaBackend::ok);
-    RealPsaBackend::destroy_key(psa_enc_id);
+    (void)RealPsaBackend::destroy_key(psa_enc_id);
 
     // PSA decrypt
     auto psa_dec_attrs = RealPsaBackend::make_chacha20_poly1305_decrypt_attrs();
@@ -363,7 +363,7 @@ TEST_F(CrossProviderChaCha20Tests, DecryptParity) {
         nonce.data(), nonce.size(), nullptr, 0,
         ct.data(), ct_len,
         psa_pt.data(), psa_pt.size(), &psa_pt_len), RealPsaBackend::ok);
-    RealPsaBackend::destroy_key(psa_dec_id);
+    (void)RealPsaBackend::destroy_key(psa_dec_id);
 
     // ARM ASM decrypt
     auto arm_dec_attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
@@ -377,7 +377,7 @@ TEST_F(CrossProviderChaCha20Tests, DecryptParity) {
         nonce.data(), nonce.size(), nullptr, 0,
         ct.data(), ct_len,
         arm_pt.data(), arm_pt.size(), &arm_pt_len), ArmAsmBackend::ok);
-    ArmAsmBackend::destroy_key(arm_dec_id);
+    (void)ArmAsmBackend::destroy_key(arm_dec_id);
 
     ASSERT_EQ(psa_pt_len, arm_pt_len);
     expect_equal_outputs(psa_pt, arm_pt, "ChaCha20-Poly1305 decrypt");
@@ -401,7 +401,7 @@ TEST_F(CrossProviderChaCha20Tests, CrossDecryptArmCtWithPsa) {
         nonce.data(), nonce.size(), nullptr, 0,
         pt_arr.data(), pt_arr.size(),
         arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
-    ArmAsmBackend::destroy_key(arm_enc_id);
+    (void)ArmAsmBackend::destroy_key(arm_enc_id);
 
     // PSA decrypt of ARM ciphertext
     auto psa_dec_attrs = RealPsaBackend::make_chacha20_poly1305_decrypt_attrs();
@@ -416,7 +416,7 @@ TEST_F(CrossProviderChaCha20Tests, CrossDecryptArmCtWithPsa) {
         arm_ct.data(), arm_ct_len,
         recovered_pt.data(), recovered_pt.size(), &recovered_len), RealPsaBackend::ok)
         << "PSA rejected ciphertext produced by ARM ASM";
-    RealPsaBackend::destroy_key(psa_dec_id);
+    (void)RealPsaBackend::destroy_key(psa_dec_id);
 
     ASSERT_EQ(recovered_len, pt_arr.size());
     expect_equal_outputs(pt_arr, recovered_pt, "ChaCha20-Poly1305 cross-decrypt ARM→PSA");
@@ -439,7 +439,7 @@ TEST_F(CrossProviderChaCha20Tests, CrossDecryptPsaCtWithArm) {
         nonce.data(), nonce.size(), nullptr, 0,
         pt_arr.data(), pt_arr.size(),
         psa_ct.data(), psa_ct.size(), &psa_ct_len), RealPsaBackend::ok);
-    RealPsaBackend::destroy_key(psa_enc_id);
+    (void)RealPsaBackend::destroy_key(psa_enc_id);
 
     // ARM ASM decrypt of PSA ciphertext
     auto arm_dec_attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
@@ -454,7 +454,7 @@ TEST_F(CrossProviderChaCha20Tests, CrossDecryptPsaCtWithArm) {
         psa_ct.data(), psa_ct_len,
         recovered_pt.data(), recovered_pt.size(), &recovered_len), ArmAsmBackend::ok)
         << "ARM ASM rejected ciphertext produced by PSA";
-    ArmAsmBackend::destroy_key(arm_dec_id);
+    (void)ArmAsmBackend::destroy_key(arm_dec_id);
 
     ASSERT_EQ(recovered_len, pt_arr.size());
     expect_equal_outputs(pt_arr, recovered_pt, "ChaCha20-Poly1305 cross-decrypt PSA→ARM");
@@ -487,21 +487,27 @@ TEST_F(CrossProviderHkdfTests, HkdfSha384Parity) {
         auto op = Provider::make_kdf_op();
         if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
             ADD_FAILURE() << "HKDF setup failed";
-            Provider::destroy_key(id);
+            (void)Provider::destroy_key(id);
             return {};
         }
-        Provider::key_derivation_input_bytes(&op, Provider::kdf_step_salt(),
-                                              salt_arr.data(), salt_arr.size());
-        Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(), id);
-        Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
-                                              info_arr.data(), info_arr.size());
+        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_salt(),
+                                                  salt_arr.data(), salt_arr.size()) != Provider::ok) {
+            ADD_FAILURE() << "HKDF salt input failed";
+        }
+        if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(), id) != Provider::ok) {
+            ADD_FAILURE() << "HKDF key input failed";
+        }
+        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
+                                                  info_arr.data(), info_arr.size()) != Provider::ok) {
+            ADD_FAILURE() << "HKDF info input failed";
+        }
 
         std::array<uint8_t, output_len> out{};
         if (Provider::key_derivation_output_bytes(&op, out.data(), out.size()) != Provider::ok) {
             ADD_FAILURE() << "HKDF output_bytes failed";
         }
-        Provider::key_derivation_abort(&op);
-        Provider::destroy_key(id);
+        (void)Provider::key_derivation_abort(&op);
+        (void)Provider::destroy_key(id);
         return out;
     };
 

@@ -48,15 +48,21 @@ struct ArmAsmBackend {
     static constexpr Status err_invalid_sig = 1;
     static constexpr Status err_invalid_arg = 2;
 
+    [[nodiscard]]
     static KeyId null_key_id() noexcept { return 0U; }
+    [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept { return {}; }
+    [[nodiscard]]
     static KdfOperation  make_kdf_op()    noexcept { return {}; }
 
+    [[nodiscard]]
     static Status crypto_init()                                               { return ok; }
+    [[nodiscard]]
     static Status generate_random(CryptoByte* buf, std::size_t len) {
         arm_asm::detail::generate_random_bytes(buf, len);
         return ok;
     }
+    [[nodiscard]]
     static Status hash_compute(Algorithm alg, const CryptoByte* input, std::size_t input_len,
                                CryptoByte* output, std::size_t output_size, std::size_t* output_len)
     {
@@ -98,6 +104,7 @@ struct ArmAsmBackend {
         }
         return err_invalid_arg;
     }
+    [[nodiscard]]
     static Status import_key(const KeyAttributes* /*attrs*/, const CryptoByte* key,
                              std::size_t key_len, KeyId* id) {
         const KeyId slot = arm_asm::detail::key_store_import(key, key_len);
@@ -105,6 +112,7 @@ struct ArmAsmBackend {
         *id = slot;
         return ok;
     }
+    [[nodiscard]]
     static Status generate_key(const KeyAttributes* attrs, KeyId* id) {
         if (attrs == nullptr || attrs->key_bytes == 0) { return err_invalid_arg; }
         if (attrs->key_bytes > arm_asm::detail::key_store_max_bytes) { return err_invalid_arg; }
@@ -115,10 +123,12 @@ struct ArmAsmBackend {
         *id = slot;
         return ok;
     }
+    [[nodiscard]]
     static Status destroy_key(KeyId id) {
         arm_asm::detail::key_store_destroy(id);
         return ok;
     }
+    [[nodiscard]]
     static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) {
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
@@ -128,8 +138,10 @@ struct ArmAsmBackend {
         *len = key_len;
         return ok;
     }
+    [[nodiscard]]
     static Status export_public_key(KeyId /*id*/, CryptoByte* /*out*/, std::size_t /*size*/,
                                     std::size_t* /*len*/)                     { return err_invalid_arg; }
+    [[nodiscard]]
     static Status mac_compute(  // NOLINT(readability-function-size)
                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                               const CryptoByte* msg, std::size_t msg_len,
@@ -175,6 +187,7 @@ struct ArmAsmBackend {
         }
         return err_invalid_arg;
     }
+    [[nodiscard]]
     static Status mac_verify(KeyId id, Algorithm alg,
                              const CryptoByte* msg, std::size_t msg_len,
                              const CryptoByte* mac, std::size_t mac_len) {
@@ -192,6 +205,7 @@ struct ArmAsmBackend {
         }
         return diff == 0U ? ok : err_invalid_sig;
     }
+    [[nodiscard]]
     static Status aead_encrypt(  // NOLINT(readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                const CryptoByte* nonce, std::size_t /*nonce_len*/,
@@ -216,6 +230,7 @@ struct ArmAsmBackend {
         }
         return err_invalid_arg;
     }
+    [[nodiscard]]
     static Status aead_decrypt(  // NOLINT(readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                const CryptoByte* nonce, std::size_t /*nonce_len*/,
@@ -248,32 +263,38 @@ struct ArmAsmBackend {
         }
         return err_invalid_arg;
     }
+    [[nodiscard]]
     static Status sign_message(  // NOLINT(readability-function-size)
                                KeyId /*id*/, Algorithm /*alg*/,
                                const CryptoByte* /*msg*/, std::size_t /*msg_len*/,
                                CryptoByte* /*sig*/, std::size_t /*sig_size*/, std::size_t* /*sig_len*/)
                                                                               { return err_invalid_arg; }
+    [[nodiscard]]
     static Status verify_message(KeyId /*id*/, Algorithm /*alg*/,
                                  const CryptoByte* /*msg*/, std::size_t /*msg_len*/,
                                  const CryptoByte* /*sig*/, std::size_t /*sig_len*/)
                                                                               { return err_invalid_arg; }
+    [[nodiscard]]
     static Status raw_key_agreement(  // NOLINT(readability-function-size)
                                     Algorithm /*alg*/, KeyId /*id*/,
                                     const CryptoByte* /*peer*/, std::size_t /*peer_len*/,
                                     CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
                                                                               { return err_invalid_arg; }
+    [[nodiscard]]
     static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
                                      KeyId /*id*/, Algorithm /*alg*/,
                                      const CryptoByte* /*pt*/, std::size_t /*pt_len*/,
                                      const CryptoByte* /*salt*/, std::size_t /*salt_len*/,
                                      CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
                                                                               { return err_invalid_arg; }
+    [[nodiscard]]
     static Status asymmetric_decrypt(  // NOLINT(readability-function-size)
                                      KeyId /*id*/, Algorithm /*alg*/,
                                      const CryptoByte* /*ct*/, std::size_t /*ct_len*/,
                                      const CryptoByte* /*salt*/, std::size_t /*salt_len*/,
                                      CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
                                                                               { return err_invalid_arg; }
+    [[nodiscard]]
     static Status key_derivation_setup(KdfOperation* op, Algorithm alg) {
         arm_asm::detail::HkdfAlg ha = arm_asm::detail::HkdfAlg::None;
         if (alg == alg_hkdf())        { ha = arm_asm::detail::HkdfAlg::Hkdf; }
@@ -281,16 +302,20 @@ struct ArmAsmBackend {
         else { return err_invalid_arg; }
         return arm_asm::detail::hkdf_setup(op, ha) == 0 ? ok : err_invalid_arg;
     }
+    [[nodiscard]]
     static Status key_derivation_input_key(KdfOperation* op, KdfStep /*step*/, KeyId id) {
         return arm_asm::detail::hkdf_input_key(op, id) == 0 ? ok : err_invalid_arg;
     }
+    [[nodiscard]]
     static Status key_derivation_input_bytes(KdfOperation* op, KdfStep step,
                                              const CryptoByte* data, std::size_t len) {
         return arm_asm::detail::hkdf_input_bytes(op, step, data, len) == 0 ? ok : err_invalid_arg;
     }
+    [[nodiscard]]
     static Status key_derivation_output_bytes(KdfOperation* op, CryptoByte* out, std::size_t len) {
         return arm_asm::detail::hkdf_output_bytes(op, out, len) == 0 ? ok : err_invalid_arg;
     }
+    [[nodiscard]]
     static Status key_derivation_abort(KdfOperation* op) {
         if (op != nullptr) { op->zeroize(); }
         return ok;
@@ -300,54 +325,98 @@ struct ArmAsmBackend {
     static constexpr Algorithm alg_base_hash = 0x0100U;
     static constexpr Algorithm alg_base_hmac = 0x0200U;
 
+    [[nodiscard]]
     static Algorithm alg_sha(ShaVariant v)  noexcept { return alg_base_hash | static_cast<Algorithm>(v); }
+    [[nodiscard]]
     static Algorithm alg_hmac(ShaVariant v) noexcept { return alg_base_hmac | static_cast<Algorithm>(v); }
+    [[nodiscard]]
     static constexpr Algorithm alg_ecdsa()             noexcept { return 0U; }
+    [[nodiscard]]
     static constexpr Algorithm alg_ecdh()              noexcept { return 0U; }
+    [[nodiscard]]
     static constexpr Algorithm alg_hkdf()              noexcept { return 0x0301U; }
+    [[nodiscard]]
     static constexpr Algorithm alg_hkdf_expand()       noexcept { return 0x0302U; }
+    [[nodiscard]]
     static constexpr Algorithm alg_aes_gcm()           noexcept { return 0x0401U; }
+    [[nodiscard]]
     static constexpr Algorithm alg_chacha20_poly1305() noexcept { return 0x0402U; }
+    [[nodiscard]]
     static constexpr Algorithm alg_rsa_oaep()          noexcept { return 0U; }
+    [[nodiscard]]
     static constexpr Algorithm alg_rsa_pss()           noexcept { return 0U; }
 
     // kdf_step_secret is ignored (key is implicitly the IKM/PRK from input_key).
     // kdf_step_salt and kdf_step_info match the constants in hkdf_input_bytes.
+    [[nodiscard]]
     static constexpr KdfStep kdf_step_secret() noexcept { return 2U; }
+    [[nodiscard]]
     static constexpr KdfStep kdf_step_salt()   noexcept { return 0U; }
+    [[nodiscard]]
     static constexpr KdfStep kdf_step_info()   noexcept { return 1U; }
 
     // NOLINT(readability-named-parameter) — stub functions intentionally omit unused parameter names.
+    [[nodiscard]]
     static KeyAttributes make_hkdf_derive_attrs(std::size_t bits)              noexcept { return {bits / 8U}; }
+    [[nodiscard]]
     static KeyAttributes make_hkdf_expand_derive_attrs(std::size_t bits)       noexcept { return {bits / 8U}; }
+    [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(ShaVariant /*v*/, std::size_t bits) noexcept { return {bits / 8U}; }
+    [[nodiscard]]
     static KeyAttributes make_hmac_verify_attrs(ShaVariant /*v*/, std::size_t bits)   noexcept { return {bits / 8U}; }
+    [[nodiscard]]
     static KeyAttributes make_ecdsa_generate_attrs(std::size_t /*bits*/)       noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_ecdsa_sign_attrs(std::size_t /*bits*/)           noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_ecdsa_verify_attrs(std::size_t /*bits*/)         noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_ecdh_generate_attrs(std::size_t /*bits*/)        noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_ecdh_agree_attrs(std::size_t /*bits*/)           noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_aes256_gcm_encrypt_attrs()                       noexcept { return {aes256_key_size_bytes}; }
+    [[nodiscard]]
     static KeyAttributes make_aes256_gcm_decrypt_attrs()                       noexcept { return {aes256_key_size_bytes}; }
+    [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_encrypt_attrs()                noexcept { return {chacha20_key_size_bytes}; }
+    [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_decrypt_attrs()                noexcept { return {chacha20_key_size_bytes}; }
+    [[nodiscard]]
     static KeyAttributes make_rsa_oaep_encrypt_attrs(std::size_t /*bits*/)     noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_rsa_oaep_decrypt_attrs(std::size_t /*bits*/)     noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_rsa_pss_sign_attrs(std::size_t /*bits*/)         noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_rsa_pss_verify_attrs(std::size_t /*bits*/)       noexcept { return {}; }
+    [[nodiscard]]
     static KeyAttributes make_rsa_key_pair_attrs(std::size_t /*bits*/)         noexcept { return {}; }
 
+    [[nodiscard]]
     static std::size_t ecdsa_sign_output_size(std::size_t /*bits*/)          noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t ecdh_shared_secret_size(std::size_t /*bits*/)         noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t ec_private_key_export_size(std::size_t /*bits*/)      noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t ec_public_key_export_size(std::size_t /*bits*/)       noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len + arm_asm::detail::aes_gcm_tag_bytes; }
+    [[nodiscard]]
     static std::size_t aes_gcm_decrypt_output_size(std::size_t ct_len)        noexcept { return ct_len > arm_asm::detail::aes_gcm_tag_bytes ? ct_len - arm_asm::detail::aes_gcm_tag_bytes : 0; }
+    [[nodiscard]]
     static std::size_t chacha20_encrypt_output_size(std::size_t pt_len) noexcept { return pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes; }
+    [[nodiscard]]
     static std::size_t chacha20_decrypt_output_size(std::size_t ct_len) noexcept { return ct_len > arm_asm::detail::chacha20_poly1305_tag_bytes ? ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes : 0; }
+    [[nodiscard]]
     static std::size_t rsa_oaep_encrypt_output_size(std::size_t /*bits*/)    noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t rsa_oaep_decrypt_output_size(std::size_t /*bits*/)    noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t rsa_pss_sign_output_size(std::size_t /*bits*/)        noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t rsa_private_key_export_size(std::size_t /*bits*/)     noexcept { return 0; }
+    [[nodiscard]]
     static std::size_t rsa_public_key_export_size(std::size_t /*bits*/)      noexcept { return 0; }
 };

@@ -53,13 +53,16 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 namespace arm_asm::detail {
 
-// Load a 16-byte value as a little-endian 128-bit unsigned integer,
-// returning it split as lo (bits 0..63) and hi (bits 64..127).
-static inline void load_le128(const uint8_t* p,
-                               uint64_t& lo, uint64_t& hi) noexcept {
-    std::memcpy(&lo, p,     8);
-    std::memcpy(&hi, p + 8, 8);
+// Load a 16-byte value as a little-endian 128-bit unsigned integer.
+struct Le128 { uint64_t lo, hi; }; // NOLINT(misc-non-private-member-variables-in-classes)
+
+[[nodiscard]]
+static inline auto load_le128(const uint8_t* p) noexcept -> Le128 {
+    Le128 r{};
+    std::memcpy(&r.lo, p,     8);
+    std::memcpy(&r.hi, p + 8, 8);
     // On big-endian hosts byteswap; little-endian (Apple Silicon) is a no-op.
+    return r;
 }
 
 // Store a 16-byte little-endian 128-bit unsigned integer.
@@ -74,8 +77,8 @@ static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept {
 // After normalization: h0,h1 < 2^44; h2 < 2^42.
 // -----------------------------------------------------------------------
 
-static constexpr uint64_t MASK44 = (1ULL << 44) - 1;
-static constexpr uint64_t MASK42 = (1ULL << 42) - 1;
+static constexpr uint64_t mask44 = (1ULL << 44) - 1;
+static constexpr uint64_t mask42 = (1ULL << 42) - 1;
 
 struct Poly1305Limbs {
     uint64_t h0{}, h1{}, h2{}; // NOLINT(misc-non-private-member-variables-in-classes)
@@ -89,16 +92,18 @@ struct Poly1305Precomp {
 
 // Extract three 44-bit limbs from a 16-byte block with top bit (0 or 1).
 // top=1 for full blocks (sets bit 128), top=0 when the 0x01 is embedded in the data.
+[[nodiscard]]
 static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi,
-                                            uint64_t top) noexcept {
+                                                          uint64_t top) noexcept {
     Poly1305Limbs m;
-    m.h0 = lo & MASK44;
-    m.h1 = ((lo >> 44) | (hi << 20)) & MASK44;
+    m.h0 = lo & mask44;
+    m.h1 = ((lo >> 44) | (hi << 20)) & mask44;
     m.h2 = (hi >> 24) | (top << 40);  // top bit lands at position 128 = 40 in m.h2
     return m;
 }
 
 // Clamp r per RFC 8439 §2.5.1 and extract into three 44-bit limbs.
+[[nodiscard]]
 static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     FixedSecureBuffer<16> rc;
     std::memcpy(rc.data(), r_bytes, 16);
@@ -114,10 +119,11 @@ static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOL
     std::memcpy(&lo, rc.data(),     8);
     std::memcpy(&hi, rc.data() + 8, 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     // r has top 4 bits of each 32-bit chunk cleared → r2 < 2^36
-    return {lo & MASK44, ((lo >> 44) | (hi << 20)) & MASK44, hi >> 24};
+    return {lo & mask44, ((lo >> 44) | (hi << 20)) & mask44, hi >> 24};
 }
 
 // Build a Poly1305Precomp (precompute r×20 reduction terms).
+[[nodiscard]]
 static inline Poly1305Precomp make_precomp(const Poly1305Limbs& r) noexcept {
     return {r.h0, r.h1, r.h2, r.h1 * 20U, r.h2 * 20U};
 }
@@ -133,14 +139,14 @@ static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
     const u128 d2 = (u128)h.h0*p.r2 + (u128)h.h1*p.r1    + (u128)h.h2*p.r0;
 
     // Carry propagation: normalize to 44/44/42 form.
-    h.h0 = (uint64_t)d0 & MASK44;  const u128 c1 = d0 >> 44;
+    h.h0 = (uint64_t)d0 & mask44;  const u128 c1 = d0 >> 44;
     const u128 e1 = d1 + c1;
-    h.h1 = (uint64_t)e1 & MASK44;  const u128 c2 = e1 >> 44;
+    h.h1 = (uint64_t)e1 & mask44;  const u128 c2 = e1 >> 44;
     const u128 e2 = d2 + c2;
-    h.h2 = (uint64_t)e2 & MASK42;
+    h.h2 = (uint64_t)e2 & mask42;
     const uint64_t c3 = (uint64_t)(e2 >> 42);  // 2^{42+88}=2^130 ≡ 5
     h.h0 += c3 * 5U;
-    const uint64_t c4 = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c4;
+    const uint64_t c4 = h.h0 >> 44; h.h0 &= mask44; h.h1 += c4;
 }
 
 // Multiply using raw Poly1305Limbs (builds precomp inline — used for power building).
@@ -169,10 +175,10 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     // Propagate any remaining carry into the 44/44/42 form.
     uint64_t h0 = h_in.h0, h1 = h_in.h1, h2 = h_in.h2;
     uint64_t c;
-    c = h0 >> 44; h0 &= MASK44; h1 += c;
-    c = h1 >> 44; h1 &= MASK44; h2 += c;
-    c = h2 >> 42; h2 &= MASK42; h0 += c * 5U;
-    c = h0 >> 44; h0 &= MASK44; h1 += c;
+    c = h0 >> 44; h0 &= mask44; h1 += c;
+    c = h1 >> 44; h1 &= mask44; h2 += c;
+    c = h2 >> 42; h2 &= mask42; h0 += c * 5U;
+    c = h0 >> 44; h0 &= mask44; h1 += c;
 
     // Compute g = h + 5; if g < 2^130, g overflows past the 130-bit field → h >= p.
     const uint64_t g0 = h0 + 5U;
@@ -183,17 +189,16 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     // If g2 >= 2^42, then g >= 2^130, meaning h >= p — use g.
     const uint64_t mask = (g2 >> 42) ? UINT64_MAX : 0U;
 
-    h0 = (h0 & ~mask) | ((g0 & MASK44) & mask);
-    h1 = (h1 & ~mask) | ((g1 & MASK44) & mask);
-    h2 = (h2 & ~mask) | ((g2 & MASK42) & mask);
+    h0 = (h0 & ~mask) | ((g0 & mask44) & mask);
+    h1 = (h1 & ~mask) | ((g1 & mask44) & mask);
+    h2 = (h2 & ~mask) | ((g2 & mask42) & mask);
 
     // Pack 130-bit h to 128-bit little-endian.
     const uint64_t hlo = h0 | (h1 << 44);
     const uint64_t hhi = (h1 >> 20) | (h2 << 24);
 
     // Add s (mod 2^128).
-    uint64_t slo = 0; uint64_t shi = 0;
-    load_le128(s_bytes, slo, shi);
+    const auto [slo, shi] = load_le128(s_bytes);
     const uint64_t tlo = hlo + slo;
     const uint64_t thi = hhi + shi + (tlo < hlo ? 1U : 0U);
     store_le128(tag, tlo, thi);
@@ -254,10 +259,10 @@ static inline void poly1305_process_quad(
     h.h1 += x1.h1 + x2.h1 + x3.h1;
     h.h2 += x1.h2 + x2.h2 + x3.h2;
     uint64_t c;
-    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
-    c = h.h1 >> 44; h.h1 &= MASK44; h.h2 += c;
-    c = h.h2 >> 42; h.h2 &= MASK42; h.h0 += c * 5U;
-    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
+    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
+    c = h.h1 >> 44; h.h1 &= mask44; h.h2 += c;
+    c = h.h2 >> 42; h.h2 &= mask42; h.h0 += c * 5U;
+    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
 }
 
 // Two-block parallel: h = (h + m1)*r² + m2*r
@@ -276,10 +281,10 @@ static inline void poly1305_process_pair(
 
     h.h0 += m2.h0; h.h1 += m2.h1; h.h2 += m2.h2;
     uint64_t c;
-    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
-    c = h.h1 >> 44; h.h1 &= MASK44; h.h2 += c;
-    c = h.h2 >> 42; h.h2 &= MASK42; h.h0 += c * 5U;
-    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
+    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
+    c = h.h1 >> 44; h.h1 &= mask44; h.h2 += c;
+    c = h.h2 >> 42; h.h2 &= mask42; h.h0 += c * 5U;
+    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
 }
 
 
@@ -298,35 +303,32 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
 
     // Primary loop: 4 blocks (64 bytes) at a time.
     while (offset + 64 <= msg_len) {
-        uint64_t lo0=0,hi0=0, lo1=0,hi1=0, lo2=0,hi2=0, lo3=0,hi3=0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        load_le128(msg + offset,      lo0, hi0);
+        const auto [lo0, hi0] = load_le128(msg + offset);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        load_le128(msg + offset + 16, lo1, hi1);
+        const auto [lo1, hi1] = load_le128(msg + offset + 16);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        load_le128(msg + offset + 32, lo2, hi2);
+        const auto [lo2, hi2] = load_le128(msg + offset + 32);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        load_le128(msg + offset + 48, lo3, hi3);
+        const auto [lo3, hi3] = load_le128(msg + offset + 48);
         poly1305_process_quad(h, lo0, hi0, lo1, hi1, lo2, hi2, lo3, hi3, pw);
         offset += 64;
     }
 
     // Remaining pair.
     if (offset + 32 <= msg_len) {
-        uint64_t lo1=0,hi1=0, lo2=0,hi2=0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        load_le128(msg + offset,      lo1, hi1);
+        const auto [lo1, hi1] = load_le128(msg + offset);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        load_le128(msg + offset + 16, lo2, hi2);
+        const auto [lo2, hi2] = load_le128(msg + offset + 16);
         poly1305_process_pair(h, lo1, hi1, lo2, hi2, pw);
         offset += 32;
     }
 
     // Remaining single full block.
     if (offset + 16 <= msg_len) {
-        uint64_t lo = 0; uint64_t hi = 0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        load_le128(msg + offset, lo, hi);
+        const auto [lo, hi] = load_le128(msg + offset);
         poly1305_add_block(h, lo, hi, 1U);
         poly1305_multiply_precomp(h, pw.p1);
         offset += 16;
@@ -338,8 +340,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         std::memcpy(buf.data(), msg + offset, msg_len - offset);
         buf[msg_len - offset] = 0x01U;  // RFC 8439: append 0x01 pad byte
-        uint64_t lo = 0; uint64_t hi = 0;
-        load_le128(buf.data(), lo, hi);
+        const auto [lo, hi] = load_le128(buf.data());
         poly1305_add_block(h, lo, hi, 0U);  // top bit already embedded
         poly1305_multiply_precomp(h, pw.p1);
     }

@@ -143,7 +143,7 @@ public:
 
     ~PsaKeyHandle() noexcept {  // NOLINT(bugprone-exception-escape)
         if (valid_) {
-            Provider::destroy_key(id_);
+            (void)Provider::destroy_key(id_);
         }
     }
 
@@ -170,7 +170,7 @@ public:
 
     void reset() noexcept {
         if (valid_) {
-            Provider::destroy_key(id_);
+            (void)Provider::destroy_key(id_);
             valid_ = false;
         }
     }

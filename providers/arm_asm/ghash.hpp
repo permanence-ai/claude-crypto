@@ -43,6 +43,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 namespace arm_asm::detail {
 
 // Bit-reflect all bytes in a 128-bit vector.
+[[nodiscard]]
 [[gnu::target("aes,neon")]]
 static inline uint8x16_t ghash_reflect(uint8x16_t v) noexcept {
     return vrbitq_u8(v);
@@ -50,6 +51,7 @@ static inline uint8x16_t ghash_reflect(uint8x16_t v) noexcept {
 
 // 128-bit polynomial multiply: returns a 256-bit result packed as three
 // 128-bit values (high, middle, low) following the MbedTLS layout.
+[[nodiscard]]
 [[gnu::target("aes,neon")]]
 static inline uint8x16x3_t ghash_poly_mult_128(uint8x16_t a, uint8x16_t b) noexcept {
     const poly64x2_t pa = vreinterpretq_p64_u8(a);
@@ -69,6 +71,7 @@ static inline uint8x16x3_t ghash_poly_mult_128(uint8x16_t a, uint8x16_t b) noexc
 
 // Reduce a 256-bit GF(2¹²⁸) value (packed as three 128-bit vectors) modulo
 // the GCM polynomial x¹²⁸ + x⁷ + x² + x + 1 (constant 0x87).
+[[nodiscard]]
 [[gnu::target("aes,neon")]]
 static inline uint8x16_t ghash_poly_reduce(uint8x16x3_t input) noexcept {
     const uint8x16_t ZERO   = vdupq_n_u8(0);

@@ -33,6 +33,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 namespace arm_asm::detail {
 
+constexpr uint8_t hmac_ipad_byte = 0x36U;
+constexpr uint8_t hmac_opad_byte = 0x5cU;
+
 // ---------------------------------------------------------------------------
 // Incremental SHA-256 context (feeds blocks one at a time)
 // ---------------------------------------------------------------------------
@@ -159,8 +162,8 @@ inline void hmac_sha256(const uint8_t* key, std::size_t key_len,
     FixedSecureBuffer<64> ikey;
     FixedSecureBuffer<64> okey;
     for (std::size_t i = 0; i < 64; ++i) {
-        ikey[i] = static_cast<uint8_t>(kprime[i] ^ 0x36U);
-        okey[i] = static_cast<uint8_t>(kprime[i] ^ 0x5cU);
+        ikey[i] = static_cast<uint8_t>(kprime[i] ^ hmac_ipad_byte);
+        okey[i] = static_cast<uint8_t>(kprime[i] ^ hmac_opad_byte);
     }
 
     // Inner hash: SHA-256(ikey || msg)
@@ -202,8 +205,8 @@ inline void hmac_sha512_impl(const uint64_t h0[8],
     FixedSecureBuffer<128> ikey;
     FixedSecureBuffer<128> okey;
     for (std::size_t i = 0; i < 128; ++i) {
-        ikey[i] = static_cast<uint8_t>(kprime[i] ^ 0x36U);
-        okey[i] = static_cast<uint8_t>(kprime[i] ^ 0x5cU);
+        ikey[i] = static_cast<uint8_t>(kprime[i] ^ hmac_ipad_byte);
+        okey[i] = static_cast<uint8_t>(kprime[i] ^ hmac_opad_byte);
     }
 
     // Inner hash.
@@ -252,8 +255,8 @@ inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes,
                             uint8_t* out) noexcept
 {
     // K': hash key if > rate, else use directly.
-    // 136 = max SHA3 block size (SHA3-256 rate).
-    FixedSecureBuffer<136> kprime;
+    // sha3_max_rate_bytes = SHA3-256 rate = 136 bytes (max across all variants).
+    FixedSecureBuffer<sha3_max_rate_bytes> kprime;
     if (key_len > rate) {
         Sha3Ctx kctx;
         kctx.init(rate, out_bytes);
@@ -263,11 +266,11 @@ inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes,
         std::memcpy(kprime.data(), key, key_len);
     }
 
-    FixedSecureBuffer<136> ikey;
-    FixedSecureBuffer<136> okey;
+    FixedSecureBuffer<sha3_max_rate_bytes> ikey;
+    FixedSecureBuffer<sha3_max_rate_bytes> okey;
     for (std::size_t i = 0; i < rate; ++i) {
-        ikey[i] = static_cast<uint8_t>(kprime[i] ^ 0x36U);
-        okey[i] = static_cast<uint8_t>(kprime[i] ^ 0x5cU);
+        ikey[i] = static_cast<uint8_t>(kprime[i] ^ hmac_ipad_byte);
+        okey[i] = static_cast<uint8_t>(kprime[i] ^ hmac_opad_byte);
     }
 
     // Inner hash: SHA3(ikey || msg)
@@ -289,7 +292,7 @@ inline void hmac_sha3_256(const uint8_t* key, std::size_t key_len,
                            const uint8_t* msg, std::size_t msg_len,
                            uint8_t out[32]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
-    hmac_sha3_impl(136, 32, key, key_len, msg, msg_len, out); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    hmac_sha3_impl(sha3_max_rate_bytes, 32, key, key_len, msg, msg_len, out);
 }
 
 inline void hmac_sha3_384(const uint8_t* key, std::size_t key_len,

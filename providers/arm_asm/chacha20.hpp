@@ -49,6 +49,7 @@ static constexpr uint32_t chacha20_c3 = 0x6b206574U;
 // Rotate left 32-bit value by n bits using NEON vsriq/vshlq.
 // For n in {7,8,12,16}: compiler uses vsriq_n_u32 + vshlq_n_u32.
 template<int N>
+[[nodiscard]]
 [[gnu::target("neon")]]
 static inline uint32x4_t rot32(uint32x4_t v) noexcept {
     return vorrq_u32(vshlq_n_u32(v, N), vshrq_n_u32(v, 32 - N));
@@ -68,6 +69,7 @@ static inline void chacha20_qr(uint32x4_t& a, uint32x4_t& b,
 }
 
 // Load a 32-bit little-endian word from an unaligned pointer.
+[[nodiscard]]
 static inline uint32_t load_le32(const uint8_t* p) noexcept {
     uint32_t v;
     std::memcpy(&v, p, 4);

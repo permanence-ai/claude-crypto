@@ -108,7 +108,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     auto op = Provider::make_kdf_op();
 
     if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfSetupFailed,
             "SIGMA-I HKDF setup failed"));
@@ -116,7 +116,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
 
     if (Provider::key_derivation_input_key(
             &op, Provider::kdf_step_secret(), key_handle.get()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA-I HKDF secret input failed"));
@@ -125,7 +125,7 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     if (Provider::key_derivation_input_bytes(
             &op, Provider::kdf_step_info(),
             info.data(), info.size()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfInputFailed,
             "SIGMA-I HKDF info input failed"));
@@ -134,13 +134,13 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
     SecureBuffer output(total_output);
     if (Provider::key_derivation_output_bytes(
             &op, output.data(), output.size()) != Provider::ok) {
-        Provider::key_derivation_abort(&op);
+        (void)Provider::key_derivation_abort(&op);
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
             "SIGMA-I HKDF output failed"));
     }
 
-    Provider::key_derivation_abort(&op);
+    (void)Provider::key_derivation_abort(&op);
 
     auto slice = [&](const std::size_t offset, const std::size_t len) {
         SecureBuffer s(len);
