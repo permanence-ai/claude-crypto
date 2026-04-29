@@ -7,6 +7,7 @@ target_sources(${LIB_NAME} INTERFACE
         aes256_gcm.hpp
         arm_asm_backend.hpp
         ghash.hpp
+        hkdf.hpp
         hmac.hpp
         key_store.hpp
         random.hpp

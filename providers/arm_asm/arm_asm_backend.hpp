@@ -10,6 +10,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "aes256_gcm.hpp"
 #include "defs.hpp"
+#include "hkdf.hpp"
 #include "hmac.hpp"
 #include "key_store.hpp"
 #include "random.hpp"
@@ -30,7 +31,7 @@ struct ArmAsmBackend {
     using Status       = int;
     using KeyId        = unsigned int;
     using Algorithm    = unsigned int;
-    using KdfOperation = unsigned int;
+    using KdfOperation = arm_asm::detail::HkdfState;
     using KdfStep      = unsigned int;
 
     // KeyAttributes carries the symmetric key size so generate_key knows
@@ -46,7 +47,7 @@ struct ArmAsmBackend {
 
     static KeyId null_key_id() noexcept { return 0U; }
     static KeyAttributes make_key_attrs() noexcept { return {}; }
-    static KdfOperation  make_kdf_op()    noexcept { return 0U; }
+    static KdfOperation  make_kdf_op()    noexcept { return {}; }
 
     static Status crypto_init()                                               { return ok; }
     static Status generate_random(CryptoByte* buf, std::size_t len) {
@@ -217,17 +218,27 @@ struct ArmAsmBackend {
                                      const CryptoByte* /*salt*/, std::size_t /*salt_len*/,
                                      CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
                                                                               { return err_invalid_arg; }
-    static Status key_derivation_setup(KdfOperation* /*op*/, Algorithm /*alg*/)
-                                                                              { return err_invalid_arg; }
-    static Status key_derivation_input_key(KdfOperation* /*op*/, KdfStep /*step*/, KeyId /*id*/)
-                                                                              { return err_invalid_arg; }
-    static Status key_derivation_input_bytes(KdfOperation* /*op*/, KdfStep /*step*/,
-                                             const CryptoByte* /*data*/, std::size_t /*len*/)
-                                                                              { return err_invalid_arg; }
-    static Status key_derivation_output_bytes(KdfOperation* /*op*/,
-                                              CryptoByte* /*out*/, std::size_t /*len*/)
-                                                                              { return err_invalid_arg; }
-    static Status key_derivation_abort(KdfOperation* /*op*/)                 { return ok; }
+    static Status key_derivation_setup(KdfOperation* op, Algorithm alg) {
+        arm_asm::detail::HkdfAlg ha = arm_asm::detail::HkdfAlg::None;
+        if (alg == alg_hkdf())        { ha = arm_asm::detail::HkdfAlg::Hkdf; }
+        else if (alg == alg_hkdf_expand()) { ha = arm_asm::detail::HkdfAlg::HkdfExpand; }
+        else { return err_invalid_arg; }
+        return arm_asm::detail::hkdf_setup(op, ha) == 0 ? ok : err_invalid_arg;
+    }
+    static Status key_derivation_input_key(KdfOperation* op, KdfStep /*step*/, KeyId id) {
+        return arm_asm::detail::hkdf_input_key(op, id) == 0 ? ok : err_invalid_arg;
+    }
+    static Status key_derivation_input_bytes(KdfOperation* op, KdfStep step,
+                                             const CryptoByte* data, std::size_t len) {
+        return arm_asm::detail::hkdf_input_bytes(op, step, data, len) == 0 ? ok : err_invalid_arg;
+    }
+    static Status key_derivation_output_bytes(KdfOperation* op, CryptoByte* out, std::size_t len) {
+        return arm_asm::detail::hkdf_output_bytes(op, out, len) == 0 ? ok : err_invalid_arg;
+    }
+    static Status key_derivation_abort(KdfOperation* op) {
+        if (op != nullptr) { op->zeroize(); }
+        return ok;
+    }
 
     // Algorithm tag encoding: low byte = base type, high byte = SHA variant index.
     static constexpr Algorithm alg_base_hash = 0x0100U;
@@ -237,16 +248,18 @@ struct ArmAsmBackend {
     static Algorithm alg_hmac(ShaVariant v) noexcept { return alg_base_hmac | static_cast<Algorithm>(v); }
     static constexpr Algorithm alg_ecdsa()             noexcept { return 0U; }
     static constexpr Algorithm alg_ecdh()              noexcept { return 0U; }
-    static constexpr Algorithm alg_hkdf()              noexcept { return 0U; }
-    static constexpr Algorithm alg_hkdf_expand()       noexcept { return 0U; }
+    static constexpr Algorithm alg_hkdf()              noexcept { return 0x0301U; }
+    static constexpr Algorithm alg_hkdf_expand()       noexcept { return 0x0302U; }
     static constexpr Algorithm alg_aes_gcm()           noexcept { return 0U; }
     static constexpr Algorithm alg_chacha20_poly1305() noexcept { return 0U; }
     static constexpr Algorithm alg_rsa_oaep()          noexcept { return 0U; }
     static constexpr Algorithm alg_rsa_pss()           noexcept { return 0U; }
 
-    static constexpr KdfStep kdf_step_secret() noexcept { return 0U; }
+    // kdf_step_secret is ignored (key is implicitly the IKM/PRK from input_key).
+    // kdf_step_salt and kdf_step_info match the constants in hkdf_input_bytes.
+    static constexpr KdfStep kdf_step_secret() noexcept { return 2U; }
     static constexpr KdfStep kdf_step_salt()   noexcept { return 0U; }
-    static constexpr KdfStep kdf_step_info()   noexcept { return 0U; }
+    static constexpr KdfStep kdf_step_info()   noexcept { return 1U; }
 
     // NOLINT(readability-named-parameter) — stub functions intentionally omit unused parameter names.
     static KeyAttributes make_hkdf_derive_attrs(std::size_t bits)              noexcept { return {bits / 8U}; }

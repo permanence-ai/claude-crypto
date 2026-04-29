@@ -87,9 +87,11 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | `generate_key` | Generates a random symmetric key of the size specified in `KeyAttributes` |
 | `import_key` / `export_key` / `destroy_key` | Full implementation backed by the key store; keys zeroized on destroy |
 | `mac_compute` / `mac_verify` | HMAC dispatch; `mac_verify` uses a constant-time compare |
+| HKDF (SHA-384) | RFC 5869 Extract+Expand; full KDF state machine (`setup`/`input_key`/`input_bytes`/`output_bytes`/`abort`) |
+| HKDF-Expand (SHA-384) | Expand-only variant; PRK supplied directly via `input_key` |
 | Key store | 16-slot static store (up to 512 bytes/key) |
 
-**Not yet implemented** (return `err_invalid_arg`): ECDSA/ECDH, RSA, KDF/HKDF, ChaCha20-Poly1305.
+**Not yet implemented** (return `err_invalid_arg`): ECDSA/ECDH, RSA, ChaCha20-Poly1305.
 
 **SHA-512 compression loop detail.** The two-round step pattern cycles through four roles (ab/cd/ef/gh) every eight rounds. Each step requires cross-pair word interleaving that cannot be expressed as a simple state rotation:
 
@@ -112,7 +114,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (216 tests)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (220 tests)
 cmake/                    # FetchContent modules for MbedTLS and GoogleTest
 ```
 
@@ -138,7 +140,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | Value | Backend | Status |
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
-| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing, HMAC, AES-256-GCM, key management |
+| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing, HMAC, AES-256-GCM, HKDF, key management |
 | `IA_ASM` | Native assembly | Stub only |
 
 ```bash
