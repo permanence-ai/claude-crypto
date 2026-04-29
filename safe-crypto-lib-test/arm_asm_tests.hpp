@@ -22,6 +22,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
 
 #include "aes256_gcm.hpp"
+#include "arm_asm_backend.hpp"
 
 // ---------------------------------------------------------------------------
 // NIST SP 800-38D AES-256-GCM test vectors
@@ -234,6 +235,125 @@ TEST_F(ArmAsmAesGcmVectorTests, TamperedTagRejected) {
     for (std::size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(pt[i], 0) << "pt[" << i << "] not zeroized"; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: key management tests — generate_key and export_key
+// ---------------------------------------------------------------------------
+
+class ArmAsmKeyMgmtTests : public ::testing::Test {};
+
+TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
+    // Generate an AES-256-GCM key, encrypt, then decrypt.
+    ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
+    ArmAsmBackend::KeyId enc_id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &enc_id), ArmAsmBackend::ok);
+    EXPECT_NE(enc_id, ArmAsmBackend::null_key_id());
+
+    const std::array<uint8_t, 12> iv = {0x01,0x02,0x03,0x04,0x05,0x06,
+                                         0x07,0x08,0x09,0x0a,0x0b,0x0c};
+    const std::array<uint8_t, 16> pt = {0x48,0x65,0x6c,0x6c,0x6f,0x2c,
+                                         0x20,0x57,0x6f,0x72,0x6c,0x64,
+                                         0x21,0x0a,0x00,0x00};
+    std::array<uint8_t, 32> ct{};  // 16 + 16 tag
+    std::size_t ct_len = 0;
+
+    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
+        enc_id, ArmAsmBackend::alg_aes_gcm(),
+        iv.data(), iv.size(),
+        nullptr, 0,
+        pt.data(), pt.size(),
+        ct.data(), ct.size(), &ct_len), ArmAsmBackend::ok);
+    EXPECT_EQ(ct_len, 32U);
+
+    // Decrypt with the same key.
+    std::array<uint8_t, 16> recovered{};
+    std::size_t recovered_len = 0;
+    ASSERT_EQ(ArmAsmBackend::aead_decrypt(
+        enc_id, ArmAsmBackend::alg_aes_gcm(),
+        iv.data(), iv.size(),
+        nullptr, 0,
+        ct.data(), ct_len,
+        recovered.data(), recovered.size(), &recovered_len), ArmAsmBackend::ok);
+    EXPECT_EQ(recovered_len, pt.size());
+    for (std::size_t i = 0; i < pt.size(); ++i) {
+        EXPECT_EQ(recovered[i], pt[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+
+    ArmAsmBackend::destroy_key(enc_id);
+}
+
+TEST_F(ArmAsmKeyMgmtTests, ExportImportedKeyReturnsOriginalBytes) {
+    // Import a known key, then export it and verify the bytes match.
+    const std::array<uint8_t, 32> original = {
+        0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
+        0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
+        0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,
+        0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f
+    };
+    ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, original.data(), original.size(), &id),
+              ArmAsmBackend::ok);
+
+    std::array<uint8_t, 32> exported{};
+    std::size_t exported_len = 0;
+    ASSERT_EQ(ArmAsmBackend::export_key(id, exported.data(), exported.size(), &exported_len),
+              ArmAsmBackend::ok);
+    EXPECT_EQ(exported_len, 32U);
+    for (std::size_t i = 0; i < 32; ++i) {
+        EXPECT_EQ(exported[i], original[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+
+    ArmAsmBackend::destroy_key(id);
+}
+
+TEST_F(ArmAsmKeyMgmtTests, ExportGeneratedKeyHasCorrectSize) {
+    // A generated AES-256 key must export as exactly 32 bytes.
+    ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_decrypt_attrs();
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
+
+    std::array<uint8_t, 64> buf{};
+    std::size_t len = 0;
+    ASSERT_EQ(ArmAsmBackend::export_key(id, buf.data(), buf.size(), &len),
+              ArmAsmBackend::ok);
+    EXPECT_EQ(len, aes256_key_size_bytes);
+
+    ArmAsmBackend::destroy_key(id);
+}
+
+TEST_F(ArmAsmKeyMgmtTests, GenerateKeyZeroSizeAttrsReturnsError) {
+    ArmAsmBackend::KeyAttributes attrs{};  // key_bytes == 0
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    EXPECT_NE(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
+    EXPECT_EQ(id, ArmAsmBackend::null_key_id());
+}
+
+TEST_F(ArmAsmKeyMgmtTests, GenerateKeyNullAttrsReturnsError) {
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    EXPECT_NE(ArmAsmBackend::generate_key(nullptr, &id), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmKeyMgmtTests, ExportKeyBadIdReturnsError) {
+    std::array<uint8_t, 32> buf{};
+    std::size_t len = 0;
+    EXPECT_NE(ArmAsmBackend::export_key(ArmAsmBackend::null_key_id(),
+                                         buf.data(), buf.size(), &len),
+              ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmKeyMgmtTests, ExportKeyBufferTooSmallReturnsError) {
+    ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
+
+    std::array<uint8_t, 16> small_buf{};  // too small for 32-byte key
+    std::size_t len = 0;
+    EXPECT_NE(ArmAsmBackend::export_key(id, small_buf.data(), small_buf.size(), &len),
+              ArmAsmBackend::ok);
+
+    ArmAsmBackend::destroy_key(id);
 }
 
 #endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM

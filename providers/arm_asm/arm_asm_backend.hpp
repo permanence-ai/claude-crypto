@@ -6,6 +6,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 
 #include "aes256_gcm.hpp"
 #include "defs.hpp"
@@ -18,27 +19,33 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 
 // ARM AArch64 assembly/intrinsic backend.
-// Phase 4: SHA-256/384/512, HMAC-SHA-256/384/512, AES-256-GCM, and
-// random byte generation are implemented.  Everything else returns
-// err_invalid_arg.
+// Phase 5: generate_key and export_key for symmetric keys, on top of
+// Phase 4 (SHA-256/384/512, HMAC, AES-256-GCM, random bytes).
+// Everything else returns err_invalid_arg.
 //
 // Target: ARMv8-A / AArch64 (Apple Silicon and compatible).
 // Accelerated via ARM Crypto Extensions: AES, SHA2, SHA3, PMULL/NEON.
 // See arm-asm-plan.md for the phased implementation plan.
 struct ArmAsmBackend {
-    using Status        = int;
-    using KeyId         = unsigned int;
-    using Algorithm     = unsigned int;
-    using KeyAttributes = unsigned int;
-    using KdfOperation  = unsigned int;
-    using KdfStep       = unsigned int;
+    using Status       = int;
+    using KeyId        = unsigned int;
+    using Algorithm    = unsigned int;
+    using KdfOperation = unsigned int;
+    using KdfStep      = unsigned int;
+
+    // KeyAttributes carries the symmetric key size so generate_key knows
+    // how many bytes to produce.  key_bytes == 0 means "not applicable"
+    // (used for algorithm types the ARM ASM backend doesn't implement).
+    struct KeyAttributes {
+        std::size_t key_bytes{0};
+    };
 
     static constexpr Status ok              = 0;
     static constexpr Status err_invalid_sig = 1;
     static constexpr Status err_invalid_arg = 2;
 
     static KeyId null_key_id() noexcept { return 0U; }
-    static KeyAttributes make_key_attrs() noexcept { return 0U; }
+    static KeyAttributes make_key_attrs() noexcept { return {}; }
     static KdfOperation  make_kdf_op()    noexcept { return 0U; }
 
     static Status crypto_init()                                               { return ok; }
@@ -76,13 +83,32 @@ struct ArmAsmBackend {
         *id = slot;
         return ok;
     }
-    static Status generate_key(const KeyAttributes* /*attrs*/, KeyId* /*id*/)  { return err_invalid_arg; }
+    static Status generate_key(const KeyAttributes* attrs, KeyId* id) {
+        if (attrs == nullptr || attrs->key_bytes == 0) { return err_invalid_arg; }
+        if (attrs->key_bytes > arm_asm::detail::key_store_max_bytes) { return err_invalid_arg; }
+        CryptoByte buf[arm_asm::detail::key_store_max_bytes]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        arm_asm::detail::generate_random_bytes(buf, attrs->key_bytes);
+        const KeyId slot = arm_asm::detail::key_store_import(buf, attrs->key_bytes);
+        // Zeroize the stack buffer regardless of outcome.
+        volatile auto* p = reinterpret_cast<volatile CryptoByte*>(buf);
+        for (std::size_t i = 0; i < attrs->key_bytes; ++i) { p[i] = 0; }
+        if (slot == 0U) { return err_invalid_arg; }
+        *id = slot;
+        return ok;
+    }
     static Status destroy_key(KeyId id) {
         arm_asm::detail::key_store_destroy(id);
         return ok;
     }
-    static Status export_key(KeyId /*id*/, CryptoByte* /*out*/, std::size_t /*size*/, std::size_t* /*len*/)
-                                                                              { return err_invalid_arg; }
+    static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) {
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
+        if (size < key_len) { return err_invalid_arg; }
+        std::memcpy(out, key, key_len);
+        *len = key_len;
+        return ok;
+    }
     static Status export_public_key(KeyId /*id*/, CryptoByte* /*out*/, std::size_t /*size*/,
                                     std::size_t* /*len*/)                     { return err_invalid_arg; }
     static Status mac_compute(  // NOLINT(readability-function-size)
@@ -223,24 +249,24 @@ struct ArmAsmBackend {
     static constexpr KdfStep kdf_step_info()   noexcept { return 0U; }
 
     // NOLINT(readability-named-parameter) — stub functions intentionally omit unused parameter names.
-    static KeyAttributes make_hkdf_derive_attrs(std::size_t /*bits*/)          noexcept { return 0U; }
-    static KeyAttributes make_hkdf_expand_derive_attrs(std::size_t /*bits*/)   noexcept { return 0U; }
-    static KeyAttributes make_hmac_generate_attrs(ShaVariant /*v*/, std::size_t /*bits*/) noexcept { return 0U; }
-    static KeyAttributes make_hmac_verify_attrs(ShaVariant /*v*/, std::size_t /*bits*/)   noexcept { return 0U; }
-    static KeyAttributes make_ecdsa_generate_attrs(std::size_t /*bits*/)       noexcept { return 0U; }
-    static KeyAttributes make_ecdsa_sign_attrs(std::size_t /*bits*/)           noexcept { return 0U; }
-    static KeyAttributes make_ecdsa_verify_attrs(std::size_t /*bits*/)         noexcept { return 0U; }
-    static KeyAttributes make_ecdh_generate_attrs(std::size_t /*bits*/)        noexcept { return 0U; }
-    static KeyAttributes make_ecdh_agree_attrs(std::size_t /*bits*/)           noexcept { return 0U; }
-    static KeyAttributes make_aes256_gcm_encrypt_attrs()                       noexcept { return 0U; }
-    static KeyAttributes make_aes256_gcm_decrypt_attrs()                       noexcept { return 0U; }
-    static KeyAttributes make_chacha20_poly1305_encrypt_attrs()                noexcept { return 0U; }
-    static KeyAttributes make_chacha20_poly1305_decrypt_attrs()                noexcept { return 0U; }
-    static KeyAttributes make_rsa_oaep_encrypt_attrs(std::size_t /*bits*/)     noexcept { return 0U; }
-    static KeyAttributes make_rsa_oaep_decrypt_attrs(std::size_t /*bits*/)     noexcept { return 0U; }
-    static KeyAttributes make_rsa_pss_sign_attrs(std::size_t /*bits*/)         noexcept { return 0U; }
-    static KeyAttributes make_rsa_pss_verify_attrs(std::size_t /*bits*/)       noexcept { return 0U; }
-    static KeyAttributes make_rsa_key_pair_attrs(std::size_t /*bits*/)         noexcept { return 0U; }
+    static KeyAttributes make_hkdf_derive_attrs(std::size_t bits)              noexcept { return {bits / 8U}; }
+    static KeyAttributes make_hkdf_expand_derive_attrs(std::size_t bits)       noexcept { return {bits / 8U}; }
+    static KeyAttributes make_hmac_generate_attrs(ShaVariant /*v*/, std::size_t bits) noexcept { return {bits / 8U}; }
+    static KeyAttributes make_hmac_verify_attrs(ShaVariant /*v*/, std::size_t bits)   noexcept { return {bits / 8U}; }
+    static KeyAttributes make_ecdsa_generate_attrs(std::size_t /*bits*/)       noexcept { return {}; }
+    static KeyAttributes make_ecdsa_sign_attrs(std::size_t /*bits*/)           noexcept { return {}; }
+    static KeyAttributes make_ecdsa_verify_attrs(std::size_t /*bits*/)         noexcept { return {}; }
+    static KeyAttributes make_ecdh_generate_attrs(std::size_t /*bits*/)        noexcept { return {}; }
+    static KeyAttributes make_ecdh_agree_attrs(std::size_t /*bits*/)           noexcept { return {}; }
+    static KeyAttributes make_aes256_gcm_encrypt_attrs()                       noexcept { return {aes256_key_size_bytes}; }
+    static KeyAttributes make_aes256_gcm_decrypt_attrs()                       noexcept { return {aes256_key_size_bytes}; }
+    static KeyAttributes make_chacha20_poly1305_encrypt_attrs()                noexcept { return {chacha20_key_size_bytes}; }
+    static KeyAttributes make_chacha20_poly1305_decrypt_attrs()                noexcept { return {chacha20_key_size_bytes}; }
+    static KeyAttributes make_rsa_oaep_encrypt_attrs(std::size_t /*bits*/)     noexcept { return {}; }
+    static KeyAttributes make_rsa_oaep_decrypt_attrs(std::size_t /*bits*/)     noexcept { return {}; }
+    static KeyAttributes make_rsa_pss_sign_attrs(std::size_t /*bits*/)         noexcept { return {}; }
+    static KeyAttributes make_rsa_pss_verify_attrs(std::size_t /*bits*/)       noexcept { return {}; }
+    static KeyAttributes make_rsa_key_pair_attrs(std::size_t /*bits*/)         noexcept { return {}; }
 
     static std::size_t ecdsa_sign_output_size(std::size_t /*bits*/)          noexcept { return 0; }
     static std::size_t ecdh_shared_secret_size(std::size_t /*bits*/)         noexcept { return 0; }
