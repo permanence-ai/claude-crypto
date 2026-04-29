@@ -49,7 +49,7 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 
 // Build the Poly1305 input: aad_padded ‖ ct_padded ‖ len64(aad) ‖ len64(ct).
 // Feeds data into Poly1305 block-by-block without a large stack allocation.
-// Uses 2-block parallel processing via r² to break the serial dependency chain.
+// Uses 4-block parallel processing via precomputed r^1..r^4 powers.
 [[gnu::target("neon")]]
 static inline void poly1305_feed(const uint8_t* otk,
                                   const uint8_t* aad, std::size_t aad_len,
@@ -61,8 +61,8 @@ static inline void poly1305_feed(const uint8_t* otk,
     // We re-implement the MAC computation inline here to avoid building a huge
     // intermediate buffer.  We walk through the fields in order:
     //   aad (padded to 16), ct (padded to 16), length block (16 bytes).
-    const Poly1305Limbs r  = clamp_r(otk);
-    const Poly1305Limbs r2 = poly1305_square_r(r);
+    const Poly1305Limbs  r  = clamp_r(otk);
+    const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
 
     // Helper: feed one field (data, len) followed by zero-padding to 16 bytes.
@@ -71,15 +71,28 @@ static inline void poly1305_feed(const uint8_t* otk,
     // the field format, not a Poly1305 partial-block marker.
     auto feed_field = [&](const uint8_t* data, std::size_t len) noexcept {
         std::size_t off = 0;
-        // Process pairs of full 16-byte blocks with r².
-        while (len - off >= 32) {
-            uint64_t lo1 = 0; uint64_t hi1 = 0;
-            uint64_t lo2 = 0; uint64_t hi2 = 0;
+        // Process groups of four full 16-byte blocks with r⁴.
+        while (len - off >= 64) {
+            uint64_t lo0=0,hi0=0, lo1=0,hi1=0, lo2=0,hi2=0, lo3=0,hi3=0;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            load_le128(data + off,      lo0, hi0);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            load_le128(data + off + 16, lo1, hi1);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            load_le128(data + off + 32, lo2, hi2);
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            load_le128(data + off + 48, lo3, hi3);
+            poly1305_process_quad(h, lo0, hi0, lo1, hi1, lo2, hi2, lo3, hi3, pw);
+            off += 64;
+        }
+        // Remaining pair of full blocks.
+        if (len - off >= 32) {
+            uint64_t lo1=0,hi1=0, lo2=0,hi2=0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             load_le128(data + off,      lo1, hi1);
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             load_le128(data + off + 16, lo2, hi2);
-            poly1305_process_pair(h, lo1, hi1, lo2, hi2, r, r2);
+            poly1305_process_pair(h, lo1, hi1, lo2, hi2, pw);
             off += 32;
         }
         // Remaining single full block.
@@ -88,7 +101,7 @@ static inline void poly1305_feed(const uint8_t* otk,
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             load_le128(data + off, lo, hi);
             poly1305_add_block(h, lo, hi, 1U);
-            poly1305_multiply(h, r);
+            poly1305_multiply_precomp(h, pw.p1);
             off += 16;
         }
         // Partial block: zero-pad to 16 bytes; top=1 (full block with zero fill).
@@ -99,7 +112,7 @@ static inline void poly1305_feed(const uint8_t* otk,
             uint64_t lo = 0; uint64_t hi = 0;
             load_le128(buf.data(), lo, hi);
             poly1305_add_block(h, lo, hi, 1U);
-            poly1305_multiply(h, r);
+            poly1305_multiply_precomp(h, pw.p1);
         }
     };
 
@@ -113,7 +126,7 @@ static inline void poly1305_feed(const uint8_t* otk,
     uint64_t lo = 0; uint64_t hi = 0;
     load_le128(len_block.data(), lo, hi);
     poly1305_add_block(h, lo, hi, 1U);
-    poly1305_multiply(h, r);
+    poly1305_multiply_precomp(h, pw.p1);
 
     poly1305_finish(h, otk + 16, tag_out); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }

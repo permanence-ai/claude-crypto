@@ -210,29 +210,29 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 
 | Operation | PSA/MbedTLS | ARM ASM | Speedup |
 |---|---|---|---|
-| SHA-256 | 382 MB/s | 2,370 MB/s | **6.2×** |
-| SHA-384 | 536 MB/s | 1,602 MB/s | **3.0×** |
-| SHA-512 | 548 MB/s | 1,664 MB/s | **3.0×** |
-| SHA3-256 | 380 MB/s | 504 MB/s | **1.3×** |
-| SHA3-384 | 303 MB/s | 379 MB/s | **1.3×** |
-| SHA3-512 | 208 MB/s | 263 MB/s | **1.3×** |
-| HMAC-SHA-256 | 362 MB/s | 2,271 MB/s | **6.3×** |
-| HMAC-SHA-384 | 536 MB/s | 1,642 MB/s | **3.1×** |
-| HMAC-SHA-512 | 531 MB/s | 1,619 MB/s | **3.0×** |
-| HMAC-SHA3-256 | 367 MB/s | 480 MB/s | **1.3×** |
-| HMAC-SHA3-384 | 295 MB/s | 373 MB/s | **1.3×** |
+| SHA-256 | 384 MB/s | 2,474 MB/s | **6.4×** |
+| SHA-384 | 534 MB/s | 1,641 MB/s | **3.1×** |
+| SHA-512 | 537 MB/s | 1,653 MB/s | **3.1×** |
+| SHA3-256 | 379 MB/s | 481 MB/s | **1.3×** |
+| SHA3-384 | 301 MB/s | 371 MB/s | **1.2×** |
+| SHA3-512 | 209 MB/s | 259 MB/s | **1.2×** |
+| HMAC-SHA-256 | 366 MB/s | 2,357 MB/s | **6.4×** |
+| HMAC-SHA-384 | 533 MB/s | 1,651 MB/s | **3.1×** |
+| HMAC-SHA-512 | 528 MB/s | 1,651 MB/s | **3.1×** |
+| HMAC-SHA3-256 | 364 MB/s | 480 MB/s | **1.3×** |
+| HMAC-SHA3-384 | 293 MB/s | 367 MB/s | **1.3×** |
 | HMAC-SHA3-512 | 207 MB/s | 256 MB/s | **1.2×** |
-| AES-256-GCM encrypt | 1,089 MB/s | 1,285 MB/s | **1.2×** |
-| AES-256-GCM decrypt | 1,143 MB/s | 1,311 MB/s | **1.1×** |
-| ChaCha20-Poly1305 encrypt | 565 MB/s | 376 MB/s | 0.67× |
-| ChaCha20-Poly1305 decrypt | 576 MB/s | 377 MB/s | 0.65× |
-| HKDF-SHA-384 (48 B output) | 356 K ops/s | 634 K ops/s | **1.8×** |
+| AES-256-GCM encrypt | 1,066 MB/s | 1,273 MB/s | **1.2×** |
+| AES-256-GCM decrypt | 966 MB/s | 1,304 MB/s | **1.3×** |
+| ChaCha20-Poly1305 encrypt | 575 MB/s | 406 MB/s | 0.71× |
+| ChaCha20-Poly1305 decrypt | 574 MB/s | 406 MB/s | 0.71× |
+| HKDF-SHA-384 (48 B output) | 355 K ops/s | 626 K ops/s | **1.8×** |
 
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
 - **SHA3 / HMAC-SHA3** beats PSA at 1.2–1.3× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
-- **ChaCha20-Poly1305** is faster in MbedTLS despite the 2-block parallel Poly1305 optimization (precomputing r² to process block pairs without a serial dependency chain). The bottleneck is Poly1305: MbedTLS uses PMULL-based 128-bit polynomial multiply with a fundamentally lower multiply count, whereas the ARM ASM implementation uses a portable 5-limb scalar accumulator. A port to PMULL-based Poly1305 is the next improvement opportunity.
+- **ChaCha20-Poly1305** improved from 0.6× to 0.71× through two Poly1305 optimizations: (1) switching from 5-limb 26-bit to 3-limb 44-bit representation, reducing the multiply count from 25 to 9 products per block; (2) four-block parallel processing — precomputing r²/r³/r⁴ lets three block-times-r^k chains execute independently of the serial accumulator chain. The remaining gap vs MbedTLS is that MbedTLS uses PMULL-based 128-bit carry-less multiplication for Poly1305, which has lower latency than the integer-multiply approach.
 
 ## Provider selection
 

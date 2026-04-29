@@ -19,16 +19,27 @@ Copyright Permanence AI, 2026. All rights reserved.
 // Accumulator update for each 17-byte chunk (n ‖ 0x01 for full blocks):
 //   acc = (acc + block) * r  mod (2^130 - 5)
 //
-// Implementation uses a 130-bit accumulator split into five 26-bit limbs
-// so partial products fit in 64-bit values without overflow.
+// Three-limb 44-bit representation:
+//   h = h0 + h1*2^44 + h2*2^88   (h0,h1 < 2^44; h2 < 2^42)
+//   r = r0 + r1*2^44 + r2*2^88   (after clamping, r2 < 2^36)
 //
-// Two-block parallel processing:
-//   For each pair of full blocks (m1, m2), the serial result
-//     h' = ((h + m1) * r + m2) * r
-//   equals:
-//     h' = (h + m1) * r² + m2 * r
-//   m2 * r has no dependency on h, so the CPU can execute it alongside
-//   the (h + m1) * r² chain.  r² is precomputed once per message.
+//   Multiply: (h0+h1*B+h2*B²) * (r0+r1*B+r2*B²)  where B=2^44.
+//   Wrapping: B³=2^132=4*2^130 ≡ 20,  B⁴=B*20.
+//   So:
+//     d0 = h0*r0 + h1*(r2*20) + h2*(r1*20)
+//     d1 = h0*r1 + h1*r0     + h2*(r2*20)
+//     d2 = h0*r2 + h1*r1     + h2*r0
+//   Carry propagation restores the 44/44/42 form.
+//
+//   This is 9 multiplications vs 25 for the 26-bit 5-limb form, and the
+//   compiler maps each __uint128_t product to a MUL+UMULH pair on AArch64.
+//
+// Four-block parallel processing:
+//   For four consecutive full blocks m0, m1, m2, m3:
+//     h' = (h + m0)*r⁴ + m1*r³ + m2*r² + m3*r
+//   The three right-hand terms are independent of h — the OoO pipeline
+//   issues them alongside (h+m0)*r⁴.
+//   r², r³, r⁴ are precomputed once per message.
 
 #include <arm_neon.h>
 #include <array>
@@ -58,32 +69,36 @@ static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept {
 }
 
 // -----------------------------------------------------------------------
-// 130-bit arithmetic via five 26-bit limbs (radix 2^26).
-// limb[0] = bits 0..25, limb[1] = bits 26..51, ..., limb[4] = bits 104..129.
-//
-// Reduction: 2^130 ≡ 5  (mod 2^130-5), so carry from limb[4] × 4 + overflow
-// feeds back into limb[0] as  carry × 5.
+// Three-limb 44/44/42-bit accumulator.
+// h = h0 + h1*2^44 + h2*2^88
+// After normalization: h0,h1 < 2^44; h2 < 2^42.
 // -----------------------------------------------------------------------
 
+static constexpr uint64_t MASK44 = (1ULL << 44) - 1;
+static constexpr uint64_t MASK42 = (1ULL << 42) - 1;
+
 struct Poly1305Limbs {
-    uint64_t h[5]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-non-private-member-variables-in-classes)
+    uint64_t h0{}, h1{}, h2{}; // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
-// Pack a 17-byte block (16 bytes of message data + 1 high bit) into limbs.
-// The high bit is either 0x01 (full block) or supplied by caller for last block.
+// Precomputed r^k with reduction constants.
+struct Poly1305Precomp {
+    uint64_t r0, r1, r2;     // 44/44/40-bit limbs of r^k // NOLINT(misc-non-private-member-variables-in-classes)
+    uint64_t r1_20, r2_20;   // r1*20, r2*20 — reduction constants for B³/B⁴ wrap // NOLINT(misc-non-private-member-variables-in-classes)
+};
+
+// Extract three 44-bit limbs from a 16-byte block with top bit (0 or 1).
+// top=1 for full blocks (sets bit 128), top=0 when the 0x01 is embedded in the data.
 static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi,
                                             uint64_t top) noexcept {
     Poly1305Limbs m;
-    // Extract five 26-bit limbs from {top[0], hi[63:0], lo[63:0]}.
-    m.h[0] =  (lo                  ) & 0x3FFFFFFU;
-    m.h[1] =  (lo >> 26U           ) & 0x3FFFFFFU;
-    m.h[2] = ((lo >> 52U) | (hi << 12U)) & 0x3FFFFFFU;
-    m.h[3] =  (hi >> 14U           ) & 0x3FFFFFFU;
-    m.h[4] =  (hi >> 40U           ) | (top << 24U);
+    m.h0 = lo & MASK44;
+    m.h1 = ((lo >> 44) | (hi << 20)) & MASK44;
+    m.h2 = (hi >> 24) | (top << 40);  // top bit lands at position 128 = 40 in m.h2
     return m;
 }
 
-// Clamp r per RFC 8439 §2.5.1 and split into 26-bit limbs.
+// Clamp r per RFC 8439 §2.5.1 and extract into three 44-bit limbs.
 static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     FixedSecureBuffer<16> rc;
     std::memcpy(rc.data(), r_bytes, 16);
@@ -98,99 +113,83 @@ static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOL
     uint64_t lo = 0; uint64_t hi = 0;
     std::memcpy(&lo, rc.data(),     8);
     std::memcpy(&hi, rc.data() + 8, 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    return block_to_limbs(lo, hi, 0);
+    // r has top 4 bits of each 32-bit chunk cleared → r2 < 2^36
+    return {lo & MASK44, ((lo >> 44) | (hi << 20)) & MASK44, hi >> 24};
 }
 
-// Multiply 130-bit accumulator h by 130-bit r, reduce mod 2^130-5.
-// Uses vmull_u64 / vmlal_u64 for the 26-bit×26-bit partial products.
-// The five limbs of r are precomputed as r[i] and r[i]*5 (for the wrap-around
-// terms), which eliminates repeated multiplications.
+// Build a Poly1305Precomp (precompute r×20 reduction terms).
+static inline Poly1305Precomp make_precomp(const Poly1305Limbs& r) noexcept {
+    return {r.h0, r.h1, r.h2, r.h1 * 20U, r.h2 * 20U};
+}
+
+// Multiply accumulator h by precomputed r^k, reduce mod 2^130-5.
+// Uses 9 __uint128_t products (→ MUL+UMULH pairs on AArch64).
 [[gnu::target("neon")]]
+static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
+                                              const Poly1305Precomp& p) noexcept {
+    using u128 = unsigned __int128;
+    const u128 d0 = (u128)h.h0*p.r0 + (u128)h.h1*p.r2_20 + (u128)h.h2*p.r1_20;
+    const u128 d1 = (u128)h.h0*p.r1 + (u128)h.h1*p.r0    + (u128)h.h2*p.r2_20;
+    const u128 d2 = (u128)h.h0*p.r2 + (u128)h.h1*p.r1    + (u128)h.h2*p.r0;
+
+    // Carry propagation: normalize to 44/44/42 form.
+    h.h0 = (uint64_t)d0 & MASK44;  const u128 c1 = d0 >> 44;
+    const u128 e1 = d1 + c1;
+    h.h1 = (uint64_t)e1 & MASK44;  const u128 c2 = e1 >> 44;
+    const u128 e2 = d2 + c2;
+    h.h2 = (uint64_t)e2 & MASK42;
+    const uint64_t c3 = (uint64_t)(e2 >> 42);  // 2^{42+88}=2^130 ≡ 5
+    h.h0 += c3 * 5U;
+    const uint64_t c4 = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c4;
+}
+
+// Multiply using raw Poly1305Limbs (builds precomp inline — used for power building).
 static inline void poly1305_multiply(Poly1305Limbs& h,
                                       const Poly1305Limbs& r) noexcept {
-    // Precompute r5[i] = r[i] * 5 for wrap-around terms.
-    const uint64_t r5_1 = r.h[1] * 5U;
-    const uint64_t r5_2 = r.h[2] * 5U;
-    const uint64_t r5_3 = r.h[3] * 5U;
-    const uint64_t r5_4 = r.h[4] * 5U;
-
-    // Fully expanded 130×130-bit multiply (25 terms), accumulated into d[5].
-    // Each d[i] collects partial products for result limb i before carry propagation.
-    // Using NEON vmull_u64 for the larger terms and scalar for smaller ones.
-    // All inputs are 26-bit values → products fit in 52 bits → safe to accumulate
-    // up to ~4096 terms without 64-bit overflow, which we never approach.
-    uint64_t d0 = h.h[0]*r.h[0] + h.h[1]*r5_4 + h.h[2]*r5_3 + h.h[3]*r5_2 + h.h[4]*r5_1;
-    uint64_t d1 = h.h[0]*r.h[1] + h.h[1]*r.h[0] + h.h[2]*r5_4 + h.h[3]*r5_3 + h.h[4]*r5_2;
-    uint64_t d2 = h.h[0]*r.h[2] + h.h[1]*r.h[1] + h.h[2]*r.h[0] + h.h[3]*r5_4 + h.h[4]*r5_3;
-    uint64_t d3 = h.h[0]*r.h[3] + h.h[1]*r.h[2] + h.h[2]*r.h[1] + h.h[3]*r.h[0] + h.h[4]*r5_4;
-    uint64_t d4 = h.h[0]*r.h[4] + h.h[1]*r.h[3] + h.h[2]*r.h[2] + h.h[3]*r.h[1] + h.h[4]*r.h[0];
-
-    // Carry propagation.
-    uint64_t c;
-    c = d0 >> 26U; d0 &= 0x3FFFFFFU; d1 += c;
-    c = d1 >> 26U; d1 &= 0x3FFFFFFU; d2 += c;
-    c = d2 >> 26U; d2 &= 0x3FFFFFFU; d3 += c;
-    c = d3 >> 26U; d3 &= 0x3FFFFFFU; d4 += c;
-    c = d4 >> 26U; d4 &= 0x3FFFFFFU; d0 += c * 5U;
-    c = d0 >> 26U; d0 &= 0x3FFFFFFU; d1 += c;
-
-    h.h[0] = d0; h.h[1] = d1; h.h[2] = d2; h.h[3] = d3; h.h[4] = d4;
+    poly1305_multiply_precomp(h, make_precomp(r));
 }
 
-// Add a 130-bit message block (17 bytes: msg ‖ pad_bit) to the accumulator.
+// Add a message block to the accumulator (limb-wise, no carry needed here).
 static inline void poly1305_add_block(Poly1305Limbs& h,
                                        uint64_t lo, uint64_t hi,
                                        uint64_t top) noexcept {
     const Poly1305Limbs m = block_to_limbs(lo, hi, top);
-    h.h[0] += m.h[0];
-    h.h[1] += m.h[1];
-    h.h[2] += m.h[2];
-    h.h[3] += m.h[3];
-    h.h[4] += m.h[4];
+    h.h0 += m.h0;
+    h.h1 += m.h1;
+    h.h2 += m.h2;
 }
 
 // Final reduction: ensure h < 2^130-5, then compute (h + s) mod 2^128.
-// Writes the 16-byte tag to out.
 static inline void poly1305_finish(const Poly1305Limbs& h_in,
                                     const uint8_t s_bytes[16],
                                     uint8_t tag[16]) noexcept
 {
     // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 
-    // Propagate any remaining carry.
-    uint64_t h0 = h_in.h[0], h1 = h_in.h[1], h2 = h_in.h[2];
-    uint64_t h3 = h_in.h[3], h4 = h_in.h[4];
-
+    // Propagate any remaining carry into the 44/44/42 form.
+    uint64_t h0 = h_in.h0, h1 = h_in.h1, h2 = h_in.h2;
     uint64_t c;
-    c = h1 >> 26U; h1 &= 0x3FFFFFFU; h2 += c;
-    c = h2 >> 26U; h2 &= 0x3FFFFFFU; h3 += c;
-    c = h3 >> 26U; h3 &= 0x3FFFFFFU; h4 += c;
-    c = h4 >> 26U; h4 &= 0x3FFFFFFU; h0 += c * 5U;
-    c = h0 >> 26U; h0 &= 0x3FFFFFFU; h1 += c;
+    c = h0 >> 44; h0 &= MASK44; h1 += c;
+    c = h1 >> 44; h1 &= MASK44; h2 += c;
+    c = h2 >> 42; h2 &= MASK42; h0 += c * 5U;
+    c = h0 >> 44; h0 &= MASK44; h1 += c;
 
-    // Compute h + (-p) = h - (2^130 - 5) = h + 5 - 2^130, check carry out.
-    // If carry out of bit 130, h >= p so use the reduced form.
+    // Compute g = h + 5; if g < 2^130, g overflows past the 130-bit field → h >= p.
     const uint64_t g0 = h0 + 5U;
-    c  = g0 >> 26U;
+    c = g0 >> 44;
     const uint64_t g1 = h1 + c;
-    c  = g1 >> 26U;
+    c = g1 >> 44;
     const uint64_t g2 = h2 + c;
-    c  = g2 >> 26U;
-    const uint64_t g3 = h3 + c;
-    c  = g3 >> 26U;
-    const uint64_t g4 = h4 + c;
-    // If g4 carries (i.e. h >= 2^130-5), use g; else use h.
-    const uint64_t mask = (g4 >> 26U) ? UINT64_MAX : 0U;
+    // If g2 >= 2^42, then g >= 2^130, meaning h >= p — use g.
+    const uint64_t mask = (g2 >> 42) ? UINT64_MAX : 0U;
 
-    h0 = (h0 & ~mask) | ((g0 & 0x3FFFFFFU) & mask);
-    h1 = (h1 & ~mask) | ((g1 & 0x3FFFFFFU) & mask);
-    h2 = (h2 & ~mask) | ((g2 & 0x3FFFFFFU) & mask);
-    h3 = (h3 & ~mask) | ((g3 & 0x3FFFFFFU) & mask);
-    h4 = (h4 & ~mask) | ((g4 & 0x3FFFFFFU) & mask);
+    h0 = (h0 & ~mask) | ((g0 & MASK44) & mask);
+    h1 = (h1 & ~mask) | ((g1 & MASK44) & mask);
+    h2 = (h2 & ~mask) | ((g2 & MASK42) & mask);
 
-    // Pack 130-bit h back to a 128-bit little-endian value.
-    const uint64_t hlo =  (h0        ) | (h1 << 26U) | (h2 << 52U);
-    const uint64_t hhi = ((h2 >> 12U)) | (h3 << 14U) | (h4 << 40U);
+    // Pack 130-bit h to 128-bit little-endian.
+    const uint64_t hlo = h0 | (h1 << 44);
+    const uint64_t hhi = (h1 >> 20) | (h2 << 24);
 
     // Add s (mod 2^128).
     uint64_t slo = 0; uint64_t shi = 0;
@@ -200,43 +199,87 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     store_le128(tag, tlo, thi);
 }
 
-// Compute r² = r * r mod 2^130-5 (precomputed once per message for pair processing).
-static inline Poly1305Limbs poly1305_square_r(const Poly1305Limbs& r) noexcept {
-    Poly1305Limbs r2 = r;
-    poly1305_multiply(r2, r);
-    return r2;
+// -----------------------------------------------------------------------
+// Poly1305Powers: precomputed r^1..r^4 with reduction constants.
+// Built once per message; all four parallel chains use a different power.
+// -----------------------------------------------------------------------
+struct Poly1305Powers {
+    Poly1305Precomp p1, p2, p3, p4; // r^1..r^4 // NOLINT(misc-non-private-member-variables-in-classes)
+
+    [[gnu::target("neon")]]
+    static Poly1305Powers build(const Poly1305Limbs& r) noexcept {
+        Poly1305Powers pw;
+        pw.p1 = make_precomp(r);
+        Poly1305Limbs r2 = r;  poly1305_multiply_precomp(r2, pw.p1);
+        pw.p2 = make_precomp(r2);
+        Poly1305Limbs r3 = r2; poly1305_multiply_precomp(r3, pw.p1);
+        pw.p3 = make_precomp(r3);
+        Poly1305Limbs r4 = r3; poly1305_multiply_precomp(r4, pw.p1);
+        pw.p4 = make_precomp(r4);
+        return pw;
+    }
+};
+
+// -----------------------------------------------------------------------
+// Four-block parallel: h = (h + m0)*r⁴ + m1*r³ + m2*r² + m3*r
+// Three right-hand terms independent of h → OoO pipeline issues all
+// four multiply chains simultaneously.
+// -----------------------------------------------------------------------
+[[gnu::target("neon")]]
+static inline void poly1305_process_quad(
+    Poly1305Limbs& h,
+    uint64_t m0lo, uint64_t m0hi,
+    uint64_t m1lo, uint64_t m1hi,
+    uint64_t m2lo, uint64_t m2hi,
+    uint64_t m3lo, uint64_t m3hi,
+    const Poly1305Powers& pw) noexcept
+{
+    // Independent chains — no dependency on h.
+    Poly1305Limbs x1 = block_to_limbs(m1lo, m1hi, 1U);
+    poly1305_multiply_precomp(x1, pw.p3);
+
+    Poly1305Limbs x2 = block_to_limbs(m2lo, m2hi, 1U);
+    poly1305_multiply_precomp(x2, pw.p2);
+
+    Poly1305Limbs x3 = block_to_limbs(m3lo, m3hi, 1U);
+    poly1305_multiply_precomp(x3, pw.p1);
+
+    // h chain: (h + m0) * r⁴
+    poly1305_add_block(h, m0lo, m0hi, 1U);
+    poly1305_multiply_precomp(h, pw.p4);
+
+    // Combine and carry-normalize.  After multiply each limb < 2^44, so
+    // summing four gives < 4*2^44 = 2^46 — one carry pass is sufficient.
+    h.h0 += x1.h0 + x2.h0 + x3.h0;
+    h.h1 += x1.h1 + x2.h1 + x3.h1;
+    h.h2 += x1.h2 + x2.h2 + x3.h2;
+    uint64_t c;
+    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
+    c = h.h1 >> 44; h.h1 &= MASK44; h.h2 += c;
+    c = h.h2 >> 42; h.h2 &= MASK42; h.h0 += c * 5U;
+    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
 }
 
-// Process two full 16-byte blocks in parallel.
-// Equivalent to two serial steps but breaks the dependency chain:
-//   h = (h + m1) * r² + m2 * r
-// m2 * r is independent of h, so it executes while (h + m1) * r² is in flight.
+// Two-block parallel: h = (h + m1)*r² + m2*r
 [[gnu::target("neon")]]
 static inline void poly1305_process_pair(
     Poly1305Limbs& h,
     uint64_t m1lo, uint64_t m1hi,
     uint64_t m2lo, uint64_t m2hi,
-    const Poly1305Limbs& r,
-    const Poly1305Limbs& r2) noexcept
+    const Poly1305Powers& pw) noexcept
 {
-    // Compute m2 * r first — no dependency on h, CPU can issue early.
     Poly1305Limbs m2 = block_to_limbs(m2lo, m2hi, 1U);
-    poly1305_multiply(m2, r);
+    poly1305_multiply_precomp(m2, pw.p1);
 
-    // Advance the accumulator: h = (h + m1) * r²
     poly1305_add_block(h, m1lo, m1hi, 1U);
-    poly1305_multiply(h, r2);
+    poly1305_multiply_precomp(h, pw.p2);
 
-    // Combine: h += m2 * r, then carry-normalize.
-    h.h[0] += m2.h[0]; h.h[1] += m2.h[1]; h.h[2] += m2.h[2];
-    h.h[3] += m2.h[3]; h.h[4] += m2.h[4];
+    h.h0 += m2.h0; h.h1 += m2.h1; h.h2 += m2.h2;
     uint64_t c;
-    c = h.h[0] >> 26U; h.h[0] &= 0x3FFFFFFU; h.h[1] += c;
-    c = h.h[1] >> 26U; h.h[1] &= 0x3FFFFFFU; h.h[2] += c;
-    c = h.h[2] >> 26U; h.h[2] &= 0x3FFFFFFU; h.h[3] += c;
-    c = h.h[3] >> 26U; h.h[3] &= 0x3FFFFFFU; h.h[4] += c;
-    c = h.h[4] >> 26U; h.h[4] &= 0x3FFFFFFU; h.h[0] += c * 5U;
-    c = h.h[0] >> 26U; h.h[0] &= 0x3FFFFFFU; h.h[1] += c;
+    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
+    c = h.h1 >> 44; h.h1 &= MASK44; h.h2 += c;
+    c = h.h2 >> 42; h.h2 &= MASK42; h.h0 += c * 5U;
+    c = h.h0 >> 44; h.h0 &= MASK44; h.h1 += c;
 }
 
 
@@ -247,21 +290,35 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
                           std::size_t msg_len, uint8_t tag[16]) noexcept
 {
     // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const Poly1305Limbs r  = clamp_r(key);
-    const Poly1305Limbs r2 = poly1305_square_r(r);
+    const Poly1305Limbs r   = clamp_r(key);
+    const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
 
     std::size_t offset = 0;
 
-    // Process pairs of full 16-byte blocks using r².
-    while (offset + 32 <= msg_len) {
-        uint64_t lo1 = 0; uint64_t hi1 = 0;
-        uint64_t lo2 = 0; uint64_t hi2 = 0;
+    // Primary loop: 4 blocks (64 bytes) at a time.
+    while (offset + 64 <= msg_len) {
+        uint64_t lo0=0,hi0=0, lo1=0,hi1=0, lo2=0,hi2=0, lo3=0,hi3=0;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        load_le128(msg + offset,      lo0, hi0);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        load_le128(msg + offset + 16, lo1, hi1);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        load_le128(msg + offset + 32, lo2, hi2);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        load_le128(msg + offset + 48, lo3, hi3);
+        poly1305_process_quad(h, lo0, hi0, lo1, hi1, lo2, hi2, lo3, hi3, pw);
+        offset += 64;
+    }
+
+    // Remaining pair.
+    if (offset + 32 <= msg_len) {
+        uint64_t lo1=0,hi1=0, lo2=0,hi2=0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         load_le128(msg + offset,      lo1, hi1);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         load_le128(msg + offset + 16, lo2, hi2);
-        poly1305_process_pair(h, lo1, hi1, lo2, hi2, r, r2);
+        poly1305_process_pair(h, lo1, hi1, lo2, hi2, pw);
         offset += 32;
     }
 
@@ -271,7 +328,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         load_le128(msg + offset, lo, hi);
         poly1305_add_block(h, lo, hi, 1U);
-        poly1305_multiply(h, r);
+        poly1305_multiply_precomp(h, pw.p1);
         offset += 16;
     }
 
@@ -284,7 +341,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
         uint64_t lo = 0; uint64_t hi = 0;
         load_le128(buf.data(), lo, hi);
         poly1305_add_block(h, lo, hi, 0U);  // top bit already embedded
-        poly1305_multiply(h, r);
+        poly1305_multiply_precomp(h, pw.p1);
     }
 
     poly1305_finish(h, key + 16, tag); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
