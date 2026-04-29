@@ -142,6 +142,53 @@ cmake --build cmake-build-debug
 
 For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYPE=Release`.
 
+## Testing
+
+The test suite (`safe-crypto-lib-test/`, 259 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
+
+### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 107 tests)
+
+`MockPsaBackend` is a GMock implementation of the `CryptoProvider` concept that intercepts every PSA call. Tests configure expectations with `EXPECT_CALL` to return specific `psa_status_t` error codes, then call the high-level `_impl` functions and assert the correct `CryptoError` variant is returned.
+
+This covers every error branch in the library without needing to induce real PSA failures: key import failure, hash failure, MAC failure, KDF step failures, AEAD tag-check failure, ECDH failure, RSA failure, and so on. Every `std::unexpected` path in the library has at least one test here.
+
+### 2. Known-answer-vector tests (`digests_tests.hpp`, `mac_tests.hpp`, `aead_tests.hpp`, `chacha20_tests.hpp`, `kdf_tests.hpp`, `ecc_tests.hpp`, `ecdh_tests.hpp`, `asymmetric_tests.hpp`, `sigma_tests.hpp`, `sigma_i_tests.hpp`, `random_tests.hpp`)
+
+These run against the active provider (default: `RealPsaBackend`) and verify correct output for the full public API:
+
+- **Digests** — SHA-256/384/512, SHA3-256/384/512: output length checks and known round-trip sanity.
+- **MAC** — HMAC with all SHA variants: NIST HMAC test vectors; verify/reject paths.
+- **AEAD** — AES-256-GCM: NIST SP 800-38D test vectors (with and without AAD); tag-tamper rejection.
+- **ChaCha20-Poly1305** — RFC 8439 test vectors; tag-tamper rejection; cross-decrypt (encrypt with one provider, decrypt with the other).
+- **KDF** — HKDF and HKDF-Expand (SHA-384): RFC 5869 test vectors; state-machine error paths.
+- **ECC / ECDH** — P-256/384/521 key generation, ECDSA sign/verify, ECDH shared-secret agreement.
+- **Asymmetric** — RSA-OAEP 3072/4096 encrypt/decrypt round-trips.
+- **SIGMA / SIGMA-I** — Full two-party handshake; identity hiding; tamper detection on MAC and signature fields.
+- **Random** — Output length, non-zero probability, successive calls differ.
+
+### 3. ARM ASM known-answer-vector tests (`arm_asm_tests.hpp` — 31 tests)
+
+Guarded by `SAFE_CRYPTO_PROVIDER_ARM_ASM`, these test the ARM intrinsic implementations directly against published test vectors:
+
+- **AES-256-GCM** — NIST CAVP vectors (no-AAD and with-AAD cases); empty-plaintext tag-only case; decrypt tag-tamper rejection.
+- **HKDF-SHA-384** — RFC 5869 test vectors exercising the full Extract+Expand path and the Expand-only variant.
+
+These verify the ARM ASM provider's correctness independently of the PSA layer.
+
+### 4. Cross-provider parity tests (`cross_provider_tests.hpp` — 19 tests)
+
+Both `ArmAsmBackend` and `RealPsaBackend` are instantiated in the same binary regardless of the active provider. For each operation, the same input is fed to both backends and the outputs are compared byte-for-byte.
+
+Operations covered: SHA-256/384/512, SHA3-256/384/512, HMAC-SHA-256/384/512, HMAC-SHA3-256/384/512, AES-256-GCM encrypt and decrypt, ChaCha20-Poly1305 encrypt and decrypt, and HKDF-SHA-384.
+
+The cross-decrypt tests (`CrossDecryptArmCtWithPsa`, `CrossDecryptPsaCtWithArm`) are particularly valuable: they encrypt with one backend and decrypt with the other, verifying wire-format compatibility rather than just output equality.
+
+This strategy catches implementation drift that KAT tests cannot find — a wrong implementation can still pass a KAT if the reference vector was derived from the same wrong code.
+
+### 5. Memory-safety tests (`secure_buffer_tests.hpp` — 9 tests)
+
+Verify `SecureBuffer` and `FixedSecureBuffer<N>` behaviour: index operator reads and writes, move semantics, `resize` (shrink-only), and — where C++26 contracts are enforced — death assertions for out-of-bounds access and resize-beyond-current-size.
+
 ## Benchmarks
 
 `safe-crypto-lib-bench` uses Google Benchmark (via FetchContent) to measure throughput across all symmetric operations. Both `RealPsaBackend` and `ArmAsmBackend` are instantiated in the same binary so results are directly comparable. Payloads are swept across 64 B / 1 KiB / 16 KiB / 256 KiB; throughput is reported in GB/s or MB/s via `SetBytesProcessed`.
