@@ -25,6 +25,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include "defs.hpp"
+#include "secure_buffer.hpp"
 #include "sha256.hpp"
 #include "sha3.hpp"
 #include "sha512.hpp"
@@ -37,10 +38,10 @@ namespace arm_asm::detail {
 // ---------------------------------------------------------------------------
 struct Sha256Ctx {
     // NOLINT(misc-non-private-member-variables-in-classes) — plain aggregate; all members intentionally public.
-    uint32_t    state[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-non-private-member-variables-in-classes)
-    uint8_t     buf[64];  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    uint64_t    total_bytes; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::size_t buf_used;    // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint32_t, 8> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint8_t, 64> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
+    uint64_t    total_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::size_t buf_used{0};    // NOLINT(misc-non-private-member-variables-in-classes)
 
     void init() noexcept {
         for (std::size_t i = 0; i < 8; ++i) { state[i] = sha256_h0[i]; }
@@ -53,30 +54,30 @@ struct Sha256Ctx {
         while (len > 0) {
             const std::size_t space = 64 - buf_used;
             const std::size_t take  = len < space ? len : space;
-            std::memcpy(buf + buf_used, data, take);
+            std::memcpy(buf.data() + buf_used, data, take);
             buf_used += take;
             data     += take;
             len      -= take;
             if (buf_used == 64) {
-                sha256_compress(state, buf);
+                sha256_compress(state.data(), buf.data());
                 buf_used = 0;
             }
         }
     }
 
-    void finish(uint8_t out[32]) noexcept {
+    void finish(uint8_t out[32]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
         // Padding: append 0x80 then zeros then 64-bit big-endian bit count.
-        alignas(64) uint8_t pad[128]{};
-        std::memcpy(pad, buf, buf_used);
+        alignas(64) uint8_t pad[128]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        std::memcpy(pad, buf.data(), buf_used);
         pad[buf_used] = 0x80U;
         const uint64_t bit_len_be = std::byteswap(total_bytes * 8U);
         if (buf_used < 56) {
             std::memcpy(pad + 56, &bit_len_be, 8);
-            sha256_compress(state, pad);
+            sha256_compress(state.data(), pad);
         } else {
             std::memcpy(pad + 120, &bit_len_be, 8);
-            sha256_compress(state, pad);
-            sha256_compress(state, pad + 64);
+            sha256_compress(state.data(), pad);
+            sha256_compress(state.data(), pad + 64);
         }
         for (std::size_t i = 0; i < 8; ++i) {
             const uint32_t w = std::byteswap(state[i]);
@@ -90,12 +91,12 @@ struct Sha256Ctx {
 // Incremental SHA-512/384 context (128-byte blocks)
 // ---------------------------------------------------------------------------
 struct Sha512Ctx {
-    uint64_t    state[8];  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    uint8_t     buf[128];  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    uint64_t    total_bytes; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::size_t buf_used;    // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint64_t, 8>   state{}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint8_t,  128> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
+    uint64_t    total_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::size_t buf_used{0};    // NOLINT(misc-non-private-member-variables-in-classes)
 
-    void init(const uint64_t h0[8]) noexcept {
+    void init(const uint64_t h0[8]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
         for (std::size_t i = 0; i < 8; ++i) { state[i] = h0[i]; }
         total_bytes = 0;
         buf_used = 0;
@@ -106,29 +107,29 @@ struct Sha512Ctx {
         while (len > 0) {
             const std::size_t space = 128 - buf_used;
             const std::size_t take  = len < space ? len : space;
-            std::memcpy(buf + buf_used, data, take);
+            std::memcpy(buf.data() + buf_used, data, take);
             buf_used += take;
             data     += take;
             len      -= take;
             if (buf_used == 128) {
-                sha512_compress(state, buf);
+                sha512_compress(state.data(), buf.data());
                 buf_used = 0;
             }
         }
     }
 
-    void finish(uint8_t out[64], std::size_t out_bytes) noexcept {
-        alignas(128) uint8_t pad[256]{};
-        std::memcpy(pad, buf, buf_used);
+    void finish(uint8_t out[64], std::size_t out_bytes) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        alignas(128) uint8_t pad[256]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        std::memcpy(pad, buf.data(), buf_used);
         pad[buf_used] = 0x80U;
         const uint64_t bit_len_be = std::byteswap(total_bytes * 8U);
         if (buf_used < 112) {
             std::memcpy(pad + 120, &bit_len_be, 8);
-            sha512_compress(state, pad);
+            sha512_compress(state.data(), pad);
         } else {
             std::memcpy(pad + 248, &bit_len_be, 8);
-            sha512_compress(state, pad);
-            sha512_compress(state, pad + 128);
+            sha512_compress(state.data(), pad);
+            sha512_compress(state.data(), pad + 128);
         }
         for (std::size_t i = 0; i < out_bytes / 8; ++i) {
             const uint64_t w = std::byteswap(state[i]);
@@ -147,32 +148,33 @@ inline void hmac_sha256(const uint8_t* key, std::size_t key_len,
                         uint8_t out[32]) noexcept
 {
     // Derive K': hash key if > 64 bytes, else use directly.
-    uint8_t kprime[64]{};
+    FixedSecureBuffer<64> kprime;
     if (key_len > 64) {
-        sha256(key, key_len, kprime);
+        sha256(key, key_len, kprime.data());
     } else {
-        std::memcpy(kprime, key, key_len);
+        std::memcpy(kprime.data(), key, key_len);
     }
 
     // Build ipad and opad keys.
-    uint8_t ikey[64], okey[64];
+    FixedSecureBuffer<64> ikey;
+    FixedSecureBuffer<64> okey;
     for (std::size_t i = 0; i < 64; ++i) {
         ikey[i] = static_cast<uint8_t>(kprime[i] ^ 0x36U);
         okey[i] = static_cast<uint8_t>(kprime[i] ^ 0x5cU);
     }
 
     // Inner hash: SHA-256(ikey || msg)
-    uint8_t inner[32];
+    FixedSecureBuffer<32> inner;
     Sha256Ctx ctx;
     ctx.init();
-    ctx.update(ikey, 64);
+    ctx.update(ikey.data(), 64);
     ctx.update(msg, msg_len);
-    ctx.finish(inner);
+    ctx.finish(inner.data());
 
     // Outer hash: SHA-256(okey || inner)
     ctx.init();
-    ctx.update(okey, 64);
-    ctx.update(inner, 32);
+    ctx.update(okey.data(), 64);
+    ctx.update(inner.data(), 32);
     ctx.finish(out);
 }
 
@@ -187,36 +189,37 @@ inline void hmac_sha512_impl(const uint64_t h0[8],
                               uint8_t* out, std::size_t out_bytes) noexcept
 {
     // K': hash key if > 128 bytes using the same hash function (FIPS 198-1 §4).
-    uint8_t kprime[128]{};
+    FixedSecureBuffer<128> kprime;
     if (key_len > 128) {
         Sha512Ctx kctx;
         kctx.init(h0);
         kctx.update(key, key_len);
-        kctx.finish(kprime, out_bytes);
+        kctx.finish(kprime.data(), out_bytes);
     } else {
-        std::memcpy(kprime, key, key_len);
+        std::memcpy(kprime.data(), key, key_len);
     }
 
-    uint8_t ikey[128], okey[128];
+    FixedSecureBuffer<128> ikey;
+    FixedSecureBuffer<128> okey;
     for (std::size_t i = 0; i < 128; ++i) {
         ikey[i] = static_cast<uint8_t>(kprime[i] ^ 0x36U);
         okey[i] = static_cast<uint8_t>(kprime[i] ^ 0x5cU);
     }
 
     // Inner hash.
-    uint8_t inner[64];
+    FixedSecureBuffer<64> inner;
     Sha512Ctx ctx;
     ctx.init(h0);
-    ctx.update(ikey, 128);
+    ctx.update(ikey.data(), 128);
     ctx.update(msg, msg_len);
-    ctx.finish(inner, out_bytes);  // only out_bytes of the state words are serialised
+    ctx.finish(inner.data(), out_bytes);  // only out_bytes of the state words are serialised
 
     // Outer hash.  Inner digest is out_bytes long; outer input = okey || inner[0..out_bytes).
     ctx.init(h0);
-    ctx.update(okey, 128);
-    ctx.update(inner, out_bytes);
-    ctx.finish(reinterpret_cast<uint8_t*>(inner), out_bytes);  // reuse inner as temp
-    std::memcpy(out, inner, out_bytes);
+    ctx.update(okey.data(), 128);
+    ctx.update(inner.data(), out_bytes);
+    ctx.finish(inner.data(), out_bytes);  // reuse inner as temp
+    std::memcpy(out, inner.data(), out_bytes);
 }
 
 inline void hmac_sha512(const uint8_t* key, std::size_t key_len,
@@ -249,36 +252,36 @@ inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes,
                             uint8_t* out) noexcept
 {
     // K': hash key if > rate, else use directly.
-    uint8_t kprime[136]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // 136 = max SHA3 block size (SHA3-256 rate).
+    FixedSecureBuffer<136> kprime;
     if (key_len > rate) {
         Sha3Ctx kctx;
         kctx.init(rate, out_bytes);
         kctx.update(key, key_len);
-        kctx.finish(kprime);
+        kctx.finish(kprime.data());
     } else {
-        std::memcpy(kprime, key, key_len);
+        std::memcpy(kprime.data(), key, key_len);
     }
 
-    uint8_t ikey[136], okey[136]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    FixedSecureBuffer<136> ikey;
+    FixedSecureBuffer<136> okey;
     for (std::size_t i = 0; i < rate; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         ikey[i] = static_cast<uint8_t>(kprime[i] ^ 0x36U);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         okey[i] = static_cast<uint8_t>(kprime[i] ^ 0x5cU);
     }
 
     // Inner hash: SHA3(ikey || msg)
-    uint8_t inner[64]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    FixedSecureBuffer<64> inner;
     Sha3Ctx ctx;
     ctx.init(rate, out_bytes);
-    ctx.update(ikey, rate);
+    ctx.update(ikey.data(), rate);
     ctx.update(msg, msg_len);
-    ctx.finish(inner);
+    ctx.finish(inner.data());
 
     // Outer hash: SHA3(okey || inner[0..out_bytes))
     ctx.init(rate, out_bytes);
-    ctx.update(okey, rate);
-    ctx.update(inner, out_bytes);
+    ctx.update(okey.data(), rate);
+    ctx.update(inner.data(), out_bytes);
     ctx.finish(out);
 }
 

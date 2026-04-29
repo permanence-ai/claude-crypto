@@ -22,6 +22,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 // Nonce: 12 bytes (96-bit, RFC 8439 §2.3).
 // Tag: 16 bytes, appended to ciphertext in encrypt output.
 
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -30,6 +31,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "chacha20.hpp"
 #include "defs.hpp"
 #include "poly1305.hpp"
+#include "secure_buffer.hpp"
 
 
 namespace arm_asm::detail {
@@ -78,11 +80,11 @@ static inline void poly1305_feed(const uint8_t* otk,
         }
         // Partial block: zero-pad to 16 bytes; top=1 (full block with zero fill).
         if (off < len) {
-            uint8_t buf[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            std::array<uint8_t, 16> buf{};
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::memcpy(buf, data + off, len - off);
+            std::memcpy(buf.data(), data + off, len - off);
             uint64_t lo = 0; uint64_t hi = 0;
-            load_le128(buf, lo, hi); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+            load_le128(buf.data(), lo, hi);
             poly1305_add_block(h, lo, hi, 1U);
             poly1305_multiply(h, r);
         }
@@ -92,11 +94,11 @@ static inline void poly1305_feed(const uint8_t* otk,
     if (ct_len  > 0) { feed_field(ct,  ct_len);  }
 
     // Length block: [len(aad) LE 64-bit] ‖ [len(ct) LE 64-bit].
-    uint8_t len_block[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    store_le64(len_block,     static_cast<uint64_t>(aad_len));
-    store_le64(len_block + 8, static_cast<uint64_t>(ct_len)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::array<uint8_t, 16> len_block{};
+    store_le64(len_block.data(),     static_cast<uint64_t>(aad_len));
+    store_le64(len_block.data() + 8, static_cast<uint64_t>(ct_len)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     uint64_t lo = 0; uint64_t hi = 0;
-    load_le128(len_block, lo, hi); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+    load_le128(len_block.data(), lo, hi);
     poly1305_add_block(h, lo, hi, 1U);
     poly1305_multiply(h, r);
 
@@ -116,19 +118,15 @@ inline void chacha20_poly1305_encrypt(
     CryptoByte*       out) noexcept
 {
     // Generate one-time key.
-    uint8_t otk[32]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    chacha20_poly1305_key(key, nonce, otk); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+    FixedSecureBuffer<32> otk;
+    chacha20_poly1305_key(key, nonce, otk.data());
 
     // Encrypt plaintext (counter starts at 1).
     chacha20_crypt(key, 1U, nonce, pt, out, pt_len);
 
     // Compute and append Poly1305 tag over aad ‖ ct.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    poly1305_feed(otk, aad, aad_len, out, pt_len, out + pt_len); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-
-    // Zeroize one-time key.
-    volatile auto* p = reinterpret_cast<volatile uint8_t*>(otk);
-    for (std::size_t i = 0; i < 32; ++i) { p[i] = 0; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    poly1305_feed(otk.data(), aad, aad_len, out, pt_len, out + pt_len);
 }
 
 
@@ -147,23 +145,19 @@ inline bool chacha20_poly1305_decrypt(
     const std::size_t pt_len = ct_len - chacha20_poly1305_tag_bytes;
 
     // Generate one-time key.
-    uint8_t otk[32]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    chacha20_poly1305_key(key, nonce, otk); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+    FixedSecureBuffer<32> otk;
+    chacha20_poly1305_key(key, nonce, otk.data());
 
     // Compute expected tag from the received ciphertext.
-    uint8_t expected_tag[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    poly1305_feed(otk, aad, aad_len, ct, pt_len, expected_tag); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-
-    // Zeroize one-time key.
-    volatile auto* p = reinterpret_cast<volatile uint8_t*>(otk);
-    for (std::size_t i = 0; i < 32; ++i) { p[i] = 0; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    std::array<uint8_t, 16> expected_tag{};
+    poly1305_feed(otk.data(), aad, aad_len, ct, pt_len, expected_tag.data());
 
     // Constant-time compare.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const uint8_t* received_tag = ct + pt_len;
     unsigned int diff = 0;
     for (std::size_t i = 0; i < chacha20_poly1305_tag_bytes; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         diff |= static_cast<unsigned int>(expected_tag[i]) ^
                 static_cast<unsigned int>(received_tag[i]);
     }

@@ -12,11 +12,12 @@ Copyright Permanence AI, 2026. All rights reserved.
 // This is intentionally simple: it covers HMAC and AES key storage.
 // Thread-safety: not implemented; the current test suite is single-threaded.
 
-#include <array>
 #include <cstddef>
 #include <cstring>
 
 #include "defs.hpp"
+#include "secure_buffer.hpp"
+
 
 
 namespace arm_asm::detail {
@@ -25,7 +26,7 @@ constexpr std::size_t key_store_capacity = 16;
 constexpr std::size_t key_store_max_bytes = 512;  // enough for any symmetric key
 
 struct KeySlot {
-    CryptoByte data[key_store_max_bytes];
+    FixedSecureBuffer<key_store_max_bytes> data;
     std::size_t len;
     bool in_use;
 };
@@ -41,7 +42,7 @@ inline unsigned int key_store_import(const CryptoByte* key, std::size_t key_len)
     if (key_len > key_store_max_bytes) { return 0U; }
     for (std::size_t i = 0; i < key_store_capacity; ++i) {
         if (!key_slot(i).in_use) {
-            std::memcpy(key_slot(i).data, key, key_len);
+            std::memcpy(key_slot(i).data.data(), key, key_len);
             key_slot(i).len    = key_len;
             key_slot(i).in_use = true;
             return static_cast<unsigned int>(i + 1);
@@ -57,7 +58,7 @@ inline bool key_store_get(unsigned int id,
     if (id == 0 || id > key_store_capacity) { return false; }
     KeySlot& s = key_slot(id - 1);
     if (!s.in_use) { return false; }
-    *out_key = s.data;
+    *out_key = s.data.data();
     *out_len = s.len;
     return true;
 }
@@ -66,9 +67,8 @@ inline bool key_store_get(unsigned int id,
 inline void key_store_destroy(unsigned int id) noexcept {
     if (id == 0 || id > key_store_capacity) { return; }
     KeySlot& s = key_slot(id - 1);
-    // Zeroize key material before releasing the slot.
-    volatile auto* p = reinterpret_cast<volatile CryptoByte*>(s.data);
-    for (std::size_t i = 0; i < key_store_max_bytes; ++i) { p[i] = 0; }
+    // FixedSecureBuffer zeroizes its data on destruction; assign a fresh one to scrub now.
+    s.data   = FixedSecureBuffer<key_store_max_bytes>{};
     s.len    = 0;
     s.in_use = false;
 }

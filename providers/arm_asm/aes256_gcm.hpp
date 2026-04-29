@@ -26,6 +26,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 //   constant-time compare before returning plaintext.
 
 #include <arm_neon.h>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -78,10 +79,10 @@ static inline void gcm_ctr_crypt(
     if (offset < len) {
         gcm_inc_counter(ctr);
         const uint8x16_t ks = aes256_encrypt_block(vld1q_u8(ctr), sched);
-        uint8_t ks_bytes[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-        vst1q_u8(ks_bytes, ks);
+        std::array<uint8_t, 16> ks_bytes{};
+        vst1q_u8(ks_bytes.data(), ks);
         for (std::size_t i = 0; offset + i < len; ++i) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-bounds-constant-array-index)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             out[offset + i] = static_cast<CryptoByte>(in[offset + i] ^ ks_bytes[i]);
         }
     }
@@ -117,12 +118,12 @@ static inline void gcm_compute_tag(
     uint8_t              tag_out[16]) noexcept
 {
     // H = AES_K(0¹²⁸)
-    uint8_t H_block[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    std::array<uint8_t, 16> H_block{};
     const uint8x16_t H_vec = aes256_encrypt_block(vdupq_n_u8(0), sched);
-    vst1q_u8(H_block, H_vec);
+    vst1q_u8(H_block.data(), H_vec);
 
     GhashCtx ghash;
-    ghash.init(H_block);
+    ghash.init(H_block.data());
 
     // AAD (padded to block boundary).
     const std::size_t aad_full_blocks = aad_len / 16;
@@ -147,14 +148,14 @@ static inline void gcm_compute_tag(
     }
 
     // Length block.
-    uint8_t len_block[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    std::array<uint8_t, 16> len_block{};
     gcm_length_block(static_cast<uint64_t>(aad_len),
                      static_cast<uint64_t>(ct_len),
-                     len_block);
-    ghash.update(len_block);
+                     len_block.data());
+    ghash.update(len_block.data());
 
-    uint8_t ghash_out[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    ghash.finish(ghash_out);
+    std::array<uint8_t, 16> ghash_out{};
+    ghash.finish(ghash_out.data());
 
     // tag = GHASH XOR E_J0
     for (std::size_t i = 0; i < 16; ++i) {
@@ -185,21 +186,21 @@ inline void aes256_gcm_encrypt(
     aes256_key_expand(key, sched);
 
     // J0 = IV ‖ 0x00000001
-    uint8_t J0[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    std::memcpy(J0, iv, aes_gcm_iv_bytes);
+    std::array<uint8_t, 16> J0{};
+    std::memcpy(J0.data(), iv, aes_gcm_iv_bytes);
     J0[15] = 0x01;
 
     // E(K, J0) — used to finalise the tag.
-    uint8_t E_J0[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    vst1q_u8(E_J0, aes256_encrypt_block(vld1q_u8(J0), sched));
+    std::array<uint8_t, 16> E_J0{};
+    vst1q_u8(E_J0.data(), aes256_encrypt_block(vld1q_u8(J0.data()), sched));
 
     // CTR encrypt starting from counter J0 (gcm_ctr_crypt increments before use).
-    uint8_t ctr[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    std::memcpy(ctr, J0, 16);
-    gcm_ctr_crypt(pt, out, pt_len, ctr, sched);
+    std::array<uint8_t, 16> ctr{};
+    std::memcpy(ctr.data(), J0.data(), 16);
+    gcm_ctr_crypt(pt, out, pt_len, ctr.data(), sched);
 
     // Compute tag over AAD and ciphertext.
-    gcm_compute_tag(aad, aad_len, out, pt_len, E_J0, sched, out + pt_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    gcm_compute_tag(aad, aad_len, out, pt_len, E_J0.data(), sched, out + pt_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
 
@@ -222,22 +223,21 @@ inline bool aes256_gcm_decrypt(
     Aes256Schedule sched;
     aes256_key_expand(key, sched);
 
-    uint8_t J0[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    std::memcpy(J0, iv, aes_gcm_iv_bytes);
+    std::array<uint8_t, 16> J0{};
+    std::memcpy(J0.data(), iv, aes_gcm_iv_bytes);
     J0[15] = 0x01;
 
-    uint8_t E_J0[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    vst1q_u8(E_J0, aes256_encrypt_block(vld1q_u8(J0), sched));
+    std::array<uint8_t, 16> E_J0{};
+    vst1q_u8(E_J0.data(), aes256_encrypt_block(vld1q_u8(J0.data()), sched));
 
     // Verify the tag before decrypting (constant-time compare).
-    uint8_t expected_tag[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    gcm_compute_tag(aad, aad_len, ct, pt_len, E_J0, sched, expected_tag);
+    std::array<uint8_t, 16> expected_tag{};
+    gcm_compute_tag(aad, aad_len, ct, pt_len, E_J0.data(), sched, expected_tag.data());
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const uint8_t* received_tag = ct + pt_len;
     unsigned int diff = 0;
     for (std::size_t i = 0; i < aes_gcm_tag_bytes; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         diff |= static_cast<unsigned int>(expected_tag[i]) ^
                 static_cast<unsigned int>(received_tag[i]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
@@ -249,9 +249,9 @@ inline bool aes256_gcm_decrypt(
         return false;
     }
 
-    uint8_t ctr[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    std::memcpy(ctr, J0, 16);
-    gcm_ctr_crypt(ct, out, pt_len, ctr, sched);
+    std::array<uint8_t, 16> ctr{};
+    std::memcpy(ctr.data(), J0.data(), 16);
+    gcm_ctr_crypt(ct, out, pt_len, ctr.data(), sched);
     return true;
 }
 

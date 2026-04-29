@@ -35,6 +35,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include "defs.hpp"
+#include "secure_buffer.hpp"
 
 
 namespace arm_asm::detail {
@@ -178,17 +179,16 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
                             const uint8_t nonce[12],
                             const uint8_t* in, uint8_t* out, std::size_t len) noexcept
 {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint8_t block[64]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    FixedSecureBuffer<64> block;
     uint32_t counter = counter_start;
     std::size_t offset = 0;
 
     while (len - offset >= 64) {
-        chacha20_block(key, counter, nonce, block); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-        const uint8x16_t k0 = vld1q_u8(block +  0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const uint8x16_t k1 = vld1q_u8(block + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const uint8x16_t k2 = vld1q_u8(block + 32); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const uint8x16_t k3 = vld1q_u8(block + 48); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        chacha20_block(key, counter, nonce, block.data());
+        const uint8x16_t k0 = vld1q_u8(block.data() +  0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8x16_t k1 = vld1q_u8(block.data() + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8x16_t k2 = vld1q_u8(block.data() + 32); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8x16_t k3 = vld1q_u8(block.data() + 48); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         vst1q_u8(out + offset +  0, veorq_u8(vld1q_u8(in + offset +  0), k0)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         vst1q_u8(out + offset + 16, veorq_u8(vld1q_u8(in + offset + 16), k1)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         vst1q_u8(out + offset + 32, veorq_u8(vld1q_u8(in + offset + 32), k2)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -198,16 +198,12 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
     }
 
     if (offset < len) {
-        chacha20_block(key, counter, nonce, block); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+        chacha20_block(key, counter, nonce, block.data());
         for (std::size_t i = 0; offset + i < len; ++i) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-bounds-constant-array-index)
             out[offset + i] = static_cast<uint8_t>(in[offset + i] ^ block[i]);
         }
     }
-
-    // Zeroize block.
-    volatile auto* p = reinterpret_cast<volatile uint8_t*>(block);
-    for (std::size_t i = 0; i < 64; ++i) { p[i] = 0; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
@@ -216,12 +212,9 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
 inline void chacha20_poly1305_key(const uint8_t key[32], const uint8_t nonce[12],
                                    uint8_t otk[32]) noexcept
 {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint8_t block[64]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    chacha20_block(key, 0, nonce, block); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-    std::memcpy(otk, block, 32);
-    volatile auto* p = reinterpret_cast<volatile uint8_t*>(block);
-    for (std::size_t i = 0; i < 64; ++i) { p[i] = 0; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    FixedSecureBuffer<64> block;
+    chacha20_block(key, 0, nonce, block.data());
+    std::memcpy(otk, block.data(), 32);
 }
 
 }  // namespace arm_asm::detail

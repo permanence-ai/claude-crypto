@@ -29,7 +29,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 // unbounded stack allocations; callers exceeding these limits get
 // err_invalid_arg from input_bytes.
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -37,6 +36,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "defs.hpp"
 #include "hmac.hpp"
 #include "key_store.hpp"
+#include "secure_buffer.hpp"
 
 
 namespace arm_asm::detail {
@@ -58,24 +58,22 @@ struct HkdfState {
     HkdfPhase phase{HkdfPhase::Init};
     unsigned int key_id{0};
 
-    uint8_t salt[hkdf_max_salt]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    FixedSecureBuffer<hkdf_max_salt> salt; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t salt_len{0};
     bool salt_set{false};
 
-    uint8_t info[hkdf_max_info]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    FixedSecureBuffer<hkdf_max_info> info; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t info_len{0};
 
     void zeroize() noexcept {
-        alg   = HkdfAlg::None;
-        phase = HkdfPhase::Init;
-        key_id = 0;
+        alg      = HkdfAlg::None;
+        phase    = HkdfPhase::Init;
+        key_id   = 0;
         salt_len = 0;
         salt_set = false;
         info_len = 0;
-        volatile auto* ps = reinterpret_cast<volatile uint8_t*>(salt);
-        volatile auto* pi = reinterpret_cast<volatile uint8_t*>(info);
-        for (std::size_t i = 0; i < hkdf_max_salt; ++i) { ps[i] = 0; }
-        for (std::size_t i = 0; i < hkdf_max_info; ++i) { pi[i] = 0; }
+        salt     = FixedSecureBuffer<hkdf_max_salt>{};
+        info     = FixedSecureBuffer<hkdf_max_info>{};
     }
 };
 
@@ -109,7 +107,7 @@ inline int hkdf_input_bytes(HkdfState* op, unsigned int step,
         if (op->phase != HkdfPhase::Setup) { return 1; }
         if (len > hkdf_max_salt) { return 1; }
         if (data != nullptr && len > 0) {
-            std::memcpy(op->salt, data, len);
+            std::memcpy(op->salt.data(), data, len);
         }
         op->salt_len = len;
         op->salt_set = true;
@@ -120,7 +118,7 @@ inline int hkdf_input_bytes(HkdfState* op, unsigned int step,
         if (op->phase != HkdfPhase::KeySet) { return 1; }
         if (len > hkdf_max_info) { return 1; }
         if (data != nullptr && len > 0) {
-            std::memcpy(op->info, data, len);
+            std::memcpy(op->info.data(), data, len);
         }
         op->info_len = len;
         op->phase    = HkdfPhase::InfoSet;
@@ -138,43 +136,36 @@ inline int hkdf_expand(const uint8_t* prk, std::size_t prk_len,
                         uint8_t* out, std::size_t out_len) noexcept {
     if (out_len == 0 || out_len > hkdf_max_output) { return 1; }
 
-    uint8_t t[hkdf_hash_len]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    FixedSecureBuffer<hkdf_hash_len> t;
     std::size_t written = 0;
     uint8_t counter = 1;
 
-    // msg = T(i-1) || info || counter
-    // max size: 48 + 256 + 1 = 305 bytes
-    uint8_t msg[hkdf_hash_len + hkdf_max_info + 1]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // msg = T(i-1) || info || counter; max size: 48 + 256 + 1 = 305 bytes
+    FixedSecureBuffer<hkdf_hash_len + hkdf_max_info + 1> msg;
 
     while (written < out_len) {
         std::size_t msg_len = 0;
         if (counter > 1) {
-            std::memcpy(msg, t, hkdf_hash_len);
+            std::memcpy(msg.data(), t.data(), hkdf_hash_len);
             msg_len += hkdf_hash_len;
         }
         if (info_len > 0 && info != nullptr) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::memcpy(msg + msg_len, info, info_len);
+            std::memcpy(msg.data() + msg_len, info, info_len);
             msg_len += info_len;
         }
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         msg[msg_len] = counter;
         msg_len += 1;
 
-        hmac_sha384(prk, prk_len, msg, msg_len, t);
+        hmac_sha384(prk, prk_len, msg.data(), msg_len, t.data());
 
         const std::size_t copy_len = std::min(hkdf_hash_len, out_len - written);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        std::memcpy(out + written, t, copy_len);
+        std::memcpy(out + written, t.data(), copy_len);
         written += copy_len;
         ++counter;
     }
-
-    // Zeroize temporaries.
-    volatile auto* pt  = reinterpret_cast<volatile uint8_t*>(t);
-    volatile auto* pm  = reinterpret_cast<volatile uint8_t*>(msg);
-    for (std::size_t i = 0; i < hkdf_hash_len; ++i)                        { pt[i] = 0; }
-    for (std::size_t i = 0; i < hkdf_hash_len + hkdf_max_info + 1; ++i)    { pm[i] = 0; }
 
     return 0;
 }
@@ -191,27 +182,22 @@ inline int hkdf_output_bytes(HkdfState* op, uint8_t* out, std::size_t len) noexc
 
     if (op->alg == HkdfAlg::HkdfExpand) {
         // PRK was supplied directly; skip extract.
-        return hkdf_expand(ikm, ikm_len, op->info, op->info_len, out, len);
+        return hkdf_expand(ikm, ikm_len, op->info.data(), op->info_len, out, len);
     }
 
     // Full HKDF: Extract then Expand.
     // HKDF-Extract: PRK = HMAC-Hash(salt, IKM)
     // If no salt was provided, use a string of HashLen zero bytes.
-    uint8_t prk[hkdf_hash_len]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    FixedSecureBuffer<hkdf_hash_len> prk;
     if (op->salt_set && op->salt_len > 0) {
-        hmac_sha384(op->salt, op->salt_len, ikm, ikm_len, prk);
+        hmac_sha384(op->salt.data(), op->salt_len, ikm, ikm_len, prk.data());
     } else {
         // Zero-length salt → use HashLen zero bytes per RFC 5869 §2.2.
-        const uint8_t zero_salt[hkdf_hash_len]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-        hmac_sha384(zero_salt, hkdf_hash_len, ikm, ikm_len, prk);
+        const FixedSecureBuffer<hkdf_hash_len> zero_salt;
+        hmac_sha384(zero_salt.data(), hkdf_hash_len, ikm, ikm_len, prk.data());
     }
 
-    const int rc = hkdf_expand(prk, hkdf_hash_len, op->info, op->info_len, out, len);
-
-    volatile auto* pp = reinterpret_cast<volatile uint8_t*>(prk);
-    for (std::size_t i = 0; i < hkdf_hash_len; ++i) { pp[i] = 0; }
-
-    return rc;
+    return hkdf_expand(prk.data(), hkdf_hash_len, op->info.data(), op->info_len, out, len);
 }
 
 }  // namespace arm_asm::detail

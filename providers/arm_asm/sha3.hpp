@@ -23,6 +23,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 // State convention: flat array of 25 uint64_t lanes in little-endian byte order,
 // compatible with keccak_f1600 in keccak.hpp.
 
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -41,15 +42,15 @@ namespace arm_asm::detail {
 // buffer sized to the maximum rate (SHA3-256, 136 bytes), and state metadata.
 struct Sha3Ctx {
     // NOLINT(misc-non-private-member-variables-in-classes) — plain aggregate.
-    uint64_t    state[25]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    uint8_t     buf[136];  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::size_t rate_bytes; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::size_t out_bytes;  // NOLINT(misc-non-private-member-variables-in-classes)
-    std::size_t buf_used;   // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint64_t, 25> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint8_t, 136> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
+    std::size_t rate_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::size_t out_bytes{0};  // NOLINT(misc-non-private-member-variables-in-classes)
+    std::size_t buf_used{0};   // NOLINT(misc-non-private-member-variables-in-classes)
 
     void init(std::size_t rate, std::size_t out) noexcept {
-        for (std::size_t i = 0; i < 25; ++i) { state[i] = 0; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        std::memset(buf, 0, sizeof(buf));
+        state.fill(0);
+        buf.fill(0);
         rate_bytes = rate;
         out_bytes  = out;
         buf_used   = 0;
@@ -59,7 +60,7 @@ struct Sha3Ctx {
         while (len > 0) {
             const std::size_t space = rate_bytes - buf_used;
             const std::size_t take  = len < space ? len : space;
-            std::memcpy(buf + buf_used, data, take); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            std::memcpy(buf.data() + buf_used, data, take);
             buf_used += take;
             data     += take; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             len      -= take;
@@ -73,9 +74,9 @@ struct Sha3Ctx {
     // Apply SHA-3 padding and produce the digest in out[0..out_bytes).
     void finish(uint8_t* out) noexcept {
         // Pad10*1 with SHA-3 domain suffix 0x06.
-        std::memset(buf + buf_used, 0, rate_bytes - buf_used);
-        buf[buf_used]       = 0x06U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        buf[rate_bytes - 1] ^= 0x80U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        std::memset(buf.data() + buf_used, 0, rate_bytes - buf_used);
+        buf[buf_used]        = 0x06U;
+        buf[rate_bytes - 1] ^= 0x80U;
         absorb_block();
 
         // Squeeze: output lanes are already in little-endian byte order on LE
@@ -92,15 +93,15 @@ private:
         const std::size_t lanes = rate_bytes / 8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         for (std::size_t i = 0; i < lanes; ++i) {
             uint64_t word = 0;
-            std::memcpy(&word, buf + i * 8, 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            std::memcpy(&word, buf.data() + i * 8, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             if constexpr (std::endian::native == std::endian::little) {
-                state[i] ^= word; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                state[i] ^= word;
             } else {
-                state[i] ^= std::byteswap(word); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                state[i] ^= std::byteswap(word);
             }
         }
-        keccak_f1600(state);
-        std::memset(buf, 0, rate_bytes);
+        keccak_f1600(state.data());
+        std::memset(buf.data(), 0, rate_bytes);
     }
 };
 

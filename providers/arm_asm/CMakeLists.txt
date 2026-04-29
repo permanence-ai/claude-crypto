@@ -22,6 +22,7 @@ target_sources(${LIB_NAME} INTERFACE
 
 target_include_directories(${LIB_NAME} INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../safe-crypto-lib
 )
 
 # ARM Crypto Extensions: AES, SHA2, SHA3, PMULL

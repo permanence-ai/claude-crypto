@@ -24,11 +24,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 // ARM NEON vmull_u64 / vmlal_u64 are used for 64-bit multiply-accumulate.
 
 #include <arm_neon.h>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 
 #include "defs.hpp"
+#include "secure_buffer.hpp"
 
 
 namespace arm_asm::detail {
@@ -75,10 +77,9 @@ static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi,
 }
 
 // Clamp r per RFC 8439 §2.5.1 and split into 26-bit limbs.
-static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint8_t rc[16];
-    std::memcpy(rc, r_bytes, 16);
+static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    FixedSecureBuffer<16> rc;
+    std::memcpy(rc.data(), r_bytes, 16);
     rc[ 3] &= 0x0fU;
     rc[ 7] &= 0x0fU;
     rc[11] &= 0x0fU;
@@ -88,8 +89,8 @@ static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept {
     rc[12] &= 0xfcU;
 
     uint64_t lo = 0; uint64_t hi = 0;
-    std::memcpy(&lo, rc,     8);
-    std::memcpy(&hi, rc + 8, 8);
+    std::memcpy(&lo, rc.data(),     8);
+    std::memcpy(&hi, rc.data() + 8, 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     return block_to_limbs(lo, hi, 0);
 }
 
@@ -216,12 +217,12 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
 
     // Process the final partial block (if any).
     if (offset < msg_len) {
-        uint8_t buf[16]{};
+        std::array<uint8_t, 16> buf{};
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        std::memcpy(buf, msg + offset, msg_len - offset);
+        std::memcpy(buf.data(), msg + offset, msg_len - offset);
         buf[msg_len - offset] = 0x01U;  // RFC 8439: append 0x01 pad byte
         uint64_t lo = 0; uint64_t hi = 0;
-        load_le128(buf, lo, hi); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+        load_le128(buf.data(), lo, hi);
         poly1305_add_block(h, lo, hi, 0U);  // top bit = 0 (already embedded)
         poly1305_multiply(h, r);
     }

@@ -9,6 +9,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include "aes256_gcm.hpp"
+#include "secure_buffer.hpp"
 #include "chacha20_poly1305.hpp"
 #include "defs.hpp"
 #include "hkdf.hpp"
@@ -107,12 +108,9 @@ struct ArmAsmBackend {
     static Status generate_key(const KeyAttributes* attrs, KeyId* id) {
         if (attrs == nullptr || attrs->key_bytes == 0) { return err_invalid_arg; }
         if (attrs->key_bytes > arm_asm::detail::key_store_max_bytes) { return err_invalid_arg; }
-        CryptoByte buf[arm_asm::detail::key_store_max_bytes]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-        arm_asm::detail::generate_random_bytes(buf, attrs->key_bytes);
-        const KeyId slot = arm_asm::detail::key_store_import(buf, attrs->key_bytes);
-        // Zeroize the stack buffer regardless of outcome.
-        volatile auto* p = reinterpret_cast<volatile CryptoByte*>(buf);
-        for (std::size_t i = 0; i < attrs->key_bytes; ++i) { p[i] = 0; }
+        FixedSecureBuffer<arm_asm::detail::key_store_max_bytes> buf;
+        arm_asm::detail::generate_random_bytes(buf.data(), attrs->key_bytes);
+        const KeyId slot = arm_asm::detail::key_store_import(buf.data(), attrs->key_bytes);
         if (slot == 0U) { return err_invalid_arg; }
         *id = slot;
         return ok;
@@ -181,16 +179,16 @@ struct ArmAsmBackend {
                              const CryptoByte* msg, std::size_t msg_len,
                              const CryptoByte* mac, std::size_t mac_len) {
         // Compute the expected MAC then constant-time compare.
-        CryptoByte expected[sha512_size_bytes]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        FixedSecureBuffer<sha512_size_bytes> expected;
         std::size_t expected_len = 0;
         const Status s = mac_compute(id, alg, msg, msg_len,
-                                     expected, sizeof(expected), &expected_len); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
+                                     expected.data(), expected.size(), &expected_len);
         if (s != ok) { return s; }
         if (mac_len != expected_len) { return err_invalid_sig; }
         // Constant-time comparison.
         unsigned int diff = 0;
         for (std::size_t i = 0; i < expected_len; ++i) {
-            diff |= static_cast<unsigned int>(mac[i]) ^ static_cast<unsigned int>(expected[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            diff |= static_cast<unsigned int>(mac[i]) ^ static_cast<unsigned int>(expected[i]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
         return diff == 0U ? ok : err_invalid_sig;
     }

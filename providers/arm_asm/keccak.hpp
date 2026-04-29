@@ -19,6 +19,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 // order, indexed as state[x + 5*y].
 
 #include <arm_neon.h>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -120,7 +121,7 @@ inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguideline
         // D[4] = C[3] ^ ROT(C[0],1)  — scalar
         const uint64_t d4 = c3 ^ keccak_rotl(c0, 1);
 
-        const uint64_t D[5] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        const std::array<uint64_t, 5> D = {
             vgetq_lane_u64(d01, 0),
             vgetq_lane_u64(d01, 1),
             vgetq_lane_u64(d23, 0),
@@ -132,10 +133,10 @@ inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguideline
         // ρ+π — B[keccak_pi[s]] = ROT(A[s] ^ D[s%5], keccak_rho[s])
         // Each lane has a different rotation amount so we use scalar ROT.
         // ----------------------------------------------------------------
-        uint64_t B[25]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        std::array<uint64_t, 25> B{};
         for (int s = 0; s < 25; ++s) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-            B[keccak_pi[s]] = keccak_rotl(state[s] ^ D[s % 5], keccak_rho[s]);
+            B[static_cast<std::size_t>(keccak_pi[s])] = keccak_rotl(state[static_cast<std::size_t>(s)] ^ D[static_cast<std::size_t>(s) % 5], keccak_rho[s]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         }
 
         // ----------------------------------------------------------------
@@ -144,8 +145,8 @@ inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguideline
         //
         // Process each row as two pairs + one scalar.
         // ----------------------------------------------------------------
-        for (int y = 0; y < 5; ++y) {
-            const int base = y * 5;
+        for (std::size_t y = 0; y < 5; ++y) {
+            const std::size_t base = y * 5;
             const uint64_t b0 = B[base + 0]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             const uint64_t b1 = B[base + 1]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             const uint64_t b2 = B[base + 2]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -165,11 +166,11 @@ inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguideline
             // n4 = b4 ^ (b1 & ~b0)
             const uint64_t n4 = b4 ^ (b1 & ~b0);
 
-            state[base + 0] = vgetq_lane_u64(n01, 0); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            state[base + 1] = vgetq_lane_u64(n01, 1); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            state[base + 2] = vgetq_lane_u64(n23, 0); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            state[base + 3] = vgetq_lane_u64(n23, 1); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            state[base + 4] = n4;                      // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            state[base + 0] = vgetq_lane_u64(n01, 0); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            state[base + 1] = vgetq_lane_u64(n01, 1); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            state[base + 2] = vgetq_lane_u64(n23, 0); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            state[base + 3] = vgetq_lane_u64(n23, 1); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            state[base + 4] = n4;                      // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-pro-bounds-pointer-arithmetic)
         }
 
         // ----------------------------------------------------------------

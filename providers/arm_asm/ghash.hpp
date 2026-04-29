@@ -32,6 +32,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 // H precomputation: H = AES_K(0¹²⁸), bit-reversed for the reflected domain.
 
 #include <arm_neon.h>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -121,9 +122,9 @@ struct GhashCtx {
     // Feed a partial block (padded with zeros to 16 bytes).
     [[gnu::target("aes,neon")]]
     void update_partial(const uint8_t* data, std::size_t len) noexcept {
-        uint8_t buf[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-        std::memcpy(buf, data, len);
-        update(buf); // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+        std::array<uint8_t, 16> buf{};
+        std::memcpy(buf.data(), data, len);
+        update(buf.data());
     }
 
     // Retrieve the 16-byte GHASH output; un-reflect acc back to GCM byte order.
