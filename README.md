@@ -122,7 +122,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (240 tests)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (259 tests)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
