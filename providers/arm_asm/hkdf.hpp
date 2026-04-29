@@ -54,16 +54,16 @@ enum class HkdfPhase : uint8_t { Init, Setup, KeySet, SaltSet, InfoSet };
 
 struct HkdfState {
     // NOLINT(misc-non-private-member-variables-in-classes)
-    HkdfAlg   alg{HkdfAlg::None};
-    HkdfPhase phase{HkdfPhase::Init};
-    unsigned int key_id{0};
+    HkdfAlg   alg{HkdfAlg::None};   // NOLINT(misc-non-private-member-variables-in-classes)
+    HkdfPhase phase{HkdfPhase::Init}; // NOLINT(misc-non-private-member-variables-in-classes)
+    unsigned int key_id{0};           // NOLINT(misc-non-private-member-variables-in-classes)
 
     FixedSecureBuffer<hkdf_max_salt> salt; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::size_t salt_len{0};
-    bool salt_set{false};
+    std::size_t salt_len{0}; // NOLINT(misc-non-private-member-variables-in-classes)
+    bool salt_set{false};    // NOLINT(misc-non-private-member-variables-in-classes)
 
     FixedSecureBuffer<hkdf_max_info> info; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::size_t info_len{0};
+    std::size_t info_len{0}; // NOLINT(misc-non-private-member-variables-in-classes)
 
     void zeroize() noexcept {
         alg      = HkdfAlg::None;

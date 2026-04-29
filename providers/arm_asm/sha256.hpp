@@ -240,7 +240,7 @@ inline void sha256(const CryptoByte* msg, std::size_t msg_len,
     // Serialise state as big-endian bytes.
     for (std::size_t i = 0; i < 8; ++i) {
         const uint32_t w = std::byteswap(state[i]);
-        std::memcpy(out + i * 4, &w, 4);
+        std::memcpy(out + (i * 4), &w, 4);
     }
 }
 

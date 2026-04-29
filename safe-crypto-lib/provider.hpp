@@ -9,10 +9,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 // CMake propagates the matching compile definition through safe_crypto_lib's
 // interface, so consumers do not need to set it manually.
 
-#if defined(SAFE_CRYPTO_PROVIDER_ARM_ASM)
+#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
 #  include "arm_asm_backend.hpp"
 using DefaultProvider = ArmAsmBackend;
-#elif defined(SAFE_CRYPTO_PROVIDER_IA_ASM)
+#elifdef SAFE_CRYPTO_PROVIDER_IA_ASM
 #  include "ia_asm_backend.hpp"
 using DefaultProvider = IaAsmBackend;
 #else

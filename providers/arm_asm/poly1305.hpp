@@ -77,8 +77,8 @@ static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept {
 // After normalization: h0,h1 < 2^44; h2 < 2^42.
 // -----------------------------------------------------------------------
 
-static constexpr uint64_t mask44 = (1ULL << 44) - 1;
-static constexpr uint64_t mask42 = (1ULL << 42) - 1;
+static constexpr uint64_t mask44 = (1ULL << 44U) - 1U;
+static constexpr uint64_t mask42 = (1ULL << 42U) - 1U;
 
 struct Poly1305Limbs {
     uint64_t h0{}, h1{}, h2{}; // NOLINT(misc-non-private-member-variables-in-classes)
@@ -97,8 +97,8 @@ static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi,
                                                           uint64_t top) noexcept {
     Poly1305Limbs m;
     m.h0 = lo & mask44;
-    m.h1 = ((lo >> 44) | (hi << 20)) & mask44;
-    m.h2 = (hi >> 24) | (top << 40);  // top bit lands at position 128 = 40 in m.h2
+    m.h1 = ((lo >> 44U) | (hi << 20U)) & mask44;
+    m.h2 = (hi >> 24U) | (top << 40U);  // top bit lands at position 128 = 40 in m.h2
     return m;
 }
 
@@ -119,13 +119,23 @@ static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOL
     std::memcpy(&lo, rc.data(),     8);
     std::memcpy(&hi, rc.data() + 8, 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     // r has top 4 bits of each 32-bit chunk cleared → r2 < 2^36
-    return {lo & mask44, ((lo >> 44) | (hi << 20)) & mask44, hi >> 24};
+    return Poly1305Limbs{
+        .h0 = lo & mask44,
+        .h1 = ((lo >> 44U) | (hi << 20U)) & mask44,
+        .h2 = hi >> 24U,
+    };
 }
 
 // Build a Poly1305Precomp (precompute r×20 reduction terms).
 [[nodiscard]]
 static inline Poly1305Precomp make_precomp(const Poly1305Limbs& r) noexcept {
-    return {r.h0, r.h1, r.h2, r.h1 * 20U, r.h2 * 20U};
+    return Poly1305Precomp{
+        .r0    = r.h0,
+        .r1    = r.h1,
+        .r2    = r.h2,
+        .r1_20 = r.h1 * 20U,
+        .r2_20 = r.h2 * 20U,
+    };
 }
 
 // Multiply accumulator h by precomputed r^k, reduce mod 2^130-5.
@@ -134,19 +144,19 @@ static inline Poly1305Precomp make_precomp(const Poly1305Limbs& r) noexcept {
 static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
                                               const Poly1305Precomp& p) noexcept {
     using u128 = unsigned __int128;
-    const u128 d0 = (u128)h.h0*p.r0 + (u128)h.h1*p.r2_20 + (u128)h.h2*p.r1_20;
-    const u128 d1 = (u128)h.h0*p.r1 + (u128)h.h1*p.r0    + (u128)h.h2*p.r2_20;
-    const u128 d2 = (u128)h.h0*p.r2 + (u128)h.h1*p.r1    + (u128)h.h2*p.r0;
+    const u128 d0 = (static_cast<u128>(h.h0)*p.r0) + (static_cast<u128>(h.h1)*p.r2_20) + (static_cast<u128>(h.h2)*p.r1_20);
+    const u128 d1 = (static_cast<u128>(h.h0)*p.r1) + (static_cast<u128>(h.h1)*p.r0)    + (static_cast<u128>(h.h2)*p.r2_20);
+    const u128 d2 = (static_cast<u128>(h.h0)*p.r2) + (static_cast<u128>(h.h1)*p.r1)    + (static_cast<u128>(h.h2)*p.r0);
 
     // Carry propagation: normalize to 44/44/42 form.
-    h.h0 = (uint64_t)d0 & mask44;  const u128 c1 = d0 >> 44;
+    h.h0 = static_cast<uint64_t>(d0) & mask44;  const u128 c1 = d0 >> 44U;
     const u128 e1 = d1 + c1;
-    h.h1 = (uint64_t)e1 & mask44;  const u128 c2 = e1 >> 44;
+    h.h1 = static_cast<uint64_t>(e1) & mask44;  const u128 c2 = e1 >> 44U;
     const u128 e2 = d2 + c2;
-    h.h2 = (uint64_t)e2 & mask42;
-    const uint64_t c3 = (uint64_t)(e2 >> 42);  // 2^{42+88}=2^130 ≡ 5
+    h.h2 = static_cast<uint64_t>(e2) & mask42;
+    const uint64_t c3 = static_cast<uint64_t>(e2 >> 42U);  // NOLINT(hicpp-use-auto,modernize-use-auto) — 2^{42+88}=2^130 ≡ 5
     h.h0 += c3 * 5U;
-    const uint64_t c4 = h.h0 >> 44; h.h0 &= mask44; h.h1 += c4;
+    const uint64_t c4 = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c4;
 }
 
 // Multiply using raw Poly1305Limbs (builds precomp inline — used for power building).
@@ -173,29 +183,31 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 
     // Propagate any remaining carry into the 44/44/42 form.
-    uint64_t h0 = h_in.h0, h1 = h_in.h1, h2 = h_in.h2;
+    uint64_t h0 = h_in.h0;
+    uint64_t h1 = h_in.h1;
+    uint64_t h2 = h_in.h2;
     uint64_t c;
-    c = h0 >> 44; h0 &= mask44; h1 += c;
-    c = h1 >> 44; h1 &= mask44; h2 += c;
-    c = h2 >> 42; h2 &= mask42; h0 += c * 5U;
-    c = h0 >> 44; h0 &= mask44; h1 += c;
+    c = h0 >> 44U; h0 &= mask44; h1 += c;
+    c = h1 >> 44U; h1 &= mask44; h2 += c;
+    c = h2 >> 42U; h2 &= mask42; h0 += c * 5U;
+    c = h0 >> 44U; h0 &= mask44; h1 += c;
 
     // Compute g = h + 5; if g < 2^130, g overflows past the 130-bit field → h >= p.
     const uint64_t g0 = h0 + 5U;
-    c = g0 >> 44;
+    c = g0 >> 44U;
     const uint64_t g1 = h1 + c;
-    c = g1 >> 44;
+    c = g1 >> 44U;
     const uint64_t g2 = h2 + c;
     // If g2 >= 2^42, then g >= 2^130, meaning h >= p — use g.
-    const uint64_t mask = (g2 >> 42) ? UINT64_MAX : 0U;
+    const uint64_t mask = ((g2 >> 42U) != 0U) ? UINT64_MAX : 0U;
 
     h0 = (h0 & ~mask) | ((g0 & mask44) & mask);
     h1 = (h1 & ~mask) | ((g1 & mask44) & mask);
     h2 = (h2 & ~mask) | ((g2 & mask42) & mask);
 
     // Pack 130-bit h to 128-bit little-endian.
-    const uint64_t hlo = h0 | (h1 << 44);
-    const uint64_t hhi = (h1 >> 20) | (h2 << 24);
+    const uint64_t hlo = h0 | (h1 << 44U);
+    const uint64_t hhi = (h1 >> 20U) | (h2 << 24U);
 
     // Add s (mod 2^128).
     const auto [slo, shi] = load_le128(s_bytes);
@@ -259,10 +271,10 @@ static inline void poly1305_process_quad(
     h.h1 += x1.h1 + x2.h1 + x3.h1;
     h.h2 += x1.h2 + x2.h2 + x3.h2;
     uint64_t c;
-    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
-    c = h.h1 >> 44; h.h1 &= mask44; h.h2 += c;
-    c = h.h2 >> 42; h.h2 &= mask42; h.h0 += c * 5U;
-    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
+    c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
+    c = h.h1 >> 44U; h.h1 &= mask44; h.h2 += c;
+    c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U;
+    c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
 }
 
 // Two-block parallel: h = (h + m1)*r² + m2*r
@@ -281,10 +293,10 @@ static inline void poly1305_process_pair(
 
     h.h0 += m2.h0; h.h1 += m2.h1; h.h2 += m2.h2;
     uint64_t c;
-    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
-    c = h.h1 >> 44; h.h1 &= mask44; h.h2 += c;
-    c = h.h2 >> 42; h.h2 &= mask42; h.h0 += c * 5U;
-    c = h.h0 >> 44; h.h0 &= mask44; h.h1 += c;
+    c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
+    c = h.h1 >> 44U; h.h1 &= mask44; h.h2 += c;
+    c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U;
+    c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
 }
 
 

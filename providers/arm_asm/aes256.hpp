@@ -76,13 +76,13 @@ inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) n
 
     // W[0..7] = key bytes directly.
     for (std::size_t i = 0; i < 8; ++i) {
-        std::memcpy(&w[i], key + i * 4, 4);
+        std::memcpy(&w[i], key + (i * 4), 4);
     }
 
     for (std::size_t i = 8; i < 60; ++i) {
         uint32_t tmp = w[i - 1];
         if (i % 8 == 0) {
-            tmp = aes_sub_word(aes_rot_word(tmp)) ^ rcon[i / 8 - 1]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            tmp = aes_sub_word(aes_rot_word(tmp)) ^ rcon[(i / 8U) - 1U]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         } else if (i % 8 == 4) {
             tmp = aes_sub_word(tmp);
         }
@@ -92,7 +92,7 @@ inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) n
     // Pack words into the schedule byte array.
     for (std::size_t i = 0; i < aes256_round_key_count; ++i) {
         for (std::size_t j = 0; j < 4; ++j) {
-            std::memcpy(sched.data() + i * 16 + j * 4, &w[i * 4 + j], 4);
+            std::memcpy(sched.data() + (i * 16) + (j * 4), &w[(i * 4) + j], 4);
         }
     }
 }

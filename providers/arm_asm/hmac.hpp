@@ -84,7 +84,7 @@ struct Sha256Ctx {
         }
         for (std::size_t i = 0; i < 8; ++i) {
             const uint32_t w = std::byteswap(state[i]);
-            std::memcpy(out + i * 4, &w, 4);
+            std::memcpy(out + (i * 4), &w, 4);
         }
     }
 };
@@ -136,7 +136,7 @@ struct Sha512Ctx {
         }
         for (std::size_t i = 0; i < out_bytes / 8; ++i) {
             const uint64_t w = std::byteswap(state[i]);
-            std::memcpy(out + i * 8, &w, 8);
+            std::memcpy(out + (i * 8), &w, 8);
         }
     }
 };

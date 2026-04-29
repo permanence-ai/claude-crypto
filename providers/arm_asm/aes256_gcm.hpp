@@ -129,22 +129,22 @@ static inline void gcm_compute_tag(
     const std::size_t aad_full_blocks = aad_len / 16;
     for (std::size_t i = 0; i < aad_full_blocks; ++i) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        ghash.update(aad + i * 16);
+        ghash.update(aad + (i * 16));
     }
     if (aad_len % 16 != 0) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        ghash.update_partial(aad + aad_full_blocks * 16, aad_len % 16);
+        ghash.update_partial(aad + (aad_full_blocks * 16), aad_len % 16);
     }
 
     // Ciphertext (padded to block boundary).
     const std::size_t ct_full_blocks = ct_len / 16;
     for (std::size_t i = 0; i < ct_full_blocks; ++i) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        ghash.update(ct + i * 16);
+        ghash.update(ct + (i * 16));
     }
     if (ct_len % 16 != 0) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        ghash.update_partial(ct + ct_full_blocks * 16, ct_len % 16);
+        ghash.update_partial(ct + (ct_full_blocks * 16), ct_len % 16);
     }
 
     // Length block.

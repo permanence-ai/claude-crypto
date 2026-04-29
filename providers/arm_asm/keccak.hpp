@@ -50,7 +50,7 @@ inline constexpr uint64_t keccak_rc[24] = { // NOLINT(cppcoreguidelines-avoid-c-
 template<int N>
 static inline uint64_t krotl(uint64_t x) noexcept {
     static_assert(N > 0 && N < 64);
-    return (x << N) | (x >> (64 - N));
+    return (x << static_cast<unsigned>(N)) | (x >> static_cast<unsigned>(64 - N));
 }
 
 
@@ -63,7 +63,7 @@ static inline uint64_t krotl(uint64_t x) noexcept {
 [[gnu::target("sha3,neon")]]
 inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
-    for (int rnd = 0; rnd < 24; ++rnd) {
+    for (const uint64_t rc : keccak_rc) {
 
         // ----------------------------------------------------------------
         // θ — column parity then D correction.
@@ -216,7 +216,7 @@ inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguideline
         // ----------------------------------------------------------------
         // ι — XOR round constant into lane [0,0].
         // ----------------------------------------------------------------
-        state[0] ^= keccak_rc[rnd]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        state[0] ^= rc;
     }
 }
 

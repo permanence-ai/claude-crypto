@@ -125,7 +125,10 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
     uint64x2_t cd = vld1q_u64(state + 2);
     uint64x2_t ef = vld1q_u64(state + 4);
     uint64x2_t gh = vld1q_u64(state + 6);
-    const uint64x2_t ab0 = ab, cd0 = cd, ef0 = ef, gh0 = gh;
+    const uint64x2_t ab0 = ab;
+    const uint64x2_t cd0 = cd;
+    const uint64x2_t ef0 = ef;
+    const uint64x2_t gh0 = gh;
 
     // Load 16 message words (big-endian 64-bit) into 8 register pairs.
     uint64x2_t s0 = vreinterpretq_u64_u8(vrev64q_u8(vld1q_u8(block)));
@@ -137,7 +140,9 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
     uint64x2_t s6 = vreinterpretq_u64_u8(vrev64q_u8(vld1q_u8(block + 96)));
     uint64x2_t s7 = vreinterpretq_u64_u8(vrev64q_u8(vld1q_u8(block + 112)));
 
-    uint64x2_t initial_sum, sum, intermed;
+    uint64x2_t initial_sum{};
+    uint64x2_t sum{};
+    uint64x2_t intermed{};
 
     // Rounds 0,1
     initial_sum = vaddq_u64(s0, vld1q_u64(sha512_k));
@@ -295,7 +300,7 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len,
 
     for (std::size_t i = 0; i < 8; ++i) {
         const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out + i * 8, &w, 8);
+        std::memcpy(out + (i * 8), &w, 8);
     }
 }
 
@@ -331,7 +336,7 @@ inline void sha384(const CryptoByte* msg, std::size_t msg_len,
     // SHA-384 output is the first 6 words (48 bytes).
     for (std::size_t i = 0; i < 6; ++i) {
         const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out + i * 8, &w, 8);
+        std::memcpy(out + (i * 8), &w, 8);
     }
 }
 

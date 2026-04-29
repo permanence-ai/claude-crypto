@@ -96,7 +96,7 @@ private:
         const std::size_t lanes = rate_bytes / 8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         for (std::size_t i = 0; i < lanes; ++i) {
             uint64_t word = 0;
-            std::memcpy(&word, buf.data() + i * 8, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            std::memcpy(&word, buf.data() + (i * 8), 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             if constexpr (std::endian::native == std::endian::little) {
                 state[i] ^= word;
             } else {

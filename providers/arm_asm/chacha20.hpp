@@ -164,13 +164,13 @@ inline void chacha20_block(const uint8_t key[32], uint32_t counter,
         // Big-endian: byte-swap each word.
         uint32_t tmp[4];
         vst1q_u32(tmp, r0);
-        for (int j = 0; j < 4; ++j) { store_le32(out + j * 4, tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        for (int j = 0; j < 4; ++j) { store_le32(out + (j * 4), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         vst1q_u32(tmp, r1);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 16 + j * 4, tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int j = 0; j < 4; ++j) { store_le32(out + 16 + (j * 4), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         vst1q_u32(tmp, r2);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 32 + j * 4, tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int j = 0; j < 4; ++j) { store_le32(out + 32 + (j * 4), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         vst1q_u32(tmp, r3);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 48 + j * 4, tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int j = 0; j < 4; ++j) { store_le32(out + 48 + (j * 4), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }
 }
 
