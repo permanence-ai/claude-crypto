@@ -26,6 +26,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "defs.hpp"
 #include "sha256.hpp"
+#include "sha3.hpp"
 #include "sha512.hpp"
 
 
@@ -227,9 +228,79 @@ inline void hmac_sha512(const uint8_t* key, std::size_t key_len,
 
 inline void hmac_sha384(const uint8_t* key, std::size_t key_len,
                         const uint8_t* msg, std::size_t msg_len,
-                        uint8_t out[48]) noexcept
+                        uint8_t out[48]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
     hmac_sha512_impl(sha384_h0, key, key_len, msg, msg_len, out, 48);
+}
+
+
+// ---------------------------------------------------------------------------
+// HMAC-SHA3 (SHA3-256, SHA3-384, SHA3-512)
+//
+// SHA-3 HMAC uses the FIPS 202 / FIPS 198-1 construction with the SHA-3 rate
+// as the block size (not 64 or 128 bytes as in SHA-2):
+//   SHA3-256: block=136 bytes, out=32 bytes
+//   SHA3-384: block=104 bytes, out=48 bytes
+//   SHA3-512: block= 72 bytes, out=64 bytes
+// ---------------------------------------------------------------------------
+inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes,
+                            const uint8_t* key, std::size_t key_len,
+                            const uint8_t* msg, std::size_t msg_len,
+                            uint8_t* out) noexcept
+{
+    // K': hash key if > rate, else use directly.
+    uint8_t kprime[136]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    if (key_len > rate) {
+        Sha3Ctx kctx;
+        kctx.init(rate, out_bytes);
+        kctx.update(key, key_len);
+        kctx.finish(kprime);
+    } else {
+        std::memcpy(kprime, key, key_len);
+    }
+
+    uint8_t ikey[136], okey[136]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (std::size_t i = 0; i < rate; ++i) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+        ikey[i] = static_cast<uint8_t>(kprime[i] ^ 0x36U);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+        okey[i] = static_cast<uint8_t>(kprime[i] ^ 0x5cU);
+    }
+
+    // Inner hash: SHA3(ikey || msg)
+    uint8_t inner[64]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    Sha3Ctx ctx;
+    ctx.init(rate, out_bytes);
+    ctx.update(ikey, rate);
+    ctx.update(msg, msg_len);
+    ctx.finish(inner);
+
+    // Outer hash: SHA3(okey || inner[0..out_bytes))
+    ctx.init(rate, out_bytes);
+    ctx.update(okey, rate);
+    ctx.update(inner, out_bytes);
+    ctx.finish(out);
+}
+
+inline void hmac_sha3_256(const uint8_t* key, std::size_t key_len,
+                           const uint8_t* msg, std::size_t msg_len,
+                           uint8_t out[32]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+{
+    hmac_sha3_impl(136, 32, key, key_len, msg, msg_len, out); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+}
+
+inline void hmac_sha3_384(const uint8_t* key, std::size_t key_len,
+                           const uint8_t* msg, std::size_t msg_len,
+                           uint8_t out[48]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+{
+    hmac_sha3_impl(104, 48, key, key_len, msg, msg_len, out); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+}
+
+inline void hmac_sha3_512(const uint8_t* key, std::size_t key_len,
+                           const uint8_t* msg, std::size_t msg_len,
+                           uint8_t out[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+{
+    hmac_sha3_impl(72, 64, key, key_len, msg, msg_len, out); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 }
 
 }  // namespace arm_asm::detail

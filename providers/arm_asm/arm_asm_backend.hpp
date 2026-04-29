@@ -16,6 +16,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "key_store.hpp"
 #include "random.hpp"
 #include "sha256.hpp"
+#include "sha3.hpp"
 #include "sha512.hpp"
 #include "sha_variant.hpp"
 
@@ -74,6 +75,24 @@ struct ArmAsmBackend {
             if (output_size < sha384_size_bytes) { return err_invalid_arg; }
             arm_asm::detail::sha384(input, input_len, output);
             *output_len = sha384_size_bytes;
+            return ok;
+        }
+        if (alg == alg_sha(ShaVariant::Sha3_256)) {
+            if (output_size < sha3_256_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::sha3_256(input, input_len, output);
+            *output_len = sha3_256_size_bytes;
+            return ok;
+        }
+        if (alg == alg_sha(ShaVariant::Sha3_384)) {
+            if (output_size < sha3_384_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::sha3_384(input, input_len, output);
+            *output_len = sha3_384_size_bytes;
+            return ok;
+        }
+        if (alg == alg_sha(ShaVariant::Sha3_512)) {
+            if (output_size < sha3_512_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::sha3_512(input, input_len, output);
+            *output_len = sha3_512_size_bytes;
             return ok;
         }
         return err_invalid_arg;
@@ -136,6 +155,24 @@ struct ArmAsmBackend {
             if (out_size < sha384_size_bytes) { return err_invalid_arg; }
             arm_asm::detail::hmac_sha384(key, key_len, msg, msg_len, out);
             *out_len = sha384_size_bytes;
+            return ok;
+        }
+        if (alg == alg_hmac(ShaVariant::Sha3_256)) {
+            if (out_size < sha3_256_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::hmac_sha3_256(key, key_len, msg, msg_len, out);
+            *out_len = sha3_256_size_bytes;
+            return ok;
+        }
+        if (alg == alg_hmac(ShaVariant::Sha3_384)) {
+            if (out_size < sha3_384_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::hmac_sha3_384(key, key_len, msg, msg_len, out);
+            *out_len = sha3_384_size_bytes;
+            return ok;
+        }
+        if (alg == alg_hmac(ShaVariant::Sha3_512)) {
+            if (out_size < sha3_512_size_bytes) { return err_invalid_arg; }
+            arm_asm::detail::hmac_sha3_512(key, key_len, msg, msg_len, out);
+            *out_len = sha3_512_size_bytes;
             return ok;
         }
         return err_invalid_arg;

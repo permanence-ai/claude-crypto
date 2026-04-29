@@ -81,6 +81,12 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | HMAC-SHA-256 | Incremental `Sha256Ctx`; key hashing when key > 64 bytes |
 | HMAC-SHA-384 | Incremental `Sha512Ctx` initialised with SHA-384 H₀; key hashing uses SHA-384 |
 | HMAC-SHA-512 | Incremental `Sha512Ctx` initialised with SHA-512 H₀ |
+| SHA3-256 | Keccak-f[1600] via ARM SHA3 instructions (`veor3q_u64`, `vrax1q_u64`, `vbcaxq_u64`); rate=136B |
+| SHA3-384 | Same permutation, rate=104B, output=48B |
+| SHA3-512 | Same permutation, rate=72B, output=64B |
+| HMAC-SHA3-256 | FIPS 198-1 HMAC with SHA3 block size (136B) as key pad width |
+| HMAC-SHA3-384 | Block size 104B; key hashing uses SHA3-384 |
+| HMAC-SHA3-512 | Block size 72B; key hashing uses SHA3-512 |
 | AES-256-GCM encrypt | AES-256 key expansion + CTR via `vaeseq_u8`/`vaesmcq_u8`; GHASH via `vmull_p64` PMULL; NIST SP 800-38D compliant |
 | AES-256-GCM decrypt | Tag verification (constant-time compare) before decryption; output zeroized on auth failure |
 | Random bytes | `arc4random_buf` — OS CSPRNG, never blocks |
@@ -116,7 +122,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (229 tests)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (240 tests)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```

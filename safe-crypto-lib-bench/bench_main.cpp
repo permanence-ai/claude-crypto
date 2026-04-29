@@ -120,6 +120,30 @@ BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha512, ArmAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("SHA512/ARM");
 
+// SHA3-256
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_256, RealPsaBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_256/PSA");
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_256, ArmAsmBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_256/ARM");
+
+// SHA3-384
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_384, RealPsaBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_384/PSA");
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_384, ArmAsmBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_384/ARM");
+
+// SHA3-512
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, RealPsaBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_512/PSA");
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, ArmAsmBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_512/ARM");
+
 
 // ---------------------------------------------------------------------------
 // HMAC benchmarks
@@ -160,6 +184,30 @@ BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha512, RealPsaBackend)
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha512, ArmAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA512/ARM");
+
+// HMAC-SHA3-256
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_256, RealPsaBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_256/PSA");
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_256, ArmAsmBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_256/ARM");
+
+// HMAC-SHA3-384
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_384, RealPsaBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_384/PSA");
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_384, ArmAsmBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_384/ARM");
+
+// HMAC-SHA3-512
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, RealPsaBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_512/PSA");
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, ArmAsmBackend)
+    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_512/ARM");
 
 
 // ---------------------------------------------------------------------------

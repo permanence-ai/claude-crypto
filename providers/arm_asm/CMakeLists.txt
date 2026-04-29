@@ -11,10 +11,12 @@ target_sources(${LIB_NAME} INTERFACE
         ghash.hpp
         hkdf.hpp
         hmac.hpp
+        keccak.hpp
         key_store.hpp
         poly1305.hpp
         random.hpp
         sha256.hpp
+        sha3.hpp
         sha512.hpp
 )
 
