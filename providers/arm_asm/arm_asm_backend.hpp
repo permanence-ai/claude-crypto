@@ -7,17 +7,20 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include <cstddef>
 
+#include "aes256_gcm.hpp"
 #include "defs.hpp"
 #include "hmac.hpp"
 #include "key_store.hpp"
+#include "random.hpp"
 #include "sha256.hpp"
 #include "sha512.hpp"
 #include "sha_variant.hpp"
 
 
-// Stub backend for the ARM AArch64 assembly provider.  Not yet implemented —
-// every operation returns a generic failure status so the library link targets
-// exist and the CryptoProvider concept is satisfied at compile time.
+// ARM AArch64 assembly/intrinsic backend.
+// Phase 4: SHA-256/384/512, HMAC-SHA-256/384/512, AES-256-GCM, and
+// random byte generation are implemented.  Everything else returns
+// err_invalid_arg.
 //
 // Target: ARMv8-A / AArch64 (Apple Silicon and compatible).
 // Accelerated via ARM Crypto Extensions: AES, SHA2, SHA3, PMULL/NEON.
@@ -39,7 +42,10 @@ struct ArmAsmBackend {
     static KdfOperation  make_kdf_op()    noexcept { return 0U; }
 
     static Status crypto_init()                                               { return ok; }
-    static Status generate_random(CryptoByte* /*buf*/, std::size_t /*len*/)    { return err_invalid_arg; }
+    static Status generate_random(CryptoByte* buf, std::size_t len) {
+        arm_asm::detail::generate_random_bytes(buf, len);
+        return ok;
+    }
     static Status hash_compute(Algorithm alg, const CryptoByte* input, std::size_t input_len,
                                CryptoByte* output, std::size_t output_size, std::size_t* output_len)
     {
@@ -124,19 +130,41 @@ struct ArmAsmBackend {
         return diff == 0U ? ok : err_invalid_sig;
     }
     static Status aead_encrypt(  // NOLINT(readability-function-size)
-                               KeyId /*id*/, Algorithm /*alg*/,
-                               const CryptoByte* /*nonce*/, std::size_t /*nonce_len*/,
-                               const CryptoByte* /*aad*/, std::size_t /*aad_len*/,
-                               const CryptoByte* /*pt*/, std::size_t /*pt_len*/,
-                               CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
-                                                                              { return err_invalid_arg; }
+                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
+                               const CryptoByte* nonce, std::size_t /*nonce_len*/,
+                               const CryptoByte* aad, std::size_t aad_len,
+                               const CryptoByte* pt, std::size_t pt_len,
+                               CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
+        if (alg != alg_aes_gcm()) { return err_invalid_arg; }
+        if (out_size < pt_len + arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
+        if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        arm_asm::detail::aes256_gcm_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
+        *out_len = pt_len + arm_asm::detail::aes_gcm_tag_bytes;
+        return ok;
+    }
     static Status aead_decrypt(  // NOLINT(readability-function-size)
-                               KeyId /*id*/, Algorithm /*alg*/,
-                               const CryptoByte* /*nonce*/, std::size_t /*nonce_len*/,
-                               const CryptoByte* /*aad*/, std::size_t /*aad_len*/,
-                               const CryptoByte* /*ct*/, std::size_t /*ct_len*/,
-                               CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
-                                                                              { return err_invalid_arg; }
+                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
+                               const CryptoByte* nonce, std::size_t /*nonce_len*/,
+                               const CryptoByte* aad, std::size_t aad_len,
+                               const CryptoByte* ct, std::size_t ct_len,
+                               CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
+        if (alg != alg_aes_gcm()) { return err_invalid_arg; }
+        if (ct_len < arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
+        const std::size_t pt_len = ct_len - arm_asm::detail::aes_gcm_tag_bytes;
+        if (out_size < pt_len) { return err_invalid_arg; }
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
+        if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (!arm_asm::detail::aes256_gcm_decrypt(key, nonce, aad, aad_len, ct, ct_len, out)) {
+            return err_invalid_sig;
+        }
+        *out_len = pt_len;
+        return ok;
+    }
     static Status sign_message(  // NOLINT(readability-function-size)
                                KeyId /*id*/, Algorithm /*alg*/,
                                const CryptoByte* /*msg*/, std::size_t /*msg_len*/,
@@ -218,8 +246,8 @@ struct ArmAsmBackend {
     static std::size_t ecdh_shared_secret_size(std::size_t /*bits*/)         noexcept { return 0; }
     static std::size_t ec_private_key_export_size(std::size_t /*bits*/)      noexcept { return 0; }
     static std::size_t ec_public_key_export_size(std::size_t /*bits*/)       noexcept { return 0; }
-    static std::size_t aes_gcm_encrypt_output_size(std::size_t /*pt_len*/)   noexcept { return 0; }
-    static std::size_t aes_gcm_decrypt_output_size(std::size_t /*ct_len*/)   noexcept { return 0; }
+    static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len + arm_asm::detail::aes_gcm_tag_bytes; }
+    static std::size_t aes_gcm_decrypt_output_size(std::size_t ct_len)        noexcept { return ct_len > arm_asm::detail::aes_gcm_tag_bytes ? ct_len - arm_asm::detail::aes_gcm_tag_bytes : 0; }
     static std::size_t chacha20_encrypt_output_size(std::size_t /*pt_len*/)  noexcept { return 0; }
     static std::size_t chacha20_decrypt_output_size(std::size_t /*ct_len*/)  noexcept { return 0; }
     static std::size_t rsa_oaep_encrypt_output_size(std::size_t /*bits*/)    noexcept { return 0; }

@@ -6,6 +6,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <gtest/gtest.h>
 
 #include "aead_tests.hpp"
+#include "arm_asm_tests.hpp"
 #include "secure_buffer_tests.hpp"
 #include "psa_error_tests.hpp"
 #include "asymmetric_tests.hpp"

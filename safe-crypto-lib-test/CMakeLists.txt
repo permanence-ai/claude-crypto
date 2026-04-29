@@ -2,6 +2,7 @@ set(EXE_NAME safe_crypto_lib_test)
 
 add_executable(${EXE_NAME}
         aead_tests.hpp
+        arm_asm_tests.hpp
         asymmetric_tests.hpp
         chacha20_tests.hpp
         digests_tests.hpp
