@@ -6,10 +6,13 @@ target_sources(${LIB_NAME} INTERFACE
         aes256.hpp
         aes256_gcm.hpp
         arm_asm_backend.hpp
+        chacha20.hpp
+        chacha20_poly1305.hpp
         ghash.hpp
         hkdf.hpp
         hmac.hpp
         key_store.hpp
+        poly1305.hpp
         random.hpp
         sha256.hpp
         sha512.hpp

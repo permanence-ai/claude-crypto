@@ -540,4 +540,259 @@ TEST_F(ArmAsmKeyMgmtTests, ExportKeyBufferTooSmallReturnsError) {
     ArmAsmBackend::destroy_key(id);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 7: ChaCha20-Poly1305 tests (RFC 8439)
+// ---------------------------------------------------------------------------
+
+class ArmAsmChaCha20Poly1305Tests : public ::testing::Test {
+protected:
+    template<std::size_t N>
+    static std::array<uint8_t, N> from_hex(const char* s) {
+        std::array<uint8_t, N> out{};
+        for (std::size_t i = 0; i < N; ++i) {
+            unsigned v = 0;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+            out[i] = static_cast<uint8_t>(v);
+        }
+        return out;
+    }
+};
+
+// RFC 8439 §2.8.2 AEAD construction test vector.
+//   Key   : 808182...9f (32 bytes)
+//   Nonce : 07000000 4041424344454647 (12 bytes)
+//   AAD   : 50515253c0c1c2c3c4c5c6c7 (12 bytes)
+//   PT    : "Ladies and Gentlemen of the class of '99: ..." (114 bytes)
+//   CT    : d31a8d34...64b6116 (114 bytes)
+//   Tag   : 1ae10b594f09e26a7e902ecbd0600691
+TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282EncryptWithAad) {
+    const auto key   = from_hex<32>("808182838485868788898a8b8c8d8e8f"
+                                    "909192939495969798999a9b9c9d9e9f");
+    const auto nonce = from_hex<12>("070000004041424344454647");
+    const auto aad   = from_hex<12>("50515253c0c1c2c3c4c5c6c7");
+
+    const char* pt_str =
+        "4c616469657320616e642047656e746c"
+        "656d656e206f662074686520636c6173"
+        "73206f6620273939"
+        "3a20496620492063"
+        "6f756c64206f6666"
+        "657220796f75206f"
+        "6e6c79206f6e6520"
+        "74697020666f7220"
+        "74686520667574757265"
+        "2c2073756e73637265656e"
+        "20776f756c6420626520"
+        "69742e";
+    const auto pt = from_hex<114>(
+        "4c616469657320616e642047656e746c"
+        "656d656e206f662074686520636c6173"
+        "73206f6620273939"
+        "3a20496620492063"
+        "6f756c64206f6666"
+        "657220796f75206f"
+        "6e6c79206f6e6520"
+        "74697020666f7220"
+        "74686520667574757265"
+        "2c2073756e73637265656e"
+        "20776f756c6420626520"
+        "69742e");
+    (void)pt_str;
+
+    const auto expected_ct = from_hex<114>(
+        "d31a8d34648e60db7b86afbc53ef7ec2"
+        "a4aded51296e08fea9e2b5a736ee62d6"
+        "3dbea45e8ca96712"
+        "82fafb69da92728b"
+        "1a71de0a9e060b29"
+        "05d6a5b67ecd3b36"
+        "92ddbd7f2d778b8c"
+        "9803aee328091b58"
+        "fab324e4fad675945585808b"
+        "4831d7bc3ff4def08e4b7a9d"
+        "e576d26586cec64b"
+        "6116");
+    const auto expected_tag = from_hex<16>("1ae10b594f09e26a7e902ecbd0600691");
+
+    // Import key.
+    auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
+              ArmAsmBackend::ok);
+
+    std::array<uint8_t, 114 + 16> out{};
+    std::size_t out_len = 0;
+    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
+                  id, ArmAsmBackend::alg_chacha20_poly1305(),
+                  nonce.data(), nonce.size(),
+                  aad.data(), aad.size(),
+                  pt.data(), pt.size(),
+                  out.data(), out.size(), &out_len),
+              ArmAsmBackend::ok);
+    ASSERT_EQ(out_len, 114U + 16U);
+
+    for (std::size_t i = 0; i < 114; ++i) {
+        EXPECT_EQ(out[i], expected_ct[i]) << "ct byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(out[114 + i], expected_tag[i]) << "tag byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-avoid-magic-numbers)
+    }
+    ArmAsmBackend::destroy_key(id);
+}
+
+// RFC 8439 §2.8.2 decrypt: feed ct‖tag back through aead_decrypt.
+TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282DecryptWithAad) {
+    const auto key   = from_hex<32>("808182838485868788898a8b8c8d8e8f"
+                                    "909192939495969798999a9b9c9d9e9f");
+    const auto nonce = from_hex<12>("070000004041424344454647");
+    const auto aad   = from_hex<12>("50515253c0c1c2c3c4c5c6c7");
+
+    const auto expected_pt = from_hex<114>(
+        "4c616469657320616e642047656e746c"
+        "656d656e206f662074686520636c6173"
+        "73206f6620273939"
+        "3a20496620492063"
+        "6f756c64206f6666"
+        "657220796f75206f"
+        "6e6c79206f6e6520"
+        "74697020666f7220"
+        "74686520667574757265"
+        "2c2073756e73637265656e"
+        "20776f756c6420626520"
+        "69742e");
+
+    // Build ct‖tag.
+    const auto ct = from_hex<114>(
+        "d31a8d34648e60db7b86afbc53ef7ec2"
+        "a4aded51296e08fea9e2b5a736ee62d6"
+        "3dbea45e8ca96712"
+        "82fafb69da92728b"
+        "1a71de0a9e060b29"
+        "05d6a5b67ecd3b36"
+        "92ddbd7f2d778b8c"
+        "9803aee328091b58"
+        "fab324e4fad675945585808b"
+        "4831d7bc3ff4def08e4b7a9d"
+        "e576d26586cec64b"
+        "6116");
+    const auto tag = from_hex<16>("1ae10b594f09e26a7e902ecbd0600691");
+    std::array<uint8_t, 114 + 16> ct_tag{};
+    std::memcpy(ct_tag.data(), ct.data(), 114); // NOLINT(cppcoreguidelines-avoid-magic-numbers)
+    std::memcpy(ct_tag.data() + 114, tag.data(), 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers)
+
+    auto attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
+              ArmAsmBackend::ok);
+
+    std::array<uint8_t, 114> pt{};
+    std::size_t pt_len = 0;
+    ASSERT_EQ(ArmAsmBackend::aead_decrypt(
+                  id, ArmAsmBackend::alg_chacha20_poly1305(),
+                  nonce.data(), nonce.size(),
+                  aad.data(), aad.size(),
+                  ct_tag.data(), ct_tag.size(),
+                  pt.data(), pt.size(), &pt_len),
+              ArmAsmBackend::ok);
+    ASSERT_EQ(pt_len, 114U);
+
+    for (std::size_t i = 0; i < 114; ++i) {
+        EXPECT_EQ(pt[i], expected_pt[i]) << "pt byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+    ArmAsmBackend::destroy_key(id);
+}
+
+// Short KAT: 16-byte PT, 4-byte AAD, key=0x00..1f, nonce=0x00..0b.
+//   CT  : 89fa0a032d12a347bf8a35f89410006c
+//   Tag : 26ca05862a111ecd36a2289af1dc1140
+TEST_F(ArmAsmChaCha20Poly1305Tests, ShortVectorRoundTrip) {
+    const auto key   = from_hex<32>("000102030405060708090a0b0c0d0e0f"
+                                    "101112131415161718191a1b1c1d1e1f");
+    const auto nonce = from_hex<12>("000102030405060708090a0b");
+    const auto aad   = from_hex<4>("deadbeef");
+    const auto pt    = from_hex<16>("000102030405060708090a0b0c0d0e0f");
+    const auto expected_ct  = from_hex<16>("89fa0a032d12a347bf8a35f89410006c");
+    const auto expected_tag = from_hex<16>("26ca05862a111ecd36a2289af1dc1140");
+
+    auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
+              ArmAsmBackend::ok);
+
+    // Encrypt.
+    std::array<uint8_t, 32> out{};  // 16 + 16
+    std::size_t out_len = 0;
+    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
+                  id, ArmAsmBackend::alg_chacha20_poly1305(),
+                  nonce.data(), nonce.size(),
+                  aad.data(), aad.size(),
+                  pt.data(), pt.size(),
+                  out.data(), out.size(), &out_len),
+              ArmAsmBackend::ok);
+    ASSERT_EQ(out_len, 32U);
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(out[i], expected_ct[i]) << "ct byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(out[16 + i], expected_tag[i]) << "tag byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-avoid-magic-numbers)
+    }
+
+    // Decrypt.
+    std::array<uint8_t, 16> recovered{};
+    std::size_t recovered_len = 0;
+    ASSERT_EQ(ArmAsmBackend::aead_decrypt(
+                  id, ArmAsmBackend::alg_chacha20_poly1305(),
+                  nonce.data(), nonce.size(),
+                  aad.data(), aad.size(),
+                  out.data(), out_len,
+                  recovered.data(), recovered.size(), &recovered_len),
+              ArmAsmBackend::ok);
+    ASSERT_EQ(recovered_len, 16U);
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(recovered[i], pt[i]) << "pt byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+    ArmAsmBackend::destroy_key(id);
+}
+
+// Tampered tag must be rejected and output zeroized.
+TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
+    const auto key   = from_hex<32>("000102030405060708090a0b0c0d0e0f"
+                                    "101112131415161718191a1b1c1d1e1f");
+    const auto nonce = from_hex<12>("000102030405060708090a0b");
+    const auto pt    = from_hex<16>("000102030405060708090a0b0c0d0e0f");
+
+    auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
+    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
+              ArmAsmBackend::ok);
+
+    std::array<uint8_t, 32> ct_tag{};
+    std::size_t ct_len = 0;
+    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
+                  id, ArmAsmBackend::alg_chacha20_poly1305(),
+                  nonce.data(), nonce.size(),
+                  nullptr, 0,
+                  pt.data(), pt.size(),
+                  ct_tag.data(), ct_tag.size(), &ct_len),
+              ArmAsmBackend::ok);
+
+    ct_tag[0] ^= 0xFFU;  // tamper first ciphertext byte
+
+    std::array<uint8_t, 16> out{};
+    std::size_t out_len = 0;
+    EXPECT_NE(ArmAsmBackend::aead_decrypt(
+                  id, ArmAsmBackend::alg_chacha20_poly1305(),
+                  nonce.data(), nonce.size(),
+                  nullptr, 0,
+                  ct_tag.data(), ct_len,
+                  out.data(), out.size(), &out_len),
+              ArmAsmBackend::ok);
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(out[i], 0) << "output not zeroized at byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+    ArmAsmBackend::destroy_key(id);
+}
+
 #endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM

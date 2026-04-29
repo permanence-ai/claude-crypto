@@ -9,6 +9,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include "aes256_gcm.hpp"
+#include "chacha20_poly1305.hpp"
 #include "defs.hpp"
 #include "hkdf.hpp"
 #include "hmac.hpp"
@@ -162,15 +163,23 @@ struct ArmAsmBackend {
                                const CryptoByte* aad, std::size_t aad_len,
                                const CryptoByte* pt, std::size_t pt_len,
                                CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
-        if (alg != alg_aes_gcm()) { return err_invalid_arg; }
-        if (out_size < pt_len + arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
         if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        arm_asm::detail::aes256_gcm_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
-        *out_len = pt_len + arm_asm::detail::aes_gcm_tag_bytes;
-        return ok;
+        if (alg == alg_aes_gcm()) {
+            if (out_size < pt_len + arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
+            arm_asm::detail::aes256_gcm_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
+            *out_len = pt_len + arm_asm::detail::aes_gcm_tag_bytes;
+            return ok;
+        }
+        if (alg == alg_chacha20_poly1305()) {
+            if (out_size < pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
+            arm_asm::detail::chacha20_poly1305_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
+            *out_len = pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes;
+            return ok;
+        }
+        return err_invalid_arg;
     }
     static Status aead_decrypt(  // NOLINT(readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
@@ -178,19 +187,31 @@ struct ArmAsmBackend {
                                const CryptoByte* aad, std::size_t aad_len,
                                const CryptoByte* ct, std::size_t ct_len,
                                CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
-        if (alg != alg_aes_gcm()) { return err_invalid_arg; }
-        if (ct_len < arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
-        const std::size_t pt_len = ct_len - arm_asm::detail::aes_gcm_tag_bytes;
-        if (out_size < pt_len) { return err_invalid_arg; }
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
         if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        if (!arm_asm::detail::aes256_gcm_decrypt(key, nonce, aad, aad_len, ct, ct_len, out)) {
-            return err_invalid_sig;
+        if (alg == alg_aes_gcm()) {
+            if (ct_len < arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
+            const std::size_t pt_len = ct_len - arm_asm::detail::aes_gcm_tag_bytes;
+            if (out_size < pt_len) { return err_invalid_arg; }
+            if (!arm_asm::detail::aes256_gcm_decrypt(key, nonce, aad, aad_len, ct, ct_len, out)) {
+                return err_invalid_sig;
+            }
+            *out_len = pt_len;
+            return ok;
         }
-        *out_len = pt_len;
-        return ok;
+        if (alg == alg_chacha20_poly1305()) {
+            if (ct_len < arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
+            const std::size_t pt_len = ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes;
+            if (out_size < pt_len) { return err_invalid_arg; }
+            if (!arm_asm::detail::chacha20_poly1305_decrypt(key, nonce, aad, aad_len, ct, ct_len, out)) {
+                return err_invalid_sig;
+            }
+            *out_len = pt_len;
+            return ok;
+        }
+        return err_invalid_arg;
     }
     static Status sign_message(  // NOLINT(readability-function-size)
                                KeyId /*id*/, Algorithm /*alg*/,
@@ -250,8 +271,8 @@ struct ArmAsmBackend {
     static constexpr Algorithm alg_ecdh()              noexcept { return 0U; }
     static constexpr Algorithm alg_hkdf()              noexcept { return 0x0301U; }
     static constexpr Algorithm alg_hkdf_expand()       noexcept { return 0x0302U; }
-    static constexpr Algorithm alg_aes_gcm()           noexcept { return 0U; }
-    static constexpr Algorithm alg_chacha20_poly1305() noexcept { return 0U; }
+    static constexpr Algorithm alg_aes_gcm()           noexcept { return 0x0401U; }
+    static constexpr Algorithm alg_chacha20_poly1305() noexcept { return 0x0402U; }
     static constexpr Algorithm alg_rsa_oaep()          noexcept { return 0U; }
     static constexpr Algorithm alg_rsa_pss()           noexcept { return 0U; }
 
@@ -287,8 +308,8 @@ struct ArmAsmBackend {
     static std::size_t ec_public_key_export_size(std::size_t /*bits*/)       noexcept { return 0; }
     static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len + arm_asm::detail::aes_gcm_tag_bytes; }
     static std::size_t aes_gcm_decrypt_output_size(std::size_t ct_len)        noexcept { return ct_len > arm_asm::detail::aes_gcm_tag_bytes ? ct_len - arm_asm::detail::aes_gcm_tag_bytes : 0; }
-    static std::size_t chacha20_encrypt_output_size(std::size_t /*pt_len*/)  noexcept { return 0; }
-    static std::size_t chacha20_decrypt_output_size(std::size_t /*ct_len*/)  noexcept { return 0; }
+    static std::size_t chacha20_encrypt_output_size(std::size_t pt_len) noexcept { return pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes; }
+    static std::size_t chacha20_decrypt_output_size(std::size_t ct_len) noexcept { return ct_len > arm_asm::detail::chacha20_poly1305_tag_bytes ? ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes : 0; }
     static std::size_t rsa_oaep_encrypt_output_size(std::size_t /*bits*/)    noexcept { return 0; }
     static std::size_t rsa_oaep_decrypt_output_size(std::size_t /*bits*/)    noexcept { return 0; }
     static std::size_t rsa_pss_sign_output_size(std::size_t /*bits*/)        noexcept { return 0; }
