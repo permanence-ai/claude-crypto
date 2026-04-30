@@ -98,8 +98,13 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | Key store | 16-slot static store (up to 512 bytes/key) |
 | ChaCha20-Poly1305 encrypt | NEON `uint32x4_t` quarter-round; Poly1305 over AAD‖CT‖lengths; RFC 8439 compliant |
 | ChaCha20-Poly1305 decrypt | Tag verification (constant-time compare) before decryption; output zeroized on auth failure |
+| ECDSA P-256/384/521 sign | RFC 6979 deterministic k (HMAC-SHA-256/384/512); raw r‖s big-endian output |
+| ECDSA P-256/384/521 verify | Full Jacobian point arithmetic; constant-time scalar multiplication |
+| ECDH P-256/384/521 | x-coordinate shared secret; 32/48/66-byte output |
+| EC key generation | Random private scalar; public key computed as k·G (Jacobian → affine) |
+| EC key import/export | 16-slot EC key store separate from symmetric key store; P-521 public key 133 bytes |
 
-**Not yet implemented** (return `err_invalid_arg`): ECDSA/ECDH, RSA.
+**Not yet implemented** (return `err_invalid_arg`): RSA.
 
 **SHA-512 compression loop detail.** The two-round step pattern cycles through four roles (ab/cd/ef/gh) every eight rounds. Each step requires cross-pair word interleaving that cannot be expressed as a simple state rotation:
 
@@ -122,7 +127,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (259 tests)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (202 tests)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -144,9 +149,9 @@ For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYP
 
 ## Testing
 
-The test suite (`safe-crypto-lib-test/`, 259 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
+The test suite (`safe-crypto-lib-test/`, 202 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
 
-### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 107 tests)
+### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 95 tests)
 
 `MockPsaBackend` is a GMock implementation of the `CryptoProvider` concept that intercepts every PSA call. Tests configure expectations with `EXPECT_CALL` to return specific `psa_status_t` error codes, then call the high-level `_impl` functions and assert the correct `CryptoError` variant is returned.
 
@@ -241,7 +246,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | Value | Backend | Status |
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
-| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, key management |
+| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, key management |
 | `IA_ASM` | Native assembly | Stub only |
 
 ```bash

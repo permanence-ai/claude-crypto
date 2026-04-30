@@ -31,6 +31,7 @@ enum class EcCurveId : uint8_t {
     None   = 0,
     P256   = 1,
     P384   = 2,
+    P521   = 3,
 };
 
 enum class EcKeyKind : uint8_t {
@@ -39,7 +40,7 @@ enum class EcKeyKind : uint8_t {
     Public  = 2,  // uncompressed public key: 0x04 || x || y
 };
 
-constexpr std::size_t ec_max_key_bytes = 97;  // 1 + 48 + 48 = 97 (P-384 public key)
+constexpr std::size_t ec_max_key_bytes = 133;  // 1 + 66 + 66 = 133 (P-521 public key)
 
 struct EcKeySlot {
     FixedSecureBuffer<ec_max_key_bytes> data;

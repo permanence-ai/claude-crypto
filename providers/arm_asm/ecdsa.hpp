@@ -5,12 +5,14 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #pragma once
 
-// ECDSA sign and verify for P-256 and P-384.
+// ECDSA sign and verify for P-256, P-384, and P-521.
 //
-// Signing: deterministic (RFC 6979) using HMAC-SHA-256 (P-256) or HMAC-SHA-384 (P-384).
+// Signing: deterministic (RFC 6979) using HMAC-SHA-256 (P-256), HMAC-SHA-384 (P-384),
+//          or HMAC-SHA-512 (P-521).
 // Output format: r‖s big-endian raw (PSA raw ECDSA format):
 //   P-256: 64 bytes (32+32)
 //   P-384: 96 bytes (48+48)
+//   P-521: 132 bytes (66+66)
 //
 // Verification: standard EC point computation + r comparison.
 
@@ -21,6 +23,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "hmac.hpp"
 #include "p256_point.hpp"
 #include "p384_point.hpp"
+#include "p521_point.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -32,11 +35,11 @@ namespace arm_asm::detail {
 // -----------------------------------------------------------------------
 
 // Generate a deterministic per-message scalar k in [1, n-1] using RFC 6979.
-// Uses HMAC-SHA-256 for P-256, HMAC-SHA-384 for P-384.
+// Uses HMAC-SHA-256 (P-256), HMAC-SHA-384 (P-384), or HMAC-SHA-512 (P-521).
 // scalar_be: private key scalar (big-endian, qlen bytes)
 // hash_be:   message hash (big-endian, hlen bytes, ≤ qlen)
 // k_out:     output k (big-endian, qlen bytes)
-// qlen:      byte length of curve order (32 for P-256, 48 for P-384)
+// qlen:      byte length of curve order (32 for P-256, 48 for P-384, 66 for P-521)
 
 static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     const uint8_t* scalar_be, std::size_t qlen,
@@ -46,15 +49,16 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
 {
     // Step a: hash is h1 = H(m), already provided.
     // Step b: V = 0x01 * qlen
-    FixedSecureBuffer<64> V{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    FixedSecureBuffer<66> V{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     for (std::size_t i = 0; i < qlen; ++i) { V[i] = 0x01U; }
 
     // Step c: K = 0x00 * qlen
-    FixedSecureBuffer<64> K{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    FixedSecureBuffer<66> K{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     // K is already zero-initialized by FixedSecureBuffer.
 
     // Combine message for HMAC: V || 0x00 || x || h1
-    FixedSecureBuffer<64 + 1 + 48 + 64> msg_buf{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // Max: qlen(66) + 1 + qlen(66) + hlen(64) = 197
+    FixedSecureBuffer<66 + 1 + 66 + 64> msg_buf{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // Step d: K = HMAC_K(V || 0x00 || int2octets(x) || bits2octets(h1))
     // Step e: V = HMAC_K(V)
@@ -79,19 +83,24 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
         if (qlen == 32) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             hmac_sha256(K.data(), qlen, msg_buf.data(), off, K.data());
             hmac_sha256(K.data(), qlen, V.data(), qlen, V.data());
-        } else {
+        } else if (qlen == 48) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             hmac_sha384(K.data(), qlen, msg_buf.data(), off, K.data());
             hmac_sha384(K.data(), qlen, V.data(), qlen, V.data());
+        } else {
+            hmac_sha512(K.data(), qlen, msg_buf.data(), off, K.data());
+            hmac_sha512(K.data(), qlen, V.data(), qlen, V.data());
         }
     }
 
     // Step h: generate candidate T until valid k found.
-    // In practice with P-256/P-384, the first candidate is almost always valid.
+    // In practice the first candidate is almost always valid.
     for (int attempt = 0; attempt < 100; ++attempt) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         if (qlen == 32) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             hmac_sha256(K.data(), qlen, V.data(), qlen, V.data());
-        } else {
+        } else if (qlen == 48) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             hmac_sha384(K.data(), qlen, V.data(), qlen, V.data());
+        } else {
+            hmac_sha512(K.data(), qlen, V.data(), qlen, V.data());
         }
         // V is now candidate T (with qlen bytes)
         std::memcpy(k_out, V.data(), qlen);
@@ -126,15 +135,18 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
 update_kv:
         // K = HMAC_K(V || 0x00)
         {
-            FixedSecureBuffer<64 + 1> tmp{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            FixedSecureBuffer<66 + 1> tmp{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             std::memcpy(tmp.data(), V.data(), qlen);
             tmp[qlen] = 0x00U;
             if (qlen == 32) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
                 hmac_sha256(K.data(), qlen, tmp.data(), qlen + 1, K.data());
                 hmac_sha256(K.data(), qlen, V.data(), qlen, V.data());
-            } else {
+            } else if (qlen == 48) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
                 hmac_sha384(K.data(), qlen, tmp.data(), qlen + 1, K.data());
                 hmac_sha384(K.data(), qlen, V.data(), qlen, V.data());
+            } else {
+                hmac_sha512(K.data(), qlen, tmp.data(), qlen + 1, K.data());
+                hmac_sha512(K.data(), qlen, V.data(), qlen, V.data());
             }
         }
     }
@@ -329,8 +341,93 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
 
 // -----------------------------------------------------------------------
-// SHA-256 / SHA-384 hash of a message (for sign_message / verify_message).
-// These call the already-implemented sha256/sha384 functions.
+// P-521 ECDSA.
 // -----------------------------------------------------------------------
+
+static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t private_scalar_be[66], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const uint8_t msg_hash[64],          // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint8_t sig_out[132]) noexcept       // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+{
+    using Fe = Fe521;
+    using Point = P521Point;
+    constexpr std::size_t qlen = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t hlen = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
+    Fe d = p521_scalar_from_bytes66(private_scalar_be);
+    if (p521_scalar_is_zero(d)) { return false; }
+
+    FixedSecureBuffer<qlen> k_buf{};
+    rfc6979_generate_k(private_scalar_be, qlen, msg_hash, hlen,
+                       p521_n, 9, k_buf.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    Fe k = p521_scalar_from_bytes66(k_buf.data());
+    if (p521_scalar_is_zero(k)) { return false; }
+
+    const Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
+    const Point R = p521_to_affine(p521_scalar_mul(G, k_buf.data()));
+    if (p521_point_is_identity(R)) { return false; }
+
+    uint8_t rx_bytes[qlen] = {};
+    fe521_to_bytes(R.X, rx_bytes);
+    Fe r = p521_scalar_from_bytes66(rx_bytes);
+    if (p521_scalar_is_zero(r)) { return false; }
+
+    const Fe rd   = p521_scalar_mul_mod_n(r, d);
+    const Fe eprd = p521_scalar_add(e, rd);
+    const Fe kinv = p521_scalar_invert(k);
+    const Fe s    = p521_scalar_mul_mod_n(kinv, eprd);
+    if (p521_scalar_is_zero(s)) { return false; }
+
+    fe521_to_bytes(r, sig_out);
+    fe521_to_bytes(s, sig_out + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    return true;
+}
+
+static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t public_key_uncompressed[133], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const uint8_t msg_hash[64],                 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const uint8_t sig[132]) noexcept            // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+{
+    using Fe = Fe521;
+    using Point = P521Point;
+    constexpr std::size_t qlen = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t hlen = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    if (public_key_uncompressed[0] != 0x04U) { return false; }
+
+    Fe r = p521_scalar_from_bytes66(sig);
+    Fe s = p521_scalar_from_bytes66(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (p521_scalar_is_zero(r) || p521_scalar_is_zero(s)) { return false; }
+
+    Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
+    Fe w = p521_scalar_invert(s);
+
+    const Fe u1 = p521_scalar_mul_mod_n(e, w);
+    const Fe u2 = p521_scalar_mul_mod_n(r, w);
+
+    uint8_t u1b[qlen] = {};
+    uint8_t u2b[qlen] = {};
+    fe521_to_bytes(u1, u1b);
+    fe521_to_bytes(u2, u2b);
+
+    const Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
+    const Fe Qx = fe521_from_bytes(public_key_uncompressed + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const Fe Qy = fe521_from_bytes(public_key_uncompressed + 67);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
+
+    const Point X = p521_to_affine(p521_point_add(
+        p521_scalar_mul(G, u1b),
+        p521_scalar_mul(Q, u2b)));
+
+    if (p521_point_is_identity(X)) { return false; }
+
+    uint8_t xx_bytes[qlen] = {};
+    fe521_to_bytes(X.X, xx_bytes);
+    Fe xr = p521_scalar_from_bytes66(xx_bytes);
+    return fe521_equal(xr, r);
+}
+
 
 }  // namespace arm_asm::detail
