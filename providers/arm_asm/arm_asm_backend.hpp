@@ -9,13 +9,17 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include "aes256_gcm.hpp"
-#include "secure_buffer.hpp"
 #include "chacha20_poly1305.hpp"
 #include "defs.hpp"
+#include "ec_key_store.hpp"
+#include "ecdsa.hpp"
 #include "hkdf.hpp"
 #include "hmac.hpp"
 #include "key_store.hpp"
+#include "p256_point.hpp"
+#include "p384_point.hpp"
 #include "random.hpp"
+#include "secure_buffer.hpp"
 #include "sha256.hpp"
 #include "sha3.hpp"
 #include "sha512.hpp"
@@ -37,11 +41,12 @@ struct ArmAsmBackend {
     using KdfOperation = arm_asm::detail::HkdfState;
     using KdfStep      = unsigned int;
 
-    // KeyAttributes carries the symmetric key size so generate_key knows
-    // how many bytes to produce.  key_bytes == 0 means "not applicable"
-    // (used for algorithm types the ARM ASM backend doesn't implement).
+    // KeyAttributes carries either symmetric key size or EC curve/kind info.
+    // key_bytes == 0 and ec_curve == None means "not applicable".
     struct KeyAttributes {
         std::size_t key_bytes{0};
+        arm_asm::detail::EcCurveId ec_curve{arm_asm::detail::EcCurveId::None};
+        arm_asm::detail::EcKeyKind ec_kind{arm_asm::detail::EcKeyKind::None};
     };
 
     static constexpr Status ok              = 0;
@@ -105,8 +110,15 @@ struct ArmAsmBackend {
         return err_invalid_arg;
     }
     [[nodiscard]]
-    static Status import_key(const KeyAttributes* /*attrs*/, const CryptoByte* key,
+    static Status import_key(const KeyAttributes* attrs, const CryptoByte* key,
                              std::size_t key_len, KeyId* id) {
+        if (attrs != nullptr && attrs->ec_curve != arm_asm::detail::EcCurveId::None) {
+            const KeyId slot = arm_asm::detail::ec_key_store_import(
+                attrs->ec_curve, attrs->ec_kind, key, key_len);
+            if (slot == 0U) { return err_invalid_arg; }
+            *id = slot;
+            return ok;
+        }
         const KeyId slot = arm_asm::detail::key_store_import(key, key_len);
         if (slot == 0U) { return err_invalid_arg; }
         *id = slot;
@@ -114,7 +126,47 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status generate_key(const KeyAttributes* attrs, KeyId* id) {
-        if (attrs == nullptr || attrs->key_bytes == 0) { return err_invalid_arg; }
+        if (attrs == nullptr) { return err_invalid_arg; }
+        if (attrs->ec_curve != arm_asm::detail::EcCurveId::None) {
+            // Generate EC private key: random scalar in [1, n-1].
+            using namespace arm_asm::detail;
+            if (attrs->ec_curve == EcCurveId::P256) {
+                constexpr std::size_t sk_len = 32;
+                FixedSecureBuffer<sk_len> sk{};
+                // Rejection sample: generate random bytes, check in [1, n-1].
+                for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                    generate_random_bytes(sk.data(), sk_len);
+                    Fe256 s = p256_scalar_from_bytes32(sk.data());
+                    if (!p256_scalar_is_zero(s)) {
+                        // p256_scalar_from_bytes32 already reduces mod n, so s < n.
+                        fe256_to_bytes(s, sk.data());
+                        const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len);
+                        if (slot == 0U) { return err_invalid_arg; }
+                        *id = slot;
+                        return ok;
+                    }
+                }
+                return err_invalid_arg;
+            }
+            if (attrs->ec_curve == EcCurveId::P384) {
+                constexpr std::size_t sk_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                FixedSecureBuffer<sk_len> sk{};
+                for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                    generate_random_bytes(sk.data(), sk_len);
+                    Fe384 s = p384_scalar_from_bytes48(sk.data());
+                    if (!p384_scalar_is_zero(s)) {
+                        fe384_to_bytes(s, sk.data());
+                        const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len);
+                        if (slot == 0U) { return err_invalid_arg; }
+                        *id = slot;
+                        return ok;
+                    }
+                }
+                return err_invalid_arg;
+            }
+            return err_invalid_arg;
+        }
+        if (attrs->key_bytes == 0) { return err_invalid_arg; }
         if (attrs->key_bytes > arm_asm::detail::key_store_max_bytes) { return err_invalid_arg; }
         FixedSecureBuffer<arm_asm::detail::key_store_max_bytes> buf;
         arm_asm::detail::generate_random_bytes(buf.data(), attrs->key_bytes);
@@ -125,11 +177,28 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status destroy_key(KeyId id) {
-        arm_asm::detail::key_store_destroy(id);
+        if (arm_asm::detail::ec_key_id_is_ec(id)) {
+            arm_asm::detail::ec_key_store_destroy(id);
+        } else {
+            arm_asm::detail::key_store_destroy(id);
+        }
         return ok;
     }
     [[nodiscard]]
     static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) {
+        if (arm_asm::detail::ec_key_id_is_ec(id)) {
+            using namespace arm_asm::detail;
+            EcCurveId curve = EcCurveId::None;
+            EcKeyKind kind  = EcKeyKind::None;
+            const CryptoByte* key = nullptr;
+            std::size_t key_len = 0;
+            if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
+            if (kind != EcKeyKind::Private) { return err_invalid_arg; }
+            if (size < key_len) { return err_invalid_arg; }
+            std::memcpy(out, key, key_len);
+            *len = key_len;
+            return ok;
+        }
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
@@ -139,8 +208,38 @@ struct ArmAsmBackend {
         return ok;
     }
     [[nodiscard]]
-    static Status export_public_key(KeyId /*id*/, CryptoByte* /*out*/, std::size_t /*size*/,
-                                    std::size_t* /*len*/)                     { return err_invalid_arg; }
+    static Status export_public_key(KeyId id, CryptoByte* out, std::size_t size,
+                                    std::size_t* len) {
+        using namespace arm_asm::detail;
+        if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
+        EcCurveId curve = EcCurveId::None;
+        EcKeyKind kind  = EcKeyKind::None;
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
+        if (kind == EcKeyKind::Public) {
+            if (size < key_len) { return err_invalid_arg; }
+            std::memcpy(out, key, key_len);
+            *len = key_len;
+            return ok;
+        }
+        if (kind != EcKeyKind::Private) { return err_invalid_arg; }
+        if (curve == EcCurveId::P256) {
+            constexpr std::size_t pk_len = 65; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (size < pk_len) { return err_invalid_arg; }
+            p256_compute_public_key(key, out);
+            *len = pk_len;
+            return ok;
+        }
+        if (curve == EcCurveId::P384) {
+            constexpr std::size_t pk_len = 97; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (size < pk_len) { return err_invalid_arg; }
+            p384_compute_public_key(key, out);
+            *len = pk_len;
+            return ok;
+        }
+        return err_invalid_arg;
+    }
     [[nodiscard]]
     static Status mac_compute(  // NOLINT(readability-function-size)
                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
@@ -265,21 +364,121 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status sign_message(  // NOLINT(readability-function-size)
-                               KeyId /*id*/, Algorithm /*alg*/,
-                               const CryptoByte* /*msg*/, std::size_t /*msg_len*/,
-                               CryptoByte* /*sig*/, std::size_t /*sig_size*/, std::size_t* /*sig_len*/)
-                                                                              { return err_invalid_arg; }
+                               KeyId id, Algorithm alg,
+                               const CryptoByte* msg, std::size_t msg_len,
+                               CryptoByte* sig, std::size_t sig_size, std::size_t* sig_len) {
+        using namespace arm_asm::detail;
+        if (alg != alg_ecdsa()) { return err_invalid_arg; }
+        if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
+        EcCurveId curve = EcCurveId::None;
+        EcKeyKind kind  = EcKeyKind::None;
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
+        if (kind != EcKeyKind::Private) { return err_invalid_arg; }
+        if (curve == EcCurveId::P256) {
+            constexpr std::size_t hash_len = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t sig_len_expected = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (sig_size < sig_len_expected) { return err_invalid_arg; }
+            if (key_len != hash_len) { return err_invalid_arg; }
+            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            sha256(msg, msg_len, hash);
+            if (!p256_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            *sig_len = sig_len_expected;
+            return ok;
+        }
+        if (curve == EcCurveId::P384) {
+            constexpr std::size_t hash_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t sig_len_expected = 96; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (sig_size < sig_len_expected) { return err_invalid_arg; }
+            if (key_len != hash_len) { return err_invalid_arg; }
+            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            sha384(msg, msg_len, hash);
+            if (!p384_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            *sig_len = sig_len_expected;
+            return ok;
+        }
+        return err_invalid_arg;
+    }
     [[nodiscard]]
-    static Status verify_message(KeyId /*id*/, Algorithm /*alg*/,
-                                 const CryptoByte* /*msg*/, std::size_t /*msg_len*/,
-                                 const CryptoByte* /*sig*/, std::size_t /*sig_len*/)
-                                                                              { return err_invalid_arg; }
+    static Status verify_message(KeyId id, Algorithm alg,
+                                 const CryptoByte* msg, std::size_t msg_len,
+                                 const CryptoByte* sig, std::size_t sig_len) {
+        using namespace arm_asm::detail;
+        if (alg != alg_ecdsa()) { return err_invalid_arg; }
+        if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
+        EcCurveId curve = EcCurveId::None;
+        EcKeyKind kind  = EcKeyKind::None;
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
+        if (kind != EcKeyKind::Public) { return err_invalid_arg; }
+        if (curve == EcCurveId::P256) {
+            constexpr std::size_t hash_len = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t expected_sig_len = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 65; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
+            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            sha256(msg, msg_len, hash);
+            return p256_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+        }
+        if (curve == EcCurveId::P384) {
+            constexpr std::size_t hash_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t expected_sig_len = 96; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 97; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
+            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            sha384(msg, msg_len, hash);
+            return p384_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+        }
+        return err_invalid_arg;
+    }
     [[nodiscard]]
     static Status raw_key_agreement(  // NOLINT(readability-function-size)
-                                    Algorithm /*alg*/, KeyId /*id*/,
-                                    const CryptoByte* /*peer*/, std::size_t /*peer_len*/,
-                                    CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
-                                                                              { return err_invalid_arg; }
+                                    Algorithm alg, KeyId id,
+                                    const CryptoByte* peer, std::size_t peer_len,
+                                    CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
+        using namespace arm_asm::detail;
+        if (alg != alg_ecdh()) { return err_invalid_arg; }
+        if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
+        EcCurveId curve = EcCurveId::None;
+        EcKeyKind kind  = EcKeyKind::None;
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
+        if (kind != EcKeyKind::Private) { return err_invalid_arg; }
+        if (curve == EcCurveId::P256) {
+            constexpr std::size_t pk_len = 65; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t ss_len = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
+            if (out_size < ss_len) { return err_invalid_arg; }
+            if (key_len != ss_len) { return err_invalid_arg; }
+            const Fe256 Qx = fe256_from_bytes(peer + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const Fe256 Qy = fe256_from_bytes(peer + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            const P256Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
+            const P256Point S = p256_to_affine(p256_scalar_mul(Q, key));
+            if (p256_point_is_identity(S)) { return err_invalid_arg; }
+            fe256_to_bytes(S.X, out);
+            *out_len = ss_len;
+            return ok;
+        }
+        if (curve == EcCurveId::P384) {
+            constexpr std::size_t pk_len = 97; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t ss_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
+            if (out_size < ss_len) { return err_invalid_arg; }
+            if (key_len != ss_len) { return err_invalid_arg; }
+            const Fe384 Qx = fe384_from_bytes(peer + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const Fe384 Qy = fe384_from_bytes(peer + 49); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            const P384Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
+            const P384Point S = p384_to_affine(p384_scalar_mul(Q, key));
+            if (p384_point_is_identity(S)) { return err_invalid_arg; }
+            fe384_to_bytes(S.X, out);
+            *out_len = ss_len;
+            return ok;
+        }
+        return err_invalid_arg;
+    }
     [[nodiscard]]
     static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
                                      KeyId /*id*/, Algorithm /*alg*/,
@@ -330,9 +529,9 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static Algorithm alg_hmac(ShaVariant v) noexcept { return alg_base_hmac | static_cast<Algorithm>(v); }
     [[nodiscard]]
-    static constexpr Algorithm alg_ecdsa()             noexcept { return 0U; }
+    static constexpr Algorithm alg_ecdsa()             noexcept { return 0x0501U; }
     [[nodiscard]]
-    static constexpr Algorithm alg_ecdh()              noexcept { return 0U; }
+    static constexpr Algorithm alg_ecdh()              noexcept { return 0x0502U; }
     [[nodiscard]]
     static constexpr Algorithm alg_hkdf()              noexcept { return 0x0301U; }
     [[nodiscard]]
@@ -365,15 +564,30 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static KeyAttributes make_hmac_verify_attrs(ShaVariant /*v*/, std::size_t bits)   noexcept { return {bits / 8U}; }
     [[nodiscard]]
-    static KeyAttributes make_ecdsa_generate_attrs(std::size_t /*bits*/)       noexcept { return {}; }
+    static KeyAttributes make_ecdsa_generate_attrs(std::size_t bits)       noexcept {
+        const auto curve = (bits == 256U) ? arm_asm::detail::EcCurveId::P256 : arm_asm::detail::EcCurveId::P384; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        return {.key_bytes = bits / 8U, .ec_curve = curve, .ec_kind = arm_asm::detail::EcKeyKind::Private};
+    }
     [[nodiscard]]
-    static KeyAttributes make_ecdsa_sign_attrs(std::size_t /*bits*/)           noexcept { return {}; }
+    static KeyAttributes make_ecdsa_sign_attrs(std::size_t bits)           noexcept {
+        const auto curve = (bits == 256U) ? arm_asm::detail::EcCurveId::P256 : arm_asm::detail::EcCurveId::P384; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        return {.key_bytes = bits / 8U, .ec_curve = curve, .ec_kind = arm_asm::detail::EcKeyKind::Private};
+    }
     [[nodiscard]]
-    static KeyAttributes make_ecdsa_verify_attrs(std::size_t /*bits*/)         noexcept { return {}; }
+    static KeyAttributes make_ecdsa_verify_attrs(std::size_t bits)         noexcept {
+        const auto curve = (bits == 256U) ? arm_asm::detail::EcCurveId::P256 : arm_asm::detail::EcCurveId::P384; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        return {.key_bytes = bits / 8U, .ec_curve = curve, .ec_kind = arm_asm::detail::EcKeyKind::Public};
+    }
     [[nodiscard]]
-    static KeyAttributes make_ecdh_generate_attrs(std::size_t /*bits*/)        noexcept { return {}; }
+    static KeyAttributes make_ecdh_generate_attrs(std::size_t bits)        noexcept {
+        const auto curve = (bits == 256U) ? arm_asm::detail::EcCurveId::P256 : arm_asm::detail::EcCurveId::P384; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        return {.key_bytes = bits / 8U, .ec_curve = curve, .ec_kind = arm_asm::detail::EcKeyKind::Private};
+    }
     [[nodiscard]]
-    static KeyAttributes make_ecdh_agree_attrs(std::size_t /*bits*/)           noexcept { return {}; }
+    static KeyAttributes make_ecdh_agree_attrs(std::size_t bits)           noexcept {
+        const auto curve = (bits == 256U) ? arm_asm::detail::EcCurveId::P256 : arm_asm::detail::EcCurveId::P384; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        return {.key_bytes = bits / 8U, .ec_curve = curve, .ec_kind = arm_asm::detail::EcKeyKind::Private};
+    }
     [[nodiscard]]
     static KeyAttributes make_aes256_gcm_encrypt_attrs()                       noexcept { return {aes256_key_size_bytes}; }
     [[nodiscard]]
@@ -394,13 +608,13 @@ struct ArmAsmBackend {
     static KeyAttributes make_rsa_key_pair_attrs(std::size_t /*bits*/)         noexcept { return {}; }
 
     [[nodiscard]]
-    static std::size_t ecdsa_sign_output_size(std::size_t /*bits*/)          noexcept { return 0; }
+    static std::size_t ecdsa_sign_output_size(std::size_t bits)          noexcept { return bits / 4U; }  // 256→64, 384→96
     [[nodiscard]]
-    static std::size_t ecdh_shared_secret_size(std::size_t /*bits*/)         noexcept { return 0; }
+    static std::size_t ecdh_shared_secret_size(std::size_t bits)         noexcept { return bits / 8U; }  // 256→32, 384→48
     [[nodiscard]]
-    static std::size_t ec_private_key_export_size(std::size_t /*bits*/)      noexcept { return 0; }
+    static std::size_t ec_private_key_export_size(std::size_t bits)      noexcept { return bits / 8U; }  // 256→32, 384→48
     [[nodiscard]]
-    static std::size_t ec_public_key_export_size(std::size_t /*bits*/)       noexcept { return 0; }
+    static std::size_t ec_public_key_export_size(std::size_t bits)       noexcept { return (bits / 4U) + 1U; }  // 256→65, 384→97
     [[nodiscard]]
     static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len + arm_asm::detail::aes_gcm_tag_bytes; }
     [[nodiscard]]
