@@ -233,19 +233,22 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | ChaCha20-Poly1305 encrypt | 574 MB/s | 782 MB/s | **1.36×** |
 | ChaCha20-Poly1305 decrypt | 568 MB/s | 798 MB/s | **1.41×** |
 | HKDF-SHA-384 (48 B output) | 355 K ops/s | 626 K ops/s | **1.8×** |
-| ECDSA sign P-256 | 5,119 ops/s | 5,499 ops/s | **1.07×** |
-| ECDSA verify P-256 | 1,482 ops/s | 2,082 ops/s | **1.41×** |
-| ECDSA sign P-384 | 3,080 ops/s | 1,771 ops/s | **0.58×** |
-| ECDSA verify P-384 | 830 ops/s | 643 ops/s | **0.78×** |
-| ECDSA sign P-521 | 1,959 ops/s | 1,256 ops/s | **0.64×** |
-| ECDSA verify P-521 | 550 ops/s | 636 ops/s | **1.16×** |
+| ECDSA sign P-256 | 5,165 ops/s | 5,514 ops/s | **1.07×** |
+| ECDSA verify P-256 | 1,470 ops/s | 2,124 ops/s | **1.44×** |
+| ECDSA sign P-384 | 3,074 ops/s | 2,334 ops/s | **0.76×** |
+| ECDSA verify P-384 | 828 ops/s | 914 ops/s | **1.10×** |
+| ECDSA sign P-521 | 1,918 ops/s | 1,254 ops/s | **0.65×** |
+| ECDSA verify P-521 | 551 ops/s | 628 ops/s | **1.14×** |
+| ECDH P-256 | 2,184 ops/s | 3,129 ops/s | **1.43×** |
+| ECDH P-384 | 1,221 ops/s | 1,393 ops/s | **1.14×** |
+| ECDH P-521 | 860 ops/s | 1,046 ops/s | **1.22×** |
 
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
 - **SHA3 / HMAC-SHA3** beats PSA at 1.2–1.3× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
 - **ChaCha20-Poly1305** now leads MbedTLS at 1.36–1.41× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
-- **ECDSA P-256** now beats PSA at 1.07× sign and 1.41× verify after adding a 4-bit fixed-base window over a precomputed [1..15]·G affine table. Each 4-bit nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per add). This reduces sign from 256 variable-base iterations to 64 fixed-base steps, and halves verify's generator work (u1·G uses fixed-base; u2·Q remains variable-base). P-384 and P-521 benefit too but remain slower than PSA due to larger field arithmetic (6×64 and 9×64-bit limbs respectively, with no custom reduction).
+- **ECDSA / ECDH** now beats PSA across all three curves for verify and key agreement, and for P-256 sign. Two optimizations compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). P-384 sign still trails PSA (0.76×) due to P-384 having no hardware modular reduction and 50% more limbs than P-256; signing requires three scalar multiplications (inversion, k·G, and s computation) where k·G uses variable-base for the non-G point.
 
 ## Provider selection
 

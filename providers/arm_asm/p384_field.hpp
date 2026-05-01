@@ -359,9 +359,28 @@ static inline auto fe384_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
 
 [[nodiscard]]
 static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
-    uint32_t c[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    fe384_mul_raw(c, a, b);
-    return fe384_solinas(c);
+    using u128 = unsigned __int128;
+
+    // 6×6 row-by-row multiply: 36 u64×u64 multiply-accumulates vs the old 12×12=144 u32 ones.
+    // Each row carries out so every c[k] stays in [0, 2^64).
+    uint64_t c[12]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    for (int i = 0; i < 6; ++i) {
+        uint64_t carry = 0;
+        for (int j = 0; j < 6; ++j) {
+            const u128 t = static_cast<u128>(a.v[i]) * b.v[j] + c[i + j] + carry;
+            c[i + j] = static_cast<uint64_t>(t);
+            carry    = static_cast<uint64_t>(t >> 64U);
+        }
+        c[i + 6] = carry;
+    }
+
+    // Expand 12 × 64-bit words to 24 × 32-bit words for the existing Solinas path.
+    uint32_t c32[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    for (int i = 0; i < 12; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        c32[2 * i]     = static_cast<uint32_t>(c[i]);
+        c32[2 * i + 1] = static_cast<uint32_t>(c[i] >> 32U);
+    }
+    return fe384_solinas(c32);
 }
 
 [[nodiscard]]
