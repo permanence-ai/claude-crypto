@@ -181,8 +181,7 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     if (p256_scalar_is_zero(k)) { return false; }
 
     // R = k·G, r = R.x mod n.
-    const Point G{.X = p256_Gx, .Y = p256_Gy, .Z = fe256_one};
-    const Point R = p256_to_affine(p256_scalar_mul(G, k_buf.data()));
+    const Point R = p256_to_affine(p256_scalar_mul_base(k_buf.data()));
     if (p256_point_is_identity(R)) { return false; }
 
     // r = R.x mod n (R.x is in [0, p-1]; n < p so just subtract n once if needed).
@@ -233,13 +232,12 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     fe256_to_bytes(u2, u2b);
 
     // Compute u1·G + u2·Q.
-    const Point G{.X = p256_Gx, .Y = p256_Gy, .Z = fe256_one};
     const Fe Qx = fe256_from_bytes(public_key_uncompressed + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const Fe Qy = fe256_from_bytes(public_key_uncompressed + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
 
     const Point X = p256_to_affine(p256_point_add(
-        p256_scalar_mul(G, u1b),
+        p256_scalar_mul_base(u1b),
         p256_scalar_mul(Q, u2b)));
 
     if (p256_point_is_identity(X)) { return false; }
@@ -276,8 +274,7 @@ static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const Fe k = p384_scalar_from_bytes48(k_buf.data());
     if (p384_scalar_is_zero(k)) { return false; }
 
-    const Point G{.X = p384_Gx, .Y = p384_Gy, .Z = fe384_one};
-    const Point R = p384_to_affine(p384_scalar_mul(G, k_buf.data()));
+    const Point R = p384_to_affine(p384_scalar_mul_base(k_buf.data()));
     if (p384_point_is_identity(R)) { return false; }
 
     uint8_t rx_bytes[qlen] = {};
@@ -322,13 +319,12 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     fe384_to_bytes(u1, u1b);
     fe384_to_bytes(u2, u2b);
 
-    const Point G{.X = p384_Gx, .Y = p384_Gy, .Z = fe384_one};
     const Fe Qx = fe384_from_bytes(public_key_uncompressed + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const Fe Qy = fe384_from_bytes(public_key_uncompressed + 49);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
 
     const Point X = p384_to_affine(p384_point_add(
-        p384_scalar_mul(G, u1b),
+        p384_scalar_mul_base(u1b),
         p384_scalar_mul(Q, u2b)));
 
     if (p384_point_is_identity(X)) { return false; }
@@ -365,8 +361,7 @@ static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const Fe k = p521_scalar_from_bytes66(k_buf.data());
     if (p521_scalar_is_zero(k)) { return false; }
 
-    const Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
-    const Point R = p521_to_affine(p521_scalar_mul(G, k_buf.data()));
+    const Point R = p521_to_affine(p521_scalar_mul_base(k_buf.data()));
     if (p521_point_is_identity(R)) { return false; }
 
     uint8_t rx_bytes[qlen] = {};
@@ -412,13 +407,12 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     fe521_to_bytes(u1, u1b);
     fe521_to_bytes(u2, u2b);
 
-    const Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
     const Fe Qx = fe521_from_bytes(public_key_uncompressed + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const Fe Qy = fe521_from_bytes(public_key_uncompressed + 67);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
 
     const Point X = p521_to_affine(p521_point_add(
-        p521_scalar_mul(G, u1b),
+        p521_scalar_mul_base(u1b),
         p521_scalar_mul(Q, u2b)));
 
     if (p521_point_is_identity(X)) { return false; }

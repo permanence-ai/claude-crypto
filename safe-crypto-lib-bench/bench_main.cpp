@@ -42,7 +42,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 // Remaining library headers.
 #include "aead.hpp"
+#include "asymmetric.hpp"
 #include "digests.hpp"
+#include "ecc.hpp"
+#include "ecdh.hpp"
 #include "kdf.hpp"
 #include "mac.hpp"
 #include "random.hpp"
@@ -372,6 +375,152 @@ BENCHMARK_TEMPLATE(BM_RandomBytes, RealPsaBackend)
 BENCHMARK_TEMPLATE(BM_RandomBytes, ArmAsmBackend)
     ->Arg(32)->Arg(256)->Arg(4096) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("RandomBytes/ARM");
+
+
+// ---------------------------------------------------------------------------
+// ECDSA benchmarks (P-256, P-384, P-521)
+// ---------------------------------------------------------------------------
+
+template<EcCurve Curve, typename Provider>
+static void BM_EcdsaSign(benchmark::State& state) {
+    // Generate key once; sign in the loop.
+    auto kp = ecdsa_generate_key_impl<Provider>(Curve);
+    const auto msg = make_payload(64);
+    for (auto _ : state) {
+        auto result = ecdsa_sign_impl<Provider>(kp.value(), Curve, msg);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+template<EcCurve Curve, typename Provider>
+static void BM_EcdsaVerify(benchmark::State& state) {
+    auto kp  = ecdsa_generate_key_impl<Provider>(Curve);
+    const auto msg = make_payload(64);
+    auto sig = ecdsa_sign_impl<Provider>(kp.value(), Curve, msg);
+    EcPublicKey pub_only{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    for (auto _ : state) {
+        auto result = ecdsa_verify_impl<Provider>(pub_only, Curve, msg, sig.value());
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// P-256
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P256, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P256/PSA");
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P256, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P256/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P256, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P256/PSA");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P256, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P256/ARM");
+
+// P-384
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P384, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P384/PSA");
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P384, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P384/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P384, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P384/PSA");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P384, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P384/ARM");
+
+// P-521
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P521, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P521/PSA");
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P521, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P521/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P521, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P521/PSA");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P521, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P521/ARM");
+
+
+// ---------------------------------------------------------------------------
+// ECDH benchmarks (P-256, P-384, P-521)
+// ---------------------------------------------------------------------------
+
+template<EcCurve Curve, typename Provider>
+static void BM_Ecdh(benchmark::State& state) {
+    // Generate two key pairs once; compute shared secret in the loop.
+    auto kp_a = ecdh_generate_key_impl<Provider>(Curve);
+    auto kp_b = ecdh_generate_key_impl<Provider>(Curve);
+    for (auto _ : state) {
+        auto result = ecdh_compute_shared_secret_impl<Provider>(kp_a.value(), Curve, kp_b->public_key_der);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P256, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDH_P256/PSA");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P256, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P256/ARM");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P384, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDH_P384/PSA");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P384, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P384/ARM");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P521, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDH_P521/PSA");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P521, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P521/ARM");
+
+
+// ---------------------------------------------------------------------------
+// RSA-OAEP and RSA-PSS benchmarks (3072-bit; 4096-bit signs and verifies only)
+// ---------------------------------------------------------------------------
+
+template<RsaKeyBits KB, typename Provider>
+static void BM_RsaOaepEncrypt(benchmark::State& state) {
+    auto kp = generate_rsa_key_impl<KB, Provider>();
+    RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    const auto pt = make_payload(64);
+    for (auto _ : state) {
+        auto result = rsa_oaep_encrypt_impl<KB, Provider>(pub, pt);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+template<RsaKeyBits KB, typename Provider>
+static void BM_RsaOaepDecrypt(benchmark::State& state) {
+    auto kp = generate_rsa_key_impl<KB, Provider>();
+    RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    const auto pt = make_payload(64);
+    auto ct = rsa_oaep_encrypt_impl<KB, Provider>(pub, pt);
+    for (auto _ : state) {
+        auto result = rsa_oaep_decrypt_impl<KB, Provider>(kp.value(), ct.value());
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+template<RsaKeyBits KB, typename Provider>
+static void BM_RsaPssSign(benchmark::State& state) {
+    auto kp = generate_rsa_key_impl<KB, Provider>();
+    const auto msg = make_payload(64);
+    for (auto _ : state) {
+        auto result = rsa_pss_sign_impl<KB, Provider>(kp.value(), msg);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+template<RsaKeyBits KB, typename Provider>
+static void BM_RsaPssVerify(benchmark::State& state) {
+    auto kp = generate_rsa_key_impl<KB, Provider>();
+    RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    const auto msg = make_payload(64);
+    auto sig = rsa_pss_sign_impl<KB, Provider>(kp.value(), msg);
+    for (auto _ : state) {
+        auto result = rsa_pss_verify_impl<KB, Provider>(pub, msg, sig.value());
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// RSA-3072
+BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Enc/PSA");
+BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Enc/ARM");
+BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Dec/PSA");
+BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Dec/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Sign/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Verify/ARM");
+
+// RSA-4096
+BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Enc/PSA");
+BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Enc/ARM");
+BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Dec/PSA");
+BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Dec/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Sign/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Verify/ARM");
 
 
 BENCHMARK_MAIN(); // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

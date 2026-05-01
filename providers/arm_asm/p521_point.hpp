@@ -87,13 +87,18 @@ static constexpr uint64_t p521_n[9] = { // NOLINT(cppcoreguidelines-avoid-c-arra
 
 
 // -----------------------------------------------------------------------
-// Jacobian point.
+// Jacobian point and affine point.
 // -----------------------------------------------------------------------
 
 struct P521Point {
     Fe521 X;
     Fe521 Y;
     Fe521 Z;
+};
+
+struct P521AffinePoint {
+    Fe521 X;
+    Fe521 Y;
 };
 
 static constexpr P521Point p521_identity = {
@@ -177,6 +182,127 @@ static inline auto p521_point_add(const P521Point& p, const P521Point& q) noexce
         .Y = y3,
         .Z = z3,
     };
+}
+
+
+// -----------------------------------------------------------------------
+// Mixed Jacobian–affine add: p (Jacobian) + q (affine, Z=1).
+// -----------------------------------------------------------------------
+
+[[nodiscard]]
+static inline auto p521_point_add_affine(const P521Point& p, const P521AffinePoint& q) noexcept -> P521Point
+{
+    if (p521_point_is_identity(p)) {
+        return P521Point{.X = q.X, .Y = q.Y, .Z = fe521_one};
+    }
+
+    const Fe521 z1sq = fe521_sqr(p.Z);
+    const Fe521 u2   = fe521_mul(q.X, z1sq);
+    const Fe521 s2   = fe521_mul(q.Y, fe521_mul(p.Z, z1sq));
+    const Fe521 h    = fe521_sub(u2, p.X);
+    const Fe521 r    = fe521_sub(s2, p.Y);
+
+    if (fe521_is_zero(h) && fe521_is_zero(r)) {
+        return p521_point_double(p);
+    }
+
+    const Fe521 h2   = fe521_sqr(h);
+    const Fe521 h3   = fe521_mul(h, h2);
+    const Fe521 u1h2 = fe521_mul(p.X, h2);
+    const Fe521 x3   = fe521_sub(fe521_sub(fe521_sqr(r), h3), fe521_add(u1h2, u1h2));
+    const Fe521 y3   = fe521_sub(fe521_mul(r, fe521_sub(u1h2, x3)), fe521_mul(p.Y, h3));
+    const Fe521 z3   = fe521_mul(h, p.Z);
+
+    return P521Point{
+        .X = x3,
+        .Y = y3,
+        .Z = z3,
+    };
+}
+
+
+// -----------------------------------------------------------------------
+// Precomputed [1..15]*G table for 4-bit fixed-base window.
+// -----------------------------------------------------------------------
+
+static constexpr P521AffinePoint p521_G_table[15] = { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // [1]*G
+    {{0xf97e7e31c2e5bd66ULL, 0x3348b3c1856a429bULL, 0xfe1dc127a2ffa8deULL, 0xa14b5e77efe75928ULL, 0xf828af606b4d3dbaULL, 0x9c648139053fb521ULL, 0x9e3ecb662395b442ULL, 0x858e06b70404e9cdULL, 0x00000000000000c6ULL}, {0x88be94769fd16650ULL, 0x353c7086a272c240ULL, 0xc550b9013fad0761ULL, 0x97ee72995ef42640ULL, 0x17afbd17273e662cULL, 0x98f54449579b4468ULL, 0x5c8a5fb42c7d1bd9ULL, 0x39296a789a3bc004ULL, 0x0000000000000118ULL}},
+    // [2]*G
+    {{0xf43e3933ba6d783dULL, 0xcf2fa364d60fd967ULL, 0xaa104a3a35c5af41ULL, 0xb3b204da6ef55507ULL, 0x2c6e5505d769be97ULL, 0x7403279b1ccc0635ULL, 0x2fcb288148c28274ULL, 0x3c219024277e7e68ULL, 0x0000000000000043ULL}, {0x1be356d661f41b02ULL, 0xeafcbe95edc0f4f7ULL, 0x93937fa99a3248f4ULL, 0xb3e377de9f251f6bULL, 0xab21a29906c42dbbULL, 0xc6b5107c4da97740ULL, 0xa7f3eceeeed3f0b5ULL, 0xbb8cc7f86db26700ULL, 0x00000000000000f4ULL}},
+    // [3]*G
+    {{0xa5919d2ede37ad7dULL, 0xaeb490862c32ea05ULL, 0x1da6bd16b59fe21bULL, 0xad3f164a3a483205ULL, 0xe5ad7a112d7a8dd1ULL, 0xb52a6e5b123d9ab9ULL, 0xd91d6a64b5959479ULL, 0x3d352443de29195dULL, 0x00000000000001a7ULL}, {0x5f588ca1ee86c0e5ULL, 0xf105c9bc93a59042ULL, 0x2d5aced1dec3c70cULL, 0x2e2dd4cf8dc575b0ULL, 0xd2f8ab1fa355ceecULL, 0xf1557fa82a9d0317ULL, 0x979f86c6cab814f2ULL, 0x9b03b97dfa62ddd9ULL, 0x000000000000013eULL}},
+    // [4]*G
+    {{0xfbc87412871902f3ULL, 0xa1d5025b08e5a5e2ULL, 0xe8b88e9f078af066ULL, 0x8659e24afe3d0750ULL, 0x06c5d55541d3ceacULL, 0xc61c891c5ff39afcULL, 0x54b483487c9070cdULL, 0xb5df64ae2ac204c3ULL, 0x0000000000000035ULL}, {0xe21f47fc346e4d0dULL, 0xbb7faef04699d1d9ULL, 0x5224f750a95b85eeULL, 0x79f283e54ba38540ULL, 0x5ae63fe2f19907f2ULL, 0x5521aef6e6e32e1bULL, 0x73e0178eb0b4abb6ULL, 0x096f84261279d2b6ULL, 0x0000000000000082ULL}},
+    // [5]*G
+    {{0xd5ab5096ec8f3078ULL, 0x29d7e1e6d8931738ULL, 0x7112feaf137e79a3ULL, 0x383c0c6d5e301423ULL, 0xcf03dab8f177ace4ULL, 0x7a596efdb53f0d24ULL, 0x3dbc3391c04eb0bfULL, 0x2bf3c52927a432c7ULL, 0x0000000000000065ULL}, {0x173cc3e8deb090cbULL, 0xd1f007257354f7f8ULL, 0x311540211cf5ff79ULL, 0xbb6897c9072cf374ULL, 0xedd817c9a0347087ULL, 0x1cd8fe8e872e0051ULL, 0x8a2b73114a811291ULL, 0xe6ef1bdd6601d6ecULL, 0x000000000000015bULL}},
+    // [6]*G
+    {{0x23731bedf79206b9ULL, 0x2f66e95657f380aeULL, 0xe0727a239531be8cULL, 0x5fbcca16153f7394ULL, 0x981506ade4ab0152ULL, 0x623d30977fd71cf3ULL, 0x2eff34f94480d195ULL, 0x4569d6cdb5921953ULL, 0x00000000000001eeULL}, {0x1eaccd7858d44f17ULL, 0x3dc7b8b55ca0dadeULL, 0xf96c984de274f220ULL, 0xcab72d0e56648c9dULL, 0x7240a926201a8a96ULL, 0x2aabbb73da5a808eULL, 0xe2dd270546e3b111ULL, 0x0255ad0cc64f586aULL, 0x00000000000001deULL}},
+    // [7]*G
+    {{0x01cead882816ecd4ULL, 0x6f953f50fdc2619aULL, 0xc9a6df30dce3bbc4ULL, 0x8c308d0abfc698d8ULL, 0xf018d2c2f7114c5dULL, 0x5f22e0e8f5483228ULL, 0xeeb65fda0b073a0cULL, 0xd5d1d99d5b7f6346ULL, 0x0000000000000056ULL}, {0x5c6b8bc90525251bULL, 0x9e76712a5ddefc7bULL, 0x9523a34591ce1a5fULL, 0x6bd0f293cdec9e2bULL, 0x71dbd98a26cbde55ULL, 0xb5c582d02824f0ddULL, 0xd1d8317a39d68478ULL, 0x2d1b7d9baaa2a110ULL, 0x000000000000003dULL}},
+    // [8]*G
+    {{0x86f9ea54aa78ce68ULL, 0xb56289b5a6f40405ULL, 0x8b598c1bc8d79e1aULL, 0x5bfea5b8579f49f0ULL, 0x8b8a3b05f826298fULL, 0xd4e29d8a9b003e0aULL, 0xa8348396b010e25bULL, 0x22c40fb6301f7262ULL, 0x0000000000000008ULL}, {0x8ad642f11f17801cULL, 0x9f3ba94009471353ULL, 0xf0ba0df065c57869ULL, 0x89e9c0aa5911b4bfULL, 0x5083de610677a8f1ULL, 0x44f8ede9e2c0715bULL, 0x48fdab6e78853b9aULL, 0x31911d5542fc4820ULL, 0x0000000000000163ULL}},
+    // [9]*G
+    {{0x1f45627967cbe207ULL, 0x4f50babd85cd2866ULL, 0xf3c556df725a318fULL, 0x7429e1396134da35ULL, 0x2c4ab145b8c6b665ULL, 0xed34541b98874699ULL, 0xa2f5bf157156d488ULL, 0x5389e359e1e21826ULL, 0x0000000000000158ULL}, {0x3aa0ea86b9ad2a4eULL, 0x736c2ae928880f34ULL, 0x0ff56ecf4abfd87dULL, 0x0d69e5756057ac84ULL, 0xc825ba263ddb446eULL, 0x3088a654ee1cebb6ULL, 0x0b55557a27ae938eULL, 0x2e618c9a8aedf39fULL, 0x000000000000002aULL}},
+    // [10]*G
+    {{0x87ff09a04f2f3320ULL, 0x7c2e411f1a8e819aULL, 0x9daa4da9842093f3ULL, 0xa2c7c178fcc26329ULL, 0x4a9246b11ada8910ULL, 0x901d879ac09ac7c3ULL, 0xfcfe7bb6721ec4cdULL, 0xeb8f22bda61f281dULL, 0x0000000000000190ULL}, {0x2954bc98135ec759ULL, 0xf3689639739faa17ULL, 0x536f6163dc57ebefULL, 0xbf5349d44d9864bbULL, 0xa97fd78a62ef62d2ULL, 0xc2eeb2144251b20bULL, 0xbaeab3b0ca2ba760ULL, 0x5d96b8491614ba9dULL, 0x00000000000001ebULL}},
+    // [11]*G
+    {{0xecc0e02dda0cdb9aULL, 0x015c024fa4c9a902ULL, 0xd19b1aebe3191085ULL, 0xf3dbc5332663da1bULL, 0x43ef2c54f2991652ULL, 0xed5dc7ed7c178495ULL, 0x6f1a39573b4315cfULL, 0x75841259fdedff54ULL, 0x000000000000008aULL}, {0x58874f92ce48c808ULL, 0xdcac80e3f4819b5dULL, 0x3892331914a95336ULL, 0x1bc8a90e8b42a4abULL, 0xed2e95d4e0b9b82bULL, 0x3add566210bd0493ULL, 0x9d0ca877054fb229ULL, 0xfb303fcbba212984ULL, 0x0000000000000096ULL}},
+    // [12]*G
+    {{0x7be69571bf842d8cULL, 0x3774c75c530928b1ULL, 0x477fee9a60e93801ULL, 0x44e90b7c3fb81b31ULL, 0x107cf7a5967713a6ULL, 0x81874157958457b6ULL, 0xe4fae9749c7fde1eULL, 0xd9dcec93f8221c5dULL, 0x00000000000001c0ULL}, {0x79e7b1a3281b17f0ULL, 0x884ba72224f5ae6cULL, 0xcc10a6f951b9b630ULL, 0xd6d18843d86fcdb6ULL, 0x5e404abf6a17c097ULL, 0x63fe65ab71494da4ULL, 0x3ce1d103a682ca47ULL, 0x48b5946a4927c0feULL, 0x0000000000000140ULL}},
+    // [13]*G
+    {{0x1887848d32fbcda7ULL, 0x4bec3b00ab38eff8ULL, 0x3550a5e79ab88ee9ULL, 0x32c45908e03c996aULL, 0x4eedd2beaf5b8661ULL, 0x93f736cde1b4c238ULL, 0xd7865d2b4924861aULL, 0x3e98f984c396ad9cULL, 0x000000000000007eULL}, {0x291a01fb022a71c9ULL, 0x6199eaaf9117e9f7ULL, 0x26dfdd351cbfbbc3ULL, 0xc1bd5d5838bc763fULL, 0x9c7a67ae5c1e212aULL, 0xced50a386d5421c6ULL, 0x1a1926daa3ed5a08ULL, 0xee58eb6d781feda9ULL, 0x0000000000000108ULL}},
+    // [14]*G
+    {{0x2c9e682dd3432d74ULL, 0x6767f6b812efbf5dULL, 0x79df3e4b7bc744aaULL, 0x74fc06c8b897222dULL, 0xd4fb0babe0b31999ULL, 0x958b401494116a2fULL, 0xe1b8ccfaaf84ded1ULL, 0x5bc7dc551b1b65a9ULL, 0x0000000000000187ULL}, {0x41669f852700d54aULL, 0x5b690f53a87c84beULL, 0x11e89bf1d133dc0dULL, 0xd07781b1b4f3584cULL, 0x0847ce9b86d7ed62ULL, 0x8470122b8e51826aULL, 0xd66290bbabb4bdfbULL, 0xa4923575dacb5bd2ULL, 0x000000000000005cULL}},
+    // [15]*G
+    {{0xe9afe337bcb8db55ULL, 0x9b8d96981e3f92bdULL, 0x7875bd1c8fc0331dULL, 0xb91cce27dbd00ffeULL, 0xd697b532df128e11ULL, 0xb8fbcc30b40a0852ULL, 0x41558fc546d4300fULL, 0x6ad89abcb92465f0ULL, 0x000000000000006bULL}, {0x56343480a1475465ULL, 0x46fd90cc446abdd9ULL, 0x2148e2232c96c992ULL, 0x7e9062c899470a80ULL, 0x4b62106997485ed5ULL, 0xdf0496a9bad20cbaULL, 0x7ce64d2333edbf63ULL, 0x68da271571391d6aULL, 0x00000000000001b4ULL}},
+}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+
+// -----------------------------------------------------------------------
+// Fixed-base scalar multiplication using 4-bit window: k·G.
+// scalar is 66-byte big-endian.
+// -----------------------------------------------------------------------
+
+[[nodiscard]]
+static inline auto p521_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t scalar[66]) noexcept -> P521Point // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+{
+    P521Point result = p521_identity;
+
+    // P-521 is 521 bits = 65 full bytes + 1 bit in byte[0].
+    // Process byte[0] (only its low bit) as a 1-bit step first, then bytes 1..65 as 4-bit nibbles.
+    // We process MSB-first: byte[0] high nibble would be bits 520..524 (beyond the field), so
+    // the top byte contributes only 1 bit (bit 520). Process it with a single doubling + conditional add.
+
+    // Process the single top bit: scalar[0] bit 0 (the 521st bit, MSB of the scalar).
+    {
+        result = p521_point_double(result);
+        const auto nibble = static_cast<unsigned>(scalar[0] & 0x01U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        if (nibble != 0U) {
+            result = p521_point_add_affine(result, p521_G_table[nibble - 1U]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+    }
+
+    // Process bytes 1..65 as full byte pairs of nibbles.
+    for (int byte_i = 1; byte_i < 66; ++byte_i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
+        for (int pass = 0; pass < 2; ++pass) {
+            result = p521_point_double(result);
+            result = p521_point_double(result);
+            result = p521_point_double(result);
+            result = p521_point_double(result);
+
+            const auto nibble = static_cast<unsigned>(
+                (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
+
+            if (nibble != 0U) {
+                result = p521_point_add_affine(result, p521_G_table[nibble - 1U]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            }
+        }
+    }
+    return result;
 }
 
 
@@ -538,9 +664,7 @@ static inline void p521_compute_public_key( // NOLINT(cppcoreguidelines-avoid-c-
     const uint8_t private_scalar_be[66], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     uint8_t public_key_uncompressed[133]) noexcept // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 {
-    const P521Point pub = p521_to_affine(p521_scalar_mul(
-        P521Point{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one},
-        private_scalar_be));
+    const P521Point pub = p521_to_affine(p521_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
     fe521_to_bytes(pub.X, public_key_uncompressed + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     fe521_to_bytes(pub.Y, public_key_uncompressed + 67);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)

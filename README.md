@@ -98,8 +98,8 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | Key store | 16-slot static store (up to 512 bytes/key) |
 | ChaCha20-Poly1305 encrypt | NEON `uint32x4_t` quarter-round; Poly1305 over AAD‖CT‖lengths; RFC 8439 compliant |
 | ChaCha20-Poly1305 decrypt | Tag verification (constant-time compare) before decryption; output zeroized on auth failure |
-| ECDSA P-256/384/521 sign | RFC 6979 deterministic k (HMAC-SHA-256/384/512); raw r‖s big-endian output |
-| ECDSA P-256/384/521 verify | Full Jacobian point arithmetic; constant-time scalar multiplication |
+| ECDSA P-256/384/521 sign | RFC 6979 deterministic k (HMAC-SHA-256/384/512); 4-bit fixed-base window on G; raw r‖s big-endian output |
+| ECDSA P-256/384/521 verify | 4-bit fixed-base window for u1·G; variable-base for u2·Q; constant-time scalar multiplication |
 | ECDH P-256/384/521 | x-coordinate shared secret; 32/48/66-byte output |
 | EC key generation | Random private scalar; public key computed as k·G (Jacobian → affine) |
 | EC key import/export | 16-slot EC key store separate from symmetric key store; P-521 public key 133 bytes |
@@ -233,12 +233,19 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | ChaCha20-Poly1305 encrypt | 574 MB/s | 782 MB/s | **1.36×** |
 | ChaCha20-Poly1305 decrypt | 568 MB/s | 798 MB/s | **1.41×** |
 | HKDF-SHA-384 (48 B output) | 355 K ops/s | 626 K ops/s | **1.8×** |
+| ECDSA sign P-256 | 5,119 ops/s | 5,499 ops/s | **1.07×** |
+| ECDSA verify P-256 | 1,482 ops/s | 2,082 ops/s | **1.41×** |
+| ECDSA sign P-384 | 3,080 ops/s | 1,771 ops/s | **0.58×** |
+| ECDSA verify P-384 | 830 ops/s | 643 ops/s | **0.78×** |
+| ECDSA sign P-521 | 1,959 ops/s | 1,256 ops/s | **0.64×** |
+| ECDSA verify P-521 | 550 ops/s | 636 ops/s | **1.16×** |
 
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
 - **SHA3 / HMAC-SHA3** beats PSA at 1.2–1.3× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
 - **ChaCha20-Poly1305** now leads MbedTLS at 1.36–1.41× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
+- **ECDSA P-256** now beats PSA at 1.07× sign and 1.41× verify after adding a 4-bit fixed-base window over a precomputed [1..15]·G affine table. Each 4-bit nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per add). This reduces sign from 256 variable-base iterations to 64 fixed-base steps, and halves verify's generator work (u1·G uses fixed-base; u2·Q remains variable-base). P-384 and P-521 benefit too but remain slower than PSA due to larger field arithmetic (6×64 and 9×64-bit limbs respectively, with no custom reduction).
 
 ## Provider selection
 
