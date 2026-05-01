@@ -147,7 +147,7 @@ struct ArmAsmBackend {
                 // Rejection sample: generate random bytes, check in [1, n-1].
                 for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
                     generate_random_bytes(sk.data(), sk_len);
-                    Fe256 s = p256_scalar_from_bytes32(sk.data());
+                    const Fe256 s = p256_scalar_from_bytes32(sk.data());
                     if (!p256_scalar_is_zero(s)) {
                         // p256_scalar_from_bytes32 already reduces mod n, so s < n.
                         fe256_to_bytes(s, sk.data());
@@ -164,7 +164,7 @@ struct ArmAsmBackend {
                 FixedSecureBuffer<sk_len> sk{};
                 for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
                     generate_random_bytes(sk.data(), sk_len);
-                    Fe384 s = p384_scalar_from_bytes48(sk.data());
+                    const Fe384 s = p384_scalar_from_bytes48(sk.data());
                     if (!p384_scalar_is_zero(s)) {
                         fe384_to_bytes(s, sk.data());
                         const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len);
@@ -180,7 +180,7 @@ struct ArmAsmBackend {
                 FixedSecureBuffer<sk_len> sk{};
                 for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
                     generate_random_bytes(sk.data(), sk_len);
-                    Fe521 s = p521_scalar_from_bytes66(sk.data());
+                    const Fe521 s = p521_scalar_from_bytes66(sk.data());
                     if (!p521_scalar_is_zero(s)) {
                         fe521_to_bytes(s, sk.data());
                         const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len);

@@ -168,8 +168,8 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     constexpr std::size_t qlen = 32;
 
     // Hash of message: e = H(m) reduced mod n.
-    Fe e = p256_scalar_from_bytes32(msg_hash);
-    Fe d = p256_scalar_from_bytes32(private_scalar_be);
+    const Fe e = p256_scalar_from_bytes32(msg_hash);
+    const Fe d = p256_scalar_from_bytes32(private_scalar_be);
     if (p256_scalar_is_zero(d)) { return false; }
 
     // Generate deterministic k via RFC 6979.
@@ -177,7 +177,7 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     rfc6979_generate_k(private_scalar_be, qlen, msg_hash, qlen,
                        p256_n, 4, k_buf.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-    Fe k = p256_scalar_from_bytes32(k_buf.data());
+    const Fe k = p256_scalar_from_bytes32(k_buf.data());
     if (p256_scalar_is_zero(k)) { return false; }
 
     // R = k·G, r = R.x mod n.
@@ -188,7 +188,7 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     // r = R.x mod n (R.x is in [0, p-1]; n < p so just subtract n once if needed).
     uint8_t rx_bytes[qlen] = {};
     fe256_to_bytes(R.X, rx_bytes);
-    Fe r = p256_scalar_from_bytes32(rx_bytes);
+    const Fe r = p256_scalar_from_bytes32(rx_bytes);
     if (p256_scalar_is_zero(r)) { return false; }
 
     // s = k^{-1} * (e + r*d) mod n.
@@ -216,12 +216,12 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    Fe r = p256_scalar_from_bytes32(sig);
-    Fe s = p256_scalar_from_bytes32(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const Fe r = p256_scalar_from_bytes32(sig);
+    const Fe s = p256_scalar_from_bytes32(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     if (p256_scalar_is_zero(r) || p256_scalar_is_zero(s)) { return false; }
 
-    Fe e = p256_scalar_from_bytes32(msg_hash);
-    Fe w = p256_scalar_invert(s);
+    const Fe e = p256_scalar_from_bytes32(msg_hash);
+    const Fe w = p256_scalar_invert(s);
 
     const Fe u1 = p256_scalar_mul_mod_n(e, w);
     const Fe u2 = p256_scalar_mul_mod_n(r, w);
@@ -247,7 +247,7 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     // Compare X.x mod n with r.
     uint8_t xx_bytes[qlen] = {};
     fe256_to_bytes(X.X, xx_bytes);
-    Fe xr = p256_scalar_from_bytes32(xx_bytes);
+    const Fe xr = p256_scalar_from_bytes32(xx_bytes);
     return fe256_equal(xr, r);
 }
 
@@ -265,15 +265,15 @@ static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     using Point = P384Point;
     constexpr std::size_t qlen = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-    Fe e = p384_scalar_from_bytes48(msg_hash);
-    Fe d = p384_scalar_from_bytes48(private_scalar_be);
+    const Fe e = p384_scalar_from_bytes48(msg_hash);
+    const Fe d = p384_scalar_from_bytes48(private_scalar_be);
     if (p384_scalar_is_zero(d)) { return false; }
 
     FixedSecureBuffer<qlen> k_buf{};
     rfc6979_generate_k(private_scalar_be, qlen, msg_hash, qlen,
                        p384_n, 6, k_buf.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-    Fe k = p384_scalar_from_bytes48(k_buf.data());
+    const Fe k = p384_scalar_from_bytes48(k_buf.data());
     if (p384_scalar_is_zero(k)) { return false; }
 
     const Point G{.X = p384_Gx, .Y = p384_Gy, .Z = fe384_one};
@@ -282,7 +282,7 @@ static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 
     uint8_t rx_bytes[qlen] = {};
     fe384_to_bytes(R.X, rx_bytes);
-    Fe r = p384_scalar_from_bytes48(rx_bytes);
+    const Fe r = p384_scalar_from_bytes48(rx_bytes);
     if (p384_scalar_is_zero(r)) { return false; }
 
     const Fe rd   = p384_scalar_mul_mod_n(r, d);
@@ -307,12 +307,12 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    Fe r = p384_scalar_from_bytes48(sig);
-    Fe s = p384_scalar_from_bytes48(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const Fe r = p384_scalar_from_bytes48(sig);
+    const Fe s = p384_scalar_from_bytes48(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     if (p384_scalar_is_zero(r) || p384_scalar_is_zero(s)) { return false; }
 
-    Fe e = p384_scalar_from_bytes48(msg_hash);
-    Fe w = p384_scalar_invert(s);
+    const Fe e = p384_scalar_from_bytes48(msg_hash);
+    const Fe w = p384_scalar_invert(s);
 
     const Fe u1 = p384_scalar_mul_mod_n(e, w);
     const Fe u2 = p384_scalar_mul_mod_n(r, w);
@@ -335,7 +335,7 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     uint8_t xx_bytes[qlen] = {};
     fe384_to_bytes(X.X, xx_bytes);
-    Fe xr = p384_scalar_from_bytes48(xx_bytes);
+    const Fe xr = p384_scalar_from_bytes48(xx_bytes);
     return fe384_equal(xr, r);
 }
 
@@ -354,15 +354,15 @@ static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     constexpr std::size_t qlen = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     constexpr std::size_t hlen = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-    Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
-    Fe d = p521_scalar_from_bytes66(private_scalar_be);
+    const Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
+    const Fe d = p521_scalar_from_bytes66(private_scalar_be);
     if (p521_scalar_is_zero(d)) { return false; }
 
     FixedSecureBuffer<qlen> k_buf{};
     rfc6979_generate_k(private_scalar_be, qlen, msg_hash, hlen,
                        p521_n, 9, k_buf.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-    Fe k = p521_scalar_from_bytes66(k_buf.data());
+    const Fe k = p521_scalar_from_bytes66(k_buf.data());
     if (p521_scalar_is_zero(k)) { return false; }
 
     const Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
@@ -371,7 +371,7 @@ static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 
     uint8_t rx_bytes[qlen] = {};
     fe521_to_bytes(R.X, rx_bytes);
-    Fe r = p521_scalar_from_bytes66(rx_bytes);
+    const Fe r = p521_scalar_from_bytes66(rx_bytes);
     if (p521_scalar_is_zero(r)) { return false; }
 
     const Fe rd   = p521_scalar_mul_mod_n(r, d);
@@ -397,12 +397,12 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    Fe r = p521_scalar_from_bytes66(sig);
-    Fe s = p521_scalar_from_bytes66(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const Fe r = p521_scalar_from_bytes66(sig);
+    const Fe s = p521_scalar_from_bytes66(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     if (p521_scalar_is_zero(r) || p521_scalar_is_zero(s)) { return false; }
 
-    Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
-    Fe w = p521_scalar_invert(s);
+    const Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
+    const Fe w = p521_scalar_invert(s);
 
     const Fe u1 = p521_scalar_mul_mod_n(e, w);
     const Fe u2 = p521_scalar_mul_mod_n(r, w);
@@ -425,7 +425,7 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     uint8_t xx_bytes[qlen] = {};
     fe521_to_bytes(X.X, xx_bytes);
-    Fe xr = p521_scalar_from_bytes66(xx_bytes);
+    const Fe xr = p521_scalar_from_bytes66(xx_bytes);
     return fe521_equal(xr, r);
 }
 
