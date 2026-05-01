@@ -16,6 +16,7 @@ add_executable(${EXE_NAME}
         mock_psa_backend.hpp
         psa_error_tests.hpp
         random_tests.hpp
+        rsa_der_tests.hpp
         secure_buffer_tests.hpp
         sigma_i_tests.hpp
         sigma_tests.hpp
