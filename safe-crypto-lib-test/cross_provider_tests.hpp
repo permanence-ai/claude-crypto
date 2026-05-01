@@ -18,9 +18,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 //   SHA3-256, SHA3-384, SHA3-512
 //   HMAC-SHA-256, HMAC-SHA-384, HMAC-SHA-512
 //   HMAC-SHA3-256, HMAC-SHA3-384, HMAC-SHA3-512
-//   AES-256-GCM encrypt+decrypt (same key+nonce fed to both)
-//   ChaCha20-Poly1305 encrypt+decrypt (same key+nonce fed to both)
-//   HKDF-SHA-384 (same IKM, salt, info fed to both)
+//   AES-256-GCM encrypt+decrypt parity; cross-decrypt both directions
+//   ChaCha20-Poly1305 encrypt+decrypt parity; cross-decrypt both directions
+//   HKDF-SHA-384 (extract+expand) parity; HKDF-Expand-only parity
+//   ECDH shared-secret parity for P-256, P-384, P-521
+//   ECDSA cross-verify for P-384 (both providers use SHA-384 on this curve)
+//   RSA-OAEP cross-decrypt for 3072-bit and 4096-bit keys
+//   RSA-PSS cross-verify for 3072-bit and 4096-bit keys
 //
 // The file is always compiled but the tests are guarded by
 // SAFE_CRYPTO_PROVIDER_ARM_ASM (the test binary links both provider
@@ -45,7 +49,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "psa_mbedtls_backend.hpp"
 
 #include "aead.hpp"
+#include "asymmetric.hpp"
 #include "digests.hpp"
+#include "ecc.hpp"
+#include "ecdh.hpp"
 #include "kdf.hpp"
 #include "mac.hpp"
 
@@ -514,6 +521,498 @@ TEST_F(CrossProviderHkdfTests, HkdfSha384Parity) {
     const auto psa_out = run_hkdf.template operator()<RealPsaBackend>();
     const auto arm_out = run_hkdf.template operator()<ArmAsmBackend>();
     expect_equal_outputs(psa_out, arm_out, "HKDF-SHA-384");
+}
+
+
+TEST_F(CrossProviderHkdfTests, HkdfExpandParity) {
+    // Run HKDF-Expand (no salt/extract step) through both providers with the same PRK and info.
+    const auto prk_arr  = make_test_bytes<48>(0x40U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto info_arr = make_test_bytes<12>(0x50U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t output_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    auto run_hkdf_expand = [&]<typename Provider>() -> std::array<uint8_t, output_len> {
+        auto attrs = Provider::make_hkdf_expand_derive_attrs(prk_arr.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        typename Provider::KeyId id = Provider::null_key_id();
+        if (Provider::import_key(&attrs, prk_arr.data(), prk_arr.size(), &id) != Provider::ok) {
+            ADD_FAILURE() << "HKDF-Expand PRK import failed";
+            return {};
+        }
+
+        auto op = Provider::make_kdf_op();
+        if (Provider::key_derivation_setup(&op, Provider::alg_hkdf_expand()) != Provider::ok) {
+            ADD_FAILURE() << "HKDF-Expand setup failed";
+            (void)Provider::destroy_key(id);
+            return {};
+        }
+        if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(), id) != Provider::ok) {
+            ADD_FAILURE() << "HKDF-Expand PRK key input failed";
+        }
+        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
+                                                  info_arr.data(), info_arr.size()) != Provider::ok) {
+            ADD_FAILURE() << "HKDF-Expand info input failed";
+        }
+
+        std::array<uint8_t, output_len> out{};
+        if (Provider::key_derivation_output_bytes(&op, out.data(), out.size()) != Provider::ok) {
+            ADD_FAILURE() << "HKDF-Expand output_bytes failed";
+        }
+        (void)Provider::key_derivation_abort(&op);
+        (void)Provider::destroy_key(id);
+        return out;
+    };
+
+    const auto psa_out = run_hkdf_expand.template operator()<RealPsaBackend>();
+    const auto arm_out = run_hkdf_expand.template operator()<ArmAsmBackend>();
+    expect_equal_outputs(psa_out, arm_out, "HKDF-Expand-SHA-384");
+}
+
+
+// ---------------------------------------------------------------------------
+// AES-256-GCM cross-decrypt: ARM ASM encrypts, PSA decrypts
+// ---------------------------------------------------------------------------
+
+TEST_F(CrossProviderAesGcmTests, CrossDecryptArmCtWithPsa) {
+    const auto key    = make_test_bytes<32>(0x10U);
+    const auto nonce  = make_test_bytes<12>(0x11U);
+    const auto pt_arr = make_test_bytes<48>(0x12U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    // ARM ASM encrypt
+    auto arm_enc_attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
+    ArmAsmBackend::KeyId arm_enc_id = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::import_key(&arm_enc_attrs, key.data(), key.size(), &arm_enc_id),
+              ArmAsmBackend::ok);
+    std::array<uint8_t, 48 + 16> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::size_t arm_ct_len = 0;
+    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
+        arm_enc_id, ArmAsmBackend::alg_aes_gcm(),
+        nonce.data(), nonce.size(), nullptr, 0,
+        pt_arr.data(), pt_arr.size(),
+        arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
+    (void)ArmAsmBackend::destroy_key(arm_enc_id);
+
+    // PSA decrypt of ARM ciphertext
+    auto psa_dec_attrs = RealPsaBackend::make_aes256_gcm_decrypt_attrs();
+    RealPsaBackend::KeyId psa_dec_id = RealPsaBackend::null_key_id();
+    ASSERT_EQ(RealPsaBackend::import_key(&psa_dec_attrs, key.data(), key.size(), &psa_dec_id),
+              RealPsaBackend::ok);
+    std::array<uint8_t, 48> recovered_pt{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::size_t recovered_len = 0;
+    ASSERT_EQ(RealPsaBackend::aead_decrypt(
+        psa_dec_id, RealPsaBackend::alg_aes_gcm(),
+        nonce.data(), nonce.size(), nullptr, 0,
+        arm_ct.data(), arm_ct_len,
+        recovered_pt.data(), recovered_pt.size(), &recovered_len), RealPsaBackend::ok)
+        << "PSA rejected AES-GCM ciphertext produced by ARM ASM";
+    (void)RealPsaBackend::destroy_key(psa_dec_id);
+
+    ASSERT_EQ(recovered_len, pt_arr.size());
+    expect_equal_outputs(pt_arr, recovered_pt, "AES-256-GCM cross-decrypt ARM→PSA");
+}
+
+
+// ---------------------------------------------------------------------------
+// ECDH parity: both providers derive identical shared secrets
+//
+// Strategy: generate an ECDH key pair with ARM ASM, export the raw private
+// key bytes and the uncompressed public key (0x04|x|y).  Import the private
+// key into PSA using its raw-scalar encoding (same bytes PSA expects).
+// Generate a second ephemeral key pair with PSA for the peer side.
+// Both providers compute raw_key_agreement with their respective private keys
+// and the same peer public key; the x-coordinate shared secrets must be equal.
+// ---------------------------------------------------------------------------
+
+class CrossProviderEcdhTests : public CrossProviderTest {};
+
+template<std::size_t KeyBits>
+static void run_ecdh_parity_test(const char* label) {
+    // Generate key A with ARM ASM.
+    auto arm_gen_attrs = ArmAsmBackend::make_ecdh_generate_attrs(KeyBits);
+    ArmAsmBackend::KeyId arm_id_a = ArmAsmBackend::null_key_id();
+    ASSERT_EQ(ArmAsmBackend::generate_key(&arm_gen_attrs, &arm_id_a), ArmAsmBackend::ok)
+        << label << " ARM key gen failed";
+
+    // Export ARM private key scalar bytes.
+    constexpr std::size_t sk_len = (KeyBits + 7U) / 8U;
+    std::array<uint8_t, sk_len> arm_sk{};
+    std::size_t arm_sk_len = 0;
+    ASSERT_EQ(ArmAsmBackend::export_key(arm_id_a, arm_sk.data(), arm_sk.size(), &arm_sk_len),
+              ArmAsmBackend::ok) << label << " ARM export_key failed";
+    ASSERT_EQ(arm_sk_len, sk_len);
+
+    // Derive ARM public key (uncompressed 0x04|x|y).
+    constexpr std::size_t pk_len = sk_len * 2U + 1U;
+    std::array<uint8_t, pk_len> arm_pk{};
+    std::size_t arm_pk_len = 0;
+    ASSERT_EQ(ArmAsmBackend::export_public_key(arm_id_a, arm_pk.data(), arm_pk.size(), &arm_pk_len),
+              ArmAsmBackend::ok) << label << " ARM export_public_key failed";
+    ASSERT_EQ(arm_pk_len, pk_len);
+
+    // Import the same private key scalar into PSA as an ECDH key.
+    auto psa_agree_attrs = RealPsaBackend::make_ecdh_agree_attrs(KeyBits);
+    RealPsaBackend::KeyId psa_id_a = RealPsaBackend::null_key_id();
+    ASSERT_EQ(RealPsaBackend::import_key(&psa_agree_attrs, arm_sk.data(), arm_sk_len, &psa_id_a),
+              RealPsaBackend::ok) << label << " PSA key import failed";
+
+    // Generate peer key B with PSA (export for peer public key).
+    auto psa_gen_attrs = RealPsaBackend::make_ecdh_generate_attrs(KeyBits);
+    RealPsaBackend::KeyId psa_id_b = RealPsaBackend::null_key_id();
+    ASSERT_EQ(RealPsaBackend::generate_key(&psa_gen_attrs, &psa_id_b), RealPsaBackend::ok)
+        << label << " PSA peer key gen failed";
+    std::array<uint8_t, pk_len> peer_pk{};
+    std::size_t peer_pk_len = 0;
+    ASSERT_EQ(RealPsaBackend::export_public_key(psa_id_b, peer_pk.data(), peer_pk.size(), &peer_pk_len),
+              RealPsaBackend::ok) << label << " PSA peer export_public_key failed";
+    ASSERT_EQ(peer_pk_len, pk_len);
+
+    // ARM ASM: raw_key_agreement(arm_id_a, peer_pk) → shared secret.
+    std::array<uint8_t, sk_len> arm_ss{};
+    std::size_t arm_ss_len = 0;
+    ASSERT_EQ(ArmAsmBackend::raw_key_agreement(
+        ArmAsmBackend::alg_ecdh(), arm_id_a,
+        peer_pk.data(), peer_pk_len,
+        arm_ss.data(), arm_ss.size(), &arm_ss_len), ArmAsmBackend::ok)
+        << label << " ARM raw_key_agreement failed";
+
+    // PSA: raw_key_agreement(psa_id_a, peer_pk) → shared secret (same private key, same peer).
+    std::array<uint8_t, sk_len> psa_ss{};
+    std::size_t psa_ss_len = 0;
+    ASSERT_EQ(RealPsaBackend::raw_key_agreement(
+        RealPsaBackend::alg_ecdh(), psa_id_a,
+        peer_pk.data(), peer_pk_len,
+        psa_ss.data(), psa_ss.size(), &psa_ss_len), RealPsaBackend::ok)
+        << label << " PSA raw_key_agreement failed";
+
+    (void)ArmAsmBackend::destroy_key(arm_id_a);
+    (void)RealPsaBackend::destroy_key(psa_id_a);
+    (void)RealPsaBackend::destroy_key(psa_id_b);
+
+    ASSERT_EQ(arm_ss_len, psa_ss_len) << label << " shared secret length mismatch";
+    expect_equal_outputs(arm_ss, psa_ss, label);
+}
+
+TEST_F(CrossProviderEcdhTests, EcdhParity_P256) { run_ecdh_parity_test<256>("ECDH-P256"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+TEST_F(CrossProviderEcdhTests, EcdhParity_P384) { run_ecdh_parity_test<384>("ECDH-P384"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+TEST_F(CrossProviderEcdhTests, EcdhParity_P521) { run_ecdh_parity_test<521>("ECDH-P521"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+
+// ---------------------------------------------------------------------------
+// ECDSA cross-verify: sign with one provider, verify with the other
+//
+// Key format bridge:
+//   ARM ASM uses raw private key scalar (sk_len bytes) and uncompressed point
+//   (0x04|x|y) for the public key.  PSA uses the same raw-scalar encoding for
+//   import, and the same uncompressed-point format for PSA_KEY_TYPE_ECC_PUBLIC.
+//   So we can share keys by exporting and re-importing.
+//
+// Hash algorithm note:
+//   The ARM ASM backend uses curve-appropriate hashes: SHA-256 (P256), SHA-384
+//   (P384), SHA-512 (P521).  The PSA backend's alg_ecdsa() uses SHA-384 for
+//   all curves.  Cross-verify is therefore only possible for P384, where both
+//   providers agree on SHA-384.  P256 and P521 are not tested here because the
+//   two providers sign over different digests and are intentionally incompatible.
+// ---------------------------------------------------------------------------
+
+class CrossProviderEcdsaTests : public CrossProviderTest {};
+
+template<std::size_t KeyBits>
+static void run_ecdsa_cross_verify_test(const char* label) {
+    const auto msg = make_test_bytes<64>(0x20U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    constexpr std::size_t sk_len  = (KeyBits + 7U) / 8U;
+    constexpr std::size_t pk_len  = sk_len * 2U + 1U;
+    constexpr std::size_t sig_len = sk_len * 2U;
+
+    // ---- ARM signs, PSA verifies ----------------------------------------
+    {
+        // Generate signing key with ARM.
+        auto arm_sign_attrs = ArmAsmBackend::make_ecdsa_sign_attrs(KeyBits);
+        ArmAsmBackend::KeyId arm_sign_id = ArmAsmBackend::null_key_id();
+        ASSERT_EQ(ArmAsmBackend::generate_key(&arm_sign_attrs, &arm_sign_id), ArmAsmBackend::ok)
+            << label << " ARM keygen failed";
+
+        // ARM sign.
+        std::array<uint8_t, sig_len> arm_sig{};
+        std::size_t arm_sig_len = 0;
+        ASSERT_EQ(ArmAsmBackend::sign_message(
+            arm_sign_id, ArmAsmBackend::alg_ecdsa(),
+            msg.data(), msg.size(),
+            arm_sig.data(), arm_sig.size(), &arm_sig_len), ArmAsmBackend::ok)
+            << label << " ARM sign failed";
+        ASSERT_EQ(arm_sig_len, sig_len);
+
+        // Export ARM public key (uncompressed point) and import into PSA for verification.
+        std::array<uint8_t, pk_len> arm_pub{};
+        std::size_t arm_pub_len = 0;
+        ASSERT_EQ(ArmAsmBackend::export_public_key(
+            arm_sign_id, arm_pub.data(), arm_pub.size(), &arm_pub_len), ArmAsmBackend::ok)
+            << label << " ARM export_public_key failed";
+
+        auto psa_verify_attrs = RealPsaBackend::make_ecdsa_verify_attrs(KeyBits);
+        RealPsaBackend::KeyId psa_verify_id = RealPsaBackend::null_key_id();
+        ASSERT_EQ(RealPsaBackend::import_key(
+            &psa_verify_attrs, arm_pub.data(), arm_pub_len, &psa_verify_id), RealPsaBackend::ok)
+            << label << " PSA public key import failed";
+
+        EXPECT_EQ(RealPsaBackend::verify_message(
+            psa_verify_id, RealPsaBackend::alg_ecdsa(),
+            msg.data(), msg.size(),
+            arm_sig.data(), arm_sig_len), RealPsaBackend::ok)
+            << label << " PSA rejected ARM signature";
+
+        (void)ArmAsmBackend::destroy_key(arm_sign_id);
+        (void)RealPsaBackend::destroy_key(psa_verify_id);
+    }
+
+    // ---- PSA signs, ARM verifies ----------------------------------------
+    {
+        // Generate signing key with PSA (needs EXPORT to get private key for ARM import).
+        auto psa_sig_gen_attrs = RealPsaBackend::make_ecdsa_generate_attrs(KeyBits);
+        RealPsaBackend::KeyId psa_sign_id = RealPsaBackend::null_key_id();
+        ASSERT_EQ(RealPsaBackend::generate_key(&psa_sig_gen_attrs, &psa_sign_id), RealPsaBackend::ok)
+            << label << " PSA keygen failed";
+
+        // PSA sign.
+        std::array<uint8_t, sig_len> psa_sig{};
+        std::size_t psa_sig_len = 0;
+        ASSERT_EQ(RealPsaBackend::sign_message(
+            psa_sign_id, RealPsaBackend::alg_ecdsa(),
+            msg.data(), msg.size(),
+            psa_sig.data(), psa_sig.size(), &psa_sig_len), RealPsaBackend::ok)
+            << label << " PSA sign failed";
+        ASSERT_EQ(psa_sig_len, sig_len);
+
+        // Export PSA public key (uncompressed point) and import into ARM for verification.
+        std::array<uint8_t, pk_len> psa_pub{};
+        std::size_t psa_pub_len = 0;
+        ASSERT_EQ(RealPsaBackend::export_public_key(
+            psa_sign_id, psa_pub.data(), psa_pub.size(), &psa_pub_len), RealPsaBackend::ok)
+            << label << " PSA export_public_key failed";
+        ASSERT_EQ(psa_pub_len, pk_len);
+
+        auto arm_verify_attrs = ArmAsmBackend::make_ecdsa_verify_attrs(KeyBits);
+        ArmAsmBackend::KeyId arm_verify_id = ArmAsmBackend::null_key_id();
+        ASSERT_EQ(ArmAsmBackend::import_key(
+            &arm_verify_attrs, psa_pub.data(), psa_pub_len, &arm_verify_id), ArmAsmBackend::ok)
+            << label << " ARM public key import failed";
+
+        EXPECT_EQ(ArmAsmBackend::verify_message(
+            arm_verify_id, ArmAsmBackend::alg_ecdsa(),
+            msg.data(), msg.size(),
+            psa_sig.data(), psa_sig_len), ArmAsmBackend::ok)
+            << label << " ARM rejected PSA signature";
+
+        (void)RealPsaBackend::destroy_key(psa_sign_id);
+        (void)ArmAsmBackend::destroy_key(arm_verify_id);
+    }
+}
+
+// Only P384: both providers use SHA-384 for ECDSA on this curve.
+TEST_F(CrossProviderEcdsaTests, EcdsaCrossVerify_P384) { run_ecdsa_cross_verify_test<384>("ECDSA-P384"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+
+// ---------------------------------------------------------------------------
+// RSA cross-operations: OAEP cross-decrypt and PSS cross-verify
+//
+// Strategy: generate an RSA key pair with PSA (generate_rsa_key_impl), then
+// import the private and public DER bytes into the ARM ASM backend for
+// cross-encryption and cross-verification tests.
+// ---------------------------------------------------------------------------
+
+class CrossProviderRsaTests : public CrossProviderTest {};
+
+// Shared test helper: generate a PSA RSA key pair (done once per test to avoid
+// the ~6-second keygen cost), then run cross-direction tests.
+template<RsaKeyBits KB>
+static void run_rsa_oaep_cross_decrypt_test(const char* label) {
+    constexpr std::size_t key_bits = static_cast<std::size_t>(static_cast<std::uint16_t>(KB));
+
+    // Generate key pair with PSA.
+    const auto kp = generate_rsa_key_impl<KB, RealPsaBackend>();
+    ASSERT_TRUE(kp.has_value()) << label << " RSA keygen failed";
+
+    const auto& priv_der = kp->private_key_der;
+    const auto& pub_der  = kp->public_key_der;
+
+    // ---- PSA encrypts, ARM decrypts -------------------------------------
+    {
+        const auto pt_arr = make_test_bytes<64>(0x61U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+        // PSA encrypt with public key.
+        auto psa_enc_attrs = RealPsaBackend::make_rsa_oaep_encrypt_attrs(key_bits);
+        RealPsaBackend::KeyId psa_enc_id = RealPsaBackend::null_key_id();
+        ASSERT_EQ(RealPsaBackend::import_key(
+            &psa_enc_attrs, pub_der.data(), pub_der.size(), &psa_enc_id), RealPsaBackend::ok)
+            << label << " PSA public key import failed";
+
+        const std::size_t ct_buf_size = RealPsaBackend::rsa_oaep_encrypt_output_size(key_bits);
+        SecureBuffer psa_ct(ct_buf_size);
+        std::size_t psa_ct_len = 0;
+        ASSERT_EQ(RealPsaBackend::asymmetric_encrypt(
+            psa_enc_id, RealPsaBackend::alg_rsa_oaep(),
+            pt_arr.data(), pt_arr.size(), nullptr, 0,
+            psa_ct.data(), psa_ct.size(), &psa_ct_len), RealPsaBackend::ok)
+            << label << " PSA encrypt failed";
+        (void)RealPsaBackend::destroy_key(psa_enc_id);
+
+        // ARM decrypt with private key.
+        auto arm_dec_attrs = ArmAsmBackend::make_rsa_oaep_decrypt_attrs(key_bits);
+        ArmAsmBackend::KeyId arm_dec_id = ArmAsmBackend::null_key_id();
+        ASSERT_EQ(ArmAsmBackend::import_key(
+            &arm_dec_attrs, priv_der.data(), priv_der.size(), &arm_dec_id), ArmAsmBackend::ok)
+            << label << " ARM private key import failed";
+
+        const std::size_t pt_buf_size = ArmAsmBackend::rsa_oaep_decrypt_output_size(key_bits);
+        SecureBuffer arm_pt(pt_buf_size);
+        std::size_t arm_pt_len = 0;
+        ASSERT_EQ(ArmAsmBackend::asymmetric_decrypt(
+            arm_dec_id, ArmAsmBackend::alg_rsa_oaep(),
+            psa_ct.data(), psa_ct_len, nullptr, 0,
+            arm_pt.data(), arm_pt.size(), &arm_pt_len), ArmAsmBackend::ok)
+            << label << " ARM decrypt failed (PSA→ARM)";
+        (void)ArmAsmBackend::destroy_key(arm_dec_id);
+
+        ASSERT_EQ(arm_pt_len, pt_arr.size());
+        for (std::size_t i = 0; i < pt_arr.size(); ++i) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+            EXPECT_EQ(arm_pt[i], pt_arr[i]) << label << " PSA→ARM: mismatch at byte " << i;
+        }
+    }
+
+    // ---- ARM encrypts, PSA decrypts -------------------------------------
+    {
+        const auto pt_arr = make_test_bytes<64>(0x62U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+        // ARM encrypt with public key.
+        auto arm_enc_attrs = ArmAsmBackend::make_rsa_oaep_encrypt_attrs(key_bits);
+        ArmAsmBackend::KeyId arm_enc_id = ArmAsmBackend::null_key_id();
+        ASSERT_EQ(ArmAsmBackend::import_key(
+            &arm_enc_attrs, pub_der.data(), pub_der.size(), &arm_enc_id), ArmAsmBackend::ok)
+            << label << " ARM public key import failed";
+
+        const std::size_t ct_buf_size = ArmAsmBackend::rsa_oaep_encrypt_output_size(key_bits);
+        SecureBuffer arm_ct(ct_buf_size);
+        std::size_t arm_ct_len = 0;
+        ASSERT_EQ(ArmAsmBackend::asymmetric_encrypt(
+            arm_enc_id, ArmAsmBackend::alg_rsa_oaep(),
+            pt_arr.data(), pt_arr.size(), nullptr, 0,
+            arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok)
+            << label << " ARM encrypt failed";
+        (void)ArmAsmBackend::destroy_key(arm_enc_id);
+
+        // PSA decrypt with private key.
+        auto psa_dec_attrs = RealPsaBackend::make_rsa_oaep_decrypt_attrs(key_bits);
+        RealPsaBackend::KeyId psa_dec_id = RealPsaBackend::null_key_id();
+        ASSERT_EQ(RealPsaBackend::import_key(
+            &psa_dec_attrs, priv_der.data(), priv_der.size(), &psa_dec_id), RealPsaBackend::ok)
+            << label << " PSA private key import failed";
+
+        const std::size_t pt_buf_size = RealPsaBackend::rsa_oaep_decrypt_output_size(key_bits);
+        SecureBuffer psa_pt(pt_buf_size);
+        std::size_t psa_pt_len = 0;
+        ASSERT_EQ(RealPsaBackend::asymmetric_decrypt(
+            psa_dec_id, RealPsaBackend::alg_rsa_oaep(),
+            arm_ct.data(), arm_ct_len, nullptr, 0,
+            psa_pt.data(), psa_pt.size(), &psa_pt_len), RealPsaBackend::ok)
+            << label << " PSA decrypt failed (ARM→PSA)";
+        (void)RealPsaBackend::destroy_key(psa_dec_id);
+
+        ASSERT_EQ(psa_pt_len, pt_arr.size());
+        for (std::size_t i = 0; i < pt_arr.size(); ++i) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+            EXPECT_EQ(psa_pt[i], pt_arr[i]) << label << " ARM→PSA: mismatch at byte " << i;
+        }
+    }
+}
+
+template<RsaKeyBits KB>
+static void run_rsa_pss_cross_verify_test(const char* label) {
+    constexpr std::size_t key_bits = static_cast<std::size_t>(static_cast<std::uint16_t>(KB));
+
+    const auto kp = generate_rsa_key_impl<KB, RealPsaBackend>();
+    ASSERT_TRUE(kp.has_value()) << label << " RSA keygen failed";
+
+    const auto& priv_der = kp->private_key_der;
+    const auto& pub_der  = kp->public_key_der;
+
+    const auto msg = make_test_bytes<64>(0x63U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const std::size_t sig_buf_size = RealPsaBackend::rsa_pss_sign_output_size(key_bits);
+
+    // ---- PSA signs, ARM verifies ----------------------------------------
+    {
+        auto psa_sign_attrs = RealPsaBackend::make_rsa_pss_sign_attrs(key_bits);
+        RealPsaBackend::KeyId psa_sign_id = RealPsaBackend::null_key_id();
+        ASSERT_EQ(RealPsaBackend::import_key(
+            &psa_sign_attrs, priv_der.data(), priv_der.size(), &psa_sign_id), RealPsaBackend::ok)
+            << label << " PSA private key import failed";
+
+        SecureBuffer psa_sig(sig_buf_size);
+        std::size_t psa_sig_len = 0;
+        ASSERT_EQ(RealPsaBackend::sign_message(
+            psa_sign_id, RealPsaBackend::alg_rsa_pss(),
+            msg.data(), msg.size(),
+            psa_sig.data(), psa_sig.size(), &psa_sig_len), RealPsaBackend::ok)
+            << label << " PSA sign failed";
+        (void)RealPsaBackend::destroy_key(psa_sign_id);
+
+        // ARM verify with public key.
+        auto arm_verify_attrs = ArmAsmBackend::make_rsa_pss_verify_attrs(key_bits);
+        ArmAsmBackend::KeyId arm_verify_id = ArmAsmBackend::null_key_id();
+        ASSERT_EQ(ArmAsmBackend::import_key(
+            &arm_verify_attrs, pub_der.data(), pub_der.size(), &arm_verify_id), ArmAsmBackend::ok)
+            << label << " ARM public key import failed";
+
+        EXPECT_EQ(ArmAsmBackend::verify_message(
+            arm_verify_id, ArmAsmBackend::alg_rsa_pss(),
+            msg.data(), msg.size(),
+            psa_sig.data(), psa_sig_len), ArmAsmBackend::ok)
+            << label << " ARM rejected PSA-RSA-PSS signature";
+        (void)ArmAsmBackend::destroy_key(arm_verify_id);
+    }
+
+    // ---- ARM signs, PSA verifies ----------------------------------------
+    {
+        auto arm_sign_attrs = ArmAsmBackend::make_rsa_pss_sign_attrs(key_bits);
+        ArmAsmBackend::KeyId arm_sign_id = ArmAsmBackend::null_key_id();
+        ASSERT_EQ(ArmAsmBackend::import_key(
+            &arm_sign_attrs, priv_der.data(), priv_der.size(), &arm_sign_id), ArmAsmBackend::ok)
+            << label << " ARM private key import failed";
+
+        SecureBuffer arm_sig(sig_buf_size);
+        std::size_t arm_sig_len = 0;
+        ASSERT_EQ(ArmAsmBackend::sign_message(
+            arm_sign_id, ArmAsmBackend::alg_rsa_pss(),
+            msg.data(), msg.size(),
+            arm_sig.data(), arm_sig.size(), &arm_sig_len), ArmAsmBackend::ok)
+            << label << " ARM sign failed";
+        (void)ArmAsmBackend::destroy_key(arm_sign_id);
+
+        // PSA verify with public key.
+        auto psa_verify_attrs = RealPsaBackend::make_rsa_pss_verify_attrs(key_bits);
+        RealPsaBackend::KeyId psa_verify_id = RealPsaBackend::null_key_id();
+        ASSERT_EQ(RealPsaBackend::import_key(
+            &psa_verify_attrs, pub_der.data(), pub_der.size(), &psa_verify_id), RealPsaBackend::ok)
+            << label << " PSA public key import failed";
+
+        EXPECT_EQ(RealPsaBackend::verify_message(
+            psa_verify_id, RealPsaBackend::alg_rsa_pss(),
+            msg.data(), msg.size(),
+            arm_sig.data(), arm_sig_len), RealPsaBackend::ok)
+            << label << " PSA rejected ARM-RSA-PSS signature";
+        (void)RealPsaBackend::destroy_key(psa_verify_id);
+    }
+}
+
+TEST_F(CrossProviderRsaTests, RsaOaepCrossDecrypt_3072) {
+    run_rsa_oaep_cross_decrypt_test<RsaKeyBits::Bits3072>("RSA-OAEP-3072");
+}
+TEST_F(CrossProviderRsaTests, RsaOaepCrossDecrypt_4096) {
+    run_rsa_oaep_cross_decrypt_test<RsaKeyBits::Bits4096>("RSA-OAEP-4096");
+}
+TEST_F(CrossProviderRsaTests, RsaPssCrossVerify_3072) {
+    run_rsa_pss_cross_verify_test<RsaKeyBits::Bits3072>("RSA-PSS-3072");
+}
+TEST_F(CrossProviderRsaTests, RsaPssCrossVerify_4096) {
+    run_rsa_pss_cross_verify_test<RsaKeyBits::Bits4096>("RSA-PSS-4096");
 }
 
 #endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM

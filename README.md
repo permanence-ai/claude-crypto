@@ -181,13 +181,13 @@ Guarded by `SAFE_CRYPTO_PROVIDER_ARM_ASM`, these test the ARM intrinsic implemen
 
 These verify the ARM ASM provider's correctness independently of the PSA layer.
 
-### 4. Cross-provider parity tests (`cross_provider_tests.hpp` — 19 tests)
+### 4. Cross-provider parity tests (`cross_provider_tests.hpp` — 29 tests)
 
 Both `ArmAsmBackend` and `RealPsaBackend` are instantiated in the same binary regardless of the active provider. For each operation, the same input is fed to both backends and the outputs are compared byte-for-byte.
 
-Operations covered: SHA-256/384/512, SHA3-256/384/512, HMAC-SHA-256/384/512, HMAC-SHA3-256/384/512, AES-256-GCM encrypt and decrypt, ChaCha20-Poly1305 encrypt and decrypt, and HKDF-SHA-384.
+Operations covered: SHA-256/384/512, SHA3-256/384/512, HMAC-SHA-256/384/512, HMAC-SHA3-256/384/512, AES-256-GCM encrypt/decrypt/cross-decrypt (both directions), ChaCha20-Poly1305 encrypt/decrypt/cross-decrypt (both directions), HKDF-SHA-384 extract+expand and HKDF-Expand-only parity, ECDH shared-secret parity (P-256/384/521), ECDSA cross-verify (P-384), RSA-OAEP cross-decrypt (3072/4096-bit), and RSA-PSS cross-verify (3072/4096-bit).
 
-The cross-decrypt tests (`CrossDecryptArmCtWithPsa`, `CrossDecryptPsaCtWithArm`) are particularly valuable: they encrypt with one backend and decrypt with the other, verifying wire-format compatibility rather than just output equality.
+The cross-decrypt and cross-verify tests are particularly valuable: they encrypt or sign with one backend and decrypt or verify with the other, confirming wire-format compatibility rather than just output equality.
 
 This strategy catches implementation drift that KAT tests cannot find — a wrong implementation can still pass a KAT if the reference vector was derived from the same wrong code.
 
