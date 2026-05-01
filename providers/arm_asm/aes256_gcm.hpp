@@ -46,7 +46,7 @@ constexpr std::size_t aes_gcm_iv_bytes  = 12;
 // Increment the low 32 bits of a counter block (big-endian).
 static inline void gcm_inc_counter(uint8_t ctr[16]) noexcept {
     // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint32_t lo;
+    uint32_t lo{};
     std::memcpy(&lo, ctr + 12, 4);
     lo = std::byteswap(std::byteswap(lo) + 1U);
     std::memcpy(ctr + 12, &lo, 4);

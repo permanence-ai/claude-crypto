@@ -796,7 +796,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static std::size_t ec_private_key_export_size(std::size_t bits)      noexcept { return (bits + 7U) / 8U; }  // 256→32, 384→48, 521→66
     [[nodiscard]]
-    static std::size_t ec_public_key_export_size(std::size_t bits)       noexcept { return ((bits + 7U) / 8U) * 2U + 1U; }  // 256→65, 384→97, 521→133
+    static std::size_t ec_public_key_export_size(std::size_t bits)       noexcept { return (((bits + 7U) / 8U) * 2U) + 1U; }  // 256→65, 384→97, 521→133
     [[nodiscard]]
     static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len + arm_asm::detail::aes_gcm_tag_bytes; }
     [[nodiscard]]
@@ -820,11 +820,11 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static std::size_t rsa_private_key_export_size(std::size_t bits) noexcept {
         // PSA_KEY_EXPORT_RSA_KEY_PAIR_MAX_SIZE(bits) = 9*(bits/2/8+5+1)+14 = 9*(bits/16+6)+14
-        return 9U * (bits / 16U + 6U) + 14U;
+        return (9U * (bits / 16U + 6U)) + 14U;
     }
     [[nodiscard]]
     static std::size_t rsa_public_key_export_size(std::size_t bits) noexcept {
         // PSA_KEY_EXPORT_RSA_PUBLIC_KEY_MAX_SIZE(bits) = bits/8+5+11
-        return bits / 8U + 16U;
+        return (bits / 8U) + 16U;
     }
 };

@@ -121,7 +121,7 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
             for (int j = static_cast<int>(n_limb_count) - 1; j >= 0; --j) {
                 uint64_t k_limb = 0;
                 for (int b = 0; b < 8; ++b) {
-                    const std::size_t byte_pos = n_bytes - 1 - (static_cast<std::size_t>(j) * 8 + static_cast<std::size_t>(b)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * 8U) + static_cast<std::size_t>(b)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
                     if (byte_pos < qlen) {
                         k_limb |= static_cast<uint64_t>(k_out[byte_pos]) << (static_cast<unsigned>(b) * 8U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                     }
