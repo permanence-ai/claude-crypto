@@ -541,6 +541,118 @@ TEST_F(ArmAsmKeyMgmtTests, ExportKeyBufferTooSmallReturnsError) {
 }
 
 // ---------------------------------------------------------------------------
+// P-256 / P-384 dead-code coverage: ct_swap and scalar_from_bytes64/96
+//
+// p256_ct_swap is defined in p256_point.hpp but not called by the current
+// scalar multiplication (which inlines the CT select). Tested here directly.
+//
+// p256_scalar_from_bytes64 and p384_scalar_from_bytes96 reduce a double-width
+// big-endian scalar mod the curve order. They are not called from the ECDSA
+// paths (which only need 32/48-byte scalars) but are part of the API.
+//
+// KAT vectors for from_bytes64/96 (derived from curve order n):
+//   P-256: n = ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551
+//     input = 00..00 ‖ (n+1) → output = 1
+//     input = 00..01 ‖ (2n+42 low 256 bits) → output = 42
+//   P-384: n = ffffffff...c7634d81f4372ddf581a0db248b0a77aecec196accc52973
+//     input = 00..00 ‖ (n+1) → output = 1
+// ---------------------------------------------------------------------------
+
+class ArmAsmPointUtilTests : public ::testing::Test {
+protected:
+    template<std::size_t N>
+    static std::array<uint8_t, N> from_hex(const char* s) {
+        std::array<uint8_t, N> out{};
+        for (std::size_t i = 0; i < N; ++i) {
+            unsigned v = 0;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+            out[i] = static_cast<uint8_t>(v);
+        }
+        return out;
+    }
+};
+
+// p256_ct_swap: swap==1 exchanges the two points; swap==0 leaves them unchanged.
+TEST_F(ArmAsmPointUtilTests, P256CtSwapExchangesWhenSwapIsOne) {
+    using namespace arm_asm::detail;
+    const P256Point G{.X = p256_Gx, .Y = p256_Gy, .Z = fe256_one};
+    const P256Point identity = p256_identity;
+    P256Point a = G;
+    P256Point b = identity;
+
+    p256_ct_swap(a, b, 1U);  // swap=1: a↔b
+
+    EXPECT_TRUE(p256_point_is_identity(a));
+    for (int i = 0; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(b.X.v[i], G.X.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(b.Y.v[i], G.Y.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+TEST_F(ArmAsmPointUtilTests, P256CtSwapNoOpWhenSwapIsZero) {
+    using namespace arm_asm::detail;
+    const P256Point G{.X = p256_Gx, .Y = p256_Gy, .Z = fe256_one};
+    const P256Point identity = p256_identity;
+    P256Point a = G;
+    P256Point b = identity;
+
+    p256_ct_swap(a, b, 0U);  // swap=0: no change
+
+    for (int i = 0; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(a.X.v[i], G.X.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(a.Y.v[i], G.Y.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+    EXPECT_TRUE(p256_point_is_identity(b));
+}
+
+// p256_scalar_from_bytes64: 512-bit big-endian value reduced mod n.
+// TV1: input = 0^32 ‖ (n+1)  →  1
+TEST_F(ArmAsmPointUtilTests, P256ScalarFromBytes64NPlus1ReturnsOne) {
+    using namespace arm_asm::detail;
+    const auto input = from_hex<64>(
+        "0000000000000000000000000000000000000000000000000000000000000000"
+        "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632552");
+    const Fe256 result = p256_scalar_from_bytes64(input.data());
+    EXPECT_EQ(result.v[0], 1U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    for (int i = 1; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(result.v[i], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// TV2: input = 0^32 ‖ (n+42)  →  42
+// (n+42 as the low 256 bits; high 256 bits are zero)
+TEST_F(ArmAsmPointUtilTests, P256ScalarFromBytes64NPlus42Returns42) {
+    using namespace arm_asm::detail;
+    const auto input = from_hex<64>(
+        "0000000000000000000000000000000000000000000000000000000000000000"
+        "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63257b");
+    const Fe256 result = p256_scalar_from_bytes64(input.data());
+    EXPECT_EQ(result.v[0], 42U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    for (int i = 1; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(result.v[i], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// p384_scalar_from_bytes96: 768-bit big-endian value reduced mod P-384 n.
+// TV1: input = 0^48 ‖ (n+1)  →  1
+// (n+1 occupies exactly 48 bytes; high 48 bytes are zero)
+TEST_F(ArmAsmPointUtilTests, P384ScalarFromBytes96NPlus1ReturnsOne) {
+    using namespace arm_asm::detail;
+    const auto input = from_hex<96>(
+        "000000000000000000000000000000000000000000000000"
+        "000000000000000000000000000000000000000000000000"
+        "ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf"
+        "581a0db248b0a77aecec196accc52974");
+    const Fe384 result = p384_scalar_from_bytes96(input.data());
+    EXPECT_EQ(result.v[0], 1U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    for (int i = 1; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(result.v[i], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Phase 7: ChaCha20-Poly1305 tests (RFC 8439)
 // ---------------------------------------------------------------------------
 
