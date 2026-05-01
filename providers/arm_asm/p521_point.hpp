@@ -136,8 +136,10 @@ static inline auto p521_point_double(const P521Point& p) noexcept -> P521Point {
 
     const Fe521 z3 = fe521_sub(fe521_sub(fe521_sqr(fe521_add(p.Y, p.Z)), gamma), delta);
 
-    const Fe521 gamma2_8 = fe521_add(fe521_sqr(gamma), fe521_sqr(gamma));
-    const Fe521 gamma8   = fe521_add(fe521_add(gamma2_8, gamma2_8), fe521_add(gamma2_8, gamma2_8));
+    const Fe521 gsq    = fe521_sqr(gamma);
+    const Fe521 gsq2   = fe521_add(gsq, gsq);
+    const Fe521 gsq4   = fe521_add(gsq2, gsq2);
+    const Fe521 gamma8 = fe521_add(gsq4, gsq4);
     const Fe521 y3 = fe521_sub(fe521_mul(alpha, fe521_sub(beta4, x3)), gamma8);
 
     return P521Point{

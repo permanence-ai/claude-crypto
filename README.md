@@ -128,7 +128,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (259 tests)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (351 tests)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -150,7 +150,7 @@ For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYP
 
 ## Testing
 
-The test suite (`safe-crypto-lib-test/`, 259 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
+The test suite (`safe-crypto-lib-test/`, 351 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
 
 ### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 95 tests)
 
@@ -233,22 +233,22 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | ChaCha20-Poly1305 encrypt | 574 MB/s | 782 MB/s | **1.36×** |
 | ChaCha20-Poly1305 decrypt | 568 MB/s | 798 MB/s | **1.41×** |
 | HKDF-SHA-384 (48 B output) | 355 K ops/s | 626 K ops/s | **1.8×** |
-| ECDSA sign P-256 | 5,165 ops/s | 5,514 ops/s | **1.07×** |
-| ECDSA verify P-256 | 1,470 ops/s | 2,124 ops/s | **1.44×** |
-| ECDSA sign P-384 | 3,074 ops/s | 2,334 ops/s | **0.76×** |
-| ECDSA verify P-384 | 828 ops/s | 914 ops/s | **1.10×** |
-| ECDSA sign P-521 | 1,918 ops/s | 1,254 ops/s | **0.65×** |
-| ECDSA verify P-521 | 551 ops/s | 628 ops/s | **1.14×** |
-| ECDH P-256 | 2,184 ops/s | 3,129 ops/s | **1.43×** |
-| ECDH P-384 | 1,221 ops/s | 1,393 ops/s | **1.14×** |
-| ECDH P-521 | 860 ops/s | 1,046 ops/s | **1.22×** |
+| ECDSA sign P-256 | 5,023 ops/s | 5,679 ops/s | **1.13×** |
+| ECDSA verify P-256 | 1,442 ops/s | 2,128 ops/s | **1.47×** |
+| ECDSA sign P-384 | 3,010 ops/s | 2,764 ops/s | **0.92×** |
+| ECDSA verify P-384 | 812 ops/s | 982 ops/s | **1.21×** |
+| ECDSA sign P-521 | 1,912 ops/s | 1,278 ops/s | **0.67×** |
+| ECDSA verify P-521 | 536 ops/s | 643 ops/s | **1.20×** |
+| ECDH P-256 | 2,154 ops/s | 3,174 ops/s | **1.47×** |
+| ECDH P-384 | 1,192 ops/s | 1,455 ops/s | **1.22×** |
+| ECDH P-521 | 828 ops/s | 1,056 ops/s | **1.27×** |
 
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
 - **SHA3 / HMAC-SHA3** beats PSA at 1.2–1.3× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
 - **ChaCha20-Poly1305** now leads MbedTLS at 1.36–1.41× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
-- **ECDSA / ECDH** now beats PSA across all three curves for verify and key agreement, and for P-256 sign. Two optimizations compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). P-384 sign still trails PSA (0.76×) due to P-384 having no hardware modular reduction and 50% more limbs than P-256; signing requires three scalar multiplications (inversion, k·G, and s computation) where k·G uses variable-base for the non-G point.
+- **ECDSA / ECDH** now beats PSA across all three curves for verify and key agreement, and for sign on P-256. Three optimization passes compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). Third, P-384 field inversion and scalar inversion were replaced with addition chains: `fe384_invert` (used in affine conversion after every scalar multiplication) drops from ~702 field ops to ~490; `p384_scalar_invert` now stays in Montgomery domain throughout its addition chain, reducing cost from ~1344 to ~490 Montgomery multiplications. A dormant bug in the point-doubling formula was also fixed — the `8γ²` term was squaring γ twice rather than once. P-384 sign still trails PSA (0.92×); the remaining gap is the variable-base `p384_scalar_mul(Q, key)` used for ECDH and the u2·Q step in verification does not yet use a precomputed window.
 
 ## Provider selection
 

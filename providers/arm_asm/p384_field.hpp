@@ -244,32 +244,6 @@ static inline auto fe384_neg(const Fe384& a) noexcept -> Fe384 {
 // Field multiplication via Solinas fast reduction.
 // -----------------------------------------------------------------------
 
-static inline void fe384_mul_raw( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint32_t c[24], const Fe384& a, const Fe384& b) noexcept
-{
-    uint32_t a32[12]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint32_t b32[12]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < 6; ++i) {
-        a32[2 * i]     = static_cast<uint32_t>(a.v[i]);
-        a32[(2 * i) + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
-        b32[2 * i]     = static_cast<uint32_t>(b.v[i]);
-        b32[(2 * i) + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
-    }
-    using u128 = unsigned __int128;
-    u128 tmp[24]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < 12; ++i) {
-        for (int j = 0; j < 12; ++j) {
-            tmp[i + j] += static_cast<uint64_t>(a32[i]) * b32[j];
-        }
-    }
-    uint64_t carry = 0;
-    for (int i = 0; i < 24; ++i) {
-        const u128 t = tmp[i] + carry;
-        c[i] = static_cast<uint32_t>(t);
-        carry = static_cast<uint64_t>(t >> 32U);
-    }
-}
-
 // Apply Solinas reduction mod p384.
 // Input: 24 × 32-bit words c[0..23] representing a 768-bit value (c[0] = LSW).
 // Output: 384-bit result in [0, p-1].
@@ -407,29 +381,70 @@ static inline auto fe384_equal(const Fe384& a, const Fe384& b) noexcept -> bool 
 // Field inversion: a^(p−2) mod p.
 // -----------------------------------------------------------------------
 
+// Compute a^(p-2) mod p384 using an addition chain.
+//
+// p-2 bit structure (MSB = bit 383 first):
+//   bits 383..129: 255 ones
+//   bit 128:       0
+//   bits 127..96:  32 ones
+//   bits 95..32:   64 zeros
+//   bits 31..2:    30 ones
+//   bit 1:         0
+//   bit 0:         1
+//
+// Cost: ~457 field multiplications (vs ~702 for generic square-and-multiply).
 [[nodiscard]]
 static inline auto fe384_invert(const Fe384& a) noexcept -> Fe384 {
-    // p−2 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
-    //        FFFFFFFF0000000000000000FFFFFFFD
-    // Stored as 6 × 64-bit LE:
-    static constexpr uint64_t exp[6] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-        0x00000000fffffffdULL,
-        0xffffffff00000000ULL,
-        0xfffffffffffffffeULL,
-        0xffffffffffffffffULL,
-        0xffffffffffffffffULL,
-        0xffffffffffffffffULL,
-    };
-    Fe384 result = fe384_one;
-    for (int word = 5; word >= 0; --word) {
-        for (int bit = 63; bit >= 0; --bit) {
-            result = fe384_sqr(result);
-            if (((exp[word] >> static_cast<unsigned>(bit)) & 1U) != 0U) {
-                result = fe384_mul(result, a);
-            }
-        }
+    // Build a^(2^k-1) for k = 2, 4, 8, 16, 32.
+    const Fe384 p2 = fe384_mul(fe384_sqr(a), a);          // a^3 = a^(2^2-1)
+    Fe384 t = fe384_sqr(fe384_sqr(p2));                    // a^12
+    const Fe384 p4 = fe384_mul(t, p2);                     // a^15 = a^(2^4-1)
+    t = p4;
+    for (int i = 0; i < 4; ++i) { t = fe384_sqr(t); }     // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p8 = fe384_mul(t, p4);                     // a^(2^8-1)
+    t = p8;
+    for (int i = 0; i < 8; ++i) { t = fe384_sqr(t); }     // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p16 = fe384_mul(t, p8);                    // a^(2^16-1)
+    t = p16;
+    for (int i = 0; i < 16; ++i) { t = fe384_sqr(t); }    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p32 = fe384_mul(t, p16);                   // a^(2^32-1)
+
+    // Bits 383..129: 255 ones = 7 blocks of 32 ones + 31 individual ones.
+    Fe384 acc = p32;  // first 32 ones
+    for (int blk = 0; blk < 6; ++blk) {  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int i = 0; i < 32; ++i) { acc = fe384_sqr(acc); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        acc = fe384_mul(acc, p32);
     }
-    return result;
+    for (int i = 0; i < 31; ++i) {  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        acc = fe384_sqr(acc);
+        acc = fe384_mul(acc, a);
+    }
+    // acc = a^(2^255-1)
+
+    // Bit 128 = 0:
+    acc = fe384_sqr(acc);
+
+    // Bits 127..96: 32 ones.
+    for (int i = 0; i < 32; ++i) { acc = fe384_sqr(acc); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    acc = fe384_mul(acc, p32);
+
+    // Bits 95..32: 64 zeros.
+    for (int i = 0; i < 64; ++i) { acc = fe384_sqr(acc); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    // Bits 31..2: 30 ones.
+    for (int i = 0; i < 30; ++i) {  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        acc = fe384_sqr(acc);
+        acc = fe384_mul(acc, a);
+    }
+
+    // Bit 1 = 0:
+    acc = fe384_sqr(acc);
+
+    // Bit 0 = 1:
+    acc = fe384_sqr(acc);
+    acc = fe384_mul(acc, a);
+
+    return acc;
 }
 
 }  // namespace arm_asm::detail

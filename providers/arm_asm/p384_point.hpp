@@ -124,8 +124,10 @@ static inline auto p384_point_double(const P384Point& p) noexcept -> P384Point {
 
     const Fe384 z3 = fe384_sub(fe384_sub(fe384_sqr(fe384_add(p.Y, p.Z)), gamma), delta);
 
-    const Fe384 gamma2_8 = fe384_add(fe384_sqr(gamma), fe384_sqr(gamma));
-    const Fe384 gamma8   = fe384_add(fe384_add(gamma2_8, gamma2_8), fe384_add(gamma2_8, gamma2_8));
+    const Fe384 gsq    = fe384_sqr(gamma);
+    const Fe384 gsq2   = fe384_add(gsq, gsq);
+    const Fe384 gsq4   = fe384_add(gsq2, gsq2);
+    const Fe384 gamma8 = fe384_add(gsq4, gsq4);
     const Fe384 y3 = fe384_sub(fe384_mul(alpha, fe384_sub(beta4, x3)), gamma8);
 
     return P384Point{
@@ -585,27 +587,70 @@ static inline auto p384_scalar_mul_mod_n(
     return p384_mont_mul_n(a_mont, b);
 }
 
+// Scalar inversion mod n using an addition chain that stays in Montgomery domain.
+//
+// n-2 bit pattern (MSB first):
+//   bits 383..192: 192 ones (all-1 words 3..5)
+//   bits 191..0:   irregular (C7634D81F4372DDF 581A0DB248B0A77A ECEC196ACCC52971)
+//
+// Notation: [v] = v*R mod n  (Montgomery representation).
+// mont_mul([x], [y]) = [x*y].
+// Cost: ~490 mont_muls (vs ~1344 for generic square-and-multiply with double conversion).
 [[nodiscard]]
 static inline auto p384_scalar_invert(const Fe384& a) noexcept -> Fe384 {
-    // n-2 as 6 × 64-bit LE limbs
-    static constexpr uint64_t nm2[6] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-        0xecec196accc52971ULL,
-        0x581a0db248b0a77aULL,
-        0xc7634d81f4372ddfULL,
-        0xffffffffffffffffULL,
-        0xffffffffffffffffULL,
-        0xffffffffffffffffULL,
+    static constexpr Fe384 r2_mod_n = {{
+        0x2d319b2419b409a9ULL,
+        0xff3d81e5df1aa419ULL,
+        0xbc3e483afcb82947ULL,
+        0xd40d49174aab1cc5ULL,
+        0x3fb05b7a28266895ULL,
+        0x0c84ee012b39bf21ULL,
+    }};
+    static constexpr Fe384 one = {{1ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};
+
+    // Convert a to Montgomery domain: [a] = a*R mod n.
+    const Fe384 aM = p384_mont_mul_n(a, r2_mod_n);
+
+    // Build [a^(2^k-1)] for k = 1,2,4,8,16,32,64 via doubling-chain:
+    //   p_k = [a^(2^k - 1)]:
+    //     (1) square p_{k/2} by (k/2) to get [a^(2^{k/2}*(2^{k/2}-1))]
+    //     (2) mont_mul result with p_{k/2} = [a^(2^{k/2}-1)]
+    //         product = [a^(2^{k/2}*(2^{k/2}-1) + (2^{k/2}-1))] = [a^((2^{k/2}-1)*(2^{k/2}+1))] = [a^(2^k-1)]
+    auto sqn = [](Fe384 x, int n) -> Fe384 { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int i = 0; i < n; ++i) { x = p384_mont_mul_n(x, x); }
+        return x;
     };
-    Fe384 result{{1ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};
-    for (int word = 5; word >= 0; --word) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p1  = aM;                                          // [a^(2^1-1)]
+    const Fe384 p2  = p384_mont_mul_n(sqn(p1,  1), p1);           // [a^(2^2-1)]  NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p4  = p384_mont_mul_n(sqn(p2,  2), p2);           // [a^(2^4-1)]  NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p8  = p384_mont_mul_n(sqn(p4,  4), p4);           // [a^(2^8-1)]  NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p16 = p384_mont_mul_n(sqn(p8,  8), p8);           // [a^(2^16-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p32 = p384_mont_mul_n(sqn(p16, 16), p16);         // [a^(2^32-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p64 = p384_mont_mul_n(sqn(p32, 32), p32);         // [a^(2^64-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    // Accumulate top 192 ones (bits 383..192) using precomputed windows.
+    // [a^(2^128-1)]: square p64 by 64, multiply by p64.
+    const Fe384 p128 = p384_mont_mul_n(sqn(p64, 64), p64);        // [a^(2^128-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // [a^(2^192-1)]: square p128 by 64, multiply by p64.
+    Fe384 result = p384_mont_mul_n(sqn(p128, 64), p64);           // [a^(2^192-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+    // Process lower 192 bits of n-2: 0xC7634D81F4372DDF_581A0DB248B0A77A_ECEC196ACCC52971.
+    static constexpr uint64_t nm2_lo[3] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        0xecec196accc52971ULL,  // word[0]  (LSB)
+        0x581a0db248b0a77aULL,  // word[1]
+        0xc7634d81f4372ddfULL,  // word[2]  (MSB of lower 192 bits)
+    };
+    for (int word = 2; word >= 0; --word) {
         for (int bit = 63; bit >= 0; --bit) {
-            result = p384_scalar_mul_mod_n(result, result);
-            if (((nm2[word] >> static_cast<unsigned>(bit)) & 1U) != 0U) {
-                result = p384_scalar_mul_mod_n(result, a);
+            result = p384_mont_mul_n(result, result);
+            if (((nm2_lo[word] >> static_cast<unsigned>(bit)) & 1U) != 0U) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                result = p384_mont_mul_n(result, aM);
             }
         }
     }
-    return result;
+
+    // Convert back from Montgomery domain: [a^(n-2)] → a^(n-2) mod n.
+    return p384_mont_mul_n(result, one);
 }
 
 [[nodiscard]]

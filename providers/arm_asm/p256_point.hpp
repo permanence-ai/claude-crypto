@@ -151,8 +151,10 @@ static inline auto p256_point_double(const P256Point& p) noexcept -> P256Point {
     const Fe256 z3 = fe256_sub(fe256_sub(fe256_sqr(fe256_add(p.Y, p.Z)), gamma), delta);
 
     // Y3 = alpha*(4*beta − X3) − 8*gamma^2
-    const Fe256 gamma2_8 = fe256_add(fe256_sqr(gamma), fe256_sqr(gamma));  // 2*gamma^2
-    const Fe256 gamma8   = fe256_add(fe256_add(gamma2_8, gamma2_8), fe256_add(gamma2_8, gamma2_8));
+    const Fe256 gsq    = fe256_sqr(gamma);
+    const Fe256 gsq2   = fe256_add(gsq, gsq);
+    const Fe256 gsq4   = fe256_add(gsq2, gsq2);
+    const Fe256 gamma8 = fe256_add(gsq4, gsq4);
     const Fe256 y3 = fe256_sub(fe256_mul(alpha, fe256_sub(beta4, x3)), gamma8);
 
     return P256Point{
