@@ -244,7 +244,7 @@ inline bool aes256_gcm_decrypt(
 
     if (diff != 0U) {
         // Zeroize output before returning authentication failure.
-        volatile auto* p = reinterpret_cast<volatile CryptoByte*>(out);
+        volatile auto* p = reinterpret_cast<volatile CryptoByte*>(out); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         for (std::size_t i = 0; i < pt_len; ++i) { p[i] = 0; }
         return false;
     }

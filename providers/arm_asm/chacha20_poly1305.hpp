@@ -185,7 +185,7 @@ inline bool chacha20_poly1305_decrypt(
 
     if (diff != 0U) {
         // Zeroize output before returning authentication failure.
-        volatile auto* q = reinterpret_cast<volatile CryptoByte*>(out);
+        volatile auto* q = reinterpret_cast<volatile CryptoByte*>(out); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         for (std::size_t i = 0; i < pt_len; ++i) { q[i] = 0; }
         return false;
     }

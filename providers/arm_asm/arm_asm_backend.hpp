@@ -722,13 +722,13 @@ struct ArmAsmBackend {
 
     // NOLINT(readability-named-parameter) — stub functions intentionally omit unused parameter names.
     [[nodiscard]]
-    static KeyAttributes make_hkdf_derive_attrs(std::size_t bits)              noexcept { return {bits / 8U}; }
+    static KeyAttributes make_hkdf_derive_attrs(std::size_t bits)              noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]
-    static KeyAttributes make_hkdf_expand_derive_attrs(std::size_t bits)       noexcept { return {bits / 8U}; }
+    static KeyAttributes make_hkdf_expand_derive_attrs(std::size_t bits)       noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]
-    static KeyAttributes make_hmac_generate_attrs(ShaVariant /*v*/, std::size_t bits) noexcept { return {bits / 8U}; }
+    static KeyAttributes make_hmac_generate_attrs(ShaVariant /*v*/, std::size_t bits) noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]
-    static KeyAttributes make_hmac_verify_attrs(ShaVariant /*v*/, std::size_t bits)   noexcept { return {bits / 8U}; }
+    static KeyAttributes make_hmac_verify_attrs(ShaVariant /*v*/, std::size_t bits)   noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]
     static KeyAttributes make_ecdsa_generate_attrs(std::size_t bits)       noexcept {
         const auto curve = ec_curve_id_for_bits(bits);
@@ -755,13 +755,13 @@ struct ArmAsmBackend {
         return {.key_bytes = ec_private_key_export_size(bits), .ec_curve = curve, .ec_kind = arm_asm::detail::EcKeyKind::Private};
     }
     [[nodiscard]]
-    static KeyAttributes make_aes256_gcm_encrypt_attrs()                       noexcept { return {aes256_key_size_bytes}; }
+    static KeyAttributes make_aes256_gcm_encrypt_attrs()                       noexcept { return {.key_bytes = aes256_key_size_bytes}; }
     [[nodiscard]]
-    static KeyAttributes make_aes256_gcm_decrypt_attrs()                       noexcept { return {aes256_key_size_bytes}; }
+    static KeyAttributes make_aes256_gcm_decrypt_attrs()                       noexcept { return {.key_bytes = aes256_key_size_bytes}; }
     [[nodiscard]]
-    static KeyAttributes make_chacha20_poly1305_encrypt_attrs()                noexcept { return {chacha20_key_size_bytes}; }
+    static KeyAttributes make_chacha20_poly1305_encrypt_attrs()                noexcept { return {.key_bytes = chacha20_key_size_bytes}; }
     [[nodiscard]]
-    static KeyAttributes make_chacha20_poly1305_decrypt_attrs()                noexcept { return {chacha20_key_size_bytes}; }
+    static KeyAttributes make_chacha20_poly1305_decrypt_attrs()                noexcept { return {.key_bytes = chacha20_key_size_bytes}; }
     [[nodiscard]]
     static KeyAttributes make_rsa_oaep_encrypt_attrs(std::size_t bits) noexcept {
         return {.rsa_key_kind = arm_asm::detail::RsaKeyKind::Public, .rsa_bits = bits};
