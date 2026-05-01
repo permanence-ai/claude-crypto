@@ -16,6 +16,7 @@ target_sources(${LIB_NAME} INTERFACE
         poly1305.hpp
         random.hpp
         rsa.hpp
+        rsa_bigint.hpp
         rsa_der.hpp
         sha256.hpp
         sha3.hpp
