@@ -18,6 +18,7 @@ target_sources(${LIB_NAME} INTERFACE
         rsa.hpp
         rsa_bigint.hpp
         rsa_der.hpp
+        rsa_oaep.hpp
         sha256.hpp
         sha3.hpp
         sha512.hpp
