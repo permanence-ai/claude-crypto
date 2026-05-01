@@ -974,6 +974,114 @@ TEST_F(ArmAsmSha3Tests, HmacSha3_512AbcMessage) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Poly1305 MAC known-answer tests
+//
+// Vectors:
+//   RFC 8439 §A.3 TV1: 64-byte zero message, all-zero key → all-zero tag
+//   RFC 8439 §A.3 TV2: 362-byte IETF submission text
+//     key = 0000..00 ‖ 36e5f6b5c5e06070f0efca96227a863e
+//     tag = 36e5f6b5c5e06070f0efca96227a863e
+//   Custom 96-byte (0x61×96): key=0x00..1f
+//     tag = 408aafac65bf6f37cb4d6d69d74dc0f5
+//   Custom 128-byte (0x61×128): key=0x00..1f
+//     tag = daa0437b0935d2b67bdc3a28e90078a8
+//
+// TV1 exercises the 4-block path with a trivially zero result.
+// TV2 exercises multiple full quad-block iterations (362 / 64 = 5 passes).
+// Custom 96B exercises quad-block (64B) + pair (32B).
+// Custom 128B exercises exactly two quad-block passes.
+// ---------------------------------------------------------------------------
+
+#include "poly1305.hpp"
+
+class ArmAsmPoly1305Tests : public ::testing::Test {
+protected:
+    template<std::size_t N>
+    static std::array<uint8_t, N> from_hex(const char* s) {
+        std::array<uint8_t, N> out{};
+        for (std::size_t i = 0; i < N; ++i) {
+            unsigned v = 0;
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+            out[i] = static_cast<uint8_t>(v);
+        }
+        return out;
+    }
+};
+
+// RFC 8439 §A.3 TV1: 64-byte all-zero message, all-zero key → all-zero tag.
+// Exercises the 4-block (64B) primary loop path.
+TEST_F(ArmAsmPoly1305Tests, Rfc8439Tv1ZeroMessageZeroKey) {
+    const std::array<uint8_t, 32> key{};
+    const std::array<uint8_t, 64> msg{};
+    std::array<uint8_t, 16> tag{};
+    arm_asm::detail::poly1305_mac(key.data(), msg.data(), msg.size(), tag.data());
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(tag[i], 0U) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// RFC 8439 §A.3 TV2: 362-byte IETF text message.
+// Exercises multiple consecutive quad-block iterations of poly1305_mac.
+TEST_F(ArmAsmPoly1305Tests, Rfc8439Tv2IetfText) {
+    const auto key = from_hex<32>(
+        "0000000000000000000000000000000036e5f6b5c5e06070f0efca96227a863e");
+    const auto expected = from_hex<16>("36e5f6b5c5e06070f0efca96227a863e");
+
+    // RFC 8439 §A.3 TV2 message: 362 bytes.
+    const char msg_raw[] =
+        "Any submission to the IETF intended by the Contributor for publication"
+        " as all or part of an IETF Internet-Draft or RFC and any statement mad"
+        "e within the context of an IETF activity is considered an \"IETF Contr"
+        "ibution\". Such statements include oral statements in IETF sessions, as"
+        " well as written and electronic communications made at any time or plac"
+        "e, which are addressed to";
+    const std::size_t msg_len = sizeof(msg_raw) - 1; // exclude null terminator
+
+    std::array<uint8_t, 16> tag{};
+    arm_asm::detail::poly1305_mac(
+        key.data(),
+        reinterpret_cast<const uint8_t*>(msg_raw), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        msg_len, tag.data());
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// Custom 96-byte message (0x61 × 96), key = 0x00..0x1f.
+// Exercises quad-block (64B) path then pair (32B) path.
+TEST_F(ArmAsmPoly1305Tests, Custom96ByteMessage) {
+    std::array<uint8_t, 32> key{};
+    for (std::size_t i = 0; i < 32; ++i) { key[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    std::array<uint8_t, 96> msg{};
+    std::fill(msg.begin(), msg.end(), 0x61U);
+    const auto expected = from_hex<16>("408aafac65bf6f37cb4d6d69d74dc0f5");
+
+    std::array<uint8_t, 16> tag{};
+    arm_asm::detail::poly1305_mac(key.data(), msg.data(), msg.size(), tag.data());
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// Custom 128-byte message (0x61 × 128), key = 0x00..0x1f.
+// Exercises exactly two consecutive quad-block iterations.
+TEST_F(ArmAsmPoly1305Tests, Custom128ByteMessage) {
+    std::array<uint8_t, 32> key{};
+    for (std::size_t i = 0; i < 32; ++i) { key[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    std::array<uint8_t, 128> msg{};
+    std::fill(msg.begin(), msg.end(), 0x61U);
+    const auto expected = from_hex<16>("daa0437b0935d2b67bdc3a28e90078a8");
+
+    std::array<uint8_t, 16> tag{};
+    arm_asm::detail::poly1305_mac(key.data(), msg.data(), msg.size(), tag.data());
+    for (std::size_t i = 0; i < 16; ++i) {
+        EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
 // SHA3 dispatch via ArmAsmBackend::hash_compute
 TEST_F(ArmAsmSha3Tests, BackendSha3_256Dispatch) {
     const auto expected = from_hex<32>(
