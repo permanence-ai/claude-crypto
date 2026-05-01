@@ -150,9 +150,9 @@ For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYP
 
 ## Testing
 
-The test suite (`safe-crypto-lib-test/`, 351 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
+The test suite (`safe-crypto-lib-test/`, 351 tests) uses GoogleTest + GMock and is organised into five distinct testing strategies.
 
-### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 95 tests)
+### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 107 tests)
 
 `MockPsaBackend` is a GMock implementation of the `CryptoProvider` concept that intercepts every PSA call. Tests configure expectations with `EXPECT_CALL` to return specific `psa_status_t` error codes, then call the high-level `_impl` functions and assert the correct `CryptoError` variant is returned.
 
@@ -172,12 +172,21 @@ These run against the active provider (default: `RealPsaBackend`) and verify cor
 - **SIGMA / SIGMA-I** — Full two-party handshake; identity hiding; tamper detection on MAC and signature fields.
 - **Random** — Output length, non-zero probability, successive calls differ.
 
-### 3. ARM ASM known-answer-vector tests (`arm_asm_tests.hpp` — 31 tests)
+### 3. ARM ASM known-answer-vector tests (`arm_asm_tests.hpp` — 110 tests)
 
-Guarded by `SAFE_CRYPTO_PROVIDER_ARM_ASM`, these test the ARM intrinsic implementations directly against published test vectors:
+Guarded by `SAFE_CRYPTO_PROVIDER_ARM_ASM`, these test the ARM intrinsic implementations directly against published test vectors and boundary conditions:
 
 - **AES-256-GCM** — NIST CAVP vectors (no-AAD and with-AAD cases); empty-plaintext tag-only case; decrypt tag-tamper rejection.
+- **SHA3-256/384/512** — NIST test vectors for all three output sizes.
+- **ChaCha20-Poly1305** — RFC 8439 test vectors; tag-tamper rejection.
+- **Poly1305** — RFC 8439 MAC vectors.
 - **HKDF-SHA-384** — RFC 5869 test vectors exercising the full Extract+Expand path and the Expand-only variant.
+- **EC key store** — boundary and error-path tests for the 16-slot EC key store.
+- **Symmetric key store** — boundary and error-path tests for the 16-slot symmetric key store.
+- **RSA key store** — boundary and error-path tests for the 8-slot RSA key store.
+- **Key management** — `generate_key`, `import_key`, `export_key`, `destroy_key` round-trips and error paths.
+- **ARM ASM backend errors** — every `std::unexpected` path exercised via direct backend calls.
+- **Point utilities** — P-256/384/521 scalar multiplication edge cases.
 
 These verify the ARM ASM provider's correctness independently of the PSA layer.
 
@@ -191,13 +200,13 @@ The cross-decrypt and cross-verify tests are particularly valuable: they encrypt
 
 This strategy catches implementation drift that KAT tests cannot find — a wrong implementation can still pass a KAT if the reference vector was derived from the same wrong code.
 
-### 5. Memory-safety tests (`secure_buffer_tests.hpp` — 9 tests)
+### 5. Memory-safety tests (`secure_buffer_tests.hpp` — 4 tests)
 
 Verify `SecureBuffer` and `FixedSecureBuffer<N>` behaviour: index operator reads and writes, move semantics, `resize` (shrink-only), and — where C++26 contracts are enforced — death assertions for out-of-bounds access and resize-beyond-current-size.
 
 ## Benchmarks
 
-`safe-crypto-lib-bench` uses Google Benchmark (via FetchContent) to measure throughput across all symmetric operations. Both `RealPsaBackend` and `ArmAsmBackend` are instantiated in the same binary so results are directly comparable. Payloads are swept across 64 B / 1 KiB / 16 KiB / 256 KiB; throughput is reported in GB/s or MB/s via `SetBytesProcessed`.
+`safe-crypto-lib-bench` uses Google Benchmark (via FetchContent) to measure throughput across all operations. Both `RealPsaBackend` and `ArmAsmBackend` are instantiated in the same binary so results are directly comparable. Symmetric payloads are swept across 64 B / 1 KiB / 16 KiB / 256 KiB; throughput is reported in GB/s or MB/s via `SetBytesProcessed`. EC and RSA operations report ops/s.
 
 ```bash
 # Build and run (Release mandatory for meaningful numbers)
@@ -212,43 +221,52 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 ./cmake-build-release/safe-crypto-lib-bench/safe_crypto_lib_bench --benchmark_format=json > results.json
 ```
 
-**Representative results — Apple M3 Pro, Release build (256 KiB payload):**
+**Representative results — Apple M3 Pro, Release build (256 KiB payload for symmetric; ops/s for EC and RSA):**
 
 | Operation | PSA/MbedTLS | ARM ASM | Speedup |
 |---|---|---|---|
-| SHA-256 | 384 MB/s | 2,474 MB/s | **6.4×** |
-| SHA-384 | 534 MB/s | 1,641 MB/s | **3.1×** |
-| SHA-512 | 537 MB/s | 1,653 MB/s | **3.1×** |
-| SHA3-256 | 379 MB/s | 481 MB/s | **1.3×** |
-| SHA3-384 | 301 MB/s | 371 MB/s | **1.2×** |
-| SHA3-512 | 209 MB/s | 259 MB/s | **1.2×** |
-| HMAC-SHA-256 | 366 MB/s | 2,357 MB/s | **6.4×** |
-| HMAC-SHA-384 | 533 MB/s | 1,651 MB/s | **3.1×** |
-| HMAC-SHA-512 | 528 MB/s | 1,651 MB/s | **3.1×** |
-| HMAC-SHA3-256 | 364 MB/s | 480 MB/s | **1.3×** |
-| HMAC-SHA3-384 | 293 MB/s | 367 MB/s | **1.3×** |
-| HMAC-SHA3-512 | 207 MB/s | 256 MB/s | **1.2×** |
-| AES-256-GCM encrypt | 1,066 MB/s | 1,273 MB/s | **1.2×** |
-| AES-256-GCM decrypt | 966 MB/s | 1,304 MB/s | **1.3×** |
-| ChaCha20-Poly1305 encrypt | 574 MB/s | 782 MB/s | **1.36×** |
-| ChaCha20-Poly1305 decrypt | 568 MB/s | 798 MB/s | **1.41×** |
-| HKDF-SHA-384 (48 B output) | 355 K ops/s | 626 K ops/s | **1.8×** |
-| ECDSA sign P-256 | 5,023 ops/s | 5,679 ops/s | **1.13×** |
-| ECDSA verify P-256 | 1,442 ops/s | 2,128 ops/s | **1.47×** |
-| ECDSA sign P-384 | 3,010 ops/s | 2,764 ops/s | **0.92×** |
-| ECDSA verify P-384 | 812 ops/s | 982 ops/s | **1.21×** |
-| ECDSA sign P-521 | 1,912 ops/s | 1,278 ops/s | **0.67×** |
-| ECDSA verify P-521 | 536 ops/s | 643 ops/s | **1.20×** |
-| ECDH P-256 | 2,154 ops/s | 3,174 ops/s | **1.47×** |
-| ECDH P-384 | 1,192 ops/s | 1,455 ops/s | **1.22×** |
-| ECDH P-521 | 828 ops/s | 1,056 ops/s | **1.27×** |
+| SHA-256 | 366 MB/s | 2,275 MB/s | **6.2×** |
+| SHA-384 | 509 MB/s | 1,585 MB/s | **3.1×** |
+| SHA-512 | 515 MB/s | 1,563 MB/s | **3.0×** |
+| SHA3-256 | 376 MB/s | 468 MB/s | **1.2×** |
+| SHA3-384 | 301 MB/s | 360 MB/s | **1.2×** |
+| SHA3-512 | 207 MB/s | 250 MB/s | **1.2×** |
+| HMAC-SHA-256 | 356 MB/s | 2,282 MB/s | **6.4×** |
+| HMAC-SHA-384 | 512 MB/s | 1,557 MB/s | **3.0×** |
+| HMAC-SHA-512 | 469 MB/s | 1,566 MB/s | **3.3×** |
+| HMAC-SHA3-256 | 367 MB/s | 468 MB/s | **1.3×** |
+| HMAC-SHA3-384 | 293 MB/s | 360 MB/s | **1.2×** |
+| HMAC-SHA3-512 | 207 MB/s | 250 MB/s | **1.2×** |
+| AES-256-GCM encrypt | 1,060 MB/s | 1,249 MB/s | **1.18×** |
+| AES-256-GCM decrypt | 1,071 MB/s | 1,216 MB/s | **1.14×** |
+| ChaCha20-Poly1305 encrypt | 564 MB/s | 753 MB/s | **1.33×** |
+| ChaCha20-Poly1305 decrypt | 562 MB/s | 769 MB/s | **1.37×** |
+| HKDF-SHA-384 (48 B output) | 346 K ops/s | 619 K ops/s | **1.8×** |
+| ECDSA sign P-256 | 5,087 ops/s | 5,728 ops/s | **1.13×** |
+| ECDSA verify P-256 | 1,471 ops/s | 2,173 ops/s | **1.48×** |
+| ECDSA sign P-384 | 3,057 ops/s | 2,801 ops/s | **0.92×** |
+| ECDSA verify P-384 | 829 ops/s | 995 ops/s | **1.20×** |
+| ECDSA sign P-521 | 1,949 ops/s | 1,306 ops/s | **0.67×** |
+| ECDSA verify P-521 | 551 ops/s | 651 ops/s | **1.18×** |
+| ECDH P-256 | 2,177 ops/s | 3,218 ops/s | **1.48×** |
+| ECDH P-384 | 1,216 ops/s | 1,473 ops/s | **1.21×** |
+| ECDH P-521 | 850 ops/s | 1,073 ops/s | **1.26×** |
+| RSA-3072 OAEP encrypt | 6,413 ops/s | 6,303 ops/s | **0.98×** |
+| RSA-3072 OAEP decrypt | 157 ops/s | 157 ops/s | **1.00×** |
+| RSA-3072 PSS sign | 157 ops/s | 157 ops/s | **1.00×** |
+| RSA-3072 PSS verify | 6,418 ops/s | 6,830 ops/s | **1.06×** |
+| RSA-4096 OAEP encrypt | 3,888 ops/s | 3,671 ops/s | **0.94×** |
+| RSA-4096 OAEP decrypt | 79 ops/s | 77 ops/s | **0.98×** |
+| RSA-4096 PSS sign | 77 ops/s | 78 ops/s | **1.01×** |
+| RSA-4096 PSS verify | 4,121 ops/s | 3,968 ops/s | **0.96×** |
 
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
-- **SHA3 / HMAC-SHA3** beats PSA at 1.2–1.3× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
-- **ChaCha20-Poly1305** now leads MbedTLS at 1.36–1.41× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
-- **ECDSA / ECDH** now beats PSA across all three curves for verify and key agreement, and for sign on P-256. Three optimization passes compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). Third, P-384 field inversion and scalar inversion were replaced with addition chains: `fe384_invert` (used in affine conversion after every scalar multiplication) drops from ~702 field ops to ~490; `p384_scalar_invert` now stays in Montgomery domain throughout its addition chain, reducing cost from ~1344 to ~490 Montgomery multiplications. A dormant bug in the point-doubling formula was also fixed — the `8γ²` term was squaring γ twice rather than once. P-384 sign still trails PSA (0.92×); the remaining gap is the variable-base `p384_scalar_mul(Q, key)` used for ECDH and the u2·Q step in verification does not yet use a precomputed window.
+- **SHA3 / HMAC-SHA3** beats PSA at 1.2× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
+- **ChaCha20-Poly1305** leads MbedTLS at 1.33–1.37× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
+- **ECDSA / ECDH** beats PSA across all three curves for verify and key agreement, and for sign on P-256. Four optimization passes compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). Third, P-384 field inversion and scalar inversion were replaced with addition chains: `fe384_invert` (used in affine conversion after every scalar multiplication) drops from ~702 field ops to ~490; `p384_scalar_invert` now stays in Montgomery domain throughout its addition chain, reducing cost from ~1344 to ~490 Montgomery multiplications. Fourth, a dormant bug in the point-doubling formula (present across all three curves) was fixed — the `8γ²` term was squaring γ twice rather than once. P-384 sign still trails PSA (0.92×) and P-521 sign at 0.67×; both have no hardware modular reduction and the variable-base `p*_scalar_mul(Q, ...)` for ECDH and u2·Q in verification does not yet use a precomputed window.
+- **RSA** (3072 and 4096-bit) is fully delegated to PSA/MbedTLS for all key operations (generation, import/export) and for private-key operations (decrypt, sign) which are dominated by multi-precision modular exponentiation. Encrypt and verify (public-key) operations are also delegated. The ARM ASM backend is at parity or within noise for all RSA operations.
 
 ## Provider selection
 
@@ -257,7 +275,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | Value | Backend | Status |
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
-| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096, key management |
+| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096, key management |
 | `IA_ASM` | Native assembly | Stub only |
 
 ```bash
