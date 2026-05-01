@@ -1196,6 +1196,813 @@ TEST_F(ArmAsmPoly1305Tests, Custom128ByteMessage) {
 }
 
 // ---------------------------------------------------------------------------
+// Symmetric key store boundary tests (key_store.hpp).
+// ---------------------------------------------------------------------------
+
+class ArmAsmSymKeyStoreTests : public ::testing::Test {
+protected:
+    void TearDown() override {
+        for (unsigned int i = 1; i <= static_cast<unsigned int>(arm_asm::detail::key_store_capacity); ++i) {
+            arm_asm::detail::key_store_destroy(i);
+        }
+    }
+};
+
+TEST_F(ArmAsmSymKeyStoreTests, ImportOversizedKeyReturnsZero) {
+    constexpr std::size_t oversize = arm_asm::detail::key_store_max_bytes + 1;
+    std::array<uint8_t, oversize> buf{};
+    EXPECT_EQ(arm_asm::detail::key_store_import(buf.data(), oversize), 0U);
+}
+
+TEST_F(ArmAsmSymKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
+    std::array<uint8_t, 4> dummy{};
+    for (std::size_t i = 0; i < arm_asm::detail::key_store_capacity; ++i) {
+        EXPECT_NE(arm_asm::detail::key_store_import(dummy.data(), dummy.size()), 0U) << "slot " << i;
+    }
+    EXPECT_EQ(arm_asm::detail::key_store_import(dummy.data(), dummy.size()), 0U);
+}
+
+TEST_F(ArmAsmSymKeyStoreTests, GetWithIdZeroReturnsFalse) {
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    EXPECT_FALSE(arm_asm::detail::key_store_get(0U, &key, &len));
+}
+
+TEST_F(ArmAsmSymKeyStoreTests, GetWithIdAboveCapacityReturnsFalse) {
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    EXPECT_FALSE(arm_asm::detail::key_store_get(
+        static_cast<unsigned int>(arm_asm::detail::key_store_capacity) + 1U, &key, &len));
+}
+
+TEST_F(ArmAsmSymKeyStoreTests, GetOnFreeSlotReturnsFalse) {
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    EXPECT_FALSE(arm_asm::detail::key_store_get(1U, &key, &len));
+}
+
+TEST_F(ArmAsmSymKeyStoreTests, DestroyWithIdZeroIsNoOp) {
+    arm_asm::detail::key_store_destroy(0U);
+}
+
+TEST_F(ArmAsmSymKeyStoreTests, DestroyWithIdAboveCapacityIsNoOp) {
+    arm_asm::detail::key_store_destroy(
+        static_cast<unsigned int>(arm_asm::detail::key_store_capacity) + 1U);
+}
+
+
+// ---------------------------------------------------------------------------
+// EC key store boundary tests (ec_key_store.hpp).
+// ---------------------------------------------------------------------------
+
+class ArmAsmEcKeyStoreTests : public ::testing::Test {
+protected:
+    void TearDown() override {
+        for (unsigned int i = 0; i < static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity); ++i) {
+            arm_asm::detail::ec_key_store_destroy(arm_asm::detail::ec_key_id_base + i);
+        }
+    }
+};
+
+TEST_F(ArmAsmEcKeyStoreTests, ImportOversizedKeyReturnsZero) {
+    constexpr std::size_t oversize = arm_asm::detail::ec_max_key_bytes + 1;
+    std::array<uint8_t, oversize> buf{};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        buf.data(), oversize), 0U);
+}
+
+TEST_F(ArmAsmEcKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
+    std::array<uint8_t, 32> dummy{};
+    for (std::size_t i = 0; i < arm_asm::detail::ec_key_store_capacity; ++i) {
+        EXPECT_NE(arm_asm::detail::ec_key_store_import(
+            arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+            dummy.data(), dummy.size()), 0U) << "slot " << i;
+    }
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        dummy.data(), dummy.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyStoreTests, GetWithIdBelowBaseReturnsFalse) {
+    arm_asm::detail::EcCurveId curve{};
+    arm_asm::detail::EcKeyKind kind{};
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    EXPECT_FALSE(arm_asm::detail::ec_key_store_get(0U, &curve, &kind, &key, &len));
+}
+
+TEST_F(ArmAsmEcKeyStoreTests, GetWithIdAboveRangeReturnsFalse) {
+    arm_asm::detail::EcCurveId curve{};
+    arm_asm::detail::EcKeyKind kind{};
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    const unsigned int out_of_range =
+        arm_asm::detail::ec_key_id_base +
+        static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity);
+    EXPECT_FALSE(arm_asm::detail::ec_key_store_get(out_of_range, &curve, &kind, &key, &len));
+}
+
+TEST_F(ArmAsmEcKeyStoreTests, GetOnFreeSlotReturnsFalse) {
+    arm_asm::detail::EcCurveId curve{};
+    arm_asm::detail::EcKeyKind kind{};
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    EXPECT_FALSE(arm_asm::detail::ec_key_store_get(
+        arm_asm::detail::ec_key_id_base, &curve, &kind, &key, &len));
+}
+
+TEST_F(ArmAsmEcKeyStoreTests, DestroyWithIdBelowBaseIsNoOp) {
+    arm_asm::detail::ec_key_store_destroy(0U);
+}
+
+TEST_F(ArmAsmEcKeyStoreTests, DestroyWithIdAboveRangeIsNoOp) {
+    arm_asm::detail::ec_key_store_destroy(
+        arm_asm::detail::ec_key_id_base +
+        static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity));
+}
+
+
+// ---------------------------------------------------------------------------
+// ArmAsmBackend error-path tests (arm_asm_backend.hpp).
+// ---------------------------------------------------------------------------
+
+class ArmAsmBackendErrorTests : public ::testing::Test {
+protected:
+    void TearDown() override {
+        for (unsigned int i = 1; i <= static_cast<unsigned int>(arm_asm::detail::key_store_capacity); ++i) {
+            arm_asm::detail::key_store_destroy(i);
+        }
+        for (unsigned int i = 0; i < static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity); ++i) {
+            arm_asm::detail::ec_key_store_destroy(arm_asm::detail::ec_key_id_base + i);
+        }
+        for (unsigned int i = 0; i < static_cast<unsigned int>(arm_asm::detail::rsa_key_store_capacity); ++i) {
+            arm_asm::detail::rsa_key_store_destroy(arm_asm::detail::rsa_key_id_base + i);
+        }
+    }
+
+    // Import a raw symmetric key and return its id.
+    static unsigned int import_sym(std::size_t len) {
+        std::vector<uint8_t> buf(len, 0x42U);
+        return arm_asm::detail::key_store_import(buf.data(), len);
+    }
+
+    // Import an EC key (raw bytes, arbitrary) and return its id.
+    static unsigned int import_ec(arm_asm::detail::EcCurveId curve,
+                                   arm_asm::detail::EcKeyKind kind,
+                                   std::size_t len) {
+        std::vector<uint8_t> buf(len, 0x13U);
+        buf[0] = 0x04U;  // public key prefix for public keys
+        return arm_asm::detail::ec_key_store_import(curve, kind, buf.data(), len);
+    }
+};
+
+
+// hash_compute error paths.
+
+TEST_F(ArmAsmBackendErrorTests, HashComputeOutputTooSmall) {
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 1> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::hash_compute(
+        ArmAsmBackend::alg_sha(ShaVariant::Sha256),
+        msg.data(), msg.size(), out.data(), 0, &out_len),
+        ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::hash_compute(
+        ArmAsmBackend::alg_sha(ShaVariant::Sha384),
+        msg.data(), msg.size(), out.data(), 0, &out_len),
+        ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::hash_compute(
+        ArmAsmBackend::alg_sha(ShaVariant::Sha512),
+        msg.data(), msg.size(), out.data(), 0, &out_len),
+        ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::hash_compute(
+        ArmAsmBackend::alg_sha(ShaVariant::Sha3_256),
+        msg.data(), msg.size(), out.data(), 0, &out_len),
+        ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::hash_compute(
+        ArmAsmBackend::alg_sha(ShaVariant::Sha3_384),
+        msg.data(), msg.size(), out.data(), 0, &out_len),
+        ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::hash_compute(
+        ArmAsmBackend::alg_sha(ShaVariant::Sha3_512),
+        msg.data(), msg.size(), out.data(), 0, &out_len),
+        ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, HashComputeUnknownAlgReturnsInvalidArg) {
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::hash_compute(0xFFFFU, msg.data(), msg.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// import_key error paths.
+
+TEST_F(ArmAsmBackendErrorTests, ImportKeyEcOversizedReturnsInvalidArg) {
+    constexpr std::size_t oversize = arm_asm::detail::ec_max_key_bytes + 1;
+    std::vector<uint8_t> buf(oversize, 0x01U);
+    ArmAsmBackend::KeyAttributes attrs;
+    attrs.ec_curve = arm_asm::detail::EcCurveId::P256;
+    attrs.ec_kind  = arm_asm::detail::EcKeyKind::Private;
+    ArmAsmBackend::KeyId id = 0;
+    EXPECT_EQ(ArmAsmBackend::import_key(&attrs, buf.data(), oversize, &id),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, ImportKeySymOversizedReturnsInvalidArg) {
+    constexpr std::size_t oversize = arm_asm::detail::key_store_max_bytes + 1;
+    std::vector<uint8_t> buf(oversize, 0x01U);
+    ArmAsmBackend::KeyAttributes attrs;
+    attrs.key_bytes = oversize;
+    ArmAsmBackend::KeyId id = 0;
+    EXPECT_EQ(ArmAsmBackend::import_key(&attrs, buf.data(), oversize, &id),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// generate_key error paths.
+
+TEST_F(ArmAsmBackendErrorTests, GenerateKeyNullAttrsReturnsInvalidArg) {
+    ArmAsmBackend::KeyId id = 0;
+    EXPECT_EQ(ArmAsmBackend::generate_key(nullptr, &id), ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, GenerateKeyZeroBytesReturnsInvalidArg) {
+    ArmAsmBackend::KeyAttributes attrs;
+    attrs.key_bytes = 0;
+    ArmAsmBackend::KeyId id = 0;
+    EXPECT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, GenerateKeyOversizedReturnsInvalidArg) {
+    ArmAsmBackend::KeyAttributes attrs;
+    attrs.key_bytes = arm_asm::detail::key_store_max_bytes + 1;
+    ArmAsmBackend::KeyId id = 0;
+    EXPECT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::err_invalid_arg);
+}
+
+
+// export_key error paths.
+
+TEST_F(ArmAsmBackendErrorTests, ExportKeySymOutputTooSmall) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 4> out{};
+    std::size_t len = 0;
+    EXPECT_EQ(ArmAsmBackend::export_key(id, out.data(), 1, &len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, ExportKeyEcPublicKindReturnsInvalidArg) {
+    // Import an EC public key; export_key requires Private kind.
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Public, 65);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 128> out{};
+    std::size_t len = 0;
+    EXPECT_EQ(ArmAsmBackend::export_key(id, out.data(), out.size(), &len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, ExportKeySymInvalidIdReturnsInvalidArg) {
+    std::array<uint8_t, 64> out{};
+    std::size_t len = 0;
+    EXPECT_EQ(ArmAsmBackend::export_key(0U, out.data(), out.size(), &len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyOnSymIdReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 128> out{};
+    std::size_t len = 0;
+    EXPECT_EQ(ArmAsmBackend::export_public_key(id, out.data(), out.size(), &len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyEcOutputTooSmall) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Private, 32);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 4> out{};
+    std::size_t len = 0;
+    EXPECT_EQ(ArmAsmBackend::export_public_key(id, out.data(), out.size(), &len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyEcPublicDirectCopyOutputTooSmall) {
+    // Public EC key: the Public branch copies directly; test size check.
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Public, 65);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 4> out{};
+    std::size_t len = 0;
+    EXPECT_EQ(ArmAsmBackend::export_public_key(id, out.data(), out.size(), &len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// mac_compute error paths.
+
+TEST_F(ArmAsmBackendErrorTests, MacComputeInvalidIdReturnsInvalidArg) {
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::mac_compute(0U, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
+                                          msg.data(), msg.size(),
+                                          out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, MacComputeOutputTooSmall) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 1> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
+                                          msg.data(), msg.size(), out.data(), 0, &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha384),
+                                          msg.data(), msg.size(), out.data(), 0, &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha512),
+                                          msg.data(), msg.size(), out.data(), 0, &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha3_256),
+                                          msg.data(), msg.size(), out.data(), 0, &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha3_384),
+                                          msg.data(), msg.size(), out.data(), 0, &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha3_512),
+                                          msg.data(), msg.size(), out.data(), 0, &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, MacComputeUnknownAlgReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::mac_compute(id, 0xFFFFU,
+                                          msg.data(), msg.size(),
+                                          out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, MacVerifyMacLenMismatchReturnsInvalidSig) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 32> mac{};
+    // mac_len=1 vs expected 32 for SHA-256.
+    EXPECT_EQ(ArmAsmBackend::mac_verify(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
+                                         msg.data(), msg.size(), mac.data(), 1U),
+              ArmAsmBackend::err_invalid_sig);
+}
+
+
+// aead_encrypt error paths.
+
+TEST_F(ArmAsmBackendErrorTests, AeadEncryptInvalidIdReturnsInvalidArg) {
+    const std::array<uint8_t, 12> nonce{};
+    const std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(0U, ArmAsmBackend::alg_aes_gcm(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadEncryptKeyLenNot32ReturnsInvalidArg) {
+    // Import a 16-byte key (not 32).
+    const unsigned int id = import_sym(16);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 12> nonce{};
+    const std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadEncryptOutputTooSmallReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 12> nonce{};
+    const std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 4> out{};  // too small: need pt_len + 16
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadEncryptUnknownAlgReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 12> nonce{};
+    const std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 64> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, 0xFFFFU,
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// aead_decrypt error paths.
+
+TEST_F(ArmAsmBackendErrorTests, AeadDecryptInvalidIdReturnsInvalidArg) {
+    const std::array<uint8_t, 12> nonce{};
+    const std::array<uint8_t, 20> ct{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_decrypt(0U, ArmAsmBackend::alg_aes_gcm(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           ct.data(), ct.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadDecryptKeyLenNot32ReturnsInvalidArg) {
+    const unsigned int id = import_sym(16);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 12> nonce{};
+    const std::array<uint8_t, 20> ct{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           ct.data(), ct.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadDecryptCiphertextTooShortReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 12> nonce{};
+    std::array<uint8_t, 4> ct{};   // < 16-byte tag for both AES-GCM and ChaCha20
+    std::array<uint8_t, 4> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           ct.data(), ct.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           ct.data(), ct.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadDecryptUnknownAlgReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 12> nonce{};
+    const std::array<uint8_t, 20> ct{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, 0xFFFFU,
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           ct.data(), ct.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// sign_message error paths.
+
+TEST_F(ArmAsmBackendErrorTests, SignMessageUnknownAlgReturnsInvalidArg) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Private, 32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> sig{};
+    std::size_t sig_len = 0;
+    EXPECT_EQ(ArmAsmBackend::sign_message(id, 0xFFFFU,
+                                           msg.data(), msg.size(),
+                                           sig.data(), sig.size(), &sig_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaNonEcIdReturnsInvalidArg) {
+    const unsigned int sym_id = import_sym(32);
+    ASSERT_NE(sym_id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> sig{};
+    std::size_t sig_len = 0;
+    EXPECT_EQ(ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_ecdsa(),
+                                           msg.data(), msg.size(),
+                                           sig.data(), sig.size(), &sig_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaPublicKeyReturnsInvalidArg) {
+    // Kind == Public; sign requires Private.
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Public, 65);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> sig{};
+    std::size_t sig_len = 0;
+    EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
+                                           msg.data(), msg.size(),
+                                           sig.data(), sig.size(), &sig_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaSigTooSmallReturnsInvalidArg) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Private, 32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 4> sig{};  // need 64
+    std::size_t sig_len = 0;
+    EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
+                                           msg.data(), msg.size(),
+                                           sig.data(), sig.size(), &sig_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, SignMessageRsaNonRsaIdReturnsInvalidArg) {
+    const unsigned int sym_id = import_sym(32);
+    ASSERT_NE(sym_id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 512> sig{};
+    std::size_t sig_len = 0;
+    EXPECT_EQ(ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
+                                           msg.data(), msg.size(),
+                                           sig.data(), sig.size(), &sig_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, SignMessageRsaPublicKeyReturnsInvalidArg) {
+    // Import bytes tagged as RSA Public; sign requires Private.
+    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    const unsigned int id = arm_asm::detail::rsa_key_store_import(
+        arm_asm::detail::RsaKeyKind::Public, 3072,
+        dummy.data(), dummy.size());
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 512> sig{};
+    std::size_t sig_len = 0;
+    EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_rsa_pss(),
+                                           msg.data(), msg.size(),
+                                           sig.data(), sig.size(), &sig_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// verify_message error paths.
+
+TEST_F(ArmAsmBackendErrorTests, VerifyMessageUnknownAlgReturnsInvalidArg) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Public, 65);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> sig{};
+    EXPECT_EQ(ArmAsmBackend::verify_message(id, 0xFFFFU,
+                                             msg.data(), msg.size(),
+                                             sig.data(), sig.size()),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, VerifyMessageEcdsaNonEcIdReturnsInvalidArg) {
+    const unsigned int sym_id = import_sym(32);
+    ASSERT_NE(sym_id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> sig{};
+    EXPECT_EQ(ArmAsmBackend::verify_message(sym_id, ArmAsmBackend::alg_ecdsa(),
+                                             msg.data(), msg.size(),
+                                             sig.data(), sig.size()),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, VerifyMessageEcdsaPrivateKeyReturnsInvalidArg) {
+    // Kind == Private; verify requires Public.
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Private, 32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 64> sig{};
+    EXPECT_EQ(ArmAsmBackend::verify_message(id, ArmAsmBackend::alg_ecdsa(),
+                                             msg.data(), msg.size(),
+                                             sig.data(), sig.size()),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, VerifyMessageRsaNonRsaIdReturnsInvalidArg) {
+    const unsigned int sym_id = import_sym(32);
+    ASSERT_NE(sym_id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 384> sig{};
+    EXPECT_EQ(ArmAsmBackend::verify_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
+                                             msg.data(), msg.size(),
+                                             sig.data(), sig.size()),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, VerifyMessageRsaPrivateKeyReturnsInvalidArg) {
+    // Import bytes tagged as RSA Private; verify requires Public.
+    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    const unsigned int id = arm_asm::detail::rsa_key_store_import(
+        arm_asm::detail::RsaKeyKind::Private, 3072,
+        dummy.data(), dummy.size());
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 4> msg{};
+    std::array<uint8_t, 384> sig{};
+    EXPECT_EQ(ArmAsmBackend::verify_message(id, ArmAsmBackend::alg_rsa_pss(),
+                                             msg.data(), msg.size(),
+                                             sig.data(), sig.size()),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// raw_key_agreement error paths.
+
+TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementUnknownAlgReturnsInvalidArg) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Private, 32);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 65> peer{};
+    peer[0] = 0x04U;
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(0xFFFFU, id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementNonEcIdReturnsInvalidArg) {
+    const unsigned int sym_id = import_sym(32);
+    ASSERT_NE(sym_id, 0U);
+    std::array<uint8_t, 65> peer{};
+    peer[0] = 0x04U;
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), sym_id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementPublicKeyKindReturnsInvalidArg) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Public, 65);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 65> peer{};
+    peer[0] = 0x04U;
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementWrongPeerLenReturnsInvalidArg) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Private, 32);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 32> peer{};  // wrong: P-256 peer must be 65 bytes
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// asymmetric_encrypt / asymmetric_decrypt error paths.
+
+TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptWrongAlgReturnsInvalidArg) {
+    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                       arm_asm::detail::EcKeyKind::Public, 65);
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 512> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::asymmetric_encrypt(id, 0xFFFFU,
+                                                 pt.data(), pt.size(),
+                                                 nullptr, 0,
+                                                 out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptNonRsaIdReturnsInvalidArg) {
+    const unsigned int ec_id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                          arm_asm::detail::EcKeyKind::Public, 65);
+    ASSERT_NE(ec_id, 0U);
+    std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 512> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::asymmetric_encrypt(ec_id, ArmAsmBackend::alg_rsa_oaep(),
+                                                 pt.data(), pt.size(),
+                                                 nullptr, 0,
+                                                 out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptPrivateKeyReturnsInvalidArg) {
+    // RSA Private kind; encrypt requires Public.
+    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    const unsigned int id = arm_asm::detail::rsa_key_store_import(
+        arm_asm::detail::RsaKeyKind::Private, 3072,
+        dummy.data(), dummy.size());
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 512> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::asymmetric_encrypt(id, ArmAsmBackend::alg_rsa_oaep(),
+                                                 pt.data(), pt.size(),
+                                                 nullptr, 0,
+                                                 out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptWrongAlgReturnsInvalidArg) {
+    std::array<uint8_t, 4> dummy{};
+    const unsigned int id = arm_asm::detail::rsa_key_store_import(
+        arm_asm::detail::RsaKeyKind::Private, 3072, dummy.data(), dummy.size());
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 32> ct{};
+    std::array<uint8_t, 512> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::asymmetric_decrypt(id, 0xFFFFU,
+                                                 ct.data(), ct.size(),
+                                                 nullptr, 0,
+                                                 out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptNonRsaIdReturnsInvalidArg) {
+    const unsigned int ec_id = import_ec(arm_asm::detail::EcCurveId::P256,
+                                          arm_asm::detail::EcKeyKind::Private, 32);
+    ASSERT_NE(ec_id, 0U);
+    std::array<uint8_t, 32> ct{};
+    std::array<uint8_t, 512> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::asymmetric_decrypt(ec_id, ArmAsmBackend::alg_rsa_oaep(),
+                                                 ct.data(), ct.size(),
+                                                 nullptr, 0,
+                                                 out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptPublicKeyReturnsInvalidArg) {
+    // RSA Public kind; decrypt requires Private.
+    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    const unsigned int id = arm_asm::detail::rsa_key_store_import(
+        arm_asm::detail::RsaKeyKind::Public, 3072,
+        dummy.data(), dummy.size());
+    ASSERT_NE(id, 0U);
+    std::array<uint8_t, 32> ct{};
+    std::array<uint8_t, 512> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::asymmetric_decrypt(id, ArmAsmBackend::alg_rsa_oaep(),
+                                                 ct.data(), ct.size(),
+                                                 nullptr, 0,
+                                                 out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+
+// ---------------------------------------------------------------------------
 // RSA key store boundary and error-path tests.
 // ---------------------------------------------------------------------------
 
