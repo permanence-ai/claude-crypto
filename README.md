@@ -230,15 +230,15 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | HMAC-SHA3-512 | 207 MB/s | 256 MB/s | **1.2×** |
 | AES-256-GCM encrypt | 1,066 MB/s | 1,273 MB/s | **1.2×** |
 | AES-256-GCM decrypt | 966 MB/s | 1,304 MB/s | **1.3×** |
-| ChaCha20-Poly1305 encrypt | 575 MB/s | 406 MB/s | 0.71× |
-| ChaCha20-Poly1305 decrypt | 574 MB/s | 406 MB/s | 0.71× |
+| ChaCha20-Poly1305 encrypt | 574 MB/s | 782 MB/s | **1.36×** |
+| ChaCha20-Poly1305 decrypt | 568 MB/s | 798 MB/s | **1.41×** |
 | HKDF-SHA-384 (48 B output) | 355 K ops/s | 626 K ops/s | **1.8×** |
 
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
 - **SHA3 / HMAC-SHA3** beats PSA at 1.2–1.3× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
-- **ChaCha20-Poly1305** improved from 0.6× to 0.71× through two Poly1305 optimizations: (1) switching from 5-limb 26-bit to 3-limb 44-bit representation, reducing the multiply count from 25 to 9 products per block; (2) four-block parallel processing — precomputing r²/r³/r⁴ lets three block-times-r^k chains execute independently of the serial accumulator chain. The remaining gap vs MbedTLS is that MbedTLS uses PMULL-based 128-bit carry-less multiplication for Poly1305, which has lower latency than the integer-multiply approach.
+- **ChaCha20-Poly1305** now leads MbedTLS at 1.36–1.41× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
 
 ## Provider selection
 

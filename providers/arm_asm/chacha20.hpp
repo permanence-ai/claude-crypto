@@ -19,14 +19,19 @@ Copyright Permanence AI, 2026. All rights reserved.
 //   a+=b; d^=a; d=ROT(d, 8);
 //   c+=d; b^=c; b=ROT(b, 7);
 //
-// NEON vectorisation: each of the four column quarter-rounds can be performed
-// simultaneously on four uint32x4_t registers (one per row).  The diagonal
-// rounds are handled by rotating the word positions within each vector.
+// Single-block NEON (chacha20_block):
+//   Row-major layout — 4 uint32x4_t, one per state row.  Column rounds work
+//   on the registers directly; diagonal rounds rotate word positions with
+//   vextq_u32 before and after.
 //
-// Block function produces a 64-byte keystream block.
-// Encryption/decryption XOR the keystream with plaintext (same operation).
-// Counter starts at 1 for message data (counter 0 is reserved for Poly1305
-// one-time key generation per RFC 8439 §2.6).
+// Four-block NEON (chacha20_xor4):
+//   Word-major layout — 16 uint32x4_t where s[i] holds word i of all 4 blocks
+//   in its lanes.  Blocks differ only in the counter (word 12).  In this layout
+//   both column and diagonal QRs are plain chacha20_qr calls with different
+//   register pairs — no vextq is needed.  The four QRs within each round type
+//   are independent, allowing the out-of-order pipeline to issue them in
+//   parallel.  After 10 double-rounds the state is transposed back to
+//   block-major order and XOR'd with the input 16 bytes at a time.
 
 #include <arm_neon.h>
 #include <bit>
@@ -56,8 +61,8 @@ static inline uint32x4_t rot32(uint32x4_t v) noexcept {
 }
 
 // One ChaCha20 quarter-round on four NEON lanes simultaneously.
-// Operates on the columns (0,4,8,12), (1,5,9,13), (2,6,10,14), (3,7,11,15)
-// packed as row vectors a[row0..3], b[row0..3], c[row0..3], d[row0..3].
+// Works for both row-major (single-block) and word-major (four-block) layouts;
+// the arithmetic is identical — only the interpretation of the lanes differs.
 [[gnu::target("neon")]]
 static inline void chacha20_qr(uint32x4_t& a, uint32x4_t& b,
                                 uint32x4_t& c, uint32x4_t& d) noexcept
@@ -174,18 +179,182 @@ inline void chacha20_block(const uint8_t key[32], uint32_t counter,
     }
 }
 
+
+// ---------------------------------------------------------------------------
+// Four-block parallel helpers
+// ---------------------------------------------------------------------------
+
+// Transpose a 4×4 matrix of uint32x4_t from column-major to row-major.
+//
+// Input:  a[i][j] = word i of block j  (each vector is one word across 4 blocks)
+// Output: b[j] = words of block j packed consecutively  (each vector is one block's slice)
+//
+// Used to convert the word-major state produced by the 4-block round loop back
+// into the block-major layout needed for the XOR step.
+[[gnu::target("neon")]]
+static inline void chacha20_transpose4(
+    uint32x4_t a0, uint32x4_t a1, uint32x4_t a2, uint32x4_t a3,
+    uint32x4_t& b0, uint32x4_t& b1, uint32x4_t& b2, uint32x4_t& b3) noexcept
+{
+    // vzipq_u32(a0,a1):
+    //   val[0] = {a0[0],a1[0], a0[1],a1[1]}
+    //   val[1] = {a0[2],a1[2], a0[3],a1[3]}
+    const auto z01 = vzipq_u32(a0, a1);
+    const auto z23 = vzipq_u32(a2, a3);
+    // vzip1q_u64 / vzip2q_u64 select the low / high 64-bit halves.
+    b0 = vreinterpretq_u32_u64(vzip1q_u64(vreinterpretq_u64_u32(z01.val[0]),
+                                           vreinterpretq_u64_u32(z23.val[0])));
+    b1 = vreinterpretq_u32_u64(vzip2q_u64(vreinterpretq_u64_u32(z01.val[0]),
+                                           vreinterpretq_u64_u32(z23.val[0])));
+    b2 = vreinterpretq_u32_u64(vzip1q_u64(vreinterpretq_u64_u32(z01.val[1]),
+                                           vreinterpretq_u64_u32(z23.val[1])));
+    b3 = vreinterpretq_u32_u64(vzip2q_u64(vreinterpretq_u64_u32(z01.val[1]),
+                                           vreinterpretq_u64_u32(z23.val[1])));
+}
+
+
+// XOR 256 bytes (4 consecutive ChaCha20 blocks) of in[] into out[].
+//
+// Word-major layout: s[i] holds word i for all four blocks in its four lanes.
+// In this layout both column and diagonal QRs are direct chacha20_qr calls —
+// no vextq rotation is needed, and all four QRs within each round type operate
+// on disjoint registers so the OoO pipeline can issue them simultaneously.
+//
+// Initial-state add-back is computed from the scalar key/counter/nonce values
+// already in registers, saving 16 NEON registers vs. an explicit save.
+[[gnu::target("neon")]]
+static inline void chacha20_xor4(
+    const uint8_t key[32], uint32_t counter, // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t nonce[12],                  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t* in, uint8_t* out) noexcept
+{
+    const uint32_t k0 = load_le32(key +  0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k1 = load_le32(key +  4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k2 = load_le32(key +  8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k3 = load_le32(key + 12); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k4 = load_le32(key + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k5 = load_le32(key + 20); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k6 = load_le32(key + 24); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k7 = load_le32(key + 28); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t n0 = load_le32(nonce + 0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t n1 = load_le32(nonce + 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t n2 = load_le32(nonce + 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
+    // Word-major state: s[i][lane] = word i of block `lane`.
+    // Blocks 0..3 share the same key/nonce and differ only in the counter word.
+    uint32x4_t s0  = vdupq_n_u32(chacha20_c0);
+    uint32x4_t s1  = vdupq_n_u32(chacha20_c1);
+    uint32x4_t s2  = vdupq_n_u32(chacha20_c2);
+    uint32x4_t s3  = vdupq_n_u32(chacha20_c3);
+    uint32x4_t s4  = vdupq_n_u32(k0);
+    uint32x4_t s5  = vdupq_n_u32(k1);
+    uint32x4_t s6  = vdupq_n_u32(k2);
+    uint32x4_t s7  = vdupq_n_u32(k3);
+    uint32x4_t s8  = vdupq_n_u32(k4);
+    uint32x4_t s9  = vdupq_n_u32(k5);
+    uint32x4_t s10 = vdupq_n_u32(k6);
+    uint32x4_t s11 = vdupq_n_u32(k7);
+    uint32x4_t s12 = {counter, counter + 1U, counter + 2U, counter + 3U}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint32x4_t s13 = vdupq_n_u32(n0);
+    uint32x4_t s14 = vdupq_n_u32(n1);
+    uint32x4_t s15 = vdupq_n_u32(n2);
+
+    // 10 double-rounds.
+    // Column rounds: (0,4,8,12), (1,5,9,13), (2,6,10,14), (3,7,11,15).
+    // Diagonal rounds: (0,5,10,15), (1,6,11,12), (2,7,8,13), (3,4,9,14).
+    // All four QRs within each round type are independent — the OoO pipeline
+    // can issue them simultaneously.
+    for (int i = 0; i < 10; ++i) {
+        chacha20_qr(s0, s4, s8,  s12);
+        chacha20_qr(s1, s5, s9,  s13);
+        chacha20_qr(s2, s6, s10, s14);
+        chacha20_qr(s3, s7, s11, s15);
+        chacha20_qr(s0, s5, s10, s15);
+        chacha20_qr(s1, s6, s11, s12);
+        chacha20_qr(s2, s7, s8,  s13);
+        chacha20_qr(s3, s4, s9,  s14);
+    }
+
+    // Add initial state back.  Recompute from scalars (already in scalar registers)
+    // rather than saving 16 NEON registers before the round loop.
+    s0  = vaddq_u32(s0,  vdupq_n_u32(chacha20_c0));
+    s1  = vaddq_u32(s1,  vdupq_n_u32(chacha20_c1));
+    s2  = vaddq_u32(s2,  vdupq_n_u32(chacha20_c2));
+    s3  = vaddq_u32(s3,  vdupq_n_u32(chacha20_c3));
+    s4  = vaddq_u32(s4,  vdupq_n_u32(k0));
+    s5  = vaddq_u32(s5,  vdupq_n_u32(k1));
+    s6  = vaddq_u32(s6,  vdupq_n_u32(k2));
+    s7  = vaddq_u32(s7,  vdupq_n_u32(k3));
+    s8  = vaddq_u32(s8,  vdupq_n_u32(k4));
+    s9  = vaddq_u32(s9,  vdupq_n_u32(k5));
+    s10 = vaddq_u32(s10, vdupq_n_u32(k6));
+    s11 = vaddq_u32(s11, vdupq_n_u32(k7));
+    const uint32x4_t ctr_init = {counter, counter + 1U, counter + 2U, counter + 3U}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    s12 = vaddq_u32(s12, ctr_init);
+    s13 = vaddq_u32(s13, vdupq_n_u32(n0));
+    s14 = vaddq_u32(s14, vdupq_n_u32(n1));
+    s15 = vaddq_u32(s15, vdupq_n_u32(n2));
+
+    // Transpose word-major → block-major.
+    // Each chacha20_transpose4 call converts 4 word-registers into 4 block-slices:
+    //   g{X}0 = words {4X..4X+3} of block 0
+    //   g{X}1 = words {4X..4X+3} of block 1
+    //   etc.
+    uint32x4_t g00, g01, g02, g03;   // NOLINT(misc-non-private-member-variables-in-classes)
+    uint32x4_t g10, g11, g12, g13;   // NOLINT(misc-non-private-member-variables-in-classes)
+    uint32x4_t g20, g21, g22, g23;   // NOLINT(misc-non-private-member-variables-in-classes)
+    uint32x4_t g30, g31, g32, g33;   // NOLINT(misc-non-private-member-variables-in-classes)
+
+    chacha20_transpose4(s0,  s1,  s2,  s3,  g00, g01, g02, g03);
+    chacha20_transpose4(s4,  s5,  s6,  s7,  g10, g11, g12, g13);
+    chacha20_transpose4(s8,  s9,  s10, s11, g20, g21, g22, g23);
+    chacha20_transpose4(s12, s13, s14, s15, g30, g31, g32, g33);
+
+    // XOR 4 blocks with input (each block = g{0..3}k concatenated).
+    // Block 0 (bytes 0..63)
+    vst1q_u8(out +   0, veorq_u8(vld1q_u8(in +   0), vreinterpretq_u8_u32(g00))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    vst1q_u8(out +  16, veorq_u8(vld1q_u8(in +  16), vreinterpretq_u8_u32(g10))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    vst1q_u8(out +  32, veorq_u8(vld1q_u8(in +  32), vreinterpretq_u8_u32(g20))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    vst1q_u8(out +  48, veorq_u8(vld1q_u8(in +  48), vreinterpretq_u8_u32(g30))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    // Block 1 (bytes 64..127)
+    vst1q_u8(out +  64, veorq_u8(vld1q_u8(in +  64), vreinterpretq_u8_u32(g01))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out +  80, veorq_u8(vld1q_u8(in +  80), vreinterpretq_u8_u32(g11))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out +  96, veorq_u8(vld1q_u8(in +  96), vreinterpretq_u8_u32(g21))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 112, veorq_u8(vld1q_u8(in + 112), vreinterpretq_u8_u32(g31))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // Block 2 (bytes 128..191)
+    vst1q_u8(out + 128, veorq_u8(vld1q_u8(in + 128), vreinterpretq_u8_u32(g02))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 144, veorq_u8(vld1q_u8(in + 144), vreinterpretq_u8_u32(g12))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 160, veorq_u8(vld1q_u8(in + 160), vreinterpretq_u8_u32(g22))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 176, veorq_u8(vld1q_u8(in + 176), vreinterpretq_u8_u32(g32))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // Block 3 (bytes 192..255)
+    vst1q_u8(out + 192, veorq_u8(vld1q_u8(in + 192), vreinterpretq_u8_u32(g03))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 208, veorq_u8(vld1q_u8(in + 208), vreinterpretq_u8_u32(g13))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 224, veorq_u8(vld1q_u8(in + 224), vreinterpretq_u8_u32(g23))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 240, veorq_u8(vld1q_u8(in + 240), vreinterpretq_u8_u32(g33))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+}
+
+
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
 [[gnu::target("neon")]]
-inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
-                            const uint8_t nonce[12],
+inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start, // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                            const uint8_t nonce[12],                       // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
                             const uint8_t* in, uint8_t* out, std::size_t len) noexcept
 {
     FixedSecureBuffer<64> block;
     uint32_t counter = counter_start;
     std::size_t offset = 0;
 
-    while (len - offset >= 64) {
+    // 4-block parallel path: 256 bytes at a time.
+    while (len - offset >= 256U) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        chacha20_xor4(key, counter, nonce,
+                      in + offset, out + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        offset  += 256U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        counter += 4U;
+    }
+
+    // Single-block tail (0..3 full blocks).
+    while (len - offset >= 64U) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         chacha20_block(key, counter, nonce, block.data());
         const uint8x16_t k0 = vld1q_u8(block.data() +  0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         const uint8x16_t k1 = vld1q_u8(block.data() + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -195,10 +364,11 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
         vst1q_u8(out + offset + 16, veorq_u8(vld1q_u8(in + offset + 16), k1)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         vst1q_u8(out + offset + 32, veorq_u8(vld1q_u8(in + offset + 32), k2)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         vst1q_u8(out + offset + 48, veorq_u8(vld1q_u8(in + offset + 48), k3)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        offset  += 64;
+        offset  += 64U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         ++counter;
     }
 
+    // Partial final block.
     if (offset < len) {
         chacha20_block(key, counter, nonce, block.data());
         for (std::size_t i = 0; offset + i < len; ++i) {
@@ -211,12 +381,12 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
 [[gnu::target("neon")]]
-inline void chacha20_poly1305_key(const uint8_t key[32], const uint8_t nonce[12],
-                                   uint8_t otk[32]) noexcept
+inline void chacha20_poly1305_key(const uint8_t key[32], const uint8_t nonce[12], // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                                   uint8_t otk[32]) noexcept                       // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
     FixedSecureBuffer<64> block;
     chacha20_block(key, 0, nonce, block.data());
-    std::memcpy(otk, block.data(), 32);
+    std::memcpy(otk, block.data(), 32); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 }
 
 }  // namespace arm_asm::detail
