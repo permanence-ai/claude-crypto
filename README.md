@@ -103,8 +103,9 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | ECDH P-256/384/521 | x-coordinate shared secret; 32/48/66-byte output |
 | EC key generation | Random private scalar; public key computed as k·G (Jacobian → affine) |
 | EC key import/export | 16-slot EC key store separate from symmetric key store; P-521 public key 133 bytes |
-
-**Not yet implemented** (return `err_invalid_arg`): RSA.
+| RSA-OAEP-3072/4096 encrypt/decrypt | Delegated to PSA/MbedTLS (no ARM hardware for big-integer arithmetic); SHA-384 mask/label hash |
+| RSA-PSS-3072/4096 sign/verify | Delegated to PSA/MbedTLS; SHA-384; separate 8-slot RSA key store (key ID base 0xC000) |
+| RSA key generation | CRT key pair via PSA; private key exported as PKCS#1 DER, public key as SubjectPublicKeyInfo DER |
 
 **SHA-512 compression loop detail.** The two-round step pattern cycles through four roles (ab/cd/ef/gh) every eight rounds. Each step requires cross-pair word interleaving that cannot be expressed as a simple state rotation:
 
@@ -127,7 +128,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (202 tests)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (259 tests)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -149,7 +150,7 @@ For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYP
 
 ## Testing
 
-The test suite (`safe-crypto-lib-test/`, 202 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
+The test suite (`safe-crypto-lib-test/`, 259 tests) uses GoogleTest + GMock and is organised into four distinct testing strategies.
 
 ### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 95 tests)
 
@@ -246,7 +247,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | Value | Backend | Status |
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
-| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, key management |
+| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Partial — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096, key management |
 | `IA_ASM` | Native assembly | Stub only |
 
 ```bash

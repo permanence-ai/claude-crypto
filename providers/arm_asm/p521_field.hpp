@@ -267,20 +267,23 @@ static inline auto fe521_sub(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
 [[nodiscard]]
 static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     using u128 = unsigned __int128;
-    // Full 9×9 schoolbook multiplication into 18 limbs.
-    u128 t[18]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        for (int j = 0; j < 9; ++j) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            t[i + j] += static_cast<u128>(a.v[i]) * b.v[j];
-        }
-    }
-    // Carry-propagate to get clean 64-bit limbs.
+    // Full 9×9 schoolbook multiplication into 18 limbs with row-by-row carry
+    // propagation. Accumulating all products into u128 accumulators first
+    // overflows: the middle column (t[8]) sums up to 9 products each ~2^128,
+    // which exceeds u128's max of 2^128-1.
     uint64_t c[18]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    u128 carry = 0;
-    for (int i = 0; i < 18; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const u128 tt = t[i] + carry;
-        c[i]  = static_cast<uint64_t>(tt);
-        carry = tt >> 64U;
+    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        u128 carry = 0;
+        for (int j = 0; j < 9; ++j) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            const u128 tt = static_cast<u128>(a.v[i]) * b.v[j] + c[i + j] + carry;
+            c[i + j] = static_cast<uint64_t>(tt);
+            carry = tt >> 64U;
+        }
+        for (int k = i + 9; k < 18 && carry != 0U; ++k) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            const u128 tt = static_cast<u128>(c[k]) + carry;
+            c[k] = static_cast<uint64_t>(tt);
+            carry = tt >> 64U;
+        }
     }
     // Mersenne reduction: 2^521 ≡ 1 (mod p).
     // The product is sum_i c[i] * 2^(64i).

@@ -20,6 +20,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "p384_point.hpp"
 #include "p521_point.hpp"
 #include "random.hpp"
+#include "rsa.hpp"
 #include "secure_buffer.hpp"
 #include "sha256.hpp"
 #include "sha3.hpp"
@@ -42,12 +43,14 @@ struct ArmAsmBackend {
     using KdfOperation = arm_asm::detail::HkdfState;
     using KdfStep      = unsigned int;
 
-    // KeyAttributes carries either symmetric key size or EC curve/kind info.
-    // key_bytes == 0 and ec_curve == None means "not applicable".
+    // KeyAttributes carries either symmetric key size, EC curve/kind, or RSA key info.
+    // key_bytes == 0 and ec_curve == None and rsa_key_kind == None means "not applicable".
     struct KeyAttributes {
         std::size_t key_bytes{0};
         arm_asm::detail::EcCurveId ec_curve{arm_asm::detail::EcCurveId::None};
         arm_asm::detail::EcKeyKind ec_kind{arm_asm::detail::EcKeyKind::None};
+        arm_asm::detail::RsaKeyKind rsa_key_kind{arm_asm::detail::RsaKeyKind::None};
+        std::size_t rsa_bits{0};
     };
 
     static constexpr Status ok              = 0;
@@ -120,6 +123,13 @@ struct ArmAsmBackend {
             *id = slot;
             return ok;
         }
+        if (attrs != nullptr && attrs->rsa_key_kind != arm_asm::detail::RsaKeyKind::None) {
+            const KeyId slot = arm_asm::detail::rsa_key_store_import(
+                attrs->rsa_key_kind, attrs->rsa_bits, key, key_len);
+            if (slot == 0U) { return err_invalid_arg; }
+            *id = slot;
+            return ok;
+        }
         const KeyId slot = arm_asm::detail::key_store_import(key, key_len);
         if (slot == 0U) { return err_invalid_arg; }
         *id = slot;
@@ -183,6 +193,17 @@ struct ArmAsmBackend {
             }
             return err_invalid_arg;
         }
+        if (attrs->rsa_key_kind == arm_asm::detail::RsaKeyKind::Private && attrs->rsa_bits > 0) {
+            // RSA key pair generation: use PSA, store private key, discard public from here.
+            // The caller (generate_rsa_key_impl) will separately call export_public_key.
+            FixedSecureBuffer<arm_asm::detail::rsa_max_public_key_bytes> pub_tmp{};
+            std::size_t pub_len = 0;
+            const KeyId slot = arm_asm::detail::rsa_generate_key_pair(
+                attrs->rsa_bits, pub_tmp.data(), arm_asm::detail::rsa_max_public_key_bytes, &pub_len);
+            if (slot == 0U) { return err_invalid_arg; }
+            *id = slot;
+            return ok;
+        }
         if (attrs->key_bytes == 0) { return err_invalid_arg; }
         if (attrs->key_bytes > arm_asm::detail::key_store_max_bytes) { return err_invalid_arg; }
         FixedSecureBuffer<arm_asm::detail::key_store_max_bytes> buf;
@@ -196,6 +217,8 @@ struct ArmAsmBackend {
     static Status destroy_key(KeyId id) {
         if (arm_asm::detail::ec_key_id_is_ec(id)) {
             arm_asm::detail::ec_key_store_destroy(id);
+        } else if (arm_asm::detail::rsa_key_id_is_rsa(id)) {
+            arm_asm::detail::rsa_key_store_destroy(id);
         } else {
             arm_asm::detail::key_store_destroy(id);
         }
@@ -203,6 +226,19 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) {
+        if (arm_asm::detail::rsa_key_id_is_rsa(id)) {
+            using namespace arm_asm::detail;
+            RsaKeyKind kind = RsaKeyKind::None;
+            std::size_t bits = 0;
+            const CryptoByte* key = nullptr;
+            std::size_t key_len = 0;
+            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
+            if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
+            if (size < key_len) { return err_invalid_arg; }
+            std::memcpy(out, key, key_len);
+            *len = key_len;
+            return ok;
+        }
         if (arm_asm::detail::ec_key_id_is_ec(id)) {
             using namespace arm_asm::detail;
             EcCurveId curve = EcCurveId::None;
@@ -228,6 +264,26 @@ struct ArmAsmBackend {
     static Status export_public_key(KeyId id, CryptoByte* out, std::size_t size,
                                     std::size_t* len) {
         using namespace arm_asm::detail;
+        if (rsa_key_id_is_rsa(id)) {
+            RsaKeyKind kind = RsaKeyKind::None;
+            std::size_t bits = 0;
+            const CryptoByte* key = nullptr;
+            std::size_t key_len = 0;
+            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
+            if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
+            // Import the private key into PSA, then export_public_key.
+            psa_crypto_init();
+            psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
+            psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
+            psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(bits));
+            psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_EXPORT);
+            psa_set_key_algorithm(&attrs, rsa_oaep_alg());
+            mbedtls_svc_key_id_t psa_id = MBEDTLS_SVC_KEY_ID_INIT;
+            if (psa_import_key(&attrs, key, key_len, &psa_id) != PSA_SUCCESS) { return err_invalid_arg; }
+            const psa_status_t s = psa_export_public_key(psa_id, out, size, len);
+            psa_destroy_key(psa_id);
+            return s == PSA_SUCCESS ? ok : err_invalid_arg;
+        }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
         EcCurveId curve = EcCurveId::None;
         EcKeyKind kind  = EcKeyKind::None;
@@ -392,6 +448,19 @@ struct ArmAsmBackend {
                                const CryptoByte* msg, std::size_t msg_len,
                                CryptoByte* sig, std::size_t sig_size, std::size_t* sig_len) {
         using namespace arm_asm::detail;
+        if (alg == alg_rsa_pss()) {
+            if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
+            RsaKeyKind kind = RsaKeyKind::None;
+            std::size_t bits = 0;
+            const CryptoByte* key = nullptr;
+            std::size_t key_len = 0;
+            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
+            if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
+            if (!rsa_pss_sign(bits, key, key_len, msg, msg_len, sig, sig_size, sig_len)) {
+                return err_invalid_arg;
+            }
+            return ok;
+        }
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
         EcCurveId curve = EcCurveId::None;
@@ -441,6 +510,17 @@ struct ArmAsmBackend {
                                  const CryptoByte* msg, std::size_t msg_len,
                                  const CryptoByte* sig, std::size_t sig_len) {
         using namespace arm_asm::detail;
+        if (alg == alg_rsa_pss()) {
+            if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
+            RsaKeyKind kind = RsaKeyKind::None;
+            std::size_t bits = 0;
+            const CryptoByte* key = nullptr;
+            std::size_t key_len = 0;
+            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
+            if (kind != RsaKeyKind::Public) { return err_invalid_arg; }
+            return rsa_pss_verify(bits, key, key_len, msg, msg_len, sig, sig_len)
+                ? ok : err_invalid_sig;
+        }
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
         EcCurveId curve = EcCurveId::None;
@@ -541,18 +621,44 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
-                                     KeyId /*id*/, Algorithm /*alg*/,
-                                     const CryptoByte* /*pt*/, std::size_t /*pt_len*/,
-                                     const CryptoByte* /*salt*/, std::size_t /*salt_len*/,
-                                     CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
-                                                                              { return err_invalid_arg; }
+                                     KeyId id, Algorithm alg,
+                                     const CryptoByte* pt, std::size_t pt_len,
+                                     const CryptoByte* salt, std::size_t salt_len,
+                                     CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
+        using namespace arm_asm::detail;
+        if (alg != alg_rsa_oaep()) { return err_invalid_arg; }
+        if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
+        RsaKeyKind kind = RsaKeyKind::None;
+        std::size_t bits = 0;
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
+        if (kind != RsaKeyKind::Public) { return err_invalid_arg; }
+        if (!rsa_oaep_encrypt(bits, key, key_len, pt, pt_len, salt, salt_len, out, out_size, out_len)) {
+            return err_invalid_arg;
+        }
+        return ok;
+    }
     [[nodiscard]]
     static Status asymmetric_decrypt(  // NOLINT(readability-function-size)
-                                     KeyId /*id*/, Algorithm /*alg*/,
-                                     const CryptoByte* /*ct*/, std::size_t /*ct_len*/,
-                                     const CryptoByte* /*salt*/, std::size_t /*salt_len*/,
-                                     CryptoByte* /*out*/, std::size_t /*out_size*/, std::size_t* /*out_len*/)
-                                                                              { return err_invalid_arg; }
+                                     KeyId id, Algorithm alg,
+                                     const CryptoByte* ct, std::size_t ct_len,
+                                     const CryptoByte* salt, std::size_t salt_len,
+                                     CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
+        using namespace arm_asm::detail;
+        if (alg != alg_rsa_oaep()) { return err_invalid_arg; }
+        if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
+        RsaKeyKind kind = RsaKeyKind::None;
+        std::size_t bits = 0;
+        const CryptoByte* key = nullptr;
+        std::size_t key_len = 0;
+        if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
+        if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
+        if (!rsa_oaep_decrypt(bits, key, key_len, ct, ct_len, salt, salt_len, out, out_size, out_len)) {
+            return err_invalid_arg;
+        }
+        return ok;
+    }
     [[nodiscard]]
     static Status key_derivation_setup(KdfOperation* op, Algorithm alg) {
         arm_asm::detail::HkdfAlg ha = arm_asm::detail::HkdfAlg::None;
@@ -601,9 +707,9 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static constexpr Algorithm alg_chacha20_poly1305() noexcept { return 0x0402U; }
     [[nodiscard]]
-    static constexpr Algorithm alg_rsa_oaep()          noexcept { return 0U; }
+    static constexpr Algorithm alg_rsa_oaep()          noexcept { return 0x0601U; }
     [[nodiscard]]
-    static constexpr Algorithm alg_rsa_pss()           noexcept { return 0U; }
+    static constexpr Algorithm alg_rsa_pss()           noexcept { return 0x0602U; }
 
     // kdf_step_secret is ignored (key is implicitly the IKM/PRK from input_key).
     // kdf_step_salt and kdf_step_info match the constants in hkdf_input_bytes.
@@ -657,15 +763,25 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_decrypt_attrs()                noexcept { return {chacha20_key_size_bytes}; }
     [[nodiscard]]
-    static KeyAttributes make_rsa_oaep_encrypt_attrs(std::size_t /*bits*/)     noexcept { return {}; }
+    static KeyAttributes make_rsa_oaep_encrypt_attrs(std::size_t bits) noexcept {
+        return {.rsa_key_kind = arm_asm::detail::RsaKeyKind::Public, .rsa_bits = bits};
+    }
     [[nodiscard]]
-    static KeyAttributes make_rsa_oaep_decrypt_attrs(std::size_t /*bits*/)     noexcept { return {}; }
+    static KeyAttributes make_rsa_oaep_decrypt_attrs(std::size_t bits) noexcept {
+        return {.rsa_key_kind = arm_asm::detail::RsaKeyKind::Private, .rsa_bits = bits};
+    }
     [[nodiscard]]
-    static KeyAttributes make_rsa_pss_sign_attrs(std::size_t /*bits*/)         noexcept { return {}; }
+    static KeyAttributes make_rsa_pss_sign_attrs(std::size_t bits) noexcept {
+        return {.rsa_key_kind = arm_asm::detail::RsaKeyKind::Private, .rsa_bits = bits};
+    }
     [[nodiscard]]
-    static KeyAttributes make_rsa_pss_verify_attrs(std::size_t /*bits*/)       noexcept { return {}; }
+    static KeyAttributes make_rsa_pss_verify_attrs(std::size_t bits) noexcept {
+        return {.rsa_key_kind = arm_asm::detail::RsaKeyKind::Public, .rsa_bits = bits};
+    }
     [[nodiscard]]
-    static KeyAttributes make_rsa_key_pair_attrs(std::size_t /*bits*/)         noexcept { return {}; }
+    static KeyAttributes make_rsa_key_pair_attrs(std::size_t bits) noexcept {
+        return {.rsa_key_kind = arm_asm::detail::RsaKeyKind::Private, .rsa_bits = bits};
+    }
 
     [[nodiscard]]
     static constexpr auto ec_curve_id_for_bits(std::size_t bits) noexcept -> arm_asm::detail::EcCurveId {
@@ -690,13 +806,25 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static std::size_t chacha20_decrypt_output_size(std::size_t ct_len) noexcept { return ct_len > arm_asm::detail::chacha20_poly1305_tag_bytes ? ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes : 0; }
     [[nodiscard]]
-    static std::size_t rsa_oaep_encrypt_output_size(std::size_t /*bits*/)    noexcept { return 0; }
+    static std::size_t rsa_oaep_encrypt_output_size(std::size_t bits) noexcept {
+        return bits / 8U;  // ciphertext = modulus size: 3072→384, 4096→512
+    }
     [[nodiscard]]
-    static std::size_t rsa_oaep_decrypt_output_size(std::size_t /*bits*/)    noexcept { return 0; }
+    static std::size_t rsa_oaep_decrypt_output_size(std::size_t bits) noexcept {
+        return bits / 8U;  // max plaintext ≤ modulus size
+    }
     [[nodiscard]]
-    static std::size_t rsa_pss_sign_output_size(std::size_t /*bits*/)        noexcept { return 0; }
+    static std::size_t rsa_pss_sign_output_size(std::size_t bits) noexcept {
+        return bits / 8U;  // signature = modulus size: 3072→384, 4096→512
+    }
     [[nodiscard]]
-    static std::size_t rsa_private_key_export_size(std::size_t /*bits*/)     noexcept { return 0; }
+    static std::size_t rsa_private_key_export_size(std::size_t bits) noexcept {
+        // PSA_KEY_EXPORT_RSA_KEY_PAIR_MAX_SIZE(bits) = 9*(bits/2/8+5+1)+14 = 9*(bits/16+6)+14
+        return 9U * (bits / 16U + 6U) + 14U;
+    }
     [[nodiscard]]
-    static std::size_t rsa_public_key_export_size(std::size_t /*bits*/)      noexcept { return 0; }
+    static std::size_t rsa_public_key_export_size(std::size_t bits) noexcept {
+        // PSA_KEY_EXPORT_RSA_PUBLIC_KEY_MAX_SIZE(bits) = bits/8+5+11
+        return bits / 8U + 16U;
+    }
 };
