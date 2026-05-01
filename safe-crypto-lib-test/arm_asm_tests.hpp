@@ -25,6 +25,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "arm_asm_backend.hpp"
 #include "hkdf.hpp"
 #include "kdf.hpp"
+#include "rsa.hpp"
 
 // ---------------------------------------------------------------------------
 // NIST SP 800-38D AES-256-GCM test vectors
@@ -1193,6 +1194,135 @@ TEST_F(ArmAsmPoly1305Tests, Custom128ByteMessage) {
         EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
 }
+
+// ---------------------------------------------------------------------------
+// RSA key store boundary and error-path tests.
+// ---------------------------------------------------------------------------
+
+class ArmAsmRsaKeyStoreTests : public ::testing::Test {
+protected:
+    static constexpr std::size_t kBits = 3072;
+
+    // Minimal valid-looking 8-byte blob that PSA will reject as malformed DER.
+    static constexpr std::array<uint8_t, 8> kBadDer{
+        0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x01
+    };
+
+    // Release all RSA key store slots between tests.
+    void TearDown() override {
+        for (unsigned int i = 0; i < arm_asm::detail::rsa_key_store_capacity; ++i) {
+            const unsigned int id = arm_asm::detail::rsa_key_id_base + i;
+            arm_asm::detail::rsa_key_store_destroy(id);
+        }
+    }
+};
+
+
+TEST_F(ArmAsmRsaKeyStoreTests, ImportOversizedKeyReturnsZero) {
+    // A buffer larger than rsa_max_private_key_bytes must be rejected.
+    constexpr std::size_t oversize = arm_asm::detail::rsa_max_private_key_bytes + 1;
+    std::array<uint8_t, oversize> buf{};
+    const unsigned int id = arm_asm::detail::rsa_key_store_import(
+        arm_asm::detail::RsaKeyKind::Private, kBits, buf.data(), oversize);
+    EXPECT_EQ(id, 0U);
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
+    // Fill all 8 slots.
+    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    for (std::size_t i = 0; i < arm_asm::detail::rsa_key_store_capacity; ++i) {
+        const unsigned int id = arm_asm::detail::rsa_key_store_import(
+            arm_asm::detail::RsaKeyKind::Public, kBits, dummy.data(), dummy.size());
+        EXPECT_NE(id, 0U) << "slot " << i << " should have been free";
+    }
+    // One more import must fail.
+    const unsigned int id = arm_asm::detail::rsa_key_store_import(
+        arm_asm::detail::RsaKeyKind::Public, kBits, dummy.data(), dummy.size());
+    EXPECT_EQ(id, 0U);
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, GetWithIdBelowBaseReturnsFalse) {
+    arm_asm::detail::RsaKeyKind kind{};
+    std::size_t bits = 0;
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    EXPECT_FALSE(arm_asm::detail::rsa_key_store_get(
+        arm_asm::detail::rsa_key_id_base - 1U, &kind, &bits, &key, &len));
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, GetWithIdAboveRangeReturnsFalse) {
+    arm_asm::detail::RsaKeyKind kind{};
+    std::size_t bits = 0;
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    const unsigned int out_of_range =
+        arm_asm::detail::rsa_key_id_base +
+        static_cast<unsigned int>(arm_asm::detail::rsa_key_store_capacity);
+    EXPECT_FALSE(arm_asm::detail::rsa_key_store_get(out_of_range, &kind, &bits, &key, &len));
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, GetOnFreeSlotReturnsFalse) {
+    // No import has been done; slot 0 must report not-in-use.
+    arm_asm::detail::RsaKeyKind kind{};
+    std::size_t bits = 0;
+    const uint8_t* key = nullptr;
+    std::size_t len = 0;
+    EXPECT_FALSE(arm_asm::detail::rsa_key_store_get(
+        arm_asm::detail::rsa_key_id_base, &kind, &bits, &key, &len));
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, DestroyWithOutOfRangeIdIsNoOp) {
+    // Must not crash or corrupt anything.
+    arm_asm::detail::rsa_key_store_destroy(0U);
+    arm_asm::detail::rsa_key_store_destroy(
+        arm_asm::detail::rsa_key_id_base +
+        static_cast<unsigned int>(arm_asm::detail::rsa_key_store_capacity));
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, OaepEncryptWithBadDerReturnsFalse) {
+    std::size_t ct_len = 0;
+    std::array<uint8_t, 512> ct_buf{};
+    EXPECT_FALSE(arm_asm::detail::rsa_oaep_encrypt(
+        kBits,
+        kBadDer.data(), kBadDer.size(),
+        kBadDer.data(), 1,
+        nullptr, 0,
+        ct_buf.data(), ct_buf.size(), &ct_len));
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, OaepDecryptWithBadDerReturnsFalse) {
+    std::size_t pt_len = 0;
+    std::array<uint8_t, 512> pt_buf{};
+    std::array<uint8_t, 384> fake_ct{};
+    EXPECT_FALSE(arm_asm::detail::rsa_oaep_decrypt(
+        kBits,
+        kBadDer.data(), kBadDer.size(),
+        fake_ct.data(), fake_ct.size(),
+        nullptr, 0,
+        pt_buf.data(), pt_buf.size(), &pt_len));
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, PssSignWithBadDerReturnsFalse) {
+    std::size_t sig_len = 0;
+    std::array<uint8_t, 512> sig_buf{};
+    const std::array<uint8_t, 4> msg{0x01, 0x02, 0x03, 0x04};
+    EXPECT_FALSE(arm_asm::detail::rsa_pss_sign(
+        kBits,
+        kBadDer.data(), kBadDer.size(),
+        msg.data(), msg.size(),
+        sig_buf.data(), sig_buf.size(), &sig_len));
+}
+
+TEST_F(ArmAsmRsaKeyStoreTests, PssVerifyWithBadDerReturnsFalse) {
+    const std::array<uint8_t, 4> msg{0x01, 0x02, 0x03, 0x04};
+    std::array<uint8_t, 384> fake_sig{};
+    EXPECT_FALSE(arm_asm::detail::rsa_pss_verify(
+        kBits,
+        kBadDer.data(), kBadDer.size(),
+        msg.data(), msg.size(),
+        fake_sig.data(), fake_sig.size()));
+}
+
 
 // SHA3 dispatch via ArmAsmBackend::hash_compute
 TEST_F(ArmAsmSha3Tests, BackendSha3_256Dispatch) {
