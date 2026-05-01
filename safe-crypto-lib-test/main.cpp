@@ -22,6 +22,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "rsa_bigint_tests.hpp"
 #include "rsa_der_tests.hpp"
 #include "rsa_oaep_tests.hpp"
+#include "rsa_pss_tests.hpp"
 #include "sigma_i_tests.hpp"
 #include "sigma_tests.hpp"
 
