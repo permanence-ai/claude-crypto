@@ -309,3 +309,93 @@ TEST_F(SigmaITests, ResponderRejectsTamperedBundle) {
     ASSERT_TRUE(verify.has_value());
     EXPECT_FALSE(*verify);
 }
+
+
+// -----------------------------------------------------------------------
+// Tests for the non-template wrapper overloads (sigma_i_derive_keys,
+// sigma_i_aes_gcm_encrypt, sigma_i_aes_gcm_decrypt).  The handshake tests
+// above exercise only the *_impl<Provider> paths; these tests hit the
+// default-provider wrappers that would otherwise be dead code.
+// -----------------------------------------------------------------------
+
+class SigmaIWrapperTests : public ::testing::Test {
+};
+
+
+TEST_F(SigmaIWrapperTests, DeriveKeysProducesExpectedSizes) {
+    // Build a real shared secret via ECDH so the PSA key derivation path works.
+    const auto key_a = ecdh_generate_key(EcCurve::P256);
+    const auto key_b = ecdh_generate_key(EcCurve::P256);
+    ASSERT_TRUE(key_a.has_value());
+    ASSERT_TRUE(key_b.has_value());
+
+    const auto secret = ecdh_compute_shared_secret(*key_a, EcCurve::P256, key_b->public_key_der);
+    ASSERT_TRUE(secret.has_value());
+
+    const auto keys = detail::sigma_i_derive_keys(*secret);
+    ASSERT_TRUE(keys.has_value());
+
+    EXPECT_EQ(keys->mac_key.size(),     sigma_mac_key_size_bytes);
+    EXPECT_EQ(keys->session_key.size(), sigma_session_key_size_bytes);
+    EXPECT_EQ(keys->enc_key_r.size(),   sigma_i_enc_key_size_bytes);
+    EXPECT_EQ(keys->enc_key_i.size(),   sigma_i_enc_key_size_bytes);
+}
+
+
+TEST_F(SigmaIWrapperTests, AesGcmEncryptDecryptRoundTrip) {
+    // Derive a real key via the wrapper.
+    const auto key_a = ecdh_generate_key(EcCurve::P256);
+    const auto key_b = ecdh_generate_key(EcCurve::P256);
+    ASSERT_TRUE(key_a.has_value());
+    ASSERT_TRUE(key_b.has_value());
+
+    const auto secret = ecdh_compute_shared_secret(*key_a, EcCurve::P256, key_b->public_key_der);
+    ASSERT_TRUE(secret.has_value());
+
+    const auto keys = detail::sigma_i_derive_keys(*secret);
+    ASSERT_TRUE(keys.has_value());
+
+    // Plaintext to encrypt.
+    SecureBuffer plaintext(16);
+    for (std::size_t i = 0; i < 16; ++i) {
+        plaintext[i] = static_cast<CryptoByte>(i + 1);  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    }
+
+    // Encrypt via wrapper.
+    const auto bundle = detail::sigma_i_aes_gcm_encrypt(keys->enc_key_r, plaintext);
+    ASSERT_TRUE(bundle.has_value());
+    EXPECT_EQ(bundle->iv.size(), aes_gcm_iv_size_bytes);
+    EXPECT_FALSE(bundle->ciphertext.empty());
+
+    // Decrypt via wrapper.
+    const auto recovered = detail::sigma_i_aes_gcm_decrypt(keys->enc_key_r, *bundle);
+    ASSERT_TRUE(recovered.has_value());
+
+    ASSERT_EQ(recovered->size(), plaintext.size());
+    EXPECT_TRUE(std::ranges::equal(*recovered, plaintext));
+}
+
+
+TEST_F(SigmaIWrapperTests, AesGcmDecryptFailsWithWrongKey) {
+    const auto key_a = ecdh_generate_key(EcCurve::P256);
+    const auto key_b = ecdh_generate_key(EcCurve::P256);
+    ASSERT_TRUE(key_a.has_value());
+    ASSERT_TRUE(key_b.has_value());
+
+    const auto secret = ecdh_compute_shared_secret(*key_a, EcCurve::P256, key_b->public_key_der);
+    ASSERT_TRUE(secret.has_value());
+
+    const auto keys = detail::sigma_i_derive_keys(*secret);
+    ASSERT_TRUE(keys.has_value());
+
+    SecureBuffer plaintext(16);
+    std::ranges::fill(plaintext, static_cast<CryptoByte>(0xAB));
+
+    const auto bundle = detail::sigma_i_aes_gcm_encrypt(keys->enc_key_r, plaintext);
+    ASSERT_TRUE(bundle.has_value());
+
+    // Decrypt with the wrong key (enc_key_i instead of enc_key_r).
+    const auto result = detail::sigma_i_aes_gcm_decrypt(keys->enc_key_i, *bundle);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
