@@ -289,7 +289,11 @@ auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-comp
     auto shared_secret = ecdh_compute_shared_secret_impl<Provider>(
         state.ephemeral_key_pair, curve, msg2.ephemeral_pub_r);
     if (!shared_secret.has_value()) {
-        return std::unexpected(shared_secret.error());
+        // An invalid or tampered ephemeral key is an authentication failure,
+        // not a generic agreement error.
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::SigmaAuthFailed,
+            "Responder ephemeral key agreement failed"));
     }
 
     auto keys = sigma_derive_keys_impl<Provider>(*shared_secret);

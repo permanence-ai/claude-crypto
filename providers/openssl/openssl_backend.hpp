@@ -29,8 +29,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstdint>
 #include <cstring>
 
+#include <openssl/bn.h>
 #include <openssl/core_names.h>
 #include <openssl/crypto.h>
+#include <openssl/ec.h>
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
 #include <openssl/params.h>
@@ -361,6 +363,17 @@ struct OpenSslBackend {
         }
     }
 
+    // Returns the OBJ_txt2nid curve name for a key_bits value, or nullptr.
+    [[nodiscard]]
+    static constexpr const char* ec_curve_name(const std::size_t key_bits) noexcept {
+        switch (key_bits) {
+            case 256U: return "P-256";
+            case 384U: return "P-384";
+            case 521U: return "P-521";
+            default:   return nullptr;
+        }
+    }
+
     // Returns the EVP_CIPHER* for an AEAD Algorithm tag, or nullptr.
     [[nodiscard]]
     static const EVP_CIPHER* aead_cipher(const Algorithm alg) noexcept {
@@ -415,7 +428,55 @@ struct OpenSslBackend {
             case KeyAttributes::KeyType::ChaCha20: kind = OpenSslKeyKind::ChaCha20; break;
             case KeyAttributes::KeyType::Hmac:     kind = OpenSslKeyKind::Hmac;     break;
             case KeyAttributes::KeyType::Derive:   kind = OpenSslKeyKind::Derive;   break;
-            default: return err_invalid_arg;  // asymmetric keys handled separately (TODO)
+            case KeyAttributes::KeyType::EcKeyPair: {
+                // data = raw big-endian private scalar (key_bits/8 bytes).
+                const char* curve = ec_curve_name(attributes->bits);
+                if (curve == nullptr) { return err_invalid_arg; }
+                OSSL_PARAM params[] = {  // NOLINT(*)
+                    OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
+                        const_cast<char*>(curve), 0),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                    OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_PRIV_KEY,
+                        const_cast<CryptoByte*>(data), data_length),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                    OSSL_PARAM_END
+                };
+                EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr);
+                if (pctx == nullptr) { return err_invalid_arg; }
+                EVP_PKEY* pkey = nullptr;
+                const Status rv_import = (EVP_PKEY_fromdata_init(pctx) == ok &&
+                    EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_KEYPAIR, params) == ok)
+                    ? ok : err_invalid_arg;
+                EVP_PKEY_CTX_free(pctx);
+                if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
+            case KeyAttributes::KeyType::EcPublicKey: {
+                // data = uncompressed point: 0x04 || x || y.
+                const char* curve = ec_curve_name(attributes->bits);
+                if (curve == nullptr) { return err_invalid_arg; }
+                OSSL_PARAM params[] = {  // NOLINT(*)
+                    OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
+                        const_cast<char*>(curve), 0),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                    OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
+                        const_cast<CryptoByte*>(data), data_length),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                    OSSL_PARAM_END
+                };
+                EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr);
+                if (pctx == nullptr) { return err_invalid_arg; }
+                EVP_PKEY* pkey = nullptr;
+                const Status rv_import = (EVP_PKEY_fromdata_init(pctx) == ok &&
+                    EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) == ok)
+                    ? ok : err_invalid_arg;
+                EVP_PKEY_CTX_free(pctx);
+                if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
+            default: return err_invalid_arg;  // RSA handled separately (TODO)
         }
 
         const unsigned int id = ossl_raw_store_import(kind, data, data_length);
@@ -429,8 +490,21 @@ struct OpenSslBackend {
         const KeyAttributes* attributes,
         KeyId* key) noexcept
     {
-        (void)attributes; (void)key;
-        return err_invalid_arg;  // TODO (asymmetric keygen)
+        using namespace openssl_provider::detail;
+        if (attributes == nullptr || key == nullptr) { return err_invalid_arg; }
+
+        if (attributes->type == KeyAttributes::KeyType::EcKeyPair) {
+            const char* curve = ec_curve_name(attributes->bits);
+            if (curve == nullptr) { return err_invalid_arg; }
+            EVP_PKEY* pkey = EVP_EC_gen(curve);
+            if (pkey == nullptr) { return err_invalid_arg; }
+            const unsigned int id = ossl_asym_store_import(pkey);
+            if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+            *key = id;
+            return ok;
+        }
+
+        return err_invalid_arg;  // RSA keygen: TODO
     }
 
     [[nodiscard]]
@@ -452,8 +526,26 @@ struct OpenSslBackend {
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
-        (void)key; (void)data; (void)data_size; (void)data_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        if (pkey == nullptr) { return err_invalid_arg; }
+        // Export raw private scalar via BIGNUM param, using native byte order
+        // so it round-trips correctly through OSSL_PARAM_construct_BN.
+        BIGNUM* bn = nullptr;
+        if (EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn) != ok || bn == nullptr) {
+            return err_invalid_arg;
+        }
+        const int nbytes = BN_num_bytes(bn);
+        if (nbytes < 0 || static_cast<std::size_t>(nbytes) > data_size) {
+            BN_free(bn);
+            return err_invalid_arg;
+        }
+        // BN_bn2nativepad produces native-endian output (LE on ARM, BE on x86).
+        const int written = BN_bn2nativepad(bn, data, static_cast<int>(data_size));
+        BN_free(bn);
+        if (written < 0) { return err_invalid_arg; }
+        *data_length = static_cast<std::size_t>(written);
+        return ok;
     }
 
     [[nodiscard]]
@@ -461,8 +553,17 @@ struct OpenSslBackend {
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
-        (void)key; (void)data; (void)data_size; (void)data_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        if (pkey == nullptr) { return err_invalid_arg; }
+        // Export uncompressed point (04 || x || y) via OSSL_PKEY_PARAM_PUB_KEY.
+        std::size_t len = data_size;
+        if (EVP_PKEY_get_octet_string_param(pkey,
+                OSSL_PKEY_PARAM_PUB_KEY, data, data_size, &len) != ok) {
+            return err_invalid_arg;
+        }
+        *data_length = len;
+        return ok;
     }
 
     [[nodiscard]]
@@ -543,6 +644,7 @@ struct OpenSslBackend {
         std::size_t* ciphertext_length) noexcept
     {
         using namespace openssl_provider::detail;
+        (void)nonce_length;
         constexpr std::size_t tag_len = 16U;
         if (ciphertext_size < plaintext_length + tag_len) { return err_invalid_arg; }
 
@@ -592,6 +694,7 @@ struct OpenSslBackend {
         std::size_t* plaintext_length) noexcept
     {
         using namespace openssl_provider::detail;
+        (void)nonce_length;
         constexpr std::size_t tag_len = 16U;
         if (ciphertext_length < tag_len) { return err_invalid_arg; }
         const std::size_t ct_len = ciphertext_length - tag_len;
@@ -645,9 +748,27 @@ struct OpenSslBackend {
         CryptoByte* signature, const std::size_t signature_size,
         std::size_t* signature_length) noexcept
     {
-        (void)key; (void)alg; (void)input; (void)input_length;
-        (void)signature; (void)signature_size; (void)signature_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        if (alg != kAlgEcdsa) { return err_invalid_arg; }
+        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        if (pkey == nullptr) { return err_invalid_arg; }
+
+        EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+        if (ctx == nullptr) { return err_invalid_arg; }
+
+        Status rv = err_invalid_arg;
+        do {
+            // ECDSA with SHA-384 (matching the rest of the library).
+            if (EVP_DigestSignInit_ex(ctx, nullptr, "SHA2-384",
+                                      nullptr, nullptr, pkey, nullptr) != ok) { break; }
+            std::size_t len = signature_size;
+            if (EVP_DigestSign(ctx, signature, &len, input, input_length) != ok) { break; }
+            *signature_length = len;
+            rv = ok;
+        } while (false);
+
+        EVP_MD_CTX_free(ctx);
+        return rv;
     }
 
     [[nodiscard]]
@@ -656,9 +777,27 @@ struct OpenSslBackend {
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* signature, const std::size_t signature_length) noexcept
     {
-        (void)key; (void)alg; (void)input; (void)input_length;
-        (void)signature; (void)signature_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        if (alg != kAlgEcdsa) { return err_invalid_arg; }
+        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        if (pkey == nullptr) { return err_invalid_arg; }
+
+        EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+        if (ctx == nullptr) { return err_invalid_arg; }
+
+        Status rv = err_invalid_arg;
+        do {
+            if (EVP_DigestVerifyInit_ex(ctx, nullptr, "SHA2-384",
+                                        nullptr, nullptr, pkey, nullptr) != ok) { break; }
+            const int r = EVP_DigestVerify(ctx, signature, signature_length,
+                                           input, input_length);
+            if (r == 1)  { rv = ok; break; }
+            if (r == 0)  { rv = err_invalid_sig; break; }
+            rv = err_invalid_arg;
+        } while (false);
+
+        EVP_MD_CTX_free(ctx);
+        return rv;
     }
 
     [[nodiscard]]
@@ -669,9 +808,52 @@ struct OpenSslBackend {
         CryptoByte* output, const std::size_t output_size,
         std::size_t* output_length) noexcept
     {
-        (void)alg; (void)private_key; (void)peer_key; (void)peer_key_length;
-        (void)output; (void)output_size; (void)output_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        if (alg != kAlgEcdh) { return err_invalid_arg; }
+
+        EVP_PKEY* our_pkey = ossl_asym_store_get(private_key);
+        if (our_pkey == nullptr) { return err_invalid_arg; }
+
+        // Derive the curve name from our key so we can import the peer's public key.
+        char curve_name[32]{};
+        std::size_t name_len = sizeof(curve_name);
+        if (EVP_PKEY_get_utf8_string_param(our_pkey,
+                OSSL_PKEY_PARAM_GROUP_NAME,
+                curve_name, name_len, &name_len) != ok) { return err_invalid_arg; }
+
+        // Import peer uncompressed point (04||x||y) via EVP_PKEY_fromdata.
+        OSSL_PARAM peer_params[] = {  // NOLINT(*)
+            OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
+                curve_name, 0),
+            OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
+                const_cast<CryptoByte*>(peer_key), peer_key_length),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+            OSSL_PARAM_END
+        };
+        EVP_PKEY_CTX* peer_pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr);
+        if (peer_pctx == nullptr) { return err_invalid_arg; }
+        EVP_PKEY* peer_pkey = nullptr;
+        const Status rv_peer = (EVP_PKEY_fromdata_init(peer_pctx) == ok &&
+            EVP_PKEY_fromdata(peer_pctx, &peer_pkey, EVP_PKEY_PUBLIC_KEY, peer_params) == ok)
+            ? ok : err_invalid_arg;
+        EVP_PKEY_CTX_free(peer_pctx);
+        if (rv_peer != ok || peer_pkey == nullptr) { return err_invalid_arg; }
+
+        EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, our_pkey, nullptr);
+        Status rv = err_invalid_arg;
+        if (ctx != nullptr) {
+            if (EVP_PKEY_derive_init(ctx) == ok) {
+                if (EVP_PKEY_derive_set_peer(ctx, peer_pkey) == ok) {
+                    std::size_t len = output_size;
+                    if (EVP_PKEY_derive(ctx, output, &len) == ok) {
+                        *output_length = len;
+                        rv = ok;
+                    }
+                }
+            }
+            EVP_PKEY_CTX_free(ctx);
+        }
+        EVP_PKEY_free(peer_pkey);
+        return rv;
     }
 
     [[nodiscard]]
