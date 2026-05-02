@@ -8,25 +8,22 @@ Copyright Permanence AI, 2026. All rights reserved.
 // OpenSSL 3.x backend — implements the CryptoProvider concept using the
 // OpenSSL EVP high-level API.
 //
-// Status: scaffold — all concept members are present and type-correct so the
-// provider compiles and satisfies CryptoProvider<OpenSslBackend>.  Every
-// operation currently returns err_invalid_arg (not yet implemented).
+// Implementation status (symmetric crypto):
+//   hash_compute          ✓  EVP_Q_digest
+//   mac_compute/verify    TODO
+//   aead_encrypt/decrypt  TODO
+//   key_derivation_*      TODO
+//
+// Pending (asymmetric crypto):
+//   sign/verify_message   TODO  EVP_DigestSign / EVP_DigestVerify (ECDSA)
+//   raw_key_agreement     TODO  EVP_PKEY_derive (ECDH)
+//   asymmetric_encrypt/decrypt  TODO  EVP_PKEY_encrypt / EVP_PKEY_decrypt (RSA-OAEP)
+//   generate_key          TODO  EVP_PKEY_keygen_init / EVP_PKEY_generate
+//   import_key/export_key TODO  EVP_PKEY_new_raw_private_key / d2i_* / i2d_*
 //
 // Key storage:
 //   Asymmetric keys (EVP_PKEY*)  → ossl_asym_store, IDs   1..64
 //   Symmetric / raw-byte keys    → ossl_raw_store,  IDs  65..128
-//
-// Operations map as follows (to be filled in):
-//   hash_compute          → EVP_Q_digest
-//   mac_compute/verify    → EVP_Q_mac (HMAC)
-//   aead_encrypt/decrypt  → EVP_CIPHER_CTX (AES-256-GCM, ChaCha20-Poly1305)
-//   sign/verify_message   → EVP_DigestSign / EVP_DigestVerify (ECDSA)
-//   raw_key_agreement     → EVP_PKEY_derive (ECDH)
-//   asymmetric_encrypt/decrypt → EVP_PKEY_encrypt / EVP_PKEY_decrypt (RSA-OAEP)
-//   key_derivation_*      → EVP_KDF / EVP_KDF_CTX (HKDF)
-//   generate_key          → EVP_PKEY_keygen_init / EVP_PKEY_generate
-//   import_key            → EVP_PKEY_new_raw_private_key / d2i_*
-//   export_key            → EVP_PKEY_get_raw_private_key / i2d_*
 
 #include <cstddef>
 #include <cstdint>
@@ -342,7 +339,26 @@ struct OpenSslBackend {
     }
 
     // -------------------------------------------------------------------------
-    // Low-level crypto operations — stubs (not yet implemented).
+    // Internal helpers.
+    // -------------------------------------------------------------------------
+
+    // Returns the OpenSSL digest name string for a hash Algorithm tag, or
+    // nullptr if the tag is not a recognised hash algorithm.
+    [[nodiscard]]
+    static constexpr const char* digest_name(const Algorithm alg) noexcept {
+        switch (alg) {
+            case kAlgSha256:   return "SHA2-256";
+            case kAlgSha384:   return "SHA2-384";
+            case kAlgSha512:   return "SHA2-512";
+            case kAlgSha3_256: return "SHA3-256";
+            case kAlgSha3_384: return "SHA3-384";
+            case kAlgSha3_512: return "SHA3-512";
+            default:           return nullptr;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Low-level crypto operations.
     // -------------------------------------------------------------------------
 
     [[nodiscard]]
@@ -413,9 +429,15 @@ struct OpenSslBackend {
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* hash, const std::size_t hash_size, std::size_t* hash_length) noexcept
     {
-        (void)alg; (void)input; (void)input_length;
-        (void)hash; (void)hash_size; (void)hash_length;
-        return err_invalid_arg;  // TODO
+        const char* name = digest_name(alg);
+        if (name == nullptr) { return err_invalid_arg; }
+        std::size_t len = hash_size;
+        const Status rv = EVP_Q_digest(nullptr, name, nullptr,
+                                       input, input_length,
+                                       hash, &len);
+        if (rv != ok) { return err_invalid_arg; }
+        *hash_length = len;
+        return ok;
     }
 
     [[nodiscard]]
