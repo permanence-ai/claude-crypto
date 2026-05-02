@@ -3,9 +3,9 @@ set(EXE_NAME safe_crypto_lib_test)
 add_executable(${EXE_NAME}
         aead_tests.hpp
         arm_asm_tests.hpp
-        cross_provider_tests.hpp
         asymmetric_tests.hpp
         chacha20_tests.hpp
+        cross_provider_tests.hpp
         digests_tests.hpp
         ecc_tests.hpp
         ecdh_tests.hpp
@@ -16,6 +16,7 @@ add_executable(${EXE_NAME}
         ml_dsa_tests.hpp
         ml_kem_tests.hpp
         mock_psa_backend.hpp
+        pqc_cross_provider_tests.hpp
         psa_error_tests.hpp
         random_tests.hpp
         rsa_bigint_tests.hpp
@@ -45,6 +46,12 @@ target_link_libraries(${EXE_NAME} PRIVATE
         gmock
         gtest
 )
+
+# When PQC supplement is enabled, link liboqs into the test binary so that
+# pqc_cross_provider_tests.hpp can instantiate ArmAsmBackend with real PQC ops.
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib_liboqs)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(${EXE_NAME})

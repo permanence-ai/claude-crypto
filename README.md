@@ -129,7 +129,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427 in ARM_ASM; 440 in ARM_ASM+LIBOQS)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427 in ARM_ASM; 440 in ARM_ASM+LIBOQS; 248 in OPENSSL+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -285,7 +285,7 @@ A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement 
 | `SAFE_CRYPTO_PQC` | Effect |
 |---|---|
 | `NONE` *(default)* | No PQC supplement; `ARM_ASM` and `PSA_MBEDTLS` providers return `err_invalid_arg` for ML-DSA and ML-KEM |
-| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` (and `PSA_MBEDTLS`) backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (440 total for `ARM_ASM+LIBOQS`) |
+| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` (and `PSA_MBEDTLS`) backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (440 total for `ARM_ASM+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (248 total for `OPENSSL+LIBOQS`) |
 
 SLH-DSA is not yet available via liboqs (liboqs 0.13.0 uses `SPHINCS+` naming internally and has no `slh_dsa` aliases). It remains OpenSSL-only.
 
@@ -301,6 +301,12 @@ cmake -G Ninja -B cmake-build-arm-asm-pqc -S . \
 # Use the OpenSSL provider (macOS with Homebrew)
 cmake -G Ninja -B cmake-build-openssl -S . \
   -DSAFE_CRYPTO_ACTIVE_PROVIDER=OPENSSL \
+  -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/openssl@3
+
+# Use the OpenSSL provider with liboqs PQC supplement (enables cross-provider parity tests)
+cmake -G Ninja -B cmake-build-openssl-pqc -S . \
+  -DSAFE_CRYPTO_ACTIVE_PROVIDER=OPENSSL \
+  -DSAFE_CRYPTO_PQC=LIBOQS \
   -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/openssl@3
 ```
 
