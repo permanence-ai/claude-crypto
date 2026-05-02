@@ -311,6 +311,84 @@ TEST_F(SigmaITests, ResponderRejectsTamperedBundle) {
 }
 
 
+TEST_F(SigmaITests, InitiatorRejectsTamperedBundleIv) {
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
+
+    const auto initiator = ecdsa_generate_key(EcCurve::P256);
+    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(initiator.has_value());
+    ASSERT_TRUE(responder.has_value());
+
+    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    ASSERT_TRUE(init_result.has_value());
+
+    auto resp_result = sigma_i_responder_respond(
+        init_result->msg1, *responder, EcCurve::P256);
+    ASSERT_TRUE(resp_result.has_value());
+
+    // Corrupt the responder's bundle IV — AES-GCM auth tag will not match.
+    resp_result->msg2.bundle_r.iv[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+
+    SecureBuffer expected_pub(responder->public_key_der.size());
+    std::ranges::copy(responder->public_key_der, expected_pub.begin());
+
+    const auto finish = sigma_i_initiator_finish(
+        std::move(init_result->state),
+        resp_result->msg2,
+        *initiator,
+        expected_pub,
+        EcCurve::P256);
+
+    ASSERT_FALSE(finish.has_value());
+    EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
+
+
+TEST_F(SigmaITests, ResponderRejectsTamperedBundleIv) {
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
+
+    const auto initiator = ecdsa_generate_key(EcCurve::P256);
+    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(initiator.has_value());
+    ASSERT_TRUE(responder.has_value());
+
+    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    ASSERT_TRUE(init_result.has_value());
+
+    auto resp_result = sigma_i_responder_respond(
+        init_result->msg1, *responder, EcCurve::P256);
+    ASSERT_TRUE(resp_result.has_value());
+
+    SecureBuffer expected_resp_pub(responder->public_key_der.size());
+    std::ranges::copy(responder->public_key_der, expected_resp_pub.begin());
+
+    auto finish_result = sigma_i_initiator_finish(
+        std::move(init_result->state),
+        resp_result->msg2,
+        *initiator,
+        expected_resp_pub,
+        EcCurve::P256);
+    ASSERT_TRUE(finish_result.has_value());
+
+    // Corrupt the initiator's bundle IV — AES-GCM auth tag will not match.
+    finish_result->msg3.bundle_i.iv[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+
+    SecureBuffer expected_init_pub(initiator->public_key_der.size());
+    std::ranges::copy(initiator->public_key_der, expected_init_pub.begin());
+
+    const auto verify = sigma_i_responder_finish(
+        finish_result->msg3,
+        resp_result->responder_state,
+        init_result->msg1,
+        resp_result->msg2,
+        expected_init_pub,
+        EcCurve::P256);
+
+    ASSERT_TRUE(verify.has_value());
+    EXPECT_FALSE(*verify);
+}
+
+
 // -----------------------------------------------------------------------
 // Tests for the non-template wrapper overloads (sigma_i_derive_keys,
 // sigma_i_aes_gcm_encrypt, sigma_i_aes_gcm_decrypt).  The handshake tests
