@@ -4,11 +4,12 @@ project(safe_crypto_lib)
 set(CMAKE_CXX_STANDARD 26)
 
 set(SAFE_CRYPTO_ACTIVE_PROVIDER "PSA_MBEDTLS" CACHE STRING
-    "Crypto backend provider. One of: PSA_MBEDTLS, ARM_ASM, IA_ASM")
+    "Crypto backend provider. One of: PSA_MBEDTLS, ARM_ASM, IA_ASM, OPENSSL")
 set_property(CACHE SAFE_CRYPTO_ACTIVE_PROVIDER PROPERTY STRINGS
     "PSA_MBEDTLS"
     "ARM_ASM"
-    "IA_ASM")
+    "IA_ASM"
+    "OPENSSL")
 
 include(FetchContent)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")

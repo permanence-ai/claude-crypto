@@ -15,6 +15,9 @@ using DefaultProvider = ArmAsmBackend;
 #elifdef SAFE_CRYPTO_PROVIDER_IA_ASM
 #  include "ia_asm_backend.hpp"
 using DefaultProvider = IaAsmBackend;
+#elifdef SAFE_CRYPTO_PROVIDER_OPENSSL
+#  include "openssl_backend.hpp"
+using DefaultProvider = OpenSslBackend;
 #else
 #  include "psa_mbedtls_backend.hpp"
 using DefaultProvider = RealPsaBackend;
