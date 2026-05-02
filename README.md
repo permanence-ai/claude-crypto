@@ -150,7 +150,7 @@ For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYP
 
 ## Testing
 
-The test suite (`safe-crypto-lib-test/`, 420+ tests) uses GoogleTest + GMock and is organised into five distinct testing strategies.
+The test suite (`safe-crypto-lib-test/`, 427 tests) uses GoogleTest + GMock and is organised into five distinct testing strategies.
 
 ### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 107 tests)
 
@@ -169,7 +169,7 @@ These run against the active provider (default: `RealPsaBackend`) and verify cor
 - **KDF** — HKDF and HKDF-Expand (SHA-384): RFC 5869 test vectors; state-machine error paths.
 - **ECC / ECDH** — P-256/384/521 key generation, ECDSA sign/verify, ECDH shared-secret agreement.
 - **Asymmetric** — RSA-OAEP 3072/4096 encrypt/decrypt round-trips.
-- **SIGMA / SIGMA-I** — Full two-party handshake; identity hiding; tamper detection on MAC and signature fields.
+- **SIGMA / SIGMA-I** — Full two-party handshake; identity hiding; tamper detection on MAC, signature, ephemeral key, and encrypted bundle IV fields; session key encrypt/decrypt round-trip; replay attack rejection; fresh handshakes produce distinct session keys.
 - **Random** — Output length, non-zero probability, successive calls differ.
 
 ### 3. ARM ASM known-answer-vector tests (`arm_asm_tests.hpp` — 110 tests)
