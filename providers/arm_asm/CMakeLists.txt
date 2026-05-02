@@ -13,6 +13,7 @@ target_sources(${LIB_NAME} INTERFACE
         hmac.hpp
         keccak.hpp
         key_store.hpp
+        pqc_key_store.hpp
         poly1305.hpp
         random.hpp
         rsa.hpp
@@ -35,3 +36,7 @@ target_include_directories(${LIB_NAME} INTERFACE
 target_compile_options(${LIB_NAME} INTERFACE
         -march=armv8.2-a+crypto+sha3
 )
+
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_liboqs)
+endif()

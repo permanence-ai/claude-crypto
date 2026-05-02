@@ -129,7 +129,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427+ in PSA build)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427 in ARM_ASM; 440 in ARM_ASM+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -280,9 +280,23 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | `OPENSSL` | OpenSSL 3.x EVP API | Full + SLH-DSA (FIPS 205, all 6 SHA2 variants) + ML-DSA (FIPS 204, parameter sets 44/65/87) + ML-KEM (FIPS 203, parameter sets 512/768/1024) — 242 tests; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
 | `IA_ASM` | Native assembly | Stub only |
 
+A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement fetched via FetchContent:
+
+| `SAFE_CRYPTO_PQC` | Effect |
+|---|---|
+| `NONE` *(default)* | No PQC supplement; `ARM_ASM` and `PSA_MBEDTLS` providers return `err_invalid_arg` for ML-DSA and ML-KEM |
+| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` (and `PSA_MBEDTLS`) backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (440 total for `ARM_ASM+LIBOQS`) |
+
+SLH-DSA is not yet available via liboqs (liboqs 0.13.0 uses `SPHINCS+` naming internally and has no `slh_dsa` aliases). It remains OpenSSL-only.
+
 ```bash
 # Use the ARM ASM provider
 cmake -G Ninja -B cmake-build-arm-asm -S . -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM
+
+# Use the ARM ASM provider with liboqs PQC supplement
+cmake -G Ninja -B cmake-build-arm-asm-pqc -S . \
+  -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM \
+  -DSAFE_CRYPTO_PQC=LIBOQS
 
 # Use the OpenSSL provider (macOS with Homebrew)
 cmake -G Ninja -B cmake-build-openssl -S . \

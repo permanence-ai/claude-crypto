@@ -1,4 +1,5 @@
 cmake-build-arm-asm/
+cmake-build-arm-asm-pqc/
 cmake-build-coverage/
 cmake-build-coverage-arm/
 cmake-build-coverage-psa/

@@ -13,3 +13,7 @@ target_include_directories(${LIB_NAME} INTERFACE
 target_link_libraries(${LIB_NAME} INTERFACE
         mbedtls
 )
+
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_liboqs)
+endif()
