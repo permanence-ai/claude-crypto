@@ -470,3 +470,24 @@ TEST_F(SigmaTests, SessionKeyCanBeUsedToEncryptAndDecrypt) {
     ASSERT_EQ(dec->size(), plaintext.size());
     EXPECT_TRUE(std::ranges::equal(*dec, plaintext));
 }
+
+
+// Two independent handshakes use different ephemeral key pairs and therefore
+// derive different session keys.
+TEST_F(SigmaTests, FreshHandshakesProduceDifferentSessionKeys) {
+    const auto initiator = ecdsa_generate_key(EcCurve::P256);
+    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(initiator.has_value());
+    ASSERT_TRUE(responder.has_value());
+
+    const auto result1 = run_handshake(*initiator, *responder, EcCurve::P256);
+    const auto result2 = run_handshake(*initiator, *responder, EcCurve::P256);
+
+    ASSERT_EQ(result1.initiator_keys.session_key.size(),
+              result2.initiator_keys.session_key.size());
+    EXPECT_FALSE(std::ranges::equal(
+        std::span(result1.initiator_keys.session_key.data(),
+                  result1.initiator_keys.session_key.size()),
+        std::span(result2.initiator_keys.session_key.data(),
+                  result2.initiator_keys.session_key.size())));
+}
