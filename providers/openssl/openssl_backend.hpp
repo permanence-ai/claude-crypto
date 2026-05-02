@@ -37,6 +37,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <openssl/kdf.h>
 #include <openssl/params.h>
 #include <openssl/rand.h>
+#include <openssl/rsa.h>
 
 #include "defs.hpp"
 #include "openssl_key_store.hpp"
@@ -476,7 +477,27 @@ struct OpenSslBackend {
                 *key = id;
                 return ok;
             }
-            default: return err_invalid_arg;  // RSA handled separately (TODO)
+            case KeyAttributes::KeyType::RsaKeyPair: {
+                // Private key in PKCS#1 DER format (from i2d_PrivateKey).
+                const CryptoByte* p = data;
+                EVP_PKEY* pkey = d2i_PrivateKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
+                if (pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
+            case KeyAttributes::KeyType::RsaPublicKey: {
+                // Public key in SubjectPublicKeyInfo DER format (from i2d_PublicKey).
+                const CryptoByte* p = data;
+                EVP_PKEY* pkey = d2i_PublicKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
+                if (pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
+            default: return err_invalid_arg;
         }
 
         const unsigned int id = ossl_raw_store_import(kind, data, data_length);
@@ -504,7 +525,16 @@ struct OpenSslBackend {
             return ok;
         }
 
-        return err_invalid_arg;  // RSA keygen: TODO
+        if (attributes->type == KeyAttributes::KeyType::RsaKeyPair) {
+            EVP_PKEY* pkey = EVP_RSA_gen(static_cast<unsigned int>(attributes->bits));
+            if (pkey == nullptr) { return err_invalid_arg; }
+            const unsigned int id = ossl_asym_store_import(pkey);
+            if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+            *key = id;
+            return ok;
+        }
+
+        return err_invalid_arg;
     }
 
     [[nodiscard]]
@@ -529,8 +559,17 @@ struct OpenSslBackend {
         using namespace openssl_provider::detail;
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
-        // Export raw private scalar via BIGNUM param, using native byte order
-        // so it round-trips correctly through OSSL_PARAM_construct_BN.
+
+        if (EVP_PKEY_is_a(pkey, "RSA") == 1) {
+            // Export PKCS#1 DER private key.
+            CryptoByte* p = data;
+            const int len = i2d_PrivateKey(pkey, &p);
+            if (len < 0 || static_cast<std::size_t>(len) > data_size) { return err_invalid_arg; }
+            *data_length = static_cast<std::size_t>(len);
+            return ok;
+        }
+
+        // EC: export raw private scalar, native-endian so OSSL_PARAM_construct_BN round-trips.
         BIGNUM* bn = nullptr;
         if (EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn) != ok || bn == nullptr) {
             return err_invalid_arg;
@@ -556,7 +595,17 @@ struct OpenSslBackend {
         using namespace openssl_provider::detail;
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
-        // Export uncompressed point (04 || x || y) via OSSL_PKEY_PARAM_PUB_KEY.
+
+        if (EVP_PKEY_is_a(pkey, "RSA") == 1) {
+            // Export SubjectPublicKeyInfo DER.
+            CryptoByte* p = data;
+            const int len = i2d_PublicKey(pkey, &p);
+            if (len < 0 || static_cast<std::size_t>(len) > data_size) { return err_invalid_arg; }
+            *data_length = static_cast<std::size_t>(len);
+            return ok;
+        }
+
+        // EC: export uncompressed point (04 || x || y).
         std::size_t len = data_size;
         if (EVP_PKEY_get_octet_string_param(pkey,
                 OSSL_PKEY_PARAM_PUB_KEY, data, data_size, &len) != ok) {
@@ -749,7 +798,7 @@ struct OpenSslBackend {
         std::size_t* signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if (alg != kAlgEcdsa) { return err_invalid_arg; }
+        if (alg != kAlgEcdsa && alg != kAlgRsaPss) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
 
@@ -758,9 +807,13 @@ struct OpenSslBackend {
 
         Status rv = err_invalid_arg;
         do {
-            // ECDSA with SHA-384 (matching the rest of the library).
-            if (EVP_DigestSignInit_ex(ctx, nullptr, "SHA2-384",
+            EVP_PKEY_CTX* pctx = nullptr;
+            if (EVP_DigestSignInit_ex(ctx, &pctx, "SHA2-384",
                                       nullptr, nullptr, pkey, nullptr) != ok) { break; }
+            if (alg == kAlgRsaPss) {
+                if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) != ok) { break; }
+                if (EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST) != ok) { break; }
+            }
             std::size_t len = signature_size;
             if (EVP_DigestSign(ctx, signature, &len, input, input_length) != ok) { break; }
             *signature_length = len;
@@ -778,7 +831,7 @@ struct OpenSslBackend {
         const CryptoByte* signature, const std::size_t signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if (alg != kAlgEcdsa) { return err_invalid_arg; }
+        if (alg != kAlgEcdsa && alg != kAlgRsaPss) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
 
@@ -787,8 +840,13 @@ struct OpenSslBackend {
 
         Status rv = err_invalid_arg;
         do {
-            if (EVP_DigestVerifyInit_ex(ctx, nullptr, "SHA2-384",
+            EVP_PKEY_CTX* pctx = nullptr;
+            if (EVP_DigestVerifyInit_ex(ctx, &pctx, "SHA2-384",
                                         nullptr, nullptr, pkey, nullptr) != ok) { break; }
+            if (alg == kAlgRsaPss) {
+                if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) != ok) { break; }
+                if (EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST) != ok) { break; }
+            }
             const int r = EVP_DigestVerify(ctx, signature, signature_length,
                                            input, input_length);
             if (r == 1)  { rv = ok; break; }
@@ -864,10 +922,39 @@ struct OpenSslBackend {
         CryptoByte* output, const std::size_t output_size,
         std::size_t* output_length) noexcept
     {
-        (void)key; (void)alg; (void)input; (void)input_length;
-        (void)salt; (void)salt_length;
-        (void)output; (void)output_size; (void)output_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        if (alg != kAlgRsaOaep) { return err_invalid_arg; }
+        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        if (pkey == nullptr) { return err_invalid_arg; }
+
+        EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
+        if (ctx == nullptr) { return err_invalid_arg; }
+
+        Status rv = err_invalid_arg;
+        do {
+            if (EVP_PKEY_encrypt_init(ctx) != ok) { break; }
+            if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) != ok) { break; }
+            if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha384()) != ok) { break; }
+            if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha384()) != ok) { break; }
+            if (salt_length > 0) {
+                // OAEP label: must be heap-allocated; OpenSSL takes ownership.
+                // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+                auto* label_copy = static_cast<unsigned char*>(OPENSSL_malloc(salt_length));
+                if (label_copy == nullptr) { break; }
+                std::memcpy(label_copy, salt, salt_length);
+                if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, label_copy, static_cast<int>(salt_length)) != ok) {
+                    OPENSSL_free(label_copy);
+                    break;
+                }
+            }
+            std::size_t len = output_size;
+            if (EVP_PKEY_encrypt(ctx, output, &len, input, input_length) != ok) { break; }
+            *output_length = len;
+            rv = ok;
+        } while (false);
+
+        EVP_PKEY_CTX_free(ctx);
+        return rv;
     }
 
     [[nodiscard]]
@@ -878,10 +965,38 @@ struct OpenSslBackend {
         CryptoByte* output, const std::size_t output_size,
         std::size_t* output_length) noexcept
     {
-        (void)key; (void)alg; (void)input; (void)input_length;
-        (void)salt; (void)salt_length;
-        (void)output; (void)output_size; (void)output_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        if (alg != kAlgRsaOaep) { return err_invalid_arg; }
+        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        if (pkey == nullptr) { return err_invalid_arg; }
+
+        EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
+        if (ctx == nullptr) { return err_invalid_arg; }
+
+        Status rv = err_invalid_arg;
+        do {
+            if (EVP_PKEY_decrypt_init(ctx) != ok) { break; }
+            if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) != ok) { break; }
+            if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha384()) != ok) { break; }
+            if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha384()) != ok) { break; }
+            if (salt_length > 0) {
+                // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+                auto* label_copy = static_cast<unsigned char*>(OPENSSL_malloc(salt_length));
+                if (label_copy == nullptr) { break; }
+                std::memcpy(label_copy, salt, salt_length);
+                if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, label_copy, static_cast<int>(salt_length)) != ok) {
+                    OPENSSL_free(label_copy);
+                    break;
+                }
+            }
+            std::size_t len = output_size;
+            if (EVP_PKEY_decrypt(ctx, output, &len, input, input_length) != ok) { break; }
+            *output_length = len;
+            rv = ok;
+        } while (false);
+
+        EVP_PKEY_CTX_free(ctx);
+        return rv;
     }
 
     [[nodiscard]]
