@@ -359,6 +359,16 @@ struct OpenSslBackend {
         }
     }
 
+    // Returns the EVP_CIPHER* for an AEAD Algorithm tag, or nullptr.
+    [[nodiscard]]
+    static const EVP_CIPHER* aead_cipher(const Algorithm alg) noexcept {
+        switch (alg) {
+            case kAlgAesGcm:       return EVP_aes_256_gcm();
+            case kAlgChaCha20Poly: return EVP_chacha20_poly1305();
+            default:               return nullptr;
+        }
+    }
+
     // Returns the underlying digest name for an HMAC Algorithm tag, or nullptr.
     [[nodiscard]]
     static constexpr const char* hmac_digest_name(const Algorithm alg) noexcept {
@@ -530,11 +540,44 @@ struct OpenSslBackend {
         CryptoByte* ciphertext, const std::size_t ciphertext_size,
         std::size_t* ciphertext_length) noexcept
     {
-        (void)key; (void)alg; (void)nonce; (void)nonce_length;
-        (void)additional_data; (void)additional_data_length;
-        (void)plaintext; (void)plaintext_length;
-        (void)ciphertext; (void)ciphertext_size; (void)ciphertext_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        constexpr std::size_t tag_len = 16U;
+        if (ciphertext_size < plaintext_length + tag_len) { return err_invalid_arg; }
+
+        const EVP_CIPHER* cipher = aead_cipher(alg);
+        if (cipher == nullptr) { return err_invalid_arg; }
+
+        const OpenSslRawSlot* slot = ossl_raw_store_get(key);
+        if (slot == nullptr) { return err_invalid_arg; }
+
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        if (ctx == nullptr) { return err_invalid_arg; }
+
+        Status rv = err_invalid_arg;
+        do {
+            if (EVP_EncryptInit_ex2(ctx, cipher, slot->data.data(), nonce, nullptr) != ok) { break; }
+            int out_len = 0;
+            if (additional_data_length > 0) {
+                if (EVP_EncryptUpdate(ctx, nullptr, &out_len,
+                                      additional_data,
+                                      static_cast<int>(additional_data_length)) != ok) { break; }
+            }
+            if (EVP_EncryptUpdate(ctx, ciphertext, &out_len,
+                                  plaintext, static_cast<int>(plaintext_length)) != ok) { break; }
+            std::size_t written = static_cast<std::size_t>(out_len);
+            int final_len = 0;
+            if (EVP_EncryptFinal_ex(ctx, ciphertext + written, &final_len) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            written += static_cast<std::size_t>(final_len);
+            // Append the authentication tag.
+            if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG,
+                                    static_cast<int>(tag_len),
+                                    ciphertext + written) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            *ciphertext_length = written + tag_len;
+            rv = ok;
+        } while (false);
+
+        EVP_CIPHER_CTX_free(ctx);
+        return rv;
     }
 
     [[nodiscard]]
@@ -546,11 +589,51 @@ struct OpenSslBackend {
         CryptoByte* plaintext, const std::size_t plaintext_size,
         std::size_t* plaintext_length) noexcept
     {
-        (void)key; (void)alg; (void)nonce; (void)nonce_length;
-        (void)additional_data; (void)additional_data_length;
-        (void)ciphertext; (void)ciphertext_length;
-        (void)plaintext; (void)plaintext_size; (void)plaintext_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        constexpr std::size_t tag_len = 16U;
+        if (ciphertext_length < tag_len) { return err_invalid_arg; }
+        const std::size_t ct_len = ciphertext_length - tag_len;
+        if (plaintext_size < ct_len) { return err_invalid_arg; }
+
+        const EVP_CIPHER* cipher = aead_cipher(alg);
+        if (cipher == nullptr) { return err_invalid_arg; }
+
+        const OpenSslRawSlot* slot = ossl_raw_store_get(key);
+        if (slot == nullptr) { return err_invalid_arg; }
+
+        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        if (ctx == nullptr) { return err_invalid_arg; }
+
+        Status rv = err_invalid_sig;  // auth failure by default
+        do {
+            if (EVP_DecryptInit_ex2(ctx, cipher, slot->data.data(), nonce, nullptr) != ok) {
+                rv = err_invalid_arg; break;
+            }
+            // Set the expected tag before finalising.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-type-const-cast)
+            if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG,
+                                    static_cast<int>(tag_len),
+                                    const_cast<CryptoByte*>(ciphertext + ct_len)) != ok) {
+                rv = err_invalid_arg; break;
+            }
+            int out_len = 0;
+            if (additional_data_length > 0) {
+                if (EVP_DecryptUpdate(ctx, nullptr, &out_len,
+                                      additional_data,
+                                      static_cast<int>(additional_data_length)) != ok) { break; }
+            }
+            if (EVP_DecryptUpdate(ctx, plaintext, &out_len,
+                                  ciphertext, static_cast<int>(ct_len)) != ok) { break; }
+            std::size_t written = static_cast<std::size_t>(out_len);
+            int final_len = 0;
+            // EVP_DecryptFinal_ex returns 0 if tag verification fails.
+            if (EVP_DecryptFinal_ex(ctx, plaintext + written, &final_len) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            *plaintext_length = written + static_cast<std::size_t>(final_len);
+            rv = ok;
+        } while (false);
+
+        EVP_CIPHER_CTX_free(ctx);
+        return rv;
     }
 
     [[nodiscard]]
