@@ -271,18 +271,8 @@ struct ArmAsmBackend {
             std::size_t key_len = 0;
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
-            // Import the private key into PSA, then export_public_key.
-            psa_crypto_init();
-            psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
-            psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-            psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(bits));
-            psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_EXPORT);
-            psa_set_key_algorithm(&attrs, rsa_oaep_alg());
-            mbedtls_svc_key_id_t psa_id = MBEDTLS_SVC_KEY_ID_INIT;
-            if (psa_import_key(&attrs, key, key_len, &psa_id) != PSA_SUCCESS) { return err_invalid_arg; }
-            const psa_status_t s = psa_export_public_key(psa_id, out, size, len);
-            psa_destroy_key(psa_id);
-            return s == PSA_SUCCESS ? ok : err_invalid_arg;
+            return rsa_derive_public_key_der(key, key_len, out, size, len)
+                ? ok : err_invalid_arg;
         }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
         EcCurveId curve = EcCurveId::None;
@@ -824,7 +814,7 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static std::size_t rsa_public_key_export_size(std::size_t bits) noexcept {
-        // PSA_KEY_EXPORT_RSA_PUBLIC_KEY_MAX_SIZE(bits) = bits/8+5+11
-        return (bits / 8U) + 16U;
+        // SubjectPublicKeyInfo overhead: ~38 bytes (AlgID + BIT STRING + SEQUENCE headers + sign pad)
+        return (bits / 8U) + 50U;
     }
 };

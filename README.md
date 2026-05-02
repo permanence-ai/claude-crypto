@@ -103,9 +103,9 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | ECDH P-256/384/521 | x-coordinate shared secret; 32/48/66-byte output |
 | EC key generation | Random private scalar; public key computed as k·G (Jacobian → affine) |
 | EC key import/export | 16-slot EC key store separate from symmetric key store; P-521 public key 133 bytes |
-| RSA-OAEP-3072/4096 encrypt/decrypt | Delegated to PSA/MbedTLS (no ARM hardware for big-integer arithmetic); SHA-384 mask/label hash |
-| RSA-PSS-3072/4096 sign/verify | Delegated to PSA/MbedTLS; SHA-384; separate 8-slot RSA key store (key ID base 0xC000) |
-| RSA key generation | CRT key pair via PSA; private key exported as PKCS#1 DER, public key as SubjectPublicKeyInfo DER |
+| RSA-OAEP-3072/4096 encrypt/decrypt | Pure C++ Montgomery multiplication + CRT; SHA-384 MGF1; separate 8-slot RSA key store (key ID base 0xC000) |
+| RSA-PSS-3072/4096 sign/verify | Pure C++ Montgomery multiplication + CRT; SHA-384 MGF1; constant-time OAEP/PSS padding |
+| RSA key generation | Miller-Rabin primality (40 rounds) + CRT parameters; PKCS#1 DER output, SubjectPublicKeyInfo DER public key; no PSA/MbedTLS dependency |
 
 **SHA-512 compression loop detail.** The two-round step pattern cycles through four roles (ab/cd/ef/gh) every eight rounds. Each step requires cross-pair word interleaving that cannot be expressed as a simple state rotation:
 
@@ -150,7 +150,7 @@ For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYP
 
 ## Testing
 
-The test suite (`safe-crypto-lib-test/`, 351 tests) uses GoogleTest + GMock and is organised into five distinct testing strategies.
+The test suite (`safe-crypto-lib-test/`, 420+ tests) uses GoogleTest + GMock and is organised into five distinct testing strategies.
 
 ### 1. Mock-backend error-path tests (`psa_error_tests.hpp` — 107 tests)
 
@@ -266,7 +266,7 @@ Notable findings:
 - **SHA3 / HMAC-SHA3** beats PSA at 1.2× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
 - **ChaCha20-Poly1305** leads MbedTLS at 1.33–1.37× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
 - **ECDSA / ECDH** beats PSA across all three curves for verify and key agreement, and for sign on P-256. Four optimization passes compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). Third, P-384 field inversion and scalar inversion were replaced with addition chains: `fe384_invert` (used in affine conversion after every scalar multiplication) drops from ~702 field ops to ~490; `p384_scalar_invert` now stays in Montgomery domain throughout its addition chain, reducing cost from ~1344 to ~490 Montgomery multiplications. Fourth, a dormant bug in the point-doubling formula (present across all three curves) was fixed — the `8γ²` term was squaring γ twice rather than once. P-384 sign still trails PSA (0.92×) and P-521 sign at 0.67×; both have no hardware modular reduction and the variable-base `p*_scalar_mul(Q, ...)` for ECDH and u2·Q in verification does not yet use a precomputed window.
-- **RSA** (3072 and 4096-bit) is fully delegated to PSA/MbedTLS for all key operations (generation, import/export) and for private-key operations (decrypt, sign) which are dominated by multi-precision modular exponentiation. Encrypt and verify (public-key) operations are also delegated. The ARM ASM backend is at parity or within noise for all RSA operations.
+- **RSA** (3072 and 4096-bit) is now implemented entirely in pure C++ without any PSA/MbedTLS dependency. Key generation uses Miller-Rabin primality testing (40 rounds) followed by CRT parameter computation. Public and private operations use CIOS Montgomery multiplication with a constant-time final reduction. OAEP and PSS padding use SHA-384 MGF1. The benchmark numbers above predate this migration and reflect the prior PSA-delegated implementation; the current implementation has not been re-benchmarked.
 
 ## Provider selection
 
@@ -275,7 +275,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | Value | Backend | Status |
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
-| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096, key management |
+| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096 (pure C++, no MbedTLS), key management |
 | `IA_ASM` | Native assembly | Stub only |
 
 ```bash

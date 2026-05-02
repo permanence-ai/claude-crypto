@@ -7,18 +7,19 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 // RSA key store and operations for the ARM ASM backend.
 //
-// RSA operations are delegated to PSA/MbedTLS because RSA does not benefit
-// from ARM Crypto Extension intrinsics (no hardware acceleration on AArch64
-// for big-integer arithmetic).
+// All RSA operations are implemented in pure C++/ARM-intrinsics:
+//   - Key generation: Miller-Rabin + CRT parameter computation (rsa_keygen.hpp)
+//   - Public/private ops: Montgomery multiplication + CRT (rsa_bigint.hpp)
+//   - OAEP padding: MGF1-SHA384 (rsa_oaep.hpp)
+//   - PSS  padding: MGF1-SHA384 (rsa_pss.hpp)
+//   - DER encoding/decoding (rsa_der.hpp)
+//
+// No dependency on PSA/mbedtls.
 //
 // Supported:
-//   - RSA-OAEP-3072/4096 encrypt/decrypt (SHA-384 mask/label hash)
-//   - RSA-PSS-3072/4096 sign/verify (SHA-384)
-//   - Key generation (CRT key pair), export as PKCS#1 DER
-//
-// Key format (PSA raw export):
-//   Private key: PKCS#1 RSAPrivateKey DER
-//   Public key:  SubjectPublicKeyInfo DER (RSAPublicKey wrapped)
+//   - RSA-OAEP-2048/3072/4096 encrypt/decrypt (SHA-384)
+//   - RSA-PSS-2048/3072/4096 sign/verify (SHA-384)
+//   - Key generation (CRT key pair), export as PKCS#1 DER / SubjectPublicKeyInfo DER
 //
 // Key store:
 //   Separate from the symmetric key store; 8 slots.
@@ -28,11 +29,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstdint>
 #include <cstring>
 
-#include <psa/crypto.h>
-#include <psa/crypto_sizes.h>
-#include <psa/crypto_values.h>
-
 #include "defs.hpp"
+#include "random.hpp"
+#include "rsa_bigint.hpp"
+#include "rsa_der.hpp"
+#include "rsa_keygen.hpp"
+#include "rsa_oaep.hpp"
+#include "rsa_pss.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -42,15 +45,12 @@ namespace arm_asm::detail {
 constexpr std::size_t rsa_key_store_capacity = 8;
 constexpr unsigned int rsa_key_id_base       = 0xC000U;
 
-// Maximum private key DER size for 4096-bit RSA.
-// PSA_KEY_EXPORT_RSA_KEY_PAIR_MAX_SIZE(4096) = 9 * (4096/2/8+1+5) + 14 = 9*266+14 = 2408
-// Use 2450 for safety margin.
-constexpr std::size_t rsa_max_private_key_bytes = 2450;
+// Maximum private key DER size for 4096-bit RSA (PKCS#1).
+// 9 * (512 + 6) + 10 ≈ 4758 + 10 = 4768.  Use 5000 for safety.
+constexpr std::size_t rsa_max_private_key_bytes = 5000;
 
-// Maximum public key DER size for 4096-bit RSA.
-// PSA_KEY_EXPORT_RSA_PUBLIC_KEY_MAX_SIZE(4096) = 4096/8+5+11 = 528
-// Use 550 for safety margin.
-constexpr std::size_t rsa_max_public_key_bytes = 550;
+// Maximum public key DER size for 4096-bit RSA (SubjectPublicKeyInfo).
+constexpr std::size_t rsa_max_public_key_bytes = 600;
 
 enum class RsaKeyKind : uint8_t {
     None    = 0,
@@ -122,62 +122,66 @@ inline void rsa_key_store_destroy(unsigned int id) noexcept {
 
 
 // -----------------------------------------------------------------------
-// PSA algorithm selectors for RSA-OAEP and RSA-PSS (both with SHA-384).
+// Dispatch helper: call the right template instantiation for modulus_bits.
 // -----------------------------------------------------------------------
 
-inline psa_algorithm_t rsa_oaep_alg() noexcept { return PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384); }
-inline psa_algorithm_t rsa_pss_alg()  noexcept { return PSA_ALG_RSA_PSS(PSA_ALG_SHA_384); }
+// NW for a given bit count: 2048→32, 3072→48, 4096→64.
+// Unsupported sizes return false.
+template<typename Fn>
+[[nodiscard]]
+inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept {
+    switch (bits) {
+        case 2048U: return fn.template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 3072U: return fn.template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 4096U: return fn.template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        default: return false;
+    }
+}
+
+// 1024-bit (NW=16) supported for tests, plus 2048/3072/4096.
+template<typename Fn>
+[[nodiscard]]
+inline bool rsa_dispatch_all(std::size_t bits, Fn&& fn) noexcept {
+    switch (bits) {
+        case 1024U: return fn.template operator()<16U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 2048U: return fn.template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 3072U: return fn.template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 4096U: return fn.template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        default: return false;
+    }
+}
 
 
 // -----------------------------------------------------------------------
 // Key generation.
 // -----------------------------------------------------------------------
 
-// Generates an RSA key pair of the given bit size using PSA.
-// Exports the private and public keys as DER-encoded byte strings.
-// Stores the private key in the RSA key store and returns its ID.
-// Also exports the public key separately (stored in pub_out/pub_len).
 [[nodiscard]]
 inline unsigned int rsa_generate_key_pair(
     std::size_t bits,
     CryptoByte* pub_out, std::size_t pub_max, std::size_t* pub_len) noexcept
 {
-    psa_crypto_init();
-
-    // Generate with both OAEP and PSS usage flags so the single key works for both.
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT |
-                                    PSA_KEY_USAGE_SIGN_MESSAGE | PSA_KEY_USAGE_VERIFY_MESSAGE |
-                                    PSA_KEY_USAGE_EXPORT);
-    psa_set_key_algorithm(&attrs, rsa_oaep_alg());
-
-    mbedtls_svc_key_id_t psa_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_generate_key(&attrs, &psa_id) != PSA_SUCCESS) { return 0U; }
-
-    // Export private key as PKCS#1 DER.
+    // Generate the private key DER.
     FixedSecureBuffer<rsa_max_private_key_bytes> priv_buf{};
     std::size_t priv_len = 0;
-    if (psa_export_key(psa_id, priv_buf.data(), rsa_max_private_key_bytes, &priv_len) != PSA_SUCCESS) {
-        psa_destroy_key(psa_id);
+
+    const bool gen_ok = rsa_dispatch_all(bits, [&]<std::size_t NW>() -> bool {
+        return rsa_generate_key_der<NW>(bits, priv_buf.data(),
+                                         rsa_max_private_key_bytes, &priv_len);
+    });
+    if (!gen_ok) { return 0U; }
+
+    // Derive SubjectPublicKeyInfo DER from the private key.
+    if (!rsa_derive_public_key_der(priv_buf.data(), priv_len, pub_out, pub_max, pub_len)) {
         return 0U;
     }
-
-    // Export public key as SubjectPublicKeyInfo DER.
-    if (psa_export_public_key(psa_id, pub_out, pub_max, pub_len) != PSA_SUCCESS) {
-        psa_destroy_key(psa_id);
-        return 0U;
-    }
-
-    psa_destroy_key(psa_id);
 
     return rsa_key_store_import(RsaKeyKind::Private, bits, priv_buf.data(), priv_len);
 }
 
 
 // -----------------------------------------------------------------------
-// RSA-OAEP encrypt.
+// RSA-OAEP encrypt (public key operation).
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -188,30 +192,31 @@ inline bool rsa_oaep_encrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-a
     const CryptoByte* label, std::size_t label_len,
     CryptoByte* ct_out, std::size_t ct_max, std::size_t* ct_len) noexcept
 {
-    psa_crypto_init();
+    RsaPublicKeyComponents pub{};
+    if (!rsa_parse_public_key_der(pub_der, pub_len, pub)) { return false; }
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT);
-    psa_set_key_algorithm(&attrs, rsa_oaep_alg());
+    const std::size_t k = bits / 8U;
+    if (ct_max < k) { return false; }
+    if (pub.n_len != k) { return false; }  // modulus must match declared key size
 
-    mbedtls_svc_key_id_t psa_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs, pub_der, pub_len, &psa_id) != PSA_SUCCESS) { return false; }
+    // OAEP encode.
+    std::array<CryptoByte, oaep_hash_len> seed{};
+    generate_random_bytes(seed.data(), seed.size());
 
-    const psa_status_t s = psa_asymmetric_encrypt(
-        psa_id, rsa_oaep_alg(),
-        pt, pt_len,
-        label, label_len,
-        ct_out, ct_max, ct_len);
+    FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};
+    if (!oaep_encode(pt, pt_len, label, label_len, seed.data(), k, em.data())) { return false; }
 
-    psa_destroy_key(psa_id);
-    return s == PSA_SUCCESS;
+    // RSA public operation: c = em^e mod n.
+    return rsa_dispatch_all(bits, [&]<std::size_t NW>() -> bool {
+        rsa_public_op<NW>(em.data(), k, pub.n, pub.n_len, pub.e, pub.e_len, ct_out);
+        *ct_len = k;
+        return true;
+    });
 }
 
 
 // -----------------------------------------------------------------------
-// RSA-OAEP decrypt.
+// RSA-OAEP decrypt (private key operation).
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -222,30 +227,33 @@ inline bool rsa_oaep_decrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-a
     const CryptoByte* label, std::size_t label_len,
     CryptoByte* pt_out, std::size_t pt_max, std::size_t* pt_len) noexcept
 {
-    psa_crypto_init();
+    if (ct_len != bits / 8U) { return false; }
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_DECRYPT);
-    psa_set_key_algorithm(&attrs, rsa_oaep_alg());
+    RsaPrivateKeyComponents priv{};
+    if (!rsa_parse_private_key_der(priv_der, priv_len, priv)) { return false; }
 
-    mbedtls_svc_key_id_t psa_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs, priv_der, priv_len, &psa_id) != PSA_SUCCESS) { return false; }
+    const std::size_t k = bits / 8U;
 
-    const psa_status_t s = psa_asymmetric_decrypt(
-        psa_id, rsa_oaep_alg(),
-        ct, ct_len,
-        label, label_len,
-        pt_out, pt_max, pt_len);
+    FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};
 
-    psa_destroy_key(psa_id);
-    return s == PSA_SUCCESS;
+    const bool ok = rsa_dispatch_all(bits, [&]<std::size_t NW>() -> bool {
+        rsa_private_op<NW>(ct, ct_len,
+                            priv.p,    priv.p_len,
+                            priv.q,    priv.q_len,
+                            priv.dp,   priv.dp_len,
+                            priv.dq,   priv.dq_len,
+                            priv.qinv, priv.qinv_len,
+                            em.data());
+        return true;
+    });
+    if (!ok) { return false; }
+
+    return oaep_decode(em.data(), k, label, label_len, pt_out, pt_max, pt_len);
 }
 
 
 // -----------------------------------------------------------------------
-// RSA-PSS sign.
+// RSA-PSS sign (private key operation).
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -255,29 +263,36 @@ inline bool rsa_pss_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid
     const CryptoByte* msg, std::size_t msg_len,
     CryptoByte* sig_out, std::size_t sig_max, std::size_t* sig_len) noexcept
 {
-    psa_crypto_init();
+    const std::size_t k = bits / 8U;
+    if (sig_max < k) { return false; }
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE);
-    psa_set_key_algorithm(&attrs, rsa_pss_alg());
+    RsaPrivateKeyComponents priv{};
+    if (!rsa_parse_private_key_der(priv_der, priv_len, priv)) { return false; }
 
-    mbedtls_svc_key_id_t psa_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs, priv_der, priv_len, &psa_id) != PSA_SUCCESS) { return false; }
+    // PSS encode into EM.
+    std::array<CryptoByte, oaep_hash_len> salt{};
+    generate_random_bytes(salt.data(), salt.size());
 
-    const psa_status_t s = psa_sign_message(
-        psa_id, rsa_pss_alg(),
-        msg, msg_len,
-        sig_out, sig_max, sig_len);
+    FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};
+    if (!pss_encode(msg, msg_len, salt.data(), bits, em.data())) { return false; }
 
-    psa_destroy_key(psa_id);
-    return s == PSA_SUCCESS;
+    // RSA private operation: sig = em^d mod n.
+    return rsa_dispatch_all(bits, [&]<std::size_t NW>() -> bool {
+        rsa_private_op<NW>(em.data(), k,
+                            priv.p,    priv.p_len,
+                            priv.q,    priv.q_len,
+                            priv.dp,   priv.dp_len,
+                            priv.dq,   priv.dq_len,
+                            priv.qinv, priv.qinv_len,
+                            sig_out);
+        *sig_len = k;
+        return true;
+    });
 }
 
 
 // -----------------------------------------------------------------------
-// RSA-PSS verify.
+// RSA-PSS verify (public key operation).
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -287,24 +302,21 @@ inline bool rsa_pss_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avo
     const CryptoByte* msg, std::size_t msg_len,
     const CryptoByte* sig, std::size_t sig_len) noexcept
 {
-    psa_crypto_init();
+    if (sig_len != bits / 8U) { return false; }
 
-    psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
-    psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
-    psa_set_key_bits(&attrs, static_cast<psa_key_bits_t>(bits));
-    psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_VERIFY_MESSAGE);
-    psa_set_key_algorithm(&attrs, rsa_pss_alg());
+    RsaPublicKeyComponents pub{};
+    if (!rsa_parse_public_key_der(pub_der, pub_len, pub)) { return false; }
+    if (pub.n_len != bits / 8U) { return false; }  // modulus must match declared key size
 
-    mbedtls_svc_key_id_t psa_id = MBEDTLS_SVC_KEY_ID_INIT;
-    if (psa_import_key(&attrs, pub_der, pub_len, &psa_id) != PSA_SUCCESS) { return false; }
+    FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};
 
-    const psa_status_t s = psa_verify_message(
-        psa_id, rsa_pss_alg(),
-        msg, msg_len,
-        sig, sig_len);
+    const bool ok = rsa_dispatch_all(bits, [&]<std::size_t NW>() -> bool {
+        rsa_public_op<NW>(sig, sig_len, pub.n, pub.n_len, pub.e, pub.e_len, em.data());
+        return true;
+    });
+    if (!ok) { return false; }
 
-    psa_destroy_key(psa_id);
-    return s == PSA_SUCCESS;
+    return pss_verify(msg, msg_len, em.data(), bits);
 }
 
 

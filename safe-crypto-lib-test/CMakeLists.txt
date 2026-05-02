@@ -18,6 +18,7 @@ add_executable(${EXE_NAME}
         random_tests.hpp
         rsa_bigint_tests.hpp
         rsa_der_tests.hpp
+        rsa_keygen_tests.hpp
         rsa_oaep_tests.hpp
         rsa_pss_tests.hpp
         secure_buffer_tests.hpp

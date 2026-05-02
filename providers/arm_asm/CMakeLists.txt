@@ -18,6 +18,7 @@ target_sources(${LIB_NAME} INTERFACE
         rsa.hpp
         rsa_bigint.hpp
         rsa_der.hpp
+        rsa_keygen.hpp
         rsa_oaep.hpp
         rsa_pss.hpp
         sha256.hpp
@@ -29,10 +30,6 @@ target_include_directories(${LIB_NAME} INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../../safe-crypto-lib
 )
-
-# RSA operations are delegated to MbedTLS PSA; link it here so PSA headers
-# and the mbedtls library are available to the ARM ASM provider.
-target_link_libraries(${LIB_NAME} INTERFACE mbedtls)
 
 # ARM Crypto Extensions: AES, SHA2, SHA3, PMULL
 target_compile_options(${LIB_NAME} INTERFACE

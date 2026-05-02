@@ -228,9 +228,21 @@ inline bool rsa_parse_public_key_der(
     const CryptoByte* p   = der_buf;
     std::size_t       rem = der_len;
 
-    // Outer SEQUENCE (SubjectPublicKeyInfo)
+    // Outer SEQUENCE
     if (!der::enter_sequence(p, rem)) { return false; }
 
+    // Detect format by examining first byte of the SEQUENCE body:
+    //   0x30 (SEQUENCE) → SubjectPublicKeyInfo (SPKI)
+    //   0x02 (INTEGER)  → PKCS#1 RSAPublicKey
+    if (rem < 1) { return false; }
+    if (p[0] == 0x02U) { // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        // PKCS#1 RSAPublicKey: SEQUENCE { INTEGER n, INTEGER e }
+        if (!der::read_integer(p, rem, out.n, out.n_len)) { return false; }
+        if (!der::read_integer(p, rem, out.e, out.e_len)) { return false; }
+        return true;
+    }
+
+    // SubjectPublicKeyInfo: SEQUENCE { AlgorithmIdentifier, BIT STRING { RSAPublicKey } }
     // AlgorithmIdentifier SEQUENCE
     {
         if (rem < 2) { return false; }
@@ -244,8 +256,6 @@ inline bool rsa_parse_public_key_der(
             if (!der::skip_tlv(seq_p, seq_rem)) { return false; }
         }
         // Advance outer cursor past the AlgorithmIdentifier.
-        // We need to know how many bytes the AlgorithmIdentifier used.
-        // Re-read the length from the original outer buffer position.
         const CryptoByte* tmp_p = p;
         std::size_t tmp_rem = rem;
         ++tmp_p; --tmp_rem;  // skip 0x30 tag
@@ -406,6 +416,59 @@ inline bool rsa_derive_public_key_der(
     return rsa_encode_public_key_der(
         priv.n, priv.n_len, priv.e, priv.e_len,
         out_buf, out_max, out_len);
+}
+
+
+// -----------------------------------------------------------------------
+// Encode a PKCS#1 RSAPublicKey DER: SEQUENCE { INTEGER n, INTEGER e }.
+// This is the format expected by PSA/mbedtls for PSA_KEY_TYPE_RSA_PUBLIC_KEY.
+// -----------------------------------------------------------------------
+
+[[nodiscard]]
+inline bool rsa_encode_pkcs1_pubkey_der(
+    const CryptoByte* n_bytes, std::size_t n_len,
+    const CryptoByte* e_bytes, std::size_t e_len,
+    CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept
+{
+    auto encode_len = [](std::size_t len, CryptoByte* buf) -> std::size_t {
+        if (len < 0x80U) { buf[0] = static_cast<CryptoByte>(len); return 1; }
+        if (len < 0x100U) { buf[0] = 0x81U; buf[1] = static_cast<CryptoByte>(len); return 2; }
+        buf[0] = 0x82U;
+        buf[1] = static_cast<CryptoByte>(len >> 8U);
+        buf[2] = static_cast<CryptoByte>(len & 0xFFU);
+        return 3;
+    };
+
+    const bool n_pad = (n_len > 0) && ((n_bytes[0] & 0x80U) != 0U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const bool e_pad = (e_len > 0) && ((e_bytes[0] & 0x80U) != 0U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const std::size_t nc = n_len + (n_pad ? 1U : 0U);
+    const std::size_t ec = e_len + (e_pad ? 1U : 0U);
+
+    CryptoByte nlen_buf[3]{}, elen_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const std::size_t nlb = encode_len(nc, nlen_buf);
+    const std::size_t elb = encode_len(ec, elen_buf);
+    const std::size_t body = 1U + nlb + nc + 1U + elb + ec;
+
+    CryptoByte slen_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const std::size_t slb = encode_len(body, slen_buf);
+    const std::size_t total = 1U + slb + body;
+
+    if (total > out_max) { return false; }
+
+    CryptoByte* w = out_buf;
+    auto wb = [&](uint8_t b) { *w++ = b; }; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    auto wn = [&](const CryptoByte* src, std::size_t n2) { std::memcpy(w, src, n2); w += n2; }; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
+    wb(0x30U); wn(slen_buf, slb);
+    wb(0x02U); wn(nlen_buf, nlb);
+    if (n_pad) { wb(0x00U); }
+    wn(n_bytes, n_len);
+    wb(0x02U); wn(elen_buf, elb);
+    if (e_pad) { wb(0x00U); }
+    wn(e_bytes, e_len);
+
+    *out_len = total;
+    return true;
 }
 
 
