@@ -11,6 +11,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "contracts.hpp"
 #include "defs.hpp"
 #include "ml_dsa_variant.hpp"
+#include "ml_kem_variant.hpp"
 #include "sha_variant.hpp"
 #include "slh_dsa_variant.hpp"
 
@@ -44,7 +45,8 @@ concept CryptoProvider = requires(
     std::size_t*       len_out,
     ShaVariant         sha_v,
     SlhDsaVariant      slh_v,
-    MlDsaVariant       ml_v)
+    MlDsaVariant       ml_v,
+    MlKemVariant       kem_v)
 {
     // Associated types
     typename T::Status;
@@ -74,6 +76,7 @@ concept CryptoProvider = requires(
     { T::alg_rsa_pss() }               -> std::same_as<typename T::Algorithm>;
     { T::alg_slh_dsa(slh_v) }         -> std::same_as<typename T::Algorithm>;
     { T::alg_ml_dsa(ml_v) }           -> std::same_as<typename T::Algorithm>;
+    { T::alg_ml_kem(kem_v) }          -> std::same_as<typename T::Algorithm>;
     // KDF step constants
     { T::kdf_step_secret() } -> std::same_as<typename T::KdfStep>;
     { T::kdf_step_salt() }   -> std::same_as<typename T::KdfStep>;
@@ -103,6 +106,9 @@ concept CryptoProvider = requires(
     { T::make_ml_dsa_sign_attrs(ml_v) }         -> std::same_as<typename T::KeyAttributes>;
     { T::make_ml_dsa_verify_attrs(ml_v) }       -> std::same_as<typename T::KeyAttributes>;
     { T::make_ml_dsa_generate_attrs(ml_v) }     -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ml_kem_generate_attrs(kem_v) }    -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ml_kem_encap_attrs(kem_v) }       -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ml_kem_decap_attrs(kem_v) }       -> std::same_as<typename T::KeyAttributes>;
     // Output size helpers
     { T::ecdsa_sign_output_size(len) }           -> std::same_as<std::size_t>;
     { T::ecdh_shared_secret_size(len) }          -> std::same_as<std::size_t>;
@@ -123,6 +129,10 @@ concept CryptoProvider = requires(
     { T::ml_dsa_sign_output_size(ml_v) }          -> std::same_as<std::size_t>;
     { T::ml_dsa_private_key_export_size(ml_v) }   -> std::same_as<std::size_t>;
     { T::ml_dsa_public_key_export_size(ml_v) }    -> std::same_as<std::size_t>;
+    { T::ml_kem_ciphertext_size(kem_v) }           -> std::same_as<std::size_t>;
+    { T::ml_kem_shared_secret_size(kem_v) }        -> std::same_as<std::size_t>;
+    { T::ml_kem_private_key_export_size(kem_v) }   -> std::same_as<std::size_t>;
+    { T::ml_kem_public_key_export_size(kem_v) }    -> std::same_as<std::size_t>;
     // Low-level crypto operations
     { T::crypto_init() }                                        -> std::same_as<typename T::Status>;
     { T::generate_random(buf, len) }                            -> std::same_as<typename T::Status>;
@@ -140,6 +150,8 @@ concept CryptoProvider = requires(
     { T::asymmetric_encrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<typename T::Status>;
     { T::asymmetric_decrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<typename T::Status>;
     { T::raw_key_agreement(alg, key, cbuf, len, buf, len, len_out) }                  -> std::same_as<typename T::Status>;
+    { T::kem_encapsulate(key, alg, buf, len, len_out, buf, len, len_out) }            -> std::same_as<typename T::Status>;
+    { T::kem_decapsulate(key, alg, cbuf, len, buf, len, len_out) }                    -> std::same_as<typename T::Status>;
     { T::hash_compute(alg, cbuf, len, buf, len, len_out) }                            -> std::same_as<typename T::Status>;
     { T::key_derivation_setup(op, alg) }                        -> std::same_as<typename T::Status>;
     { T::key_derivation_input_key(op, step, key) }              -> std::same_as<typename T::Status>;

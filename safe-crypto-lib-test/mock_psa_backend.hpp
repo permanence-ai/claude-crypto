@@ -14,6 +14,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "crypto_provider.hpp"
 #include "defs.hpp"
 #include "ml_dsa_variant.hpp"
+#include "ml_kem_variant.hpp"
 #include "psa_mbedtls_backend.hpp"
 #include "sha_variant.hpp"
 #include "slh_dsa_variant.hpp"
@@ -278,6 +279,7 @@ struct MockPsaBackend {
     static constexpr Algorithm alg_rsa_pss()           noexcept { return RealPsaBackend::alg_rsa_pss(); }
     static Algorithm alg_slh_dsa(const SlhDsaVariant v) noexcept { return RealPsaBackend::alg_slh_dsa(v); }
     static Algorithm alg_ml_dsa(const MlDsaVariant v)   noexcept { return RealPsaBackend::alg_ml_dsa(v); }
+    static Algorithm alg_ml_kem(const MlKemVariant v)   noexcept { return RealPsaBackend::alg_ml_kem(v); }
 
     static constexpr KdfStep kdf_step_secret() noexcept { return RealPsaBackend::kdf_step_secret(); }
     static constexpr KdfStep kdf_step_salt()   noexcept { return RealPsaBackend::kdf_step_salt(); }
@@ -355,6 +357,15 @@ struct MockPsaBackend {
     static KeyAttributes make_ml_dsa_generate_attrs(const MlDsaVariant v) noexcept {
         return RealPsaBackend::make_ml_dsa_generate_attrs(v);
     }
+    static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
+        return RealPsaBackend::make_ml_kem_generate_attrs(v);
+    }
+    static KeyAttributes make_ml_kem_encap_attrs(const MlKemVariant v) noexcept {
+        return RealPsaBackend::make_ml_kem_encap_attrs(v);
+    }
+    static KeyAttributes make_ml_kem_decap_attrs(const MlKemVariant v) noexcept {
+        return RealPsaBackend::make_ml_kem_decap_attrs(v);
+    }
 
     static std::size_t ecdsa_sign_output_size(const std::size_t key_bits) noexcept {
         return RealPsaBackend::ecdsa_sign_output_size(key_bits);
@@ -412,5 +423,29 @@ struct MockPsaBackend {
     }
     static std::size_t ml_dsa_public_key_export_size(const MlDsaVariant v) noexcept {
         return RealPsaBackend::ml_dsa_public_key_export_size(v);
+    }
+    static std::size_t ml_kem_ciphertext_size(const MlKemVariant v) noexcept {
+        return RealPsaBackend::ml_kem_ciphertext_size(v);
+    }
+    static std::size_t ml_kem_shared_secret_size(const MlKemVariant v) noexcept {
+        return RealPsaBackend::ml_kem_shared_secret_size(v);
+    }
+    static std::size_t ml_kem_private_key_export_size(const MlKemVariant v) noexcept {
+        return RealPsaBackend::ml_kem_private_key_export_size(v);
+    }
+    static std::size_t ml_kem_public_key_export_size(const MlKemVariant v) noexcept {
+        return RealPsaBackend::ml_kem_public_key_export_size(v);
+    }
+    static Status kem_encapsulate(
+        const KeyId k, const Algorithm a,
+        CryptoByte* ct, std::size_t ct_sz, std::size_t* ct_len,
+        CryptoByte* ss, std::size_t ss_sz, std::size_t* ss_len) noexcept {
+        return RealPsaBackend::kem_encapsulate(k, a, ct, ct_sz, ct_len, ss, ss_sz, ss_len);
+    }
+    static Status kem_decapsulate(
+        const KeyId k, const Algorithm a,
+        const CryptoByte* ct, std::size_t ct_len,
+        CryptoByte* ss, std::size_t ss_sz, std::size_t* ss_len) noexcept {
+        return RealPsaBackend::kem_decapsulate(k, a, ct, ct_len, ss, ss_sz, ss_len);
     }
 };

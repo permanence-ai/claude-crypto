@@ -26,6 +26,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha3.hpp"
 #include "sha512.hpp"
 #include "ml_dsa_variant.hpp"
+#include "ml_kem_variant.hpp"
 #include "sha_variant.hpp"
 #include "slh_dsa_variant.hpp"
 
@@ -851,4 +852,32 @@ struct ArmAsmBackend {
     static std::size_t ml_dsa_private_key_export_size(const MlDsaVariant v)   noexcept { return ml_dsa_private_key_size(v); }
     [[nodiscard]]
     static std::size_t ml_dsa_public_key_export_size(const MlDsaVariant v)    noexcept { return ml_dsa_public_key_size(v); }
+
+    // ML-KEM — not yet implemented in ARM ASM backend; all operations return err_invalid_arg.
+    [[nodiscard]]
+    static Algorithm alg_ml_kem(const MlKemVariant) noexcept { return 0x0703U; }
+    [[nodiscard]]
+    static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant) noexcept { return {}; }
+    [[nodiscard]]
+    static KeyAttributes make_ml_kem_encap_attrs(const MlKemVariant)    noexcept { return {}; }
+    [[nodiscard]]
+    static KeyAttributes make_ml_kem_decap_attrs(const MlKemVariant)    noexcept { return {}; }
+    [[nodiscard]]
+    static std::size_t ml_kem_ciphertext_size(const MlKemVariant v)          noexcept { return ::ml_kem_ciphertext_size(v); }
+    [[nodiscard]]
+    static std::size_t ml_kem_shared_secret_size(const MlKemVariant v)       noexcept { return ::ml_kem_shared_secret_size(v); }
+    [[nodiscard]]
+    static std::size_t ml_kem_private_key_export_size(const MlKemVariant v)  noexcept { return ml_kem_private_key_size(v); }
+    [[nodiscard]]
+    static std::size_t ml_kem_public_key_export_size(const MlKemVariant v)   noexcept { return ml_kem_public_key_size(v); }
+    [[nodiscard]]
+    static Status kem_encapsulate(
+        const KeyId, const Algorithm,
+        CryptoByte*, std::size_t, std::size_t*,
+        CryptoByte*, std::size_t, std::size_t*) noexcept { return err_invalid_arg; }
+    [[nodiscard]]
+    static Status kem_decapsulate(
+        const KeyId, const Algorithm,
+        const CryptoByte*, std::size_t,
+        CryptoByte*, std::size_t, std::size_t*) noexcept { return err_invalid_arg; }
 };

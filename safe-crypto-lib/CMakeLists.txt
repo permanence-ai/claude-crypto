@@ -15,7 +15,9 @@ target_sources(${LIB_NAME} INTERFACE
         kdf.hpp
         mac.hpp
         ml_dsa_variant.hpp
+        ml_kem_variant.hpp
         pqc_dsa.hpp
+        pqc_kem.hpp
         psa_backend.hpp
         provider.hpp
         random.hpp
