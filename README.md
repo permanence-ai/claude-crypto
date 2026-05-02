@@ -55,7 +55,7 @@ The companion macro `SAFE_CRYPTO_CONTRACTS_ENFORCED` is defined when contracts p
 
 All crypto operations are templated on a `CryptoProvider` concept defined in `crypto_provider.hpp`. The concept requires associated types (`Status`, `KeyId`, `Algorithm`, `KeyAttributes`, `KdfOperation`, `KdfStep`), status sentinels, object factories, algorithm constants, and all low-level crypto primitives.
 
-The default provider (`RealPsaBackend`) forwards to PSA/MbedTLS. A second provider (`ArmAsmBackend`) implements hashing and HMAC directly via ARM Crypto Extension intrinsics — see [ARM ASM provider](#arm-asm-provider) below. Tests use `MockPsaBackend` (GMock) to exercise every error path without inducing real PSA failures.
+The default provider (`RealPsaBackend`) forwards to PSA/MbedTLS. A second provider (`ArmAsmBackend`) implements all operations directly via ARM Crypto Extension intrinsics — see [ARM ASM provider](#arm-asm-provider) below. A third provider (`OpenSslBackend`) implements the full API using the OpenSSL 3.x EVP high-level API — see [OpenSSL provider](#openssl-provider) below. Tests use `MockPsaBackend` (GMock) to exercise every error path without inducing real PSA failures.
 
 ### No PSA types in library headers
 
@@ -128,7 +128,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (351 tests)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (427 tests)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -276,14 +276,34 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
 | `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096 (pure C++, no MbedTLS), key management |
+| `OPENSSL` | OpenSSL 3.x EVP API | Full — all 219 tests pass; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
 | `IA_ASM` | Native assembly | Stub only |
 
 ```bash
 # Use the ARM ASM provider
-cmake -G Ninja -B cmake-build-debug -S . -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM
+cmake -G Ninja -B cmake-build-arm-asm -S . -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM
+
+# Use the OpenSSL provider (macOS with Homebrew)
+cmake -G Ninja -B cmake-build-openssl -S . \
+  -DSAFE_CRYPTO_ACTIVE_PROVIDER=OPENSSL \
+  -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/openssl@3
 ```
 
 Specifying an unrecognised value is a configure-time fatal error that lists the valid choices. Adding a new provider means creating a `providers/<name>/` subdirectory with a backend struct and CMakeLists, then registering it in the top-level `SAFE_CRYPTO_ACTIVE_PROVIDER` string list.
+
+### OpenSSL provider
+
+`providers/openssl/` implements the full `CryptoProvider` API via the OpenSSL 3.x EVP high-level interface. It uses `find_package(OpenSSL 3.0 REQUIRED)` — no FetchContent. On macOS with Homebrew, pass `-DCMAKE_PREFIX_PATH=/opt/homebrew/opt/openssl@3` at configure time.
+
+**Key design choices:**
+
+- EC private keys are stored and exported as native-endian BIGNUM scalars (via `BN_bn2nativepad`) so they round-trip through `OSSL_PARAM_construct_BN` / `EVP_PKEY_fromdata` correctly on both ARM (little-endian) and x86 (big-endian).
+- EC key pairs are imported using `EVP_PKEY_fromdata` with only the private scalar — OpenSSL computes the public key automatically. The resulting key pair passes sign/verify and ECDH agreement.
+- EC public keys are imported via `EVP_PKEY_fromdata` with the uncompressed point (04‖x‖y); exported via `OSSL_PKEY_PARAM_PUB_KEY`.
+- RSA private keys are PKCS#1 DER (`i2d_PrivateKey` / `d2i_PrivateKey`). RSA public keys are SubjectPublicKeyInfo DER (`i2d_PublicKey` / `d2i_PublicKey`). This matches what PSA exports and enables cross-provider key compatibility.
+- RSA-OAEP uses SHA-384 for both the hash and MGF1 parameters. The optional label is heap-allocated via `OPENSSL_malloc` and ownership is transferred to OpenSSL via `EVP_PKEY_CTX_set0_rsa_oaep_label`.
+- RSA-PSS uses `RSA_PSS_SALTLEN_DIGEST` (salt length = hash length = 48 bytes for SHA-384).
+- Asymmetric keys are stored in a 64-slot `EVP_PKEY*` store (IDs 1–64); symmetric and derive keys are stored as raw bytes in a 64-slot `FixedSecureBuffer<256>` store (IDs 65–128).
 
 ## Stack
 
