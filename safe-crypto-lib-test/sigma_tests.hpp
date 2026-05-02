@@ -11,6 +11,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include <gtest/gtest.h>
 
+#include "aead.hpp"
 #include "ecc.hpp"
 #include "sigma.hpp"
 #include "test_utils.hpp"
@@ -433,4 +434,39 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg2) {
 
     ASSERT_FALSE(finish.has_value());
     EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
+
+
+// After a successful handshake the session keys on both sides are identical,
+// so data encrypted by one party can be decrypted by the other.
+TEST_F(SigmaTests, SessionKeyCanBeUsedToEncryptAndDecrypt) {
+    const auto initiator = ecdsa_generate_key(EcCurve::P256);
+    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(initiator.has_value());
+    ASSERT_TRUE(responder.has_value());
+
+    const auto result = run_handshake(*initiator, *responder, EcCurve::P256);
+
+    // Copy session keys into fixed-size buffers required by the AES-GCM API.
+    ASSERT_EQ(result.initiator_keys.session_key.size(), aes256_key_size_bytes);
+    FixedSecureBuffer<aes256_key_size_bytes> init_key{};
+    std::ranges::copy(result.initiator_keys.session_key, init_key.begin());
+
+    ASSERT_EQ(result.responder_keys.session_key.size(), aes256_key_size_bytes);
+    FixedSecureBuffer<aes256_key_size_bytes> resp_key{};
+    std::ranges::copy(result.responder_keys.session_key, resp_key.begin());
+
+    // Initiator encrypts a known plaintext with its session key.
+    constexpr std::array<CryptoByte, 8> raw_plaintext = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    SecureBuffer plaintext(raw_plaintext.size());
+    std::ranges::copy(raw_plaintext, plaintext.begin());
+    const auto enc = aes256_gcm_encrypt(init_key, plaintext, {});
+    ASSERT_TRUE(enc.has_value());
+
+    // Responder decrypts using its (identical) session key.
+    const auto dec = aes256_gcm_decrypt(resp_key, *enc, {});
+    ASSERT_TRUE(dec.has_value());
+
+    ASSERT_EQ(dec->size(), plaintext.size());
+    EXPECT_TRUE(std::ranges::equal(*dec, plaintext));
 }
