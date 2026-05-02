@@ -30,8 +30,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include <openssl/core_names.h>
+#include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
+#include <openssl/params.h>
 #include <openssl/rand.h>
 
 #include "defs.hpp"
@@ -357,6 +359,20 @@ struct OpenSslBackend {
         }
     }
 
+    // Returns the underlying digest name for an HMAC Algorithm tag, or nullptr.
+    [[nodiscard]]
+    static constexpr const char* hmac_digest_name(const Algorithm alg) noexcept {
+        switch (alg) {
+            case kAlgHmacSha256:   return "SHA2-256";
+            case kAlgHmacSha384:   return "SHA2-384";
+            case kAlgHmacSha512:   return "SHA2-512";
+            case kAlgHmacSha3_256: return "SHA3-256";
+            case kAlgHmacSha3_384: return "SHA3-384";
+            case kAlgHmacSha3_512: return "SHA3-512";
+            default:               return nullptr;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Low-level crypto operations.
     // -------------------------------------------------------------------------
@@ -378,8 +394,22 @@ struct OpenSslBackend {
         const CryptoByte* data, const std::size_t data_length,
         KeyId* key) noexcept
     {
-        (void)attributes; (void)data; (void)data_length; (void)key;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        if (attributes == nullptr || data == nullptr || key == nullptr) { return err_invalid_arg; }
+
+        OpenSslKeyKind kind = OpenSslKeyKind::None;
+        switch (attributes->type) {
+            case KeyAttributes::KeyType::Aes256:   kind = OpenSslKeyKind::Aes256;   break;
+            case KeyAttributes::KeyType::ChaCha20: kind = OpenSslKeyKind::ChaCha20; break;
+            case KeyAttributes::KeyType::Hmac:     kind = OpenSslKeyKind::Hmac;     break;
+            case KeyAttributes::KeyType::Derive:   kind = OpenSslKeyKind::Derive;   break;
+            default: return err_invalid_arg;  // asymmetric keys handled separately (TODO)
+        }
+
+        const unsigned int id = ossl_raw_store_import(kind, data, data_length);
+        if (id == 0U) { return err_invalid_arg; }
+        *key = id;
+        return ok;
     }
 
     [[nodiscard]]
@@ -388,7 +418,7 @@ struct OpenSslBackend {
         KeyId* key) noexcept
     {
         (void)attributes; (void)key;
-        return err_invalid_arg;  // TODO
+        return err_invalid_arg;  // TODO (asymmetric keygen)
     }
 
     [[nodiscard]]
@@ -446,9 +476,30 @@ struct OpenSslBackend {
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* mac, const std::size_t mac_size, std::size_t* mac_length) noexcept
     {
-        (void)key; (void)alg; (void)input; (void)input_length;
-        (void)mac; (void)mac_size; (void)mac_length;
-        return err_invalid_arg;  // TODO
+        using namespace openssl_provider::detail;
+        const char* digest = hmac_digest_name(alg);
+        if (digest == nullptr) { return err_invalid_arg; }
+
+        const OpenSslRawSlot* slot = ossl_raw_store_get(key);
+        if (slot == nullptr) { return err_invalid_arg; }
+
+        // Build the digest parameter for EVP_Q_mac.
+        OSSL_PARAM params[] = {  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            OSSL_PARAM_utf8_string(OSSL_MAC_PARAM_DIGEST,
+                                   const_cast<char*>(digest),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                                   0),
+            OSSL_PARAM_END
+        };
+
+        std::size_t out_len = mac_size;
+        const unsigned char* result = EVP_Q_mac(nullptr, "HMAC", nullptr,
+                                                digest, params,
+                                                slot->data.data(), slot->len,
+                                                input, input_length,
+                                                mac, mac_size, &out_len);
+        if (result == nullptr) { return err_invalid_arg; }
+        *mac_length = out_len;
+        return ok;
     }
 
     [[nodiscard]]
@@ -457,9 +508,17 @@ struct OpenSslBackend {
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* mac, const std::size_t mac_length) noexcept
     {
-        (void)key; (void)alg; (void)input; (void)input_length;
-        (void)mac; (void)mac_length;
-        return err_invalid_arg;  // TODO
+        // Compute a fresh MAC and compare in constant time.
+        std::array<CryptoByte, 64> computed{};  // large enough for any HMAC output
+        std::size_t computed_len = 0;
+        const Status rv = mac_compute(key, alg,
+                                      input, input_length,
+                                      computed.data(), computed.size(),
+                                      &computed_len);
+        if (rv != ok) { return err_invalid_arg; }
+        if (computed_len != mac_length) { return err_invalid_sig; }
+        // CRYPTO_memcmp is OpenSSL's constant-time compare.
+        return CRYPTO_memcmp(computed.data(), mac, mac_length) == 0 ? ok : err_invalid_sig;
     }
 
     [[nodiscard]]
