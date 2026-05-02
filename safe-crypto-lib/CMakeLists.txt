@@ -14,6 +14,7 @@ target_sources(${LIB_NAME} INTERFACE
         ecdh.hpp
         kdf.hpp
         mac.hpp
+        ml_dsa_variant.hpp
         pqc_dsa.hpp
         psa_backend.hpp
         provider.hpp

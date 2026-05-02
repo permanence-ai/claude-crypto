@@ -40,6 +40,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <openssl/rsa.h>
 
 #include "defs.hpp"
+#include "ml_dsa_variant.hpp"
 #include "openssl_key_store.hpp"
 #include "sha_variant.hpp"
 #include "slh_dsa_variant.hpp"
@@ -71,6 +72,7 @@ struct OpenSslBackend {
             EcKeyPair, EcPublicKey,
             RsaKeyPair, RsaPublicKey,
             SlhDsaKeyPair, SlhDsaPublicKey,
+            MlDsaKeyPair, MlDsaPublicKey,
         };
         KeyType     type{KeyType::None};
         std::size_t bits{0};
@@ -130,6 +132,8 @@ struct OpenSslBackend {
     static constexpr Algorithm kAlgRsaPss          = 0x09'000000U;
     // SLH-DSA SHA2 variants: lower 8 bits = SlhDsaVariant enum value.
     static constexpr Algorithm kAlgSlhDsaBase      = 0x0A'000000U;
+    // ML-DSA variants: lower 8 bits = MlDsaVariant enum value.
+    static constexpr Algorithm kAlgMlDsaBase       = 0x0B'000000U;
 
     // KDF step tags (mirror PSA_KEY_DERIVATION_INPUT_* semantics).
     static constexpr KdfStep kKdfStepSecret = 0x01U;
@@ -184,6 +188,10 @@ struct OpenSslBackend {
     [[nodiscard]]
     static Algorithm alg_slh_dsa(const SlhDsaVariant v) noexcept {
         return kAlgSlhDsaBase | static_cast<Algorithm>(v);
+    }
+    [[nodiscard]]
+    static Algorithm alg_ml_dsa(const MlDsaVariant v) noexcept {
+        return kAlgMlDsaBase | static_cast<Algorithm>(v);
     }
 
     // -------------------------------------------------------------------------
@@ -310,6 +318,25 @@ struct OpenSslBackend {
                  .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Export),
                  .alg = alg_slh_dsa(v) };
     }
+    [[nodiscard]]
+    static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
+        return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
+                 .bits = ml_dsa_private_key_size(v) * 8U,
+                 .usage = KeyAttributes::Sign, .alg = alg_ml_dsa(v) };
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_dsa_verify_attrs(const MlDsaVariant v) noexcept {
+        return { .type = KeyAttributes::KeyType::MlDsaPublicKey,
+                 .bits = ml_dsa_public_key_size(v) * 8U,
+                 .usage = KeyAttributes::Verify, .alg = alg_ml_dsa(v) };
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_dsa_generate_attrs(const MlDsaVariant v) noexcept {
+        return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
+                 .bits = ml_dsa_private_key_size(v) * 8U,
+                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Export),
+                 .alg = alg_ml_dsa(v) };
+    }
 
     // -------------------------------------------------------------------------
     // Output size helpers — hard-coded formulas matching OpenSSL behaviour.
@@ -383,6 +410,18 @@ struct OpenSslBackend {
     static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v) noexcept {
         return slh_dsa_public_key_size(v);
     }
+    [[nodiscard]]
+    static std::size_t ml_dsa_sign_output_size(const MlDsaVariant v) noexcept {
+        return ml_dsa_signature_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t ml_dsa_private_key_export_size(const MlDsaVariant v) noexcept {
+        return ml_dsa_private_key_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t ml_dsa_public_key_export_size(const MlDsaVariant v) noexcept {
+        return ml_dsa_public_key_size(v);
+    }
 
     // -------------------------------------------------------------------------
     // Internal helpers.
@@ -422,6 +461,24 @@ struct OpenSslBackend {
         if ((alg & 0xFF'000000U) != kAlgSlhDsaBase) { return nullptr; }
         const auto v = static_cast<SlhDsaVariant>(alg & 0xFFU);
         return slh_dsa_alg_name(v);
+    }
+
+    // Returns the OpenSSL algorithm name string for a MlDsaVariant, or nullptr.
+    [[nodiscard]]
+    static constexpr const char* ml_dsa_alg_name(const MlDsaVariant v) noexcept {
+        switch (v) {
+            case MlDsaVariant::Dsa44: return "ML-DSA-44";
+            case MlDsaVariant::Dsa65: return "ML-DSA-65";
+            case MlDsaVariant::Dsa87: return "ML-DSA-87";
+        }
+    }
+
+    // Extracts the MlDsaVariant from an Algorithm tag, or returns nullptr.
+    [[nodiscard]]
+    static constexpr const char* ml_dsa_name_from_alg(const Algorithm alg) noexcept {
+        if ((alg & 0xFF'000000U) != kAlgMlDsaBase) { return nullptr; }
+        const auto v = static_cast<MlDsaVariant>(alg & 0xFFU);
+        return ml_dsa_alg_name(v);
     }
 
     // Returns the OBJ_txt2nid curve name for a key_bits value, or nullptr.
@@ -581,6 +638,30 @@ struct OpenSslBackend {
                 *key = id;
                 return ok;
             }
+            case KeyAttributes::KeyType::MlDsaKeyPair: {
+                // Raw private key bytes directly (FIPS 204 format).
+                const char* alg_name = ml_dsa_name_from_alg(attributes->alg);
+                if (alg_name == nullptr) { return err_invalid_arg; }
+                EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
+                    nullptr, alg_name, nullptr, data, data_length);
+                if (pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
+            case KeyAttributes::KeyType::MlDsaPublicKey: {
+                // Raw public key bytes directly (FIPS 204 format).
+                const char* alg_name = ml_dsa_name_from_alg(attributes->alg);
+                if (alg_name == nullptr) { return err_invalid_arg; }
+                EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
+                    nullptr, alg_name, nullptr, data, data_length);
+                if (pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
             default: return err_invalid_arg;
         }
 
@@ -620,6 +701,23 @@ struct OpenSslBackend {
 
         if (attributes->type == KeyAttributes::KeyType::SlhDsaKeyPair) {
             const char* alg_name = slh_dsa_name_from_alg(attributes->alg);
+            if (alg_name == nullptr) { return err_invalid_arg; }
+            EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(nullptr, alg_name, nullptr);
+            if (pctx == nullptr) { return err_invalid_arg; }
+            EVP_PKEY* pkey = nullptr;
+            const Status rv_gen = (EVP_PKEY_keygen_init(pctx) == ok &&
+                EVP_PKEY_generate(pctx, &pkey) == ok)
+                ? ok : err_invalid_arg;
+            EVP_PKEY_CTX_free(pctx);
+            if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
+            const unsigned int id = ossl_asym_store_import(pkey);
+            if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+            *key = id;
+            return ok;
+        }
+
+        if (attributes->type == KeyAttributes::KeyType::MlDsaKeyPair) {
+            const char* alg_name = ml_dsa_name_from_alg(attributes->alg);
             if (alg_name == nullptr) { return err_invalid_arg; }
             EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(nullptr, alg_name, nullptr);
             if (pctx == nullptr) { return err_invalid_arg; }
@@ -921,8 +1019,9 @@ struct OpenSslBackend {
         std::size_t* signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if (alg != kAlgEcdsa && alg != kAlgRsaPss &&
-            (alg & 0xFF'000000U) != kAlgSlhDsaBase) { return err_invalid_arg; }
+        const bool is_pqc = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ||
+                            ((alg & 0xFF'000000U) == kAlgMlDsaBase);
+        if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
 
@@ -932,8 +1031,8 @@ struct OpenSslBackend {
         Status rv = err_invalid_arg;
         do {
             EVP_PKEY_CTX* pctx = nullptr;
-            // SLH-DSA uses NULL digest (pure-message scheme, no external hash).
-            const char* digest = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ? nullptr : "SHA2-384";
+            // SLH-DSA and ML-DSA use NULL digest (pure-message schemes, no external hash).
+            const char* digest = is_pqc ? nullptr : "SHA2-384";
             if (EVP_DigestSignInit_ex(ctx, &pctx, digest,
                                       nullptr, nullptr, pkey, nullptr) != ok) { break; }
             if (alg == kAlgRsaPss) {
@@ -957,8 +1056,9 @@ struct OpenSslBackend {
         const CryptoByte* signature, const std::size_t signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if (alg != kAlgEcdsa && alg != kAlgRsaPss &&
-            (alg & 0xFF'000000U) != kAlgSlhDsaBase) { return err_invalid_arg; }
+        const bool is_pqc_v = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ||
+                              ((alg & 0xFF'000000U) == kAlgMlDsaBase);
+        if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc_v) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
 
@@ -968,7 +1068,7 @@ struct OpenSslBackend {
         Status rv = err_invalid_arg;
         do {
             EVP_PKEY_CTX* pctx = nullptr;
-            const char* digest = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ? nullptr : "SHA2-384";
+            const char* digest = is_pqc_v ? nullptr : "SHA2-384";
             if (EVP_DigestVerifyInit_ex(ctx, &pctx, digest,
                                         nullptr, nullptr, pkey, nullptr) != ok) { break; }
             if (alg == kAlgRsaPss) {

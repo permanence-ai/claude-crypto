@@ -10,6 +10,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "contracts.hpp"
 #include "defs.hpp"
+#include "ml_dsa_variant.hpp"
 #include "sha_variant.hpp"
 #include "slh_dsa_variant.hpp"
 
@@ -42,7 +43,8 @@ concept CryptoProvider = requires(
     std::size_t        len,
     std::size_t*       len_out,
     ShaVariant         sha_v,
-    SlhDsaVariant      slh_v)
+    SlhDsaVariant      slh_v,
+    MlDsaVariant       ml_v)
 {
     // Associated types
     typename T::Status;
@@ -71,6 +73,7 @@ concept CryptoProvider = requires(
     { T::alg_rsa_oaep() }              -> std::same_as<typename T::Algorithm>;
     { T::alg_rsa_pss() }               -> std::same_as<typename T::Algorithm>;
     { T::alg_slh_dsa(slh_v) }         -> std::same_as<typename T::Algorithm>;
+    { T::alg_ml_dsa(ml_v) }           -> std::same_as<typename T::Algorithm>;
     // KDF step constants
     { T::kdf_step_secret() } -> std::same_as<typename T::KdfStep>;
     { T::kdf_step_salt() }   -> std::same_as<typename T::KdfStep>;
@@ -97,6 +100,9 @@ concept CryptoProvider = requires(
     { T::make_slh_dsa_sign_attrs(slh_v) }       -> std::same_as<typename T::KeyAttributes>;
     { T::make_slh_dsa_verify_attrs(slh_v) }     -> std::same_as<typename T::KeyAttributes>;
     { T::make_slh_dsa_generate_attrs(slh_v) }   -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ml_dsa_sign_attrs(ml_v) }         -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ml_dsa_verify_attrs(ml_v) }       -> std::same_as<typename T::KeyAttributes>;
+    { T::make_ml_dsa_generate_attrs(ml_v) }     -> std::same_as<typename T::KeyAttributes>;
     // Output size helpers
     { T::ecdsa_sign_output_size(len) }           -> std::same_as<std::size_t>;
     { T::ecdh_shared_secret_size(len) }          -> std::same_as<std::size_t>;
@@ -111,9 +117,12 @@ concept CryptoProvider = requires(
     { T::rsa_pss_sign_output_size(len) }         -> std::same_as<std::size_t>;
     { T::rsa_private_key_export_size(len) }      -> std::same_as<std::size_t>;
     { T::rsa_public_key_export_size(len) }       -> std::same_as<std::size_t>;
-    { T::slh_dsa_sign_output_size(slh_v) }      -> std::same_as<std::size_t>;
+    { T::slh_dsa_sign_output_size(slh_v) }        -> std::same_as<std::size_t>;
     { T::slh_dsa_private_key_export_size(slh_v) } -> std::same_as<std::size_t>;
     { T::slh_dsa_public_key_export_size(slh_v) }  -> std::same_as<std::size_t>;
+    { T::ml_dsa_sign_output_size(ml_v) }          -> std::same_as<std::size_t>;
+    { T::ml_dsa_private_key_export_size(ml_v) }   -> std::same_as<std::size_t>;
+    { T::ml_dsa_public_key_export_size(ml_v) }    -> std::same_as<std::size_t>;
     // Low-level crypto operations
     { T::crypto_init() }                                        -> std::same_as<typename T::Status>;
     { T::generate_random(buf, len) }                            -> std::same_as<typename T::Status>;

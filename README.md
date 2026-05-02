@@ -10,7 +10,7 @@ A modern C++26 cryptography library built on the PSA Crypto API (via MbedTLS 4.1
 | MAC | HMAC (any SHA variant) |
 | AEAD | AES-256-GCM, ChaCha20-Poly1305 |
 | Asymmetric encryption | RSA-OAEP (3072, 4096-bit) |
-| Signatures | ECDSA P-256/384/521, RSA-PSS (3072, 4096-bit), SLH-DSA SHA2-128s/128f/192s/192f/256s/256f (FIPS 205) |
+| Signatures | ECDSA P-256/384/521, RSA-PSS (3072, 4096-bit), SLH-DSA SHA2-128s/128f/192s/192f/256s/256f (FIPS 205), ML-DSA-44/65/87 (FIPS 204) |
 | Key agreement | ECDH P-256/384/521 |
 | Key derivation | HKDF, HKDF-Expand (SHA-384) |
 | Key exchange protocols | SIGMA, SIGMA-I (identity-hiding) |
@@ -128,7 +128,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (229 tests in OpenSSL build; 427+ in PSA build)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (236 tests in OpenSSL build; 427+ in PSA build)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -276,7 +276,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
 | `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096 (pure C++, no MbedTLS), key management |
-| `OPENSSL` | OpenSSL 3.x EVP API | Full + SLH-DSA (FIPS 205, all 6 SHA2 variants) — 229 tests; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
+| `OPENSSL` | OpenSSL 3.x EVP API | Full + SLH-DSA (FIPS 205, all 6 SHA2 variants) + ML-DSA (FIPS 204, parameter sets 44/65/87) — 236 tests; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
 | `IA_ASM` | Native assembly | Stub only |
 
 ```bash

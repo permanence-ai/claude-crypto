@@ -13,6 +13,7 @@ add_executable(${EXE_NAME}
         kdf_tests.hpp
         mac_tests.hpp
         main.cpp
+        ml_dsa_tests.hpp
         mock_psa_backend.hpp
         psa_error_tests.hpp
         random_tests.hpp

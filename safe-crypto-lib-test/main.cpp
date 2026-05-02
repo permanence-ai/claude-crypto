@@ -18,6 +18,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "init_tests.hpp"
 #include "kdf_tests.hpp"
 #include "mac_tests.hpp"
+#include "ml_dsa_tests.hpp"
 #include "random_tests.hpp"
 #include "rsa_bigint_tests.hpp"
 #include "rsa_der_tests.hpp"
