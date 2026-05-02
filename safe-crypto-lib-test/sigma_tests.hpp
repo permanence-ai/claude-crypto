@@ -360,3 +360,77 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorSignature) {
     ASSERT_TRUE(verify.has_value());
     EXPECT_FALSE(*verify);
 }
+
+
+// Tamper with the initiator's ephemeral public key in Msg1 before the
+// responder processes it.  The two parties compute different ECDH shared
+// secrets, so the MAC key diverges and the initiator rejects Msg2.
+TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg1) {
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
+
+    const auto initiator = ecdsa_generate_key(EcCurve::P256);
+    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(initiator.has_value());
+    ASSERT_TRUE(responder.has_value());
+
+    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    ASSERT_TRUE(init_result.has_value());
+
+    // Corrupt the ephemeral public key before the responder sees it.
+    init_result->msg1.ephemeral_pub_i[1] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+
+    auto resp_result = sigma_responder_respond(
+        init_result->msg1, *responder, EcCurve::P256);
+    // Responder may fail immediately (bad point) or succeed with a wrong shared secret.
+    if (!resp_result.has_value()) { return; }
+
+    SecureBuffer expected_pub(responder->public_key_der.size());
+    std::ranges::copy(responder->public_key_der, expected_pub.begin());
+
+    const auto finish = sigma_initiator_finish(
+        std::move(init_result->state),
+        resp_result->msg2,
+        *initiator,
+        expected_pub,
+        EcCurve::P256);
+
+    // Initiator must reject: MAC verification will fail because the two
+    // parties derived their keys from different shared secrets.
+    EXPECT_FALSE(finish.has_value());
+}
+
+
+// Tamper with the responder's ephemeral public key in Msg2.  The initiator
+// computes ECDH with a different point than the responder used, so the derived
+// keys diverge and the initiator cannot verify the responder's MAC.
+TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg2) {
+    constexpr CryptoByte TAMPER_BYTE = 0xFF;
+
+    const auto initiator = ecdsa_generate_key(EcCurve::P256);
+    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(initiator.has_value());
+    ASSERT_TRUE(responder.has_value());
+
+    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    ASSERT_TRUE(init_result.has_value());
+
+    auto resp_result = sigma_responder_respond(
+        init_result->msg1, *responder, EcCurve::P256);
+    ASSERT_TRUE(resp_result.has_value());
+
+    // Corrupt the responder's ephemeral public key.
+    resp_result->msg2.ephemeral_pub_r[1] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+
+    SecureBuffer expected_pub(responder->public_key_der.size());
+    std::ranges::copy(responder->public_key_der, expected_pub.begin());
+
+    const auto finish = sigma_initiator_finish(
+        std::move(init_result->state),
+        resp_result->msg2,
+        *initiator,
+        expected_pub,
+        EcCurve::P256);
+
+    ASSERT_FALSE(finish.has_value());
+    EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
