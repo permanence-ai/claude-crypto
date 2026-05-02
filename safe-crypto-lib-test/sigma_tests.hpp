@@ -472,6 +472,41 @@ TEST_F(SigmaTests, SessionKeyCanBeUsedToEncryptAndDecrypt) {
 }
 
 
+// Replaying Msg2 from one handshake into a different initiator session (with a
+// different ephemeral private key) must be rejected: the initiator computes
+// ECDH over a different shared secret, so the MAC in Msg2 won't verify.
+TEST_F(SigmaTests, InitiatorRejectsReplayedMsg2FromDifferentSession) {
+    const auto initiator = ecdsa_generate_key(EcCurve::P256);
+    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    ASSERT_TRUE(initiator.has_value());
+    ASSERT_TRUE(responder.has_value());
+
+    // Session A: run only up through Msg2.
+    auto init_a = sigma_initiator_begin(EcCurve::P256);
+    ASSERT_TRUE(init_a.has_value());
+    auto resp_a = sigma_responder_respond(init_a->msg1, *responder, EcCurve::P256);
+    ASSERT_TRUE(resp_a.has_value());
+
+    // Session B: a fresh initiator state with a different ephemeral key pair.
+    auto init_b = sigma_initiator_begin(EcCurve::P256);
+    ASSERT_TRUE(init_b.has_value());
+
+    SecureBuffer expected_pub(responder->public_key_der.size());
+    std::ranges::copy(responder->public_key_der, expected_pub.begin());
+
+    // Feed session A's Msg2 into session B's initiator — must fail.
+    const auto finish = sigma_initiator_finish(
+        std::move(init_b->state),
+        resp_a->msg2,
+        *initiator,
+        expected_pub,
+        EcCurve::P256);
+
+    ASSERT_FALSE(finish.has_value());
+    EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
+
+
 // Two independent handshakes use different ephemeral key pairs and therefore
 // derive different session keys.
 TEST_F(SigmaTests, FreshHandshakesProduceDifferentSessionKeys) {
