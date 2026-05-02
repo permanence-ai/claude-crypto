@@ -14,6 +14,7 @@ target_sources(${LIB_NAME} INTERFACE
         ecdh.hpp
         kdf.hpp
         mac.hpp
+        pqc_dsa.hpp
         psa_backend.hpp
         provider.hpp
         random.hpp
@@ -21,6 +22,7 @@ target_sources(${LIB_NAME} INTERFACE
         sha_variant.hpp
         sigma.hpp
         sigma_i.hpp
+        slh_dsa_variant.hpp
 )
 
 target_include_directories(${LIB_NAME} INTERFACE

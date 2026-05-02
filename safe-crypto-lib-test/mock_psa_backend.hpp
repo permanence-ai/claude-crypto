@@ -15,6 +15,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "defs.hpp"
 #include "psa_mbedtls_backend.hpp"
 #include "sha_variant.hpp"
+#include "slh_dsa_variant.hpp"
 
 
 // GMock-based mock for all PSA operations.  Tests instantiate _impl<MockPsaBackend>
@@ -274,6 +275,7 @@ struct MockPsaBackend {
     static constexpr Algorithm alg_chacha20_poly1305() noexcept { return RealPsaBackend::alg_chacha20_poly1305(); }
     static constexpr Algorithm alg_rsa_oaep()          noexcept { return RealPsaBackend::alg_rsa_oaep(); }
     static constexpr Algorithm alg_rsa_pss()           noexcept { return RealPsaBackend::alg_rsa_pss(); }
+    static Algorithm alg_slh_dsa(const SlhDsaVariant v) noexcept { return RealPsaBackend::alg_slh_dsa(v); }
 
     static constexpr KdfStep kdf_step_secret() noexcept { return RealPsaBackend::kdf_step_secret(); }
     static constexpr KdfStep kdf_step_salt()   noexcept { return RealPsaBackend::kdf_step_salt(); }
@@ -333,6 +335,15 @@ struct MockPsaBackend {
     static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
         return RealPsaBackend::make_rsa_key_pair_attrs(key_bits);
     }
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant v) noexcept {
+        return RealPsaBackend::make_slh_dsa_sign_attrs(v);
+    }
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant v) noexcept {
+        return RealPsaBackend::make_slh_dsa_verify_attrs(v);
+    }
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant v) noexcept {
+        return RealPsaBackend::make_slh_dsa_generate_attrs(v);
+    }
 
     static std::size_t ecdsa_sign_output_size(const std::size_t key_bits) noexcept {
         return RealPsaBackend::ecdsa_sign_output_size(key_bits);
@@ -372,5 +383,14 @@ struct MockPsaBackend {
     }
     static std::size_t rsa_public_key_export_size(const std::size_t key_bits) noexcept {
         return RealPsaBackend::rsa_public_key_export_size(key_bits);
+    }
+    static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v) noexcept {
+        return RealPsaBackend::slh_dsa_sign_output_size(v);
+    }
+    static std::size_t slh_dsa_private_key_export_size(const SlhDsaVariant v) noexcept {
+        return RealPsaBackend::slh_dsa_private_key_export_size(v);
+    }
+    static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v) noexcept {
+        return RealPsaBackend::slh_dsa_public_key_export_size(v);
     }
 };

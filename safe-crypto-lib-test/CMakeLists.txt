@@ -24,6 +24,7 @@ add_executable(${EXE_NAME}
         secure_buffer_tests.hpp
         sigma_i_tests.hpp
         sigma_tests.hpp
+        slh_dsa_tests.hpp
         test_utils.hpp
 )
 

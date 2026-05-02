@@ -42,6 +42,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "defs.hpp"
 #include "openssl_key_store.hpp"
 #include "sha_variant.hpp"
+#include "slh_dsa_variant.hpp"
 
 
 struct OpenSslBackend {
@@ -69,6 +70,7 @@ struct OpenSslBackend {
             None, Aes256, ChaCha20, Hmac, Derive,
             EcKeyPair, EcPublicKey,
             RsaKeyPair, RsaPublicKey,
+            SlhDsaKeyPair, SlhDsaPublicKey,
         };
         KeyType     type{KeyType::None};
         std::size_t bits{0};
@@ -126,6 +128,8 @@ struct OpenSslBackend {
     static constexpr Algorithm kAlgChaCha20Poly    = 0x07'000000U;
     static constexpr Algorithm kAlgRsaOaep         = 0x08'000000U;
     static constexpr Algorithm kAlgRsaPss          = 0x09'000000U;
+    // SLH-DSA SHA2 variants: lower 8 bits = SlhDsaVariant enum value.
+    static constexpr Algorithm kAlgSlhDsaBase      = 0x0A'000000U;
 
     // KDF step tags (mirror PSA_KEY_DERIVATION_INPUT_* semantics).
     static constexpr KdfStep kKdfStepSecret = 0x01U;
@@ -177,6 +181,10 @@ struct OpenSslBackend {
     [[nodiscard]] static constexpr Algorithm alg_chacha20_poly1305()  noexcept { return kAlgChaCha20Poly; }
     [[nodiscard]] static constexpr Algorithm alg_rsa_oaep()           noexcept { return kAlgRsaOaep; }
     [[nodiscard]] static constexpr Algorithm alg_rsa_pss()            noexcept { return kAlgRsaPss; }
+    [[nodiscard]]
+    static Algorithm alg_slh_dsa(const SlhDsaVariant v) noexcept {
+        return kAlgSlhDsaBase | static_cast<Algorithm>(v);
+    }
 
     // -------------------------------------------------------------------------
     // KDF step constants.
@@ -283,6 +291,25 @@ struct OpenSslBackend {
                                                KeyAttributes::Export),
                  .alg = kAlgRsaOaep };
     }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant v) noexcept {
+        return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
+                 .bits = slh_dsa_private_key_size(v) * 8U,
+                 .usage = KeyAttributes::Sign, .alg = alg_slh_dsa(v) };
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant v) noexcept {
+        return { .type = KeyAttributes::KeyType::SlhDsaPublicKey,
+                 .bits = slh_dsa_public_key_size(v) * 8U,
+                 .usage = KeyAttributes::Verify, .alg = alg_slh_dsa(v) };
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant v) noexcept {
+        return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
+                 .bits = slh_dsa_private_key_size(v) * 8U,
+                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Export),
+                 .alg = alg_slh_dsa(v) };
+    }
 
     // -------------------------------------------------------------------------
     // Output size helpers — hard-coded formulas matching OpenSSL behaviour.
@@ -344,6 +371,18 @@ struct OpenSslBackend {
         // SubjectPublicKeyInfo DER: key_bits/8 + ~50 bytes overhead.
         return key_bits / 8U + 50U;
     }
+    [[nodiscard]]
+    static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_signature_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_private_key_export_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_private_key_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_public_key_size(v);
+    }
 
     // -------------------------------------------------------------------------
     // Internal helpers.
@@ -362,6 +401,27 @@ struct OpenSslBackend {
             case kAlgSha3_512: return "SHA3-512";
             default:           return nullptr;
         }
+    }
+
+    // Returns the OpenSSL algorithm name string for a SlhDsaVariant, or nullptr.
+    [[nodiscard]]
+    static constexpr const char* slh_dsa_alg_name(const SlhDsaVariant v) noexcept {
+        switch (v) {
+            case SlhDsaVariant::Sha2_128s: return "SLH-DSA-SHA2-128s";
+            case SlhDsaVariant::Sha2_128f: return "SLH-DSA-SHA2-128f";
+            case SlhDsaVariant::Sha2_192s: return "SLH-DSA-SHA2-192s";
+            case SlhDsaVariant::Sha2_192f: return "SLH-DSA-SHA2-192f";
+            case SlhDsaVariant::Sha2_256s: return "SLH-DSA-SHA2-256s";
+            case SlhDsaVariant::Sha2_256f: return "SLH-DSA-SHA2-256f";
+        }
+    }
+
+    // Extracts the SlhDsaVariant from an Algorithm tag, or returns nullopt.
+    [[nodiscard]]
+    static constexpr const char* slh_dsa_name_from_alg(const Algorithm alg) noexcept {
+        if ((alg & 0xFF'000000U) != kAlgSlhDsaBase) { return nullptr; }
+        const auto v = static_cast<SlhDsaVariant>(alg & 0xFFU);
+        return slh_dsa_alg_name(v);
     }
 
     // Returns the OBJ_txt2nid curve name for a key_bits value, or nullptr.
@@ -497,6 +557,30 @@ struct OpenSslBackend {
                 *key = id;
                 return ok;
             }
+            case KeyAttributes::KeyType::SlhDsaKeyPair: {
+                // Raw private key bytes directly (FIPS 205 format).
+                const char* alg_name = slh_dsa_name_from_alg(attributes->alg);
+                if (alg_name == nullptr) { return err_invalid_arg; }
+                EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
+                    nullptr, alg_name, nullptr, data, data_length);
+                if (pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
+            case KeyAttributes::KeyType::SlhDsaPublicKey: {
+                // Raw public key bytes directly (FIPS 205 format).
+                const char* alg_name = slh_dsa_name_from_alg(attributes->alg);
+                if (alg_name == nullptr) { return err_invalid_arg; }
+                EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
+                    nullptr, alg_name, nullptr, data, data_length);
+                if (pkey == nullptr) { return err_invalid_arg; }
+                const unsigned int id = ossl_asym_store_import(pkey);
+                if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+                *key = id;
+                return ok;
+            }
             default: return err_invalid_arg;
         }
 
@@ -528,6 +612,23 @@ struct OpenSslBackend {
         if (attributes->type == KeyAttributes::KeyType::RsaKeyPair) {
             EVP_PKEY* pkey = EVP_RSA_gen(static_cast<unsigned int>(attributes->bits));
             if (pkey == nullptr) { return err_invalid_arg; }
+            const unsigned int id = ossl_asym_store_import(pkey);
+            if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+            *key = id;
+            return ok;
+        }
+
+        if (attributes->type == KeyAttributes::KeyType::SlhDsaKeyPair) {
+            const char* alg_name = slh_dsa_name_from_alg(attributes->alg);
+            if (alg_name == nullptr) { return err_invalid_arg; }
+            EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(nullptr, alg_name, nullptr);
+            if (pctx == nullptr) { return err_invalid_arg; }
+            EVP_PKEY* pkey = nullptr;
+            const Status rv_gen = (EVP_PKEY_keygen_init(pctx) == ok &&
+                EVP_PKEY_generate(pctx, &pkey) == ok)
+                ? ok : err_invalid_arg;
+            EVP_PKEY_CTX_free(pctx);
+            if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
             const unsigned int id = ossl_asym_store_import(pkey);
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
@@ -569,6 +670,17 @@ struct OpenSslBackend {
             return ok;
         }
 
+        // SLH-DSA: export raw private key bytes via EVP_PKEY_get_raw_private_key.
+        {
+            std::size_t len = 0;
+            if (EVP_PKEY_get_raw_private_key(pkey, nullptr, &len) == ok && len > 0) {
+                if (len > data_size) { return err_invalid_arg; }
+                if (EVP_PKEY_get_raw_private_key(pkey, data, &len) != ok) { return err_invalid_arg; }
+                *data_length = len;
+                return ok;
+            }
+        }
+
         // EC: export raw private scalar, native-endian so OSSL_PARAM_construct_BN round-trips.
         BIGNUM* bn = nullptr;
         if (EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn) != ok || bn == nullptr) {
@@ -603,6 +715,17 @@ struct OpenSslBackend {
             if (len < 0 || static_cast<std::size_t>(len) > data_size) { return err_invalid_arg; }
             *data_length = static_cast<std::size_t>(len);
             return ok;
+        }
+
+        // SLH-DSA: export raw public key bytes.
+        {
+            std::size_t len = 0;
+            if (EVP_PKEY_get_raw_public_key(pkey, nullptr, &len) == ok && len > 0) {
+                if (len > data_size) { return err_invalid_arg; }
+                if (EVP_PKEY_get_raw_public_key(pkey, data, &len) != ok) { return err_invalid_arg; }
+                *data_length = len;
+                return ok;
+            }
         }
 
         // EC: export uncompressed point (04 || x || y).
@@ -798,7 +921,8 @@ struct OpenSslBackend {
         std::size_t* signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if (alg != kAlgEcdsa && alg != kAlgRsaPss) { return err_invalid_arg; }
+        if (alg != kAlgEcdsa && alg != kAlgRsaPss &&
+            (alg & 0xFF'000000U) != kAlgSlhDsaBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
 
@@ -808,7 +932,9 @@ struct OpenSslBackend {
         Status rv = err_invalid_arg;
         do {
             EVP_PKEY_CTX* pctx = nullptr;
-            if (EVP_DigestSignInit_ex(ctx, &pctx, "SHA2-384",
+            // SLH-DSA uses NULL digest (pure-message scheme, no external hash).
+            const char* digest = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ? nullptr : "SHA2-384";
+            if (EVP_DigestSignInit_ex(ctx, &pctx, digest,
                                       nullptr, nullptr, pkey, nullptr) != ok) { break; }
             if (alg == kAlgRsaPss) {
                 if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) != ok) { break; }
@@ -831,7 +957,8 @@ struct OpenSslBackend {
         const CryptoByte* signature, const std::size_t signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if (alg != kAlgEcdsa && alg != kAlgRsaPss) { return err_invalid_arg; }
+        if (alg != kAlgEcdsa && alg != kAlgRsaPss &&
+            (alg & 0xFF'000000U) != kAlgSlhDsaBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
 
@@ -841,7 +968,8 @@ struct OpenSslBackend {
         Status rv = err_invalid_arg;
         do {
             EVP_PKEY_CTX* pctx = nullptr;
-            if (EVP_DigestVerifyInit_ex(ctx, &pctx, "SHA2-384",
+            const char* digest = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ? nullptr : "SHA2-384";
+            if (EVP_DigestVerifyInit_ex(ctx, &pctx, digest,
                                         nullptr, nullptr, pkey, nullptr) != ok) { break; }
             if (alg == kAlgRsaPss) {
                 if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) != ok) { break; }

@@ -26,6 +26,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha3.hpp"
 #include "sha512.hpp"
 #include "sha_variant.hpp"
+#include "slh_dsa_variant.hpp"
 
 
 // ARM AArch64 assembly/intrinsic backend.
@@ -817,4 +818,20 @@ struct ArmAsmBackend {
         // SubjectPublicKeyInfo overhead: ~38 bytes (AlgID + BIT STRING + SEQUENCE headers + sign pad)
         return (bits / 8U) + 50U;
     }
+
+    // SLH-DSA — not yet implemented in ARM ASM backend; all operations return err_invalid_arg.
+    [[nodiscard]]
+    static Algorithm alg_slh_dsa(const SlhDsaVariant) noexcept { return 0x0701U; }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant)     noexcept { return {}; }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant)   noexcept { return {}; }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant) noexcept { return {}; }
+    [[nodiscard]]
+    static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v)          noexcept { return slh_dsa_signature_size(v); }
+    [[nodiscard]]
+    static std::size_t slh_dsa_private_key_export_size(const SlhDsaVariant v)   noexcept { return slh_dsa_private_key_size(v); }
+    [[nodiscard]]
+    static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v)    noexcept { return slh_dsa_public_key_size(v); }
 };

@@ -13,6 +13,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "defs.hpp"
 #include "sha_variant.hpp"
+#include "slh_dsa_variant.hpp"
 
 
 // Production PSA/MbedTLS backend — every method is a direct forwarding call to
@@ -552,5 +553,38 @@ struct RealPsaBackend {
         return PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_KEY_PAIR,
             static_cast<psa_key_bits_t>(key_bits));
+    }
+
+    // SLH-DSA — not supported by MbedTLS 4.1; all operations return err_invalid_arg.
+    [[nodiscard]]
+    static Algorithm alg_slh_dsa(const SlhDsaVariant) noexcept {
+        return static_cast<Algorithm>(0);  // PSA_ALG_NONE — unsupported
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant) noexcept {
+        const KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        return a;
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant) noexcept {
+        const KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        return a;
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant) noexcept {
+        const KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
+        return a;
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_signature_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_private_key_export_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_private_key_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_public_key_size(v);
     }
 };
