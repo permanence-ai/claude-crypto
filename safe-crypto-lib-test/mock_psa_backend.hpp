@@ -101,7 +101,7 @@ struct MockPsaBackend {
     using Status        = psa_status_t;
     using KeyId         = mbedtls_svc_key_id_t;
     using Algorithm     = psa_algorithm_t;
-    using KeyAttributes = psa_key_attributes_t;
+    using KeyAttributes = PsaKeyAttributes;
     using KdfOperation  = psa_key_derivation_operation_t;
     using KdfStep       = psa_key_derivation_step_t;
 
@@ -114,8 +114,7 @@ struct MockPsaBackend {
         return k;
     }
     static KeyAttributes make_key_attrs() noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        return a;
+        return {};
     }
     static KdfOperation make_kdf_op() noexcept {
         KdfOperation o = PSA_KEY_DERIVATION_OPERATION_INIT;
@@ -136,16 +135,16 @@ struct MockPsaBackend {
         return g_mock_psa->hash_compute(alg, in, in_len, hash, hash_size, hash_len);
     }
     static psa_status_t import_key(
-        const psa_key_attributes_t* attrs,
+        const PsaKeyAttributes* attrs,
         const CryptoByte* data, const std::size_t data_len,
         mbedtls_svc_key_id_t* key)
     {
-        return g_mock_psa->import_key(attrs, data, data_len, key);
+        return g_mock_psa->import_key(attrs != nullptr ? &attrs->psa : nullptr, data, data_len, key);
     }
     static psa_status_t generate_key(
-        const psa_key_attributes_t* attrs, mbedtls_svc_key_id_t* key)
+        const PsaKeyAttributes* attrs, mbedtls_svc_key_id_t* key)
     {
-        return g_mock_psa->generate_key(attrs, key);
+        return g_mock_psa->generate_key(attrs != nullptr ? &attrs->psa : nullptr, key);
     }
     static psa_status_t destroy_key(const mbedtls_svc_key_id_t key) {
         return g_mock_psa->destroy_key(key);

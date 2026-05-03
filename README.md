@@ -129,7 +129,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427 in ARM_ASM; 440 in ARM_ASM+LIBOQS; 248 in OPENSSL+LIBOQS)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427 in ARM_ASM; 440 in ARM_ASM+LIBOQS; 248 in OPENSSL+LIBOQS; 232 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -285,7 +285,7 @@ A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement 
 | `SAFE_CRYPTO_PQC` | Effect |
 |---|---|
 | `NONE` *(default)* | No PQC supplement; `ARM_ASM` and `PSA_MBEDTLS` providers return `err_invalid_arg` for ML-DSA and ML-KEM |
-| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` (and `PSA_MBEDTLS`) backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (440 total for `ARM_ASM+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (248 total for `OPENSSL+LIBOQS`) |
+| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` and `PSA_MBEDTLS` backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (440 total for `ARM_ASM+LIBOQS`; 232 total for `PSA_MBEDTLS+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (248 total for `OPENSSL+LIBOQS`) |
 
 SLH-DSA is not yet available via liboqs (liboqs 0.13.0 uses `SPHINCS+` naming internally and has no `slh_dsa` aliases). It remains OpenSSL-only.
 
@@ -308,6 +308,10 @@ cmake -G Ninja -B cmake-build-openssl-pqc -S . \
   -DSAFE_CRYPTO_ACTIVE_PROVIDER=OPENSSL \
   -DSAFE_CRYPTO_PQC=LIBOQS \
   -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/openssl@3
+
+# Use the PSA/MbedTLS provider with liboqs PQC supplement
+cmake -G Ninja -B cmake-build-psa-pqc -S . \
+  -DSAFE_CRYPTO_PQC=LIBOQS
 ```
 
 Specifying an unrecognised value is a configure-time fatal error that lists the valid choices. Adding a new provider means creating a `providers/<name>/` subdirectory with a backend struct and CMakeLists, then registering it in the top-level `SAFE_CRYPTO_ACTIVE_PROVIDER` string list.

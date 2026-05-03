@@ -4,6 +4,7 @@ cmake-build-coverage/
 cmake-build-coverage-arm/
 cmake-build-coverage-psa/
 cmake-build-openssl-pqc/
+cmake-build-psa-pqc/
 cmake-build-debug/
 cmake-build-gcc15/
 cmake-build-openssl/

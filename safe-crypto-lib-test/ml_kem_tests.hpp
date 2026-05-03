@@ -19,12 +19,18 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "pqc_kem.hpp"
 #include "test_utils.hpp"
 using MlKemBackend = OpenSslBackend;
-#elif defined(SAFE_CRYPTO_PQC_LIBOQS)
+#elif defined(SAFE_CRYPTO_PQC_LIBOQS) && defined(SAFE_CRYPTO_PROVIDER_ARM_ASM)
 #include "arm_asm_backend.hpp"
 #include "ml_kem_variant.hpp"
 #include "pqc_kem.hpp"
 #include "test_utils.hpp"
 using MlKemBackend = ArmAsmBackend;
+#elif defined(SAFE_CRYPTO_PQC_LIBOQS)
+#include "ml_kem_variant.hpp"
+#include "pqc_kem.hpp"
+#include "psa_mbedtls_backend.hpp"
+#include "test_utils.hpp"
+using MlKemBackend = RealPsaBackend;
 #endif
 
 #if defined(SAFE_CRYPTO_PROVIDER_OPENSSL) || defined(SAFE_CRYPTO_PQC_LIBOQS)

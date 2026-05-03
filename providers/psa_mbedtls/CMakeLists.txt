@@ -3,6 +3,7 @@ set(LIB_NAME safe_crypto_lib_psa_mbedtls)
 add_library(${LIB_NAME} INTERFACE)
 
 target_sources(${LIB_NAME} INTERFACE
+        pqc_key_store.hpp
         psa_mbedtls_backend.hpp
 )
 

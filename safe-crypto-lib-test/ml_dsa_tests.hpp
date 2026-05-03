@@ -19,12 +19,18 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "pqc_dsa.hpp"
 #include "test_utils.hpp"
 using MlDsaBackend = OpenSslBackend;
-#elif defined(SAFE_CRYPTO_PQC_LIBOQS)
+#elif defined(SAFE_CRYPTO_PQC_LIBOQS) && defined(SAFE_CRYPTO_PROVIDER_ARM_ASM)
 #include "arm_asm_backend.hpp"
 #include "ml_dsa_variant.hpp"
 #include "pqc_dsa.hpp"
 #include "test_utils.hpp"
 using MlDsaBackend = ArmAsmBackend;
+#elif defined(SAFE_CRYPTO_PQC_LIBOQS)
+#include "ml_dsa_variant.hpp"
+#include "pqc_dsa.hpp"
+#include "psa_mbedtls_backend.hpp"
+#include "test_utils.hpp"
+using MlDsaBackend = RealPsaBackend;
 #endif
 
 #if defined(SAFE_CRYPTO_PROVIDER_OPENSSL) || defined(SAFE_CRYPTO_PQC_LIBOQS)
