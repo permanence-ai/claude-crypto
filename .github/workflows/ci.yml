@@ -129,3 +129,98 @@ jobs:
             | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
                 -p build-lint \
                 --config-file=.clang-tidy
+
+  # ---------------------------------------------------------------------------
+  # Coverage
+  #
+  # LLVM source-based coverage scoped to safe-crypto-lib/ headers.
+  # Run against PSA_MBEDTLS, ARM_ASM, and OPENSSL providers (3 jobs).
+  # IA_ASM is excluded: it cross-compiles to x86_64 and cannot run under Rosetta.
+  # PQC=NONE for PSA and ARM (no real implementation); PQC=LIBOQS for OpenSSL
+  # so that pqc_dsa.hpp / pqc_kem.hpp are exercised.
+  # ---------------------------------------------------------------------------
+  coverage:
+    name: coverage / ${{ matrix.provider }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: PSA_MBEDTLS
+            pqc: NONE
+          - provider: ARM_ASM
+            pqc: NONE
+          - provider: OPENSSL
+            pqc: LIBOQS
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-llvm-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3 llvm
+          pip3 install --break-system-packages jsonschema jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build-cov/_deps
+          key: fetchcontent-cov-${{ matrix.provider }}-${{ matrix.pqc }}-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: |
+            fetchcontent-cov-${{ matrix.provider }}-${{ matrix.pqc }}-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build-cov \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=${{ matrix.provider }} \
+            -DSAFE_CRYPTO_PQC=${{ matrix.pqc }} \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fprofile-instr-generate"
+
+      - name: Build
+        run: cmake --build build-cov
+
+      - name: Test
+        run: |
+          LLVM_PROFILE_FILE="${{ github.workspace }}/build-cov/coverage-%p.profraw" \
+            ctest --test-dir build-cov --output-on-failure
+
+      - name: Merge profiles
+        run: |
+          "$(brew --prefix llvm)/bin/llvm-profdata" merge \
+            -sparse "${{ github.workspace }}"/build-cov/coverage-*.profraw \
+            -o build-cov/coverage.profdata
+
+      - name: Report (terminal summary)
+        run: |
+          "$(brew --prefix llvm)/bin/llvm-cov" report \
+            build-cov/safe-crypto-lib-test/safe_crypto_lib_test \
+            -instr-profile=build-cov/coverage.profdata \
+            -ignore-filename-regex='(_deps|safe-crypto-lib-test|safe-crypto-lib-bench|providers)' \
+            2>&1 | tee build-cov/coverage-summary.txt
+
+      - name: Generate HTML report
+        run: |
+          "$(brew --prefix llvm)/bin/llvm-cov" show \
+            build-cov/safe-crypto-lib-test/safe_crypto_lib_test \
+            -instr-profile=build-cov/coverage.profdata \
+            -ignore-filename-regex='(_deps|safe-crypto-lib-test|safe-crypto-lib-bench|providers)' \
+            -format=html \
+            -output-dir=build-cov/coverage-html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.provider }}-${{ matrix.pqc }}
+          path: |
+            build-cov/coverage-summary.txt
+            build-cov/coverage-html/
