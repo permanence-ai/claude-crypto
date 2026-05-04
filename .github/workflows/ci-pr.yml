@@ -1,0 +1,111 @@
+name: CI (PR)
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast build and test subset for PR checks.
+  #
+  # One provider per ISA family × Debug only = 3 jobs:
+  #   PSA_MBEDTLS, ARM_ASM, OPENSSL — all PQC=NONE.
+  # Plus one Sanitize job (PSA_MBEDTLS) as a cheap ASan/UBSan safety net.
+  # IA_ASM is excluded: cross-compiled only, cannot run under Rosetta 2.
+  # Full matrix (all PQC variants, all build types) runs in ci-full.yml.
+  # ---------------------------------------------------------------------------
+  build-test:
+    name: ${{ matrix.provider }} / ${{ matrix.build_type }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { provider: PSA_MBEDTLS, build_type: Debug     }
+          - { provider: PSA_MBEDTLS, build_type: Sanitize  }
+          - { provider: ARM_ASM,     build_type: Debug     }
+          - { provider: OPENSSL,     build_type: Debug     }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3
+          pip3 install --break-system-packages jsonschema
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-${{ matrix.provider }}-NONE-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: |
+            fetchcontent-${{ matrix.provider }}-NONE-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=${{ matrix.provider }} \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # ---------------------------------------------------------------------------
+  # Clang-tidy lint — same as full CI.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: clang-tidy
+    runs-on: macos-15
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-llvm-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3 llvm
+          pip3 install --break-system-packages jsonschema
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build-lint/_deps
+          key: fetchcontent-lint-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fetchcontent-lint-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build-lint \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=PSA_MBEDTLS \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          find safe-crypto-lib providers -name '*.hpp' \
+            | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
+                -p build-lint \
+                --config-file=.clang-tidy
