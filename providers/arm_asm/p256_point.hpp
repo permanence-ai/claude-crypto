@@ -312,9 +312,47 @@ static constexpr P256AffinePoint p256_G_table[15] = { // NOLINT(cppcoreguideline
 
 
 // -----------------------------------------------------------------------
+// Constant-time helpers for fixed-base scalar multiplication.
+// -----------------------------------------------------------------------
+
+// CT select between two Jacobian points: returns a if use_a != 0, else b.
+[[nodiscard]]
+static inline auto p256_point_ct_select(
+    const P256Point& a, const P256Point& b, uint64_t use_a) noexcept -> P256Point
+{
+    const uint64_t mask = 0U - use_a;
+    P256Point r{};
+    for (int i = 0; i < 4; ++i) {
+        r.X.v[i] = (a.X.v[i] & mask) | (b.X.v[i] & ~mask);
+        r.Y.v[i] = (a.Y.v[i] & mask) | (b.Y.v[i] & ~mask);
+        r.Z.v[i] = (a.Z.v[i] & mask) | (b.Z.v[i] & ~mask);
+    }
+    return r;
+}
+
+// CT scan of p256_G_table: returns table[nibble-1] for nibble in [1,15],
+// or table[0] as a harmless dummy when nibble == 0 (result discarded by caller).
+// No branch or secret-dependent memory access.
+[[nodiscard]]
+static inline auto p256_G_table_select(unsigned nibble) noexcept -> P256AffinePoint
+{
+    P256AffinePoint r = p256_G_table[0]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    for (unsigned i = 1; i < 15U; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
+        for (int j = 0; j < 4; ++j) {
+            r.X.v[j] = (p256_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            r.Y.v[j] = (p256_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+    }
+    return r;
+}
+
+
+// -----------------------------------------------------------------------
 // Fixed-base scalar multiplication using 4-bit window: k·G.
 // Processes 64 nibbles MSB→LSB: 4 doublings + 1 mixed-affine-add per step.
 // scalar is 32-byte big-endian.
+// Constant-time: no branches or memory accesses depend on secret nibble values.
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -337,9 +375,10 @@ static inline auto p256_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
             const auto nibble = static_cast<unsigned>(
                 (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
 
-            if (nibble != 0U) {
-                result = p256_point_add_affine(result, p256_G_table[nibble - 1U]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            }
+            // CT table lookup and unconditional add; discard result when nibble == 0.
+            const P256AffinePoint tab = p256_G_table_select(nibble);
+            const P256Point added = p256_point_add_affine(result, tab);
+            result = p256_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
         }
     }
     return result;

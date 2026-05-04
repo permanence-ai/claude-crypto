@@ -281,8 +281,42 @@ static constexpr P521AffinePoint p521_G_table[15] = { // NOLINT(cppcoreguideline
 
 
 // -----------------------------------------------------------------------
+// Constant-time helpers for fixed-base scalar multiplication.
+// -----------------------------------------------------------------------
+
+[[nodiscard]]
+static inline auto p521_point_ct_select(
+    const P521Point& a, const P521Point& b, uint64_t use_a) noexcept -> P521Point
+{
+    const uint64_t mask = 0U - use_a;
+    P521Point r{};
+    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        r.X.v[i] = (a.X.v[i] & mask) | (b.X.v[i] & ~mask);
+        r.Y.v[i] = (a.Y.v[i] & mask) | (b.Y.v[i] & ~mask);
+        r.Z.v[i] = (a.Z.v[i] & mask) | (b.Z.v[i] & ~mask);
+    }
+    return r;
+}
+
+[[nodiscard]]
+static inline auto p521_G_table_select(unsigned nibble) noexcept -> P521AffinePoint
+{
+    P521AffinePoint r = p521_G_table[0]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    for (unsigned i = 1; i < 15U; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
+        for (int j = 0; j < 9; ++j) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            r.X.v[j] = (p521_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            r.Y.v[j] = (p521_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        }
+    }
+    return r;
+}
+
+
+// -----------------------------------------------------------------------
 // Fixed-base scalar multiplication using 4-bit window: k·G.
 // scalar is 66-byte big-endian.
+// Constant-time: no branches or memory accesses depend on secret nibble values.
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -293,16 +327,14 @@ static inline auto p521_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
 
     // P-521 is 521 bits = 65 full bytes + 1 bit in byte[0].
     // Process byte[0] (only its low bit) as a 1-bit step first, then bytes 1..65 as 4-bit nibbles.
-    // We process MSB-first: byte[0] high nibble would be bits 520..524 (beyond the field), so
-    // the top byte contributes only 1 bit (bit 520). Process it with a single doubling + conditional add.
 
     // Process the single top bit: scalar[0] bit 0 (the 521st bit, MSB of the scalar).
     {
         result = p521_point_double(result);
         const auto nibble = static_cast<unsigned>(scalar[0] & 0x01U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        if (nibble != 0U) {
-            result = p521_point_add_affine(result, p521_G_table[nibble - 1U]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        }
+        // table[0] == 1*G is the only entry; CT-select it without branching on nibble.
+        const P521Point added = p521_point_add_affine(result, p521_G_table[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        result = p521_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
     }
 
     // Process bytes 1..65 as full byte pairs of nibbles.
@@ -318,9 +350,9 @@ static inline auto p521_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
             const auto nibble = static_cast<unsigned>(
                 (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
 
-            if (nibble != 0U) {
-                result = p521_point_add_affine(result, p521_G_table[nibble - 1U]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            }
+            const P521AffinePoint tab = p521_G_table_select(nibble);
+            const P521Point added = p521_point_add_affine(result, tab);
+            result = p521_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
         }
     }
     return result;
