@@ -721,6 +721,42 @@ static inline auto p256_scalar_is_zero(const Fe256& a) noexcept -> bool {
     return (a.v[0] | a.v[1] | a.v[2] | a.v[3]) == 0U;
 }
 
+// Strictly decode a 32-byte big-endian ECDSA signature scalar (r or s).
+// Returns true and writes the scalar iff 1 <= val < n; rejects val == 0 or val >= n.
+// Unlike p256_scalar_from_bytes32, this does NOT reduce mod n — it rejects instead.
+[[nodiscard]]
+static inline auto p256_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t b[32], Fe256& out) noexcept -> bool
+{
+    Fe256 r{};
+    for (int i = 0; i < 4; ++i) {
+        const uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        r.v[i] =
+            (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
+            (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
+            (static_cast<uint64_t>(p[4]) << 24U) | (static_cast<uint64_t>(p[5]) << 16U) |
+            (static_cast<uint64_t>(p[6]) <<  8U) |  static_cast<uint64_t>(p[7]);
+    }
+    if (p256_scalar_is_zero(r)) { return false; }
+    // Reject if r >= n: subtract n and check borrow; borrow == 0 means r >= n.
+    using u128 = unsigned __int128;
+    Fe256 sub{};
+    auto t = static_cast<u128>(r.v[0]) - p256_n[0];
+    sub.v[0] = static_cast<uint64_t>(t);
+    auto borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[1]) - p256_n[1] - borrow;
+    sub.v[1] = static_cast<uint64_t>(t);
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[2]) - p256_n[2] - borrow;
+    sub.v[2] = static_cast<uint64_t>(t);
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[3]) - p256_n[3] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    if (borrow == 0U) { return false; } // r >= n
+    out = r;
+    return true;
+}
+
 
 // -----------------------------------------------------------------------
 // Key pair generation and public key encoding.

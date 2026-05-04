@@ -708,6 +708,51 @@ static inline auto p521_scalar_is_zero(const Fe521& a) noexcept -> bool {
             a.v[5] | a.v[6] | a.v[7] | a.v[8]) == 0U;
 }
 
+// Strictly decode a 66-byte big-endian ECDSA signature scalar (r or s).
+// Returns true and writes the scalar iff 1 <= val < n; rejects val == 0,
+// val >= n, or non-canonical encodings where the top 7 bits of b[0] are set.
+[[nodiscard]]
+static inline auto p521_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t b[66], Fe521& out) noexcept -> bool // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+{
+    // P-521 scalar is 521 bits (66 bytes); top 7 bits of b[0] must be zero.
+    if ((b[0] & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    Fe521 r{};
+    for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint8_t* p = b + (65 - i * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        r.v[i] =
+            (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);           // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    }
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // No mask needed: high-bit check above guarantees b[0] <= 0x01, so r.v[8] <= 0x1ff.
+    if (p521_scalar_is_zero(r)) { return false; }
+    using u128 = unsigned __int128;
+    auto t = static_cast<u128>(r.v[0]) - p521_n[0];
+    auto borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[1]) - p521_n[1] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[2]) - p521_n[2] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[3]) - p521_n[3] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[4]) - p521_n[4] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[5]) - p521_n[5] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[6]) - p521_n[6] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[7]) - p521_n[7] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[8]) - p521_n[8] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    if (borrow == 0U) { return false; } // r >= n
+    out = r;
+    return true;
+}
+
 
 // -----------------------------------------------------------------------
 // Key pair generation and public key encoding.
