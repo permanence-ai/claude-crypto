@@ -1,14 +1,13 @@
-name: CI
+name: CI (Full)
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Build and test matrix
+  # Full build and test matrix.
   #
   # 7 provider/PQC configurations × 2 build types = 14 jobs.
   # IA_ASM is cross-compiled for x86_64 via Rosetta 2 but tests are NOT run:
