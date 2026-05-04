@@ -133,7 +133,7 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs)
   ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427 in ARM_ASM; 440 in ARM_ASM+LIBOQS; 248 in OPENSSL+LIBOQS; 232 in PSA_MBEDTLS+LIBOQS)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 434 in ARM_ASM; 447 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
@@ -205,15 +205,15 @@ The cross-decrypt and cross-verify tests are particularly valuable: they encrypt
 
 This strategy catches implementation drift that KAT tests cannot find — a wrong implementation can still pass a KAT if the reference vector was derived from the same wrong code.
 
-### 5. Memory-safety tests (`secure_buffer_tests.hpp` — 4 tests)
+### 5. Memory-safety tests (`secure_buffer_tests.hpp` — 8 tests)
 
-Verify `SecureBuffer` and `FixedSecureBuffer<N>` behaviour: index operator reads and writes, move semantics, `resize` (shrink-only), and — where C++26 contracts are enforced — death assertions for out-of-bounds access and resize-beyond-current-size.
+Verify `SecureBuffer` and `FixedSecureBuffer<N>` behaviour: index operator reads and writes (mutable and const), iterator traversal (all four `begin()`/`end()` overloads), move semantics, `resize` (shrink-only), and — where C++26 contracts are enforced — death assertions for out-of-bounds access and resize-beyond-current-size.
 
 ## Coverage
 
 LLVM source-based coverage measured against the `safe-crypto-lib/` headers for each provider build (Debug + `-fprofile-instr-generate -fcoverage-mapping`, run against the full test suite). Branch coverage is per-file; the TOTAL row includes all instrumented code in the binary (provider implementation headers, test utilities, etc.) which lowers the overall branch %.
 
-### PSA/MbedTLS provider — 242 tests
+### PSA/MbedTLS provider — 249 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
@@ -229,14 +229,14 @@ LLVM source-based coverage measured against the `safe-crypto-lib/` headers for e
 | `ml_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 21 | 0% |
 | `ml_kem_variant.hpp` | 4 | 0% | 4 | 0% | 24 | 0% |
 | `random.hpp` | 15 | 86.7% | 3 | 100% | 31 | 93.5% |
-| `secure_buffer.hpp` | 34 | 91.2% | 28 | 89.3% | 80 | 91.3% |
+| `secure_buffer.hpp` | 35 | 91.4% | 29 | 89.7% | 83 | 91.6% |
 | `sigma.hpp` | 93 | 88.2% | 11 | 90.9% | 226 | 87.6% |
 | `sigma_i.hpp` | 139 | 82.7% | 15 | 100% | 387 | 81.7% |
 | `slh_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 30 | 0% |
 
 `ml_dsa_variant.hpp`, `ml_kem_variant.hpp`, and `slh_dsa_variant.hpp` show 0% because PSA/MbedTLS has no PQC implementation — those headers are only instantiated when `SAFE_CRYPTO_PQC=LIBOQS` or via the OpenSSL provider.
 
-### ARM ASM provider — 427 tests
+### ARM ASM provider — 434 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
@@ -252,12 +252,12 @@ LLVM source-based coverage measured against the `safe-crypto-lib/` headers for e
 | `ml_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 21 | 0% |
 | `ml_kem_variant.hpp` | 4 | 0% | 4 | 0% | 24 | 0% |
 | `random.hpp` | 15 | 86.7% | 3 | 100% | 31 | 93.5% |
-| `secure_buffer.hpp` | 34 | 91.2% | 28 | 89.3% | 80 | 91.3% |
+| `secure_buffer.hpp` | 35 | 91.4% | 29 | 89.7% | 83 | 91.6% |
 | `sigma.hpp` | 93 | 85.0% | 11 | 90.9% | 226 | 84.1% |
 | `sigma_i.hpp` | 139 | 82.7% | 15 | 100% | 387 | 81.7% |
 | `slh_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 30 | 0% |
 
-### OpenSSL provider — 242 tests
+### OpenSSL provider — 249 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
@@ -275,7 +275,7 @@ LLVM source-based coverage measured against the `safe-crypto-lib/` headers for e
 | `pqc_dsa.hpp` | 72 | **72.2%** | 6 | 100% | 214 | 62.6% |
 | `pqc_kem.hpp` | 33 | **69.7%** | 3 | 100% | 109 | 63.3% |
 | `random.hpp` | 15 | 86.7% | 3 | 100% | 31 | 93.5% |
-| `secure_buffer.hpp` | 34 | 91.2% | 28 | 89.3% | 80 | 91.3% |
+| `secure_buffer.hpp` | 35 | 91.4% | 29 | 89.7% | 83 | 91.6% |
 | `sigma.hpp` | 93 | 88.2% | 11 | 90.9% | 226 | 87.6% |
 | `sigma_i.hpp` | 139 | 82.7% | 15 | 100% | 387 | 81.7% |
 | `slh_dsa_variant.hpp` | 21 | 100% | 3 | 100% | 30 | 100% |
@@ -288,14 +288,13 @@ Every file with less than 100% line coverage has the same category of gap: **err
 
 - `aead.hpp`, `asymmetric.hpp`, `random.hpp` — `crypto_init()` failure return, key-import failure return, encrypt/decrypt failure return. These branches require inducing low-level PSA/OpenSSL failures; they are covered in the `PsaErrorTests` mock suite (107 tests) but that suite runs against `MockPsaBackend`, not `RealPsaBackend`/`ArmAsmBackend`/`OpenSslBackend`, so the real-provider builds don't count them.
 - `kdf.hpp` — HKDF-info input failure (one specific KDF step error path) and a few `expand_key_impl` error returns not covered by `PsaErrorTests`.
-- `sigma.hpp` / `sigma_i.hpp` — KDF setup/input failure returns inside `derive_keys` and `respond` paths. The happy-path handshake is fully covered; only injected-failure branches remain uncovered in real-provider builds.
-- `secure_buffer.hpp` — two uncovered accessors: `begin()`/`end()` const iterators and the `const` overload of `operator[]`. These are utility methods not called by any current test.
+- `sigma.hpp` / `sigma_i.hpp` — KDF setup/input failure returns inside `derive_keys` and `respond` paths. The happy-path handshake is fully covered; the three `sigma_i_deserialize_bundle` parse-error paths are directly tested; only injected-KDF/AES-failure branches remain uncovered in real-provider builds.
 - `pqc_dsa.hpp` (OpenSSL — **72.2%**) / `pqc_kem.hpp` (OpenSSL — **69.7%**) — Same pattern: all error-path returns for keygen failure, key-export failure, sign failure, encap/decap failure. The PQC tests cover the happy path and tamper-detection path but do not inject low-level OpenSSL failures into `OQS_SIG_keypair` / `OQS_KEM_encaps` etc.
 
 **Files at or above 80% in all providers:** `aead.hpp`, `asymmetric.hpp`, `crypto_error.hpp`, `crypto_provider.hpp`, `digests.hpp`, `ecc.hpp`, `ecdh.hpp`, `kdf.hpp`, `mac.hpp`, `random.hpp`, `secure_buffer.hpp`, `sigma.hpp`.
 
 **Files below 80% in at least one provider:**
-- `sigma_i.hpp` — 82.7% line / 69.1% branch (all providers). The remaining gap is injected-failure branches in `derive_keys_impl` and bundle-deserialization paths.
+- `sigma_i.hpp` — 82.7% line / 69.1% branch (all providers). Remaining gap: injected-failure branches in `derive_keys_impl` and `sigma_i_aes_gcm_{encrypt,decrypt}_impl` — require fault injection into PSA/AES primitives.
 - `pqc_dsa.hpp` — 72.2% (OpenSSL only). Missing: error-path returns for keygen/export/sign/verify failures — no mock infrastructure for `OQS_SIG_*` failures exists.
 - `pqc_kem.hpp` — 69.7% (OpenSSL only). Same: error-path returns for keygen/export/encap/decap failures.
 
@@ -404,7 +403,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
 | `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096 (pure C++, no MbedTLS), key management |
-| `OPENSSL` | OpenSSL 3.x EVP API | Full + SLH-DSA (FIPS 205, all 6 SHA2 variants) + ML-DSA (FIPS 204, parameter sets 44/65/87) + ML-KEM (FIPS 203, parameter sets 512/768/1024) — 242 tests; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
+| `OPENSSL` | OpenSSL 3.x EVP API | Full + SLH-DSA (FIPS 205, all 6 SHA2 variants) + ML-DSA (FIPS 204, parameter sets 44/65/87) + ML-KEM (FIPS 203, parameter sets 512/768/1024) — 249 tests; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
 | `IA_ASM` | Native assembly | Stub only |
 
 A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement fetched via FetchContent:
@@ -412,7 +411,7 @@ A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement 
 | `SAFE_CRYPTO_PQC` | Effect |
 |---|---|
 | `NONE` *(default)* | No PQC supplement; `ARM_ASM` and `PSA_MBEDTLS` providers return `err_invalid_arg` for ML-DSA and ML-KEM |
-| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` and `PSA_MBEDTLS` backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (440 total for `ARM_ASM+LIBOQS`; 232 total for `PSA_MBEDTLS+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (248 total for `OPENSSL+LIBOQS`) |
+| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` and `PSA_MBEDTLS` backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (447 total for `ARM_ASM+LIBOQS`; 239 total for `PSA_MBEDTLS+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (255 total for `OPENSSL+LIBOQS`) |
 
 SLH-DSA is not yet available via liboqs (liboqs 0.13.0 uses `SPHINCS+` naming internally and has no `slh_dsa` aliases). It remains OpenSSL-only.
 
