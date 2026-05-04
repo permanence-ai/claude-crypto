@@ -141,7 +141,7 @@ cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google
 ## Build
 
 ```bash
-# Configure (PSA/MbedTLS provider is the default)
+# Configure (PSA/MbedTLS provider, Debug build — the default)
 cmake -G Ninja -B cmake-build-debug -S .
 
 # Build
@@ -151,7 +151,37 @@ cmake --build cmake-build-debug
 ./cmake-build-debug/safe-crypto-lib-test/safe_crypto_lib_test
 ```
 
-For a release build, substitute `cmake-build-release` and add `-DCMAKE_BUILD_TYPE=Release`.
+### Build types
+
+All build types are defined in `cmake/PermBuildOptions.cmake`. `Debug` is the default when no `-DCMAKE_BUILD_TYPE` is specified.
+
+| Build type | Optimisation | Hardening | Use for |
+|---|---|---|---|
+| `Debug` | `-O0 -g` | — | Development |
+| `Release` | `-O3 -mtune=native -flto=thin` | `-fstack-protector-strong` `-mbranch-protection=standard` `-D_FORTIFY_SOURCE=3` dead-strip | Production / benchmarking |
+| `MinSizeRel` | `-Os -flto=thin` | Same as Release | Size-constrained deployments |
+| `RelWithDebInfo` | `-O2 -g` | — | Profiling / coverage |
+| `Sanitize` | `-O1 -g` | ASan + UBSan (`-fsanitize=address,undefined`) | Defect detection |
+
+**Hardening notes:**
+- `-fstack-protector-strong` — stack canaries on any function with a buffer, array, or address-taken local
+- `-mbranch-protection=standard` — ARM PAC (pointer authentication for return addresses) + BTI (branch target identification); enforced in hardware on Apple Silicon (ARMv8.5-a)
+- `-D_FORTIFY_SOURCE=3` — compile-time and runtime bounds checks on libc memory/string functions
+
+```bash
+# Speed-optimised release build
+cmake -G Ninja -B cmake-build-release -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build cmake-build-release
+
+# Size-optimised build
+cmake -G Ninja -B cmake-build-minsizerel -S . -DCMAKE_BUILD_TYPE=MinSizeRel
+cmake --build cmake-build-minsizerel
+
+# Sanitizer build (ASan + UBSan)
+cmake -G Ninja -B cmake-build-sanitize -S . -DCMAKE_BUILD_TYPE=Sanitize
+cmake --build cmake-build-sanitize
+./cmake-build-sanitize/safe-crypto-lib-test/safe_crypto_lib_test
+```
 
 ## Testing
 
