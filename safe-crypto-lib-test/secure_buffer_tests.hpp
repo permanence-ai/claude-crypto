@@ -67,6 +67,53 @@ TEST_F(SecureBufferTests, FixedIndexOperatorConstReadsCorrectElement) {
 }
 
 
+TEST_F(SecureBufferTests, IterateMutableSecureBuffer) {
+    SecureBuffer buf(3);
+    buf[0] = 0x0A;
+    buf[1] = 0x0B;
+    buf[2] = 0x0C;
+
+    CryptoByte sum{0};
+    for (auto it = buf.begin(); it != buf.end(); ++it) { sum = static_cast<CryptoByte>(sum + *it); }
+    EXPECT_EQ(sum, CryptoByte{0x0A + 0x0B + 0x0C});
+}
+
+TEST_F(SecureBufferTests, IterateConstSecureBuffer) {
+    SecureBuffer buf(3);
+    buf[0] = 0x01;
+    buf[1] = 0x02;
+    buf[2] = 0x04;
+
+    const SecureBuffer& cbuf = buf;
+    CryptoByte sum{0};
+    for (auto it = cbuf.begin(); it != cbuf.end(); ++it) { sum = static_cast<CryptoByte>(sum + *it); }
+    EXPECT_EQ(sum, CryptoByte{0x07});
+}
+
+TEST_F(SecureBufferTests, IterateMutableFixedSecureBuffer) {
+    FixedSecureBuffer<3> buf;
+    buf[0] = 0x10;
+    buf[1] = 0x20;
+    buf[2] = 0x30;
+
+    CryptoByte sum{0};
+    for (auto it = buf.begin(); it != buf.end(); ++it) { sum = static_cast<CryptoByte>(sum + *it); }
+    EXPECT_EQ(sum, CryptoByte{0x60});
+}
+
+TEST_F(SecureBufferTests, IterateConstFixedSecureBuffer) {
+    FixedSecureBuffer<3> buf;
+    buf[0] = 0x11;
+    buf[1] = 0x22;
+    buf[2] = 0x33;
+
+    const FixedSecureBuffer<3>& cbuf = buf;
+    CryptoByte sum{0};
+    for (auto it = cbuf.begin(); it != cbuf.end(); ++it) { sum = static_cast<CryptoByte>(sum + *it); }
+    EXPECT_EQ(sum, CryptoByte{0x66});
+}
+
+
 #ifdef SAFE_CRYPTO_CONTRACTS_ENFORCED
 
 TEST_F(SecureBufferTests, IndexOperatorOutOfBoundsDies) {

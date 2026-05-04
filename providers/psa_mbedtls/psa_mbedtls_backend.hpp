@@ -6,13 +6,33 @@ Copyright Permanence AI, 2026. All rights reserved.
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <new>
 
 #include <psa/crypto.h>
 #include <psa/crypto_sizes.h>
 #include <psa/crypto_values.h>
 
 #include "defs.hpp"
+#include "ml_dsa_variant.hpp"
+#include "ml_kem_variant.hpp"
+#include "pqc_key_store.hpp"
 #include "sha_variant.hpp"
+#include "slh_dsa_variant.hpp"
+
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+#include "liboqs_pqc.hpp"
+#endif
+
+
+// Wrapper around psa_key_attributes_t that carries PQC metadata for ML-DSA/ML-KEM
+// keys.  Non-PQC paths pass .psa to all psa_* C functions unchanged.
+struct PsaKeyAttributes {
+    psa_key_attributes_t psa = PSA_KEY_ATTRIBUTES_INIT;
+    psa_mbedtls::detail::PqcKeyType pqc_type{psa_mbedtls::detail::PqcKeyType::None};
+    std::uint8_t pqc_variant{0};
+};
 
 
 // Production PSA/MbedTLS backend — every method is a direct forwarding call to
@@ -23,7 +43,7 @@ struct RealPsaBackend {
     using Status        = psa_status_t;
     using KeyId         = mbedtls_svc_key_id_t;
     using Algorithm     = psa_algorithm_t;
-    using KeyAttributes = psa_key_attributes_t;
+    using KeyAttributes = PsaKeyAttributes;
     using KdfOperation  = psa_key_derivation_operation_t;
     using KdfStep       = psa_key_derivation_step_t;
 
@@ -40,8 +60,7 @@ struct RealPsaBackend {
     }
     [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        return a;
+        return {};
     }
     [[nodiscard]]
     static KdfOperation make_kdf_op() noexcept {
@@ -74,7 +93,25 @@ struct RealPsaBackend {
         const CryptoByte* data, const std::size_t data_length,
         KeyId* key)
     {
-        return psa_import_key(attributes, data, data_length, key);
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        if (attributes != nullptr &&
+            attributes->pqc_type != psa_mbedtls::detail::PqcKeyType::None) {
+            using psa_mbedtls::detail::PqcKeyType;
+            const bool is_private = (attributes->pqc_type == PqcKeyType::MlKemPrivate ||
+                                     attributes->pqc_type == PqcKeyType::MlDsaPrivate);
+            const CryptoByte* priv = is_private ? data : nullptr;
+            const std::size_t priv_sz = is_private ? data_length : 0U;
+            const CryptoByte* pub = is_private ? nullptr : data;
+            const std::size_t pub_sz = is_private ? 0U : data_length;
+            const unsigned int slot = psa_mbedtls::detail::pqc_key_store_import(
+                attributes->pqc_type, attributes->pqc_variant, priv, priv_sz, pub, pub_sz);
+            if (slot == 0U) { return PSA_ERROR_INVALID_ARGUMENT; }
+            *key = static_cast<KeyId>(slot);
+            return PSA_SUCCESS;
+        }
+#endif
+        return psa_import_key(attributes != nullptr ? &attributes->psa : nullptr,
+                              data, data_length, key);
     }
 
     [[nodiscard]]
@@ -82,11 +119,84 @@ struct RealPsaBackend {
         const KeyAttributes* attributes,
         KeyId* key)
     {
-        return psa_generate_key(attributes, key);
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        if (attributes != nullptr &&
+            attributes->pqc_type != psa_mbedtls::detail::PqcKeyType::None) {
+            using psa_mbedtls::detail::PqcKeyType;
+            if (attributes->pqc_type == PqcKeyType::MlKemPrivate) {
+                const auto v = static_cast<MlKemVariant>(attributes->pqc_variant);
+                const std::size_t pub_sz  = ml_kem_public_key_size(v);
+                const std::size_t priv_sz = ml_kem_private_key_size(v);
+                auto* pub_buf  = new (std::nothrow) CryptoByte[pub_sz];   // NOLINT(cppcoreguidelines-owning-memory)
+                auto* priv_buf = new (std::nothrow) CryptoByte[priv_sz];  // NOLINT(cppcoreguidelines-owning-memory)
+                if (pub_buf == nullptr || priv_buf == nullptr) {
+                    delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
+                    delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
+                    return PSA_ERROR_INVALID_ARGUMENT;
+                }
+                const bool ok_kg = liboqs_pqc::ml_kem_keygen(v, pub_buf, pub_sz, priv_buf, priv_sz);
+                if (!ok_kg) {
+                    ::detail::secure_zero(pub_buf,  pub_sz);
+                    ::detail::secure_zero(priv_buf, priv_sz);
+                    delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
+                    delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
+                    return PSA_ERROR_INVALID_ARGUMENT;
+                }
+                const unsigned int slot = psa_mbedtls::detail::pqc_key_store_import(
+                    PqcKeyType::MlKemPrivate, attributes->pqc_variant,
+                    priv_buf, priv_sz, pub_buf, pub_sz);
+                ::detail::secure_zero(priv_buf, priv_sz);
+                ::detail::secure_zero(pub_buf,  pub_sz);
+                delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
+                delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
+                if (slot == 0U) { return PSA_ERROR_INVALID_ARGUMENT; }
+                *key = static_cast<KeyId>(slot);
+                return PSA_SUCCESS;
+            }
+            if (attributes->pqc_type == PqcKeyType::MlDsaPrivate) {
+                const auto v = static_cast<MlDsaVariant>(attributes->pqc_variant);
+                const std::size_t pub_sz  = ml_dsa_public_key_size(v);
+                const std::size_t priv_sz = ml_dsa_private_key_size(v);
+                auto* pub_buf  = new (std::nothrow) CryptoByte[pub_sz];   // NOLINT(cppcoreguidelines-owning-memory)
+                auto* priv_buf = new (std::nothrow) CryptoByte[priv_sz];  // NOLINT(cppcoreguidelines-owning-memory)
+                if (pub_buf == nullptr || priv_buf == nullptr) {
+                    delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
+                    delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
+                    return PSA_ERROR_INVALID_ARGUMENT;
+                }
+                const bool ok_kg = liboqs_pqc::ml_dsa_keygen(v, pub_buf, pub_sz, priv_buf, priv_sz);
+                if (!ok_kg) {
+                    ::detail::secure_zero(pub_buf,  pub_sz);
+                    ::detail::secure_zero(priv_buf, priv_sz);
+                    delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
+                    delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
+                    return PSA_ERROR_INVALID_ARGUMENT;
+                }
+                const unsigned int slot = psa_mbedtls::detail::pqc_key_store_import(
+                    PqcKeyType::MlDsaPrivate, attributes->pqc_variant,
+                    priv_buf, priv_sz, pub_buf, pub_sz);
+                ::detail::secure_zero(priv_buf, priv_sz);
+                ::detail::secure_zero(pub_buf,  pub_sz);
+                delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
+                delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
+                if (slot == 0U) { return PSA_ERROR_INVALID_ARGUMENT; }
+                *key = static_cast<KeyId>(slot);
+                return PSA_SUCCESS;
+            }
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+#endif
+        return psa_generate_key(attributes != nullptr ? &attributes->psa : nullptr, key);
     }
 
     [[nodiscard]]
     static Status destroy_key(const KeyId key) {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        if (psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
+            psa_mbedtls::detail::pqc_key_store_destroy(static_cast<unsigned int>(key));
+            return PSA_SUCCESS;
+        }
+#endif
         return psa_destroy_key(key);
     }
 
@@ -95,6 +205,23 @@ struct RealPsaBackend {
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length)
     {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        if (psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
+            using psa_mbedtls::detail::PqcKeyType;
+            PqcKeyType ptype = PqcKeyType::None;
+            std::uint8_t pvariant = 0;
+            const CryptoByte* kdata = nullptr;
+            std::size_t klen = 0;
+            if (!psa_mbedtls::detail::pqc_key_store_get_private(
+                    static_cast<unsigned int>(key), &ptype, &pvariant, &kdata, &klen)) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            if (data_size < klen) { return PSA_ERROR_BUFFER_TOO_SMALL; }
+            std::memcpy(data, kdata, klen);
+            *data_length = klen;
+            return PSA_SUCCESS;
+        }
+#endif
         return psa_export_key(key, data, data_size, data_length);
     }
 
@@ -103,6 +230,23 @@ struct RealPsaBackend {
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length)
     {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        if (psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
+            using psa_mbedtls::detail::PqcKeyType;
+            PqcKeyType ptype = PqcKeyType::None;
+            std::uint8_t pvariant = 0;
+            const CryptoByte* pub = nullptr;
+            std::size_t pub_len = 0;
+            if (!psa_mbedtls::detail::pqc_key_store_get_public(
+                    static_cast<unsigned int>(key), &ptype, &pvariant, &pub, &pub_len)) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            if (data_size < pub_len) { return PSA_ERROR_BUFFER_TOO_SMALL; }
+            std::memcpy(data, pub, pub_len);
+            *data_length = pub_len;
+            return PSA_SUCCESS;
+        }
+#endif
         return psa_export_public_key(key, data, data_size, data_length);
     }
 
@@ -165,6 +309,31 @@ struct RealPsaBackend {
         CryptoByte* signature, const std::size_t signature_size,
         std::size_t* signature_length)
     {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        if ((alg & 0xFF00U) == 0xE100U) {
+            using psa_mbedtls::detail::PqcKeyType;
+            if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            PqcKeyType ptype = PqcKeyType::None;
+            std::uint8_t pvariant = 0;
+            const CryptoByte* priv = nullptr;
+            std::size_t priv_len = 0;
+            if (!psa_mbedtls::detail::pqc_key_store_get_private(
+                    static_cast<unsigned int>(key), &ptype, &pvariant, &priv, &priv_len)) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            if (ptype != PqcKeyType::MlDsaPrivate) { return PSA_ERROR_INVALID_ARGUMENT; }
+            const auto v = static_cast<MlDsaVariant>(pvariant);
+            if (signature_size < ml_dsa_signature_size(v)) { return PSA_ERROR_BUFFER_TOO_SMALL; }
+            if (!liboqs_pqc::ml_dsa_sign(v, priv, priv_len,
+                                          input, input_length,
+                                          signature, signature_size, signature_length)) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            return PSA_SUCCESS;
+        }
+#endif
         return psa_sign_message(
             key, alg, input, input_length,
             signature, signature_size, signature_length);
@@ -176,6 +345,30 @@ struct RealPsaBackend {
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* signature, const std::size_t signature_length)
     {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        if ((alg & 0xFF00U) == 0xE100U) {
+            using psa_mbedtls::detail::PqcKeyType;
+            if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            PqcKeyType ptype = PqcKeyType::None;
+            std::uint8_t pvariant = 0;
+            const CryptoByte* pub = nullptr;
+            std::size_t pub_len = 0;
+            if (!psa_mbedtls::detail::pqc_key_store_get_public(
+                    static_cast<unsigned int>(key), &ptype, &pvariant, &pub, &pub_len)) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            if (ptype != PqcKeyType::MlDsaPublic && ptype != PqcKeyType::MlDsaPrivate) {
+                return PSA_ERROR_INVALID_ARGUMENT;
+            }
+            const auto v = static_cast<MlDsaVariant>(pvariant);
+            return liboqs_pqc::ml_dsa_verify(v, pub, pub_len,
+                                              input, input_length,
+                                              signature, signature_length)
+                ? PSA_SUCCESS : PSA_ERROR_INVALID_SIGNATURE;
+        }
+#endif
         return psa_verify_message(
             key, alg, input, input_length, signature, signature_length);
     }
@@ -307,170 +500,170 @@ struct RealPsaBackend {
     // -------------------------------------------------------------------------
     [[nodiscard]]
     static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
-        psa_set_key_algorithm(&a, alg_hkdf());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_DERIVE);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&a.psa, alg_hkdf());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
-        psa_set_key_algorithm(&a, alg_hkdf_expand());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_DERIVE);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&a.psa, alg_hkdf_expand());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(const ShaVariant v,
                                                   const std::size_t key_size_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_HMAC);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE);
-        psa_set_key_algorithm(&a, alg_hmac(v));
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_HMAC);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_SIGN_MESSAGE);
+        psa_set_key_algorithm(&a.psa, alg_hmac(v));
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_hmac_verify_attrs(const ShaVariant v,
                                                 const std::size_t key_size_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_HMAC);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_size_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_VERIFY_MESSAGE);
-        psa_set_key_algorithm(&a, alg_hmac(v));
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_HMAC);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_size_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_VERIFY_MESSAGE);
+        psa_set_key_algorithm(&a.psa, alg_hmac(v));
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_ecdsa_generate_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE |
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_SIGN_MESSAGE |
                                     PSA_KEY_USAGE_VERIFY_MESSAGE |
                                     PSA_KEY_USAGE_EXPORT);
-        psa_set_key_algorithm(&a, alg_ecdsa());
+        psa_set_key_algorithm(&a.psa, alg_ecdsa());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_ecdsa_sign_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE);
-        psa_set_key_algorithm(&a, alg_ecdsa());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_SIGN_MESSAGE);
+        psa_set_key_algorithm(&a.psa, alg_ecdsa());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_ecdsa_verify_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_VERIFY_MESSAGE);
-        psa_set_key_algorithm(&a, alg_ecdsa());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_VERIFY_MESSAGE);
+        psa_set_key_algorithm(&a.psa, alg_ecdsa());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_ecdh_generate_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE | PSA_KEY_USAGE_EXPORT);
-        psa_set_key_algorithm(&a, alg_ecdh());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DERIVE | PSA_KEY_USAGE_EXPORT);
+        psa_set_key_algorithm(&a.psa, alg_ecdh());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_ecdh_agree_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
-        psa_set_key_algorithm(&a, alg_ecdh());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&a.psa, alg_ecdh());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_aes256_gcm_encrypt_attrs() noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_AES);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(aes256_key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT);
-        psa_set_key_algorithm(&a, alg_aes_gcm());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_AES);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(aes256_key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_ENCRYPT);
+        psa_set_key_algorithm(&a.psa, alg_aes_gcm());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_aes256_gcm_decrypt_attrs() noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_AES);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(aes256_key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DECRYPT);
-        psa_set_key_algorithm(&a, alg_aes_gcm());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_AES);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(aes256_key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DECRYPT);
+        psa_set_key_algorithm(&a.psa, alg_aes_gcm());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_encrypt_attrs() noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_CHACHA20);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(chacha20_key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT);
-        psa_set_key_algorithm(&a, alg_chacha20_poly1305());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_CHACHA20);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(chacha20_key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_ENCRYPT);
+        psa_set_key_algorithm(&a.psa, alg_chacha20_poly1305());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_decrypt_attrs() noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_CHACHA20);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(chacha20_key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DECRYPT);
-        psa_set_key_algorithm(&a, alg_chacha20_poly1305());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_CHACHA20);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(chacha20_key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DECRYPT);
+        psa_set_key_algorithm(&a.psa, alg_chacha20_poly1305());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_oaep_encrypt_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT);
-        psa_set_key_algorithm(&a, alg_rsa_oaep());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_ENCRYPT);
+        psa_set_key_algorithm(&a.psa, alg_rsa_oaep());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_oaep_decrypt_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DECRYPT);
-        psa_set_key_algorithm(&a, alg_rsa_oaep());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_RSA_KEY_PAIR);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DECRYPT);
+        psa_set_key_algorithm(&a.psa, alg_rsa_oaep());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_pss_sign_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_SIGN_MESSAGE);
-        psa_set_key_algorithm(&a, alg_rsa_pss());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_RSA_KEY_PAIR);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_SIGN_MESSAGE);
+        psa_set_key_algorithm(&a.psa, alg_rsa_pss());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_pss_verify_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_VERIFY_MESSAGE);
-        psa_set_key_algorithm(&a, alg_rsa_pss());
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_RSA_PUBLIC_KEY);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_VERIFY_MESSAGE);
+        psa_set_key_algorithm(&a.psa, alg_rsa_pss());
         return a;
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
-        KeyAttributes a = PSA_KEY_ATTRIBUTES_INIT;
-        psa_set_key_type(&a, PSA_KEY_TYPE_RSA_KEY_PAIR);
-        psa_set_key_bits(&a, static_cast<psa_key_bits_t>(key_bits));
-        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT |
+        KeyAttributes a{};
+        psa_set_key_type(&a.psa, PSA_KEY_TYPE_RSA_KEY_PAIR);
+        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_bits));
+        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT |
                                     PSA_KEY_USAGE_SIGN_MESSAGE | PSA_KEY_USAGE_VERIFY_MESSAGE |
                                     PSA_KEY_USAGE_EXPORT);
-        psa_set_key_algorithm(&a, alg_rsa_oaep());
+        psa_set_key_algorithm(&a.psa, alg_rsa_oaep());
         return a;
     }
 
@@ -552,5 +745,218 @@ struct RealPsaBackend {
         return PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_KEY_PAIR,
             static_cast<psa_key_bits_t>(key_bits));
+    }
+
+    // SLH-DSA — not supported by MbedTLS 4.1; all operations return err_invalid_arg.
+    [[nodiscard]]
+    static Algorithm alg_slh_dsa(const SlhDsaVariant) noexcept {
+        return static_cast<Algorithm>(0);  // PSA_ALG_NONE — unsupported
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant) noexcept {
+        return {};
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant) noexcept {
+        return {};
+    }
+    [[nodiscard]]
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant) noexcept {
+        return {};
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_signature_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_private_key_export_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_private_key_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v) noexcept {
+        return slh_dsa_public_key_size(v);
+    }
+
+    // ML-DSA — not supported by native MbedTLS 4.1; routed via liboqs when available.
+    [[nodiscard]]
+    static Algorithm alg_ml_dsa(const MlDsaVariant v) noexcept {
+        // Encode variant in low byte so sign/verify can dispatch without key ID.
+        return static_cast<Algorithm>(0xE100U) | static_cast<Algorithm>(v);
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        PsaKeyAttributes a{};
+        a.pqc_type    = psa_mbedtls::detail::PqcKeyType::MlDsaPrivate;
+        a.pqc_variant = static_cast<std::uint8_t>(v);
+        return a;
+#else
+        (void)v; return {};
+#endif
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_dsa_verify_attrs(const MlDsaVariant v) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        PsaKeyAttributes a{};
+        a.pqc_type    = psa_mbedtls::detail::PqcKeyType::MlDsaPublic;
+        a.pqc_variant = static_cast<std::uint8_t>(v);
+        return a;
+#else
+        (void)v; return {};
+#endif
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_dsa_generate_attrs(const MlDsaVariant v) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        PsaKeyAttributes a{};
+        a.pqc_type    = psa_mbedtls::detail::PqcKeyType::MlDsaPrivate;
+        a.pqc_variant = static_cast<std::uint8_t>(v);
+        return a;
+#else
+        (void)v; return {};
+#endif
+    }
+    [[nodiscard]]
+    static std::size_t ml_dsa_sign_output_size(const MlDsaVariant v) noexcept {
+        return ml_dsa_signature_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t ml_dsa_private_key_export_size(const MlDsaVariant v) noexcept {
+        return ml_dsa_private_key_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t ml_dsa_public_key_export_size(const MlDsaVariant v) noexcept {
+        return ml_dsa_public_key_size(v);
+    }
+
+    // ML-KEM — not supported by native MbedTLS 4.1; routed via liboqs when available.
+    [[nodiscard]]
+    static Algorithm alg_ml_kem(const MlKemVariant) noexcept {
+        return static_cast<Algorithm>(0);  // PSA_ALG_NONE — routing done by key ID, not alg
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        PsaKeyAttributes a{};
+        a.pqc_type    = psa_mbedtls::detail::PqcKeyType::MlKemPrivate;
+        a.pqc_variant = static_cast<std::uint8_t>(v);
+        return a;
+#else
+        (void)v; return {};
+#endif
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_kem_encap_attrs(const MlKemVariant v) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        PsaKeyAttributes a{};
+        a.pqc_type    = psa_mbedtls::detail::PqcKeyType::MlKemPublic;
+        a.pqc_variant = static_cast<std::uint8_t>(v);
+        return a;
+#else
+        (void)v; return {};
+#endif
+    }
+    [[nodiscard]]
+    static KeyAttributes make_ml_kem_decap_attrs(const MlKemVariant v) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        PsaKeyAttributes a{};
+        a.pqc_type    = psa_mbedtls::detail::PqcKeyType::MlKemPrivate;
+        a.pqc_variant = static_cast<std::uint8_t>(v);
+        return a;
+#else
+        (void)v; return {};
+#endif
+    }
+    [[nodiscard]]
+    static std::size_t ml_kem_ciphertext_size(const MlKemVariant v) noexcept {
+        return ::ml_kem_ciphertext_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t ml_kem_shared_secret_size(const MlKemVariant v) noexcept {
+        return ::ml_kem_shared_secret_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t ml_kem_private_key_export_size(const MlKemVariant v) noexcept {
+        return ml_kem_private_key_size(v);
+    }
+    [[nodiscard]]
+    static std::size_t ml_kem_public_key_export_size(const MlKemVariant v) noexcept {
+        return ml_kem_public_key_size(v);
+    }
+    [[nodiscard]]
+    static Status kem_encapsulate(
+        const KeyId key, const Algorithm alg,
+        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
+        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        (void)alg;
+        using psa_mbedtls::detail::PqcKeyType;
+        if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+        PqcKeyType ptype = PqcKeyType::None;
+        std::uint8_t pvariant = 0;
+        const CryptoByte* pub = nullptr;
+        std::size_t pub_len = 0;
+        if (!psa_mbedtls::detail::pqc_key_store_get_public(
+                static_cast<unsigned int>(key), &ptype, &pvariant, &pub, &pub_len)) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+        if (ptype != PqcKeyType::MlKemPublic && ptype != PqcKeyType::MlKemPrivate) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+        const auto v = static_cast<MlKemVariant>(pvariant);
+        if (ciphertext_size    < ml_kem_ciphertext_size(v))    { return PSA_ERROR_BUFFER_TOO_SMALL; }
+        if (shared_secret_size < ml_kem_shared_secret_size(v)) { return PSA_ERROR_BUFFER_TOO_SMALL; }
+        if (!liboqs_pqc::ml_kem_encaps(v, pub, pub_len,
+                                        ciphertext,    ciphertext_size,
+                                        shared_secret, shared_secret_size)) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+        *ciphertext_len    = ml_kem_ciphertext_size(v);
+        *shared_secret_len = ml_kem_shared_secret_size(v);
+        return PSA_SUCCESS;
+#else
+        (void)key; (void)alg;
+        (void)ciphertext; (void)ciphertext_size; (void)ciphertext_len;
+        (void)shared_secret; (void)shared_secret_size; (void)shared_secret_len;
+        return err_invalid_arg;
+#endif
+    }
+    [[nodiscard]]
+    static Status kem_decapsulate(
+        const KeyId key, const Algorithm alg,
+        const CryptoByte* ciphertext, std::size_t ciphertext_len,
+        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
+        (void)alg;
+        using psa_mbedtls::detail::PqcKeyType;
+        if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+        PqcKeyType ptype = PqcKeyType::None;
+        std::uint8_t pvariant = 0;
+        const CryptoByte* priv = nullptr;
+        std::size_t priv_len = 0;
+        if (!psa_mbedtls::detail::pqc_key_store_get_private(
+                static_cast<unsigned int>(key), &ptype, &pvariant, &priv, &priv_len)) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+        if (ptype != PqcKeyType::MlKemPrivate) { return PSA_ERROR_INVALID_ARGUMENT; }
+        const auto v = static_cast<MlKemVariant>(pvariant);
+        if (shared_secret_size < ml_kem_shared_secret_size(v)) { return PSA_ERROR_BUFFER_TOO_SMALL; }
+        if (!liboqs_pqc::ml_kem_decaps(v, priv, priv_len,
+                                        ciphertext, ciphertext_len,
+                                        shared_secret, shared_secret_size)) {
+            return PSA_ERROR_INVALID_ARGUMENT;
+        }
+        *shared_secret_len = ml_kem_shared_secret_size(v);
+        return PSA_SUCCESS;
+#else
+        (void)key; (void)alg;
+        (void)ciphertext; (void)ciphertext_len;
+        (void)shared_secret; (void)shared_secret_size; (void)shared_secret_len;
+        return err_invalid_arg;
+#endif
     }
 };

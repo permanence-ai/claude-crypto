@@ -13,6 +13,7 @@ target_sources(${LIB_NAME} INTERFACE
         hmac.hpp
         keccak.hpp
         key_store.hpp
+        pqc_key_store.hpp
         poly1305.hpp
         random.hpp
         rsa.hpp
@@ -31,7 +32,34 @@ target_include_directories(${LIB_NAME} INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../safe-crypto-lib
 )
 
-# ARM Crypto Extensions: AES, SHA2, SHA3, PMULL
-target_compile_options(${LIB_NAME} INTERFACE
-        -march=armv8.2-a+crypto+sha3
-)
+# ARM Crypto Extensions: AES, SHA2, SHA3, PMULL — only valid on AArch64.
+# Skip the march flag when cross-compiling for x86_64 on macOS (IA ASM build)
+# so the ARM flag does not propagate to x86_64 translation units that link
+# safe_crypto_lib_arm_asm transitively for cross-provider tests.
+if(NOT (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64"))
+    target_compile_options(${LIB_NAME} INTERFACE
+            -march=armv8.2-a+crypto+sha3
+    )
+endif()
+
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_liboqs)
+
+    # NEON NTT override for Dilithium (ML-DSA).  Built as an OBJECT library so
+    # the translation unit is unconditionally included in any executable that
+    # links safe_crypto_lib_dilithium_ntt, ensuring our symbols are resolved
+    # before the linker consults liboqs.a.
+    add_library(safe_crypto_lib_dilithium_ntt OBJECT
+            dilithium_ntt_neon.cpp
+    )
+    target_compile_options(safe_crypto_lib_dilithium_ntt PRIVATE
+            -march=armv8.2-a+crypto+sha3
+    )
+    target_include_directories(safe_crypto_lib_dilithium_ntt PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    target_link_libraries(safe_crypto_lib_dilithium_ntt PRIVATE
+            safe_crypto_warnings
+            safe_crypto_optimize
+    )
+endif()

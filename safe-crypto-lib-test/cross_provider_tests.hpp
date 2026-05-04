@@ -5,13 +5,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #pragma once
 
-// Cross-provider parity tests: ARM ASM vs PSA/MbedTLS.
+// Cross-provider parity tests: native ASM backend vs PSA/MbedTLS.
 //
 // Each test generates a random input, runs the same operation through both
-// ArmAsmBackend and RealPsaBackend, and asserts byte-for-byte identical
-// output.  This catches implementation drift that KAT tests cannot find —
-// a wrong implementation can still pass a KAT if the reference vector was
-// derived from the same wrong code.
+// NativeAsmBackend (NativeAsmBackend or IaAsmBackend) and RealPsaBackend, and
+// asserts byte-for-byte identical output.  This catches implementation drift
+// that KAT tests cannot find — a wrong implementation can still pass a KAT if
+// the reference vector was derived from the same wrong code.
 //
 // Operations covered:
 //   SHA-256, SHA-384, SHA-512
@@ -27,9 +27,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 //   RSA-PSS cross-verify for 3072-bit and 4096-bit keys
 //
 // The file is always compiled but the tests are guarded by
-// SAFE_CRYPTO_PROVIDER_ARM_ASM (the test binary links both provider
-// libraries regardless of the active provider, but only runs these tests
-// when the ARM ASM symbols are available).
+// SAFE_CRYPTO_PROVIDER_ARM_ASM or SAFE_CRYPTO_PROVIDER_IA_ASM.
 
 #include <algorithm>
 #include <array>
@@ -45,7 +43,15 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha_variant.hpp"
 #include "secure_buffer.hpp"
 
-#include "arm_asm_backend.hpp"
+#if defined(SAFE_CRYPTO_PROVIDER_ARM_ASM) || defined(SAFE_CRYPTO_PROVIDER_IA_ASM)
+#  ifdef SAFE_CRYPTO_PROVIDER_IA_ASM
+#    include "ia_asm_backend.hpp"
+using NativeAsmBackend = IaAsmBackend;
+#  else
+#    include "arm_asm_backend.hpp"
+using NativeAsmBackend = ArmAsmBackend;
+#  endif
+#endif
 #include "psa_mbedtls_backend.hpp"
 
 #include "aead.hpp"
@@ -58,7 +64,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "test_utils.hpp"
 
-#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
+#if defined(SAFE_CRYPTO_PROVIDER_ARM_ASM) || defined(SAFE_CRYPTO_PROVIDER_IA_ASM)
 
 
 // ---------------------------------------------------------------------------
@@ -125,9 +131,9 @@ static void run_hash_parity_test(const char* label) {
             psa_out.data(), psa_out.size(), &psa_len), RealPsaBackend::ok)
             << label << " PSA hash_compute failed (msg_len=" << msg_len << ")";
 
-        ASSERT_EQ(ArmAsmBackend::hash_compute(
-            ArmAsmBackend::alg_sha(V), msg.data(), msg.size(),
-            arm_out.data(), arm_out.size(), &arm_len), ArmAsmBackend::ok)
+        ASSERT_EQ(NativeAsmBackend::hash_compute(
+            NativeAsmBackend::alg_sha(V), msg.data(), msg.size(),
+            arm_out.data(), arm_out.size(), &arm_len), NativeAsmBackend::ok)
             << label << " ARM hash_compute failed (msg_len=" << msg_len << ")";
 
         ASSERT_EQ(psa_len, arm_len) << label << " output length mismatch";
@@ -173,17 +179,17 @@ static void run_hmac_parity_test(const char* label) {
     (void)RealPsaBackend::destroy_key(psa_id);
 
     // Import key into ARM ASM store.
-    auto arm_attrs = ArmAsmBackend::make_hmac_generate_attrs(V, key.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ArmAsmBackend::KeyId arm_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
-              ArmAsmBackend::ok) << label << " ARM key import failed";
+    auto arm_attrs = NativeAsmBackend::make_hmac_generate_attrs(V, key.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    NativeAsmBackend::KeyId arm_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
+              NativeAsmBackend::ok) << label << " ARM key import failed";
 
-    ASSERT_EQ(ArmAsmBackend::mac_compute(
-        arm_id, ArmAsmBackend::alg_hmac(V),
+    ASSERT_EQ(NativeAsmBackend::mac_compute(
+        arm_id, NativeAsmBackend::alg_hmac(V),
         msg.data(), msg.size(),
-        arm_out.data(), arm_out.size(), &arm_len), ArmAsmBackend::ok)
+        arm_out.data(), arm_out.size(), &arm_len), NativeAsmBackend::ok)
         << label << " ARM mac_compute failed";
-    (void)ArmAsmBackend::destroy_key(arm_id);
+    (void)NativeAsmBackend::destroy_key(arm_id);
 
     ASSERT_EQ(psa_len, arm_len) << label << " output length mismatch";
     expect_equal_outputs(psa_out, arm_out, label);
@@ -225,19 +231,19 @@ TEST_F(CrossProviderAesGcmTests, EncryptParity) {
     (void)RealPsaBackend::destroy_key(psa_id);
 
     // ARM ASM encrypt — same key, nonce, AAD, plaintext
-    auto arm_attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
-    ArmAsmBackend::KeyId arm_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
-              ArmAsmBackend::ok);
+    auto arm_attrs = NativeAsmBackend::make_aes256_gcm_encrypt_attrs();
+    NativeAsmBackend::KeyId arm_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
+              NativeAsmBackend::ok);
     std::array<uint8_t, 64 + 16> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_ct_len = 0;
-    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
-        arm_id, ArmAsmBackend::alg_aes_gcm(),
+    ASSERT_EQ(NativeAsmBackend::aead_encrypt(
+        arm_id, NativeAsmBackend::alg_aes_gcm(),
         nonce.data(), nonce.size(),
         aad.data(), aad.size(),
         pt_arr.data(), pt_arr.size(),
-        arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
-    (void)ArmAsmBackend::destroy_key(arm_id);
+        arm_ct.data(), arm_ct.size(), &arm_ct_len), NativeAsmBackend::ok);
+    (void)NativeAsmBackend::destroy_key(arm_id);
 
     ASSERT_EQ(psa_ct_len, arm_ct_len);
     expect_equal_outputs(psa_ct, arm_ct, "AES-256-GCM encrypt");
@@ -277,18 +283,18 @@ TEST_F(CrossProviderAesGcmTests, DecryptParity) {
     (void)RealPsaBackend::destroy_key(psa_dec_id);
 
     // ARM ASM decrypt of same ciphertext
-    auto arm_dec_attrs = ArmAsmBackend::make_aes256_gcm_decrypt_attrs();
-    ArmAsmBackend::KeyId arm_dec_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_dec_attrs, key.data(), key.size(), &arm_dec_id),
-              ArmAsmBackend::ok);
+    auto arm_dec_attrs = NativeAsmBackend::make_aes256_gcm_decrypt_attrs();
+    NativeAsmBackend::KeyId arm_dec_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_dec_attrs, key.data(), key.size(), &arm_dec_id),
+              NativeAsmBackend::ok);
     std::array<uint8_t, 48> arm_pt{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_pt_len = 0;
-    ASSERT_EQ(ArmAsmBackend::aead_decrypt(
-        arm_dec_id, ArmAsmBackend::alg_aes_gcm(),
+    ASSERT_EQ(NativeAsmBackend::aead_decrypt(
+        arm_dec_id, NativeAsmBackend::alg_aes_gcm(),
         nonce.data(), nonce.size(), nullptr, 0,
         ct.data(), ct_len,
-        arm_pt.data(), arm_pt.size(), &arm_pt_len), ArmAsmBackend::ok);
-    (void)ArmAsmBackend::destroy_key(arm_dec_id);
+        arm_pt.data(), arm_pt.size(), &arm_pt_len), NativeAsmBackend::ok);
+    (void)NativeAsmBackend::destroy_key(arm_dec_id);
 
     ASSERT_EQ(psa_pt_len, arm_pt_len);
     expect_equal_outputs(psa_pt, arm_pt, "AES-256-GCM decrypt");
@@ -321,19 +327,19 @@ TEST_F(CrossProviderChaCha20Tests, EncryptParity) {
         psa_ct.data(), psa_ct.size(), &psa_ct_len), RealPsaBackend::ok);
     (void)RealPsaBackend::destroy_key(psa_id);
 
-    auto arm_attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
-    ArmAsmBackend::KeyId arm_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
-              ArmAsmBackend::ok);
+    auto arm_attrs = NativeAsmBackend::make_chacha20_poly1305_encrypt_attrs();
+    NativeAsmBackend::KeyId arm_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
+              NativeAsmBackend::ok);
     std::array<uint8_t, 64 + 16> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_ct_len = 0;
-    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
-        arm_id, ArmAsmBackend::alg_chacha20_poly1305(),
+    ASSERT_EQ(NativeAsmBackend::aead_encrypt(
+        arm_id, NativeAsmBackend::alg_chacha20_poly1305(),
         nonce.data(), nonce.size(),
         aad.data(), aad.size(),
         pt_arr.data(), pt_arr.size(),
-        arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
-    (void)ArmAsmBackend::destroy_key(arm_id);
+        arm_ct.data(), arm_ct.size(), &arm_ct_len), NativeAsmBackend::ok);
+    (void)NativeAsmBackend::destroy_key(arm_id);
 
     ASSERT_EQ(psa_ct_len, arm_ct_len);
     expect_equal_outputs(psa_ct, arm_ct, "ChaCha20-Poly1305 encrypt");
@@ -373,18 +379,18 @@ TEST_F(CrossProviderChaCha20Tests, DecryptParity) {
     (void)RealPsaBackend::destroy_key(psa_dec_id);
 
     // ARM ASM decrypt
-    auto arm_dec_attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
-    ArmAsmBackend::KeyId arm_dec_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_dec_attrs, key.data(), key.size(), &arm_dec_id),
-              ArmAsmBackend::ok);
+    auto arm_dec_attrs = NativeAsmBackend::make_chacha20_poly1305_decrypt_attrs();
+    NativeAsmBackend::KeyId arm_dec_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_dec_attrs, key.data(), key.size(), &arm_dec_id),
+              NativeAsmBackend::ok);
     std::array<uint8_t, 80> arm_pt{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_pt_len = 0;
-    ASSERT_EQ(ArmAsmBackend::aead_decrypt(
-        arm_dec_id, ArmAsmBackend::alg_chacha20_poly1305(),
+    ASSERT_EQ(NativeAsmBackend::aead_decrypt(
+        arm_dec_id, NativeAsmBackend::alg_chacha20_poly1305(),
         nonce.data(), nonce.size(), nullptr, 0,
         ct.data(), ct_len,
-        arm_pt.data(), arm_pt.size(), &arm_pt_len), ArmAsmBackend::ok);
-    (void)ArmAsmBackend::destroy_key(arm_dec_id);
+        arm_pt.data(), arm_pt.size(), &arm_pt_len), NativeAsmBackend::ok);
+    (void)NativeAsmBackend::destroy_key(arm_dec_id);
 
     ASSERT_EQ(psa_pt_len, arm_pt_len);
     expect_equal_outputs(psa_pt, arm_pt, "ChaCha20-Poly1305 decrypt");
@@ -397,18 +403,18 @@ TEST_F(CrossProviderChaCha20Tests, CrossDecryptArmCtWithPsa) {
     const auto pt_arr = make_test_bytes<32>(0xAAU);
 
     // ARM ASM encrypt
-    auto arm_enc_attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
-    ArmAsmBackend::KeyId arm_enc_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_enc_attrs, key.data(), key.size(), &arm_enc_id),
-              ArmAsmBackend::ok);
+    auto arm_enc_attrs = NativeAsmBackend::make_chacha20_poly1305_encrypt_attrs();
+    NativeAsmBackend::KeyId arm_enc_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_enc_attrs, key.data(), key.size(), &arm_enc_id),
+              NativeAsmBackend::ok);
     std::array<uint8_t, 32 + 16> arm_ct{};
     std::size_t arm_ct_len = 0;
-    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
-        arm_enc_id, ArmAsmBackend::alg_chacha20_poly1305(),
+    ASSERT_EQ(NativeAsmBackend::aead_encrypt(
+        arm_enc_id, NativeAsmBackend::alg_chacha20_poly1305(),
         nonce.data(), nonce.size(), nullptr, 0,
         pt_arr.data(), pt_arr.size(),
-        arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
-    (void)ArmAsmBackend::destroy_key(arm_enc_id);
+        arm_ct.data(), arm_ct.size(), &arm_ct_len), NativeAsmBackend::ok);
+    (void)NativeAsmBackend::destroy_key(arm_enc_id);
 
     // PSA decrypt of ARM ciphertext
     auto psa_dec_attrs = RealPsaBackend::make_chacha20_poly1305_decrypt_attrs();
@@ -449,19 +455,19 @@ TEST_F(CrossProviderChaCha20Tests, CrossDecryptPsaCtWithArm) {
     (void)RealPsaBackend::destroy_key(psa_enc_id);
 
     // ARM ASM decrypt of PSA ciphertext
-    auto arm_dec_attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
-    ArmAsmBackend::KeyId arm_dec_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_dec_attrs, key.data(), key.size(), &arm_dec_id),
-              ArmAsmBackend::ok);
+    auto arm_dec_attrs = NativeAsmBackend::make_chacha20_poly1305_decrypt_attrs();
+    NativeAsmBackend::KeyId arm_dec_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_dec_attrs, key.data(), key.size(), &arm_dec_id),
+              NativeAsmBackend::ok);
     std::array<uint8_t, 32> recovered_pt{};
     std::size_t recovered_len = 0;
-    ASSERT_EQ(ArmAsmBackend::aead_decrypt(
-        arm_dec_id, ArmAsmBackend::alg_chacha20_poly1305(),
+    ASSERT_EQ(NativeAsmBackend::aead_decrypt(
+        arm_dec_id, NativeAsmBackend::alg_chacha20_poly1305(),
         nonce.data(), nonce.size(), nullptr, 0,
         psa_ct.data(), psa_ct_len,
-        recovered_pt.data(), recovered_pt.size(), &recovered_len), ArmAsmBackend::ok)
+        recovered_pt.data(), recovered_pt.size(), &recovered_len), NativeAsmBackend::ok)
         << "ARM ASM rejected ciphertext produced by PSA";
-    (void)ArmAsmBackend::destroy_key(arm_dec_id);
+    (void)NativeAsmBackend::destroy_key(arm_dec_id);
 
     ASSERT_EQ(recovered_len, pt_arr.size());
     expect_equal_outputs(pt_arr, recovered_pt, "ChaCha20-Poly1305 cross-decrypt PSA→ARM");
@@ -519,7 +525,7 @@ TEST_F(CrossProviderHkdfTests, HkdfSha384Parity) {
     };
 
     const auto psa_out = run_hkdf.template operator()<RealPsaBackend>();
-    const auto arm_out = run_hkdf.template operator()<ArmAsmBackend>();
+    const auto arm_out = run_hkdf.template operator()<NativeAsmBackend>();
     expect_equal_outputs(psa_out, arm_out, "HKDF-SHA-384");
 }
 
@@ -562,7 +568,7 @@ TEST_F(CrossProviderHkdfTests, HkdfExpandParity) {
     };
 
     const auto psa_out = run_hkdf_expand.template operator()<RealPsaBackend>();
-    const auto arm_out = run_hkdf_expand.template operator()<ArmAsmBackend>();
+    const auto arm_out = run_hkdf_expand.template operator()<NativeAsmBackend>();
     expect_equal_outputs(psa_out, arm_out, "HKDF-Expand-SHA-384");
 }
 
@@ -577,18 +583,18 @@ TEST_F(CrossProviderAesGcmTests, CrossDecryptArmCtWithPsa) {
     const auto pt_arr = make_test_bytes<48>(0x12U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // ARM ASM encrypt
-    auto arm_enc_attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
-    ArmAsmBackend::KeyId arm_enc_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&arm_enc_attrs, key.data(), key.size(), &arm_enc_id),
-              ArmAsmBackend::ok);
+    auto arm_enc_attrs = NativeAsmBackend::make_aes256_gcm_encrypt_attrs();
+    NativeAsmBackend::KeyId arm_enc_id = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::import_key(&arm_enc_attrs, key.data(), key.size(), &arm_enc_id),
+              NativeAsmBackend::ok);
     std::array<uint8_t, 48 + 16> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_ct_len = 0;
-    ASSERT_EQ(ArmAsmBackend::aead_encrypt(
-        arm_enc_id, ArmAsmBackend::alg_aes_gcm(),
+    ASSERT_EQ(NativeAsmBackend::aead_encrypt(
+        arm_enc_id, NativeAsmBackend::alg_aes_gcm(),
         nonce.data(), nonce.size(), nullptr, 0,
         pt_arr.data(), pt_arr.size(),
-        arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok);
-    (void)ArmAsmBackend::destroy_key(arm_enc_id);
+        arm_ct.data(), arm_ct.size(), &arm_ct_len), NativeAsmBackend::ok);
+    (void)NativeAsmBackend::destroy_key(arm_enc_id);
 
     // PSA decrypt of ARM ciphertext
     auto psa_dec_attrs = RealPsaBackend::make_aes256_gcm_decrypt_attrs();
@@ -626,25 +632,25 @@ class CrossProviderEcdhTests : public CrossProviderTest {};
 template<std::size_t KeyBits>
 static void run_ecdh_parity_test(const char* label) {
     // Generate key A with ARM ASM.
-    auto arm_gen_attrs = ArmAsmBackend::make_ecdh_generate_attrs(KeyBits);
-    ArmAsmBackend::KeyId arm_id_a = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::generate_key(&arm_gen_attrs, &arm_id_a), ArmAsmBackend::ok)
+    auto arm_gen_attrs = NativeAsmBackend::make_ecdh_generate_attrs(KeyBits);
+    NativeAsmBackend::KeyId arm_id_a = NativeAsmBackend::null_key_id();
+    ASSERT_EQ(NativeAsmBackend::generate_key(&arm_gen_attrs, &arm_id_a), NativeAsmBackend::ok)
         << label << " ARM key gen failed";
 
     // Export ARM private key scalar bytes.
     constexpr std::size_t sk_len = (KeyBits + 7U) / 8U;
     std::array<uint8_t, sk_len> arm_sk{};
     std::size_t arm_sk_len = 0;
-    ASSERT_EQ(ArmAsmBackend::export_key(arm_id_a, arm_sk.data(), arm_sk.size(), &arm_sk_len),
-              ArmAsmBackend::ok) << label << " ARM export_key failed";
+    ASSERT_EQ(NativeAsmBackend::export_key(arm_id_a, arm_sk.data(), arm_sk.size(), &arm_sk_len),
+              NativeAsmBackend::ok) << label << " ARM export_key failed";
     ASSERT_EQ(arm_sk_len, sk_len);
 
     // Derive ARM public key (uncompressed 0x04|x|y).
     constexpr std::size_t pk_len = sk_len * 2U + 1U;
     std::array<uint8_t, pk_len> arm_pk{};
     std::size_t arm_pk_len = 0;
-    ASSERT_EQ(ArmAsmBackend::export_public_key(arm_id_a, arm_pk.data(), arm_pk.size(), &arm_pk_len),
-              ArmAsmBackend::ok) << label << " ARM export_public_key failed";
+    ASSERT_EQ(NativeAsmBackend::export_public_key(arm_id_a, arm_pk.data(), arm_pk.size(), &arm_pk_len),
+              NativeAsmBackend::ok) << label << " ARM export_public_key failed";
     ASSERT_EQ(arm_pk_len, pk_len);
 
     // Import the same private key scalar into PSA as an ECDH key.
@@ -667,10 +673,10 @@ static void run_ecdh_parity_test(const char* label) {
     // ARM ASM: raw_key_agreement(arm_id_a, peer_pk) → shared secret.
     std::array<uint8_t, sk_len> arm_ss{};
     std::size_t arm_ss_len = 0;
-    ASSERT_EQ(ArmAsmBackend::raw_key_agreement(
-        ArmAsmBackend::alg_ecdh(), arm_id_a,
+    ASSERT_EQ(NativeAsmBackend::raw_key_agreement(
+        NativeAsmBackend::alg_ecdh(), arm_id_a,
         peer_pk.data(), peer_pk_len,
-        arm_ss.data(), arm_ss.size(), &arm_ss_len), ArmAsmBackend::ok)
+        arm_ss.data(), arm_ss.size(), &arm_ss_len), NativeAsmBackend::ok)
         << label << " ARM raw_key_agreement failed";
 
     // PSA: raw_key_agreement(psa_id_a, peer_pk) → shared secret (same private key, same peer).
@@ -682,7 +688,7 @@ static void run_ecdh_parity_test(const char* label) {
         psa_ss.data(), psa_ss.size(), &psa_ss_len), RealPsaBackend::ok)
         << label << " PSA raw_key_agreement failed";
 
-    (void)ArmAsmBackend::destroy_key(arm_id_a);
+    (void)NativeAsmBackend::destroy_key(arm_id_a);
     (void)RealPsaBackend::destroy_key(psa_id_a);
     (void)RealPsaBackend::destroy_key(psa_id_b);
 
@@ -725,26 +731,26 @@ static void run_ecdsa_cross_verify_test(const char* label) {
     // ---- ARM signs, PSA verifies ----------------------------------------
     {
         // Generate signing key with ARM.
-        auto arm_sign_attrs = ArmAsmBackend::make_ecdsa_sign_attrs(KeyBits);
-        ArmAsmBackend::KeyId arm_sign_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::generate_key(&arm_sign_attrs, &arm_sign_id), ArmAsmBackend::ok)
+        auto arm_sign_attrs = NativeAsmBackend::make_ecdsa_sign_attrs(KeyBits);
+        NativeAsmBackend::KeyId arm_sign_id = NativeAsmBackend::null_key_id();
+        ASSERT_EQ(NativeAsmBackend::generate_key(&arm_sign_attrs, &arm_sign_id), NativeAsmBackend::ok)
             << label << " ARM keygen failed";
 
         // ARM sign.
         std::array<uint8_t, sig_len> arm_sig{};
         std::size_t arm_sig_len = 0;
-        ASSERT_EQ(ArmAsmBackend::sign_message(
-            arm_sign_id, ArmAsmBackend::alg_ecdsa(),
+        ASSERT_EQ(NativeAsmBackend::sign_message(
+            arm_sign_id, NativeAsmBackend::alg_ecdsa(),
             msg.data(), msg.size(),
-            arm_sig.data(), arm_sig.size(), &arm_sig_len), ArmAsmBackend::ok)
+            arm_sig.data(), arm_sig.size(), &arm_sig_len), NativeAsmBackend::ok)
             << label << " ARM sign failed";
         ASSERT_EQ(arm_sig_len, sig_len);
 
         // Export ARM public key (uncompressed point) and import into PSA for verification.
         std::array<uint8_t, pk_len> arm_pub{};
         std::size_t arm_pub_len = 0;
-        ASSERT_EQ(ArmAsmBackend::export_public_key(
-            arm_sign_id, arm_pub.data(), arm_pub.size(), &arm_pub_len), ArmAsmBackend::ok)
+        ASSERT_EQ(NativeAsmBackend::export_public_key(
+            arm_sign_id, arm_pub.data(), arm_pub.size(), &arm_pub_len), NativeAsmBackend::ok)
             << label << " ARM export_public_key failed";
 
         auto psa_verify_attrs = RealPsaBackend::make_ecdsa_verify_attrs(KeyBits);
@@ -759,7 +765,7 @@ static void run_ecdsa_cross_verify_test(const char* label) {
             arm_sig.data(), arm_sig_len), RealPsaBackend::ok)
             << label << " PSA rejected ARM signature";
 
-        (void)ArmAsmBackend::destroy_key(arm_sign_id);
+        (void)NativeAsmBackend::destroy_key(arm_sign_id);
         (void)RealPsaBackend::destroy_key(psa_verify_id);
     }
 
@@ -789,20 +795,20 @@ static void run_ecdsa_cross_verify_test(const char* label) {
             << label << " PSA export_public_key failed";
         ASSERT_EQ(psa_pub_len, pk_len);
 
-        auto arm_verify_attrs = ArmAsmBackend::make_ecdsa_verify_attrs(KeyBits);
-        ArmAsmBackend::KeyId arm_verify_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::import_key(
-            &arm_verify_attrs, psa_pub.data(), psa_pub_len, &arm_verify_id), ArmAsmBackend::ok)
+        auto arm_verify_attrs = NativeAsmBackend::make_ecdsa_verify_attrs(KeyBits);
+        NativeAsmBackend::KeyId arm_verify_id = NativeAsmBackend::null_key_id();
+        ASSERT_EQ(NativeAsmBackend::import_key(
+            &arm_verify_attrs, psa_pub.data(), psa_pub_len, &arm_verify_id), NativeAsmBackend::ok)
             << label << " ARM public key import failed";
 
-        EXPECT_EQ(ArmAsmBackend::verify_message(
-            arm_verify_id, ArmAsmBackend::alg_ecdsa(),
+        EXPECT_EQ(NativeAsmBackend::verify_message(
+            arm_verify_id, NativeAsmBackend::alg_ecdsa(),
             msg.data(), msg.size(),
-            psa_sig.data(), psa_sig_len), ArmAsmBackend::ok)
+            psa_sig.data(), psa_sig_len), NativeAsmBackend::ok)
             << label << " ARM rejected PSA signature";
 
         (void)RealPsaBackend::destroy_key(psa_sign_id);
-        (void)ArmAsmBackend::destroy_key(arm_verify_id);
+        (void)NativeAsmBackend::destroy_key(arm_verify_id);
     }
 }
 
@@ -855,21 +861,21 @@ static void run_rsa_oaep_cross_decrypt_test(const char* label) {
         (void)RealPsaBackend::destroy_key(psa_enc_id);
 
         // ARM decrypt with private key.
-        auto arm_dec_attrs = ArmAsmBackend::make_rsa_oaep_decrypt_attrs(key_bits);
-        ArmAsmBackend::KeyId arm_dec_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::import_key(
-            &arm_dec_attrs, priv_der.data(), priv_der.size(), &arm_dec_id), ArmAsmBackend::ok)
+        auto arm_dec_attrs = NativeAsmBackend::make_rsa_oaep_decrypt_attrs(key_bits);
+        NativeAsmBackend::KeyId arm_dec_id = NativeAsmBackend::null_key_id();
+        ASSERT_EQ(NativeAsmBackend::import_key(
+            &arm_dec_attrs, priv_der.data(), priv_der.size(), &arm_dec_id), NativeAsmBackend::ok)
             << label << " ARM private key import failed";
 
-        const std::size_t pt_buf_size = ArmAsmBackend::rsa_oaep_decrypt_output_size(key_bits);
+        const std::size_t pt_buf_size = NativeAsmBackend::rsa_oaep_decrypt_output_size(key_bits);
         SecureBuffer arm_pt(pt_buf_size);
         std::size_t arm_pt_len = 0;
-        ASSERT_EQ(ArmAsmBackend::asymmetric_decrypt(
-            arm_dec_id, ArmAsmBackend::alg_rsa_oaep(),
+        ASSERT_EQ(NativeAsmBackend::asymmetric_decrypt(
+            arm_dec_id, NativeAsmBackend::alg_rsa_oaep(),
             psa_ct.data(), psa_ct_len, nullptr, 0,
-            arm_pt.data(), arm_pt.size(), &arm_pt_len), ArmAsmBackend::ok)
+            arm_pt.data(), arm_pt.size(), &arm_pt_len), NativeAsmBackend::ok)
             << label << " ARM decrypt failed (PSA→ARM)";
-        (void)ArmAsmBackend::destroy_key(arm_dec_id);
+        (void)NativeAsmBackend::destroy_key(arm_dec_id);
 
         ASSERT_EQ(arm_pt_len, pt_arr.size());
         for (std::size_t i = 0; i < pt_arr.size(); ++i) {
@@ -883,21 +889,21 @@ static void run_rsa_oaep_cross_decrypt_test(const char* label) {
         const auto pt_arr = make_test_bytes<64>(0x62U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
         // ARM encrypt with public key.
-        auto arm_enc_attrs = ArmAsmBackend::make_rsa_oaep_encrypt_attrs(key_bits);
-        ArmAsmBackend::KeyId arm_enc_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::import_key(
-            &arm_enc_attrs, pub_der.data(), pub_der.size(), &arm_enc_id), ArmAsmBackend::ok)
+        auto arm_enc_attrs = NativeAsmBackend::make_rsa_oaep_encrypt_attrs(key_bits);
+        NativeAsmBackend::KeyId arm_enc_id = NativeAsmBackend::null_key_id();
+        ASSERT_EQ(NativeAsmBackend::import_key(
+            &arm_enc_attrs, pub_der.data(), pub_der.size(), &arm_enc_id), NativeAsmBackend::ok)
             << label << " ARM public key import failed";
 
-        const std::size_t ct_buf_size = ArmAsmBackend::rsa_oaep_encrypt_output_size(key_bits);
+        const std::size_t ct_buf_size = NativeAsmBackend::rsa_oaep_encrypt_output_size(key_bits);
         SecureBuffer arm_ct(ct_buf_size);
         std::size_t arm_ct_len = 0;
-        ASSERT_EQ(ArmAsmBackend::asymmetric_encrypt(
-            arm_enc_id, ArmAsmBackend::alg_rsa_oaep(),
+        ASSERT_EQ(NativeAsmBackend::asymmetric_encrypt(
+            arm_enc_id, NativeAsmBackend::alg_rsa_oaep(),
             pt_arr.data(), pt_arr.size(), nullptr, 0,
-            arm_ct.data(), arm_ct.size(), &arm_ct_len), ArmAsmBackend::ok)
+            arm_ct.data(), arm_ct.size(), &arm_ct_len), NativeAsmBackend::ok)
             << label << " ARM encrypt failed";
-        (void)ArmAsmBackend::destroy_key(arm_enc_id);
+        (void)NativeAsmBackend::destroy_key(arm_enc_id);
 
         // PSA decrypt with private key.
         auto psa_dec_attrs = RealPsaBackend::make_rsa_oaep_decrypt_attrs(key_bits);
@@ -955,36 +961,36 @@ static void run_rsa_pss_cross_verify_test(const char* label) {
         (void)RealPsaBackend::destroy_key(psa_sign_id);
 
         // ARM verify with public key.
-        auto arm_verify_attrs = ArmAsmBackend::make_rsa_pss_verify_attrs(key_bits);
-        ArmAsmBackend::KeyId arm_verify_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::import_key(
-            &arm_verify_attrs, pub_der.data(), pub_der.size(), &arm_verify_id), ArmAsmBackend::ok)
+        auto arm_verify_attrs = NativeAsmBackend::make_rsa_pss_verify_attrs(key_bits);
+        NativeAsmBackend::KeyId arm_verify_id = NativeAsmBackend::null_key_id();
+        ASSERT_EQ(NativeAsmBackend::import_key(
+            &arm_verify_attrs, pub_der.data(), pub_der.size(), &arm_verify_id), NativeAsmBackend::ok)
             << label << " ARM public key import failed";
 
-        EXPECT_EQ(ArmAsmBackend::verify_message(
-            arm_verify_id, ArmAsmBackend::alg_rsa_pss(),
+        EXPECT_EQ(NativeAsmBackend::verify_message(
+            arm_verify_id, NativeAsmBackend::alg_rsa_pss(),
             msg.data(), msg.size(),
-            psa_sig.data(), psa_sig_len), ArmAsmBackend::ok)
+            psa_sig.data(), psa_sig_len), NativeAsmBackend::ok)
             << label << " ARM rejected PSA-RSA-PSS signature";
-        (void)ArmAsmBackend::destroy_key(arm_verify_id);
+        (void)NativeAsmBackend::destroy_key(arm_verify_id);
     }
 
     // ---- ARM signs, PSA verifies ----------------------------------------
     {
-        auto arm_sign_attrs = ArmAsmBackend::make_rsa_pss_sign_attrs(key_bits);
-        ArmAsmBackend::KeyId arm_sign_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::import_key(
-            &arm_sign_attrs, priv_der.data(), priv_der.size(), &arm_sign_id), ArmAsmBackend::ok)
+        auto arm_sign_attrs = NativeAsmBackend::make_rsa_pss_sign_attrs(key_bits);
+        NativeAsmBackend::KeyId arm_sign_id = NativeAsmBackend::null_key_id();
+        ASSERT_EQ(NativeAsmBackend::import_key(
+            &arm_sign_attrs, priv_der.data(), priv_der.size(), &arm_sign_id), NativeAsmBackend::ok)
             << label << " ARM private key import failed";
 
         SecureBuffer arm_sig(sig_buf_size);
         std::size_t arm_sig_len = 0;
-        ASSERT_EQ(ArmAsmBackend::sign_message(
-            arm_sign_id, ArmAsmBackend::alg_rsa_pss(),
+        ASSERT_EQ(NativeAsmBackend::sign_message(
+            arm_sign_id, NativeAsmBackend::alg_rsa_pss(),
             msg.data(), msg.size(),
-            arm_sig.data(), arm_sig.size(), &arm_sig_len), ArmAsmBackend::ok)
+            arm_sig.data(), arm_sig.size(), &arm_sig_len), NativeAsmBackend::ok)
             << label << " ARM sign failed";
-        (void)ArmAsmBackend::destroy_key(arm_sign_id);
+        (void)NativeAsmBackend::destroy_key(arm_sign_id);
 
         // PSA verify with public key.
         auto psa_verify_attrs = RealPsaBackend::make_rsa_pss_verify_attrs(key_bits);
@@ -1015,4 +1021,4 @@ TEST_F(CrossProviderRsaTests, RsaPssCrossVerify_4096) {
     run_rsa_pss_cross_verify_test<RsaKeyBits::Bits4096>("RSA-PSS-4096");
 }
 
-#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM
+#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM || SAFE_CRYPTO_PROVIDER_IA_ASM

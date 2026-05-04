@@ -18,6 +18,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "init_tests.hpp"
 #include "kdf_tests.hpp"
 #include "mac_tests.hpp"
+#include "ml_dsa_tests.hpp"
+#include "ml_kem_tests.hpp"
+#include "pqc_cross_provider_tests.hpp"
 #include "random_tests.hpp"
 #include "rsa_bigint_tests.hpp"
 #include "rsa_der_tests.hpp"
@@ -26,6 +29,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "rsa_pss_tests.hpp"
 #include "sigma_i_tests.hpp"
 #include "sigma_tests.hpp"
+#include "slh_dsa_tests.hpp"
 
 
 int main(int argc, char **argv) {

@@ -1,8 +1,17 @@
 cmake-build*/
 cmake-build-arm-asm/
+cmake-build-arm-asm-pqc/
+cmake-build-ia-asm/
+cmake-build-arm-asm-pqc-verify/
 cmake-build-coverage/
 cmake-build-coverage-arm/
+cmake-build-coverage-ossl/
 cmake-build-coverage-psa/
+cmake-build-minsizerel/
+cmake-build-sanitize/
+cmake-build-openssl-pqc/
+cmake-build-pqc-bench/
+cmake-build-psa-pqc/
 cmake-build-debug/
 cmake-build-gcc15/
 cmake-build-openssl/

@@ -6,7 +6,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 // Provider-agnostic benchmarks for safe-crypto-lib.
 //
 // Every benchmark is templated on CryptoProvider and instantiated for both
-// RealPsaBackend and ArmAsmBackend.  Run from a Release build:
+// RealPsaBackend and NativeAsmBackend.  Run from a Release build:
 //
 //   cmake -G Ninja -B cmake-build-release -S . -DCMAKE_BUILD_TYPE=Release
 //   cmake --build cmake-build-release --target safe_crypto_lib_bench
@@ -36,9 +36,17 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha_variant.hpp"
 #include "secure_buffer.hpp"
 
-// Always pull in both provider headers so we can instantiate both.
-#include "arm_asm_backend.hpp"
+// Pull in provider headers. arm_asm uses NEON intrinsics incompatible with x86_64.
+#ifdef SAFE_CRYPTO_PROVIDER_IA_ASM
+#  include "ia_asm_backend.hpp"
+using NativeAsmBackend = IaAsmBackend;
+#else
+#  include "arm_asm_backend.hpp"
+using NativeAsmBackend = ArmAsmBackend;
+#endif
+#include "openssl_backend.hpp"
 #include "psa_mbedtls_backend.hpp"
+
 
 // Remaining library headers.
 #include "aead.hpp"
@@ -48,6 +56,8 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "ecdh.hpp"
 #include "kdf.hpp"
 #include "mac.hpp"
+#include "pqc_dsa.hpp"
+#include "pqc_kem.hpp"
 #include "random.hpp"
 
 
@@ -103,49 +113,49 @@ static void BM_Sha(benchmark::State& state) {
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha256, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("SHA256/PSA");
-BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha256, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha256, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("SHA256/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("SHA256/NATIVE");
 
 // SHA-384
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha384, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("SHA384/PSA");
-BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha384, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha384, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("SHA384/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("SHA384/NATIVE");
 
 // SHA-512
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha512, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("SHA512/PSA");
-BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha512, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha512, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("SHA512/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("SHA512/NATIVE");
 
 // SHA3-256
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_256, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_256/PSA");
-BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_256, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_256, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("SHA3_256/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_256/NATIVE");
 
 // SHA3-384
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_384, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_384/PSA");
-BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_384, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_384, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("SHA3_384/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_384/NATIVE");
 
 // SHA3-512
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_512/PSA");
-BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("SHA3_512/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("SHA3_512/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -168,49 +178,49 @@ static void BM_Hmac(benchmark::State& state) {
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha256, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA256/PSA");
-BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha256, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha256, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA256/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA256/NATIVE");
 
 // HMAC-SHA-384
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha384, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA384/PSA");
-BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha384, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha384, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA384/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA384/NATIVE");
 
 // HMAC-SHA-512
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha512, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA512/PSA");
-BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha512, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha512, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA512/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA512/NATIVE");
 
 // HMAC-SHA3-256
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_256, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_256/PSA");
-BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_256, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_256, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_256/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_256/NATIVE");
 
 // HMAC-SHA3-384
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_384, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_384/PSA");
-BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_384, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_384, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_384/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_384/NATIVE");
 
 // HMAC-SHA3-512
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_512/PSA");
-BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_512/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_512/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -246,16 +256,16 @@ static void BM_AesGcmDecrypt(benchmark::State& state) {
 BENCHMARK_TEMPLATE(BM_AesGcmEncrypt, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Enc/PSA");
-BENCHMARK_TEMPLATE(BM_AesGcmEncrypt, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_AesGcmEncrypt, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Enc/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Enc/NATIVE");
 
 BENCHMARK_TEMPLATE(BM_AesGcmDecrypt, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Dec/PSA");
-BENCHMARK_TEMPLATE(BM_AesGcmDecrypt, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_AesGcmDecrypt, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Dec/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Dec/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -290,16 +300,16 @@ static void BM_ChaCha20Poly1305Decrypt(benchmark::State& state) {
 BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Encrypt, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Enc/PSA");
-BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Encrypt, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Encrypt, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Enc/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Enc/NATIVE");
 
 BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Decrypt, RealPsaBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Dec/PSA");
-BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Decrypt, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Decrypt, NativeAsmBackend)
     ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Dec/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Dec/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -350,8 +360,8 @@ static void BM_Hkdf(benchmark::State& state) {
 
 BENCHMARK_TEMPLATE(BM_Hkdf, RealPsaBackend)
     ->Unit(benchmark::kMicrosecond)->Name("HKDF_SHA384/PSA");
-BENCHMARK_TEMPLATE(BM_Hkdf, ArmAsmBackend)
-    ->Unit(benchmark::kMicrosecond)->Name("HKDF_SHA384/ARM");
+BENCHMARK_TEMPLATE(BM_Hkdf, NativeAsmBackend)
+    ->Unit(benchmark::kMicrosecond)->Name("HKDF_SHA384/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -372,9 +382,9 @@ static void BM_RandomBytes(benchmark::State& state) {
 BENCHMARK_TEMPLATE(BM_RandomBytes, RealPsaBackend)
     ->Arg(32)->Arg(256)->Arg(4096) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ->Unit(benchmark::kMicrosecond)->Name("RandomBytes/PSA");
-BENCHMARK_TEMPLATE(BM_RandomBytes, ArmAsmBackend)
+BENCHMARK_TEMPLATE(BM_RandomBytes, NativeAsmBackend)
     ->Arg(32)->Arg(256)->Arg(4096) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ->Unit(benchmark::kMicrosecond)->Name("RandomBytes/ARM");
+    ->Unit(benchmark::kMicrosecond)->Name("RandomBytes/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -408,21 +418,21 @@ static void BM_EcdsaVerify(benchmark::State& state) {
 
 // P-256
 BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P256, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P256/PSA");
-BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P256, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P256/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P256, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P256/NATIVE");
 BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P256, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P256/PSA");
-BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P256, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P256/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P256, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P256/NATIVE");
 
 // P-384
 BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P384, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P384/PSA");
-BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P384, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P384/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P384, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P384/NATIVE");
 BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P384, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P384/PSA");
-BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P384, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P384/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P384, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P384/NATIVE");
 
 // P-521
 BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P521, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P521/PSA");
-BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P521, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P521/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaSign,   EcCurve::P521, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Sign_P521/NATIVE");
 BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P521, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P521/PSA");
-BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P521, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P521/ARM");
+BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P521, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDSA_Verify_P521/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -442,11 +452,11 @@ static void BM_Ecdh(benchmark::State& state) {
 }
 
 BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P256, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDH_P256/PSA");
-BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P256, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P256/ARM");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P256, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P256/NATIVE");
 BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P384, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDH_P384/PSA");
-BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P384, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P384/ARM");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P384, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P384/NATIVE");
 BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P521, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("ECDH_P521/PSA");
-BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P521, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P521/ARM");
+BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P521, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("ECDH_P521/NATIVE");
 
 
 // ---------------------------------------------------------------------------
@@ -504,23 +514,176 @@ static void BM_RsaPssVerify(benchmark::State& state) {
 
 // RSA-3072
 BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Enc/PSA");
-BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Enc/ARM");
+BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits3072, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Enc/NATIVE");
 BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Dec/PSA");
-BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Dec/ARM");
+BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits3072, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_OAEP_Dec/NATIVE");
 BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Sign/PSA");
-BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Sign/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits3072, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Sign/NATIVE");
 BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits3072, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Verify/PSA");
-BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits3072, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Verify/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits3072, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA3072_PSS_Verify/NATIVE");
 
 // RSA-4096
 BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Enc/PSA");
-BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Enc/ARM");
+BENCHMARK_TEMPLATE(BM_RsaOaepEncrypt, RsaKeyBits::Bits4096, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Enc/NATIVE");
 BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Dec/PSA");
-BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Dec/ARM");
+BENCHMARK_TEMPLATE(BM_RsaOaepDecrypt, RsaKeyBits::Bits4096, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_OAEP_Dec/NATIVE");
 BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Sign/PSA");
-BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Sign/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits4096, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Sign/NATIVE");
 BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Verify/PSA");
-BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Verify/ARM");
+BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, NativeAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Verify/NATIVE");
+
+
+// ---------------------------------------------------------------------------
+// PQC benchmarks — ML-DSA and ML-KEM across all three providers.
+// Guarded by SAFE_CRYPTO_PQC_LIBOQS (ARM/PSA) + OpenSslBackend (always).
+// ---------------------------------------------------------------------------
+
+#if defined(SAFE_CRYPTO_PQC_LIBOQS)
+
+// ML-DSA keygen
+template<MlDsaVariant V, typename Provider>
+static void BM_MlDsaKeygen(benchmark::State& state) {
+    for (auto _ : state) {
+        auto result = ml_dsa_generate_key_impl<V, Provider>();
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-DSA sign (keygen once, sign in loop)
+template<MlDsaVariant V, typename Provider>
+static void BM_MlDsaSign(benchmark::State& state) {
+    auto kp = ml_dsa_generate_key_impl<V, Provider>();
+    const auto msg = make_payload(64);
+    for (auto _ : state) {
+        auto result = ml_dsa_sign_impl<V, Provider>(*kp, msg);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-DSA verify (keygen + sign once, verify in loop)
+template<MlDsaVariant V, typename Provider>
+static void BM_MlDsaVerify(benchmark::State& state) {
+    auto kp  = ml_dsa_generate_key_impl<V, Provider>();
+    const auto msg = make_payload(64);
+    auto sig = ml_dsa_sign_impl<V, Provider>(*kp, msg);
+    const MlDsaPublicKey<V> pub{
+        .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
+    };
+    for (auto _ : state) {
+        auto result = ml_dsa_verify_impl<V, Provider>(pub, msg, *sig);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-KEM keygen
+template<MlKemVariant V, typename Provider>
+static void BM_MlKemKeygen(benchmark::State& state) {
+    for (auto _ : state) {
+        auto result = ml_kem_generate_key_impl<V, Provider>();
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-KEM encapsulate (keygen once, encap in loop)
+template<MlKemVariant V, typename Provider>
+static void BM_MlKemEncap(benchmark::State& state) {
+    auto kp = ml_kem_generate_key_impl<V, Provider>();
+    const MlKemPublicKey<V> pub{
+        .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
+    };
+    for (auto _ : state) {
+        auto result = ml_kem_encapsulate_impl<V, Provider>(pub);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-KEM decapsulate (keygen + encap once, decap in loop)
+template<MlKemVariant V, typename Provider>
+static void BM_MlKemDecap(benchmark::State& state) {
+    auto kp  = ml_kem_generate_key_impl<V, Provider>();
+    const MlKemPublicKey<V> pub{
+        .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
+    };
+    auto enc = ml_kem_encapsulate_impl<V, Provider>(pub);
+    for (auto _ : state) {
+        auto result = ml_kem_decapsulate_impl<V, Provider>(*kp, enc->ciphertext);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// --- ML-DSA-44 ---
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa44, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa44, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Keygen/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa44, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa44, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa44, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Sign/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa44, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Sign/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa44, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa44, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Verify/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa44, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Verify/OSSL");
+
+// --- ML-DSA-65 ---
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa65, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa65, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Keygen/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa65, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa65, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa65, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Sign/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa65, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Sign/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa65, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa65, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Verify/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa65, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Verify/OSSL");
+
+// --- ML-DSA-87 ---
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa87, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa87, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Keygen/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa87, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa87, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa87, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Sign/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa87, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Sign/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa87, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa87, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Verify/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa87, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Verify/OSSL");
+
+// --- ML-KEM-512 ---
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem512, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem512, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Keygen/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem512, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem512, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Encap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem512, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Encap/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem512, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Encap/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem512, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Decap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem512, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Decap/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem512, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Decap/OSSL");
+
+// --- ML-KEM-768 ---
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem768, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem768, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Keygen/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem768, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem768, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Encap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem768, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Encap/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem768, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Encap/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem768, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Decap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem768, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Decap/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem768, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Decap/OSSL");
+
+// --- ML-KEM-1024 ---
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem1024, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem1024, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Keygen/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem1024, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem1024, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Encap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem1024, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Encap/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem1024, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Encap/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Decap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, NativeAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Decap/NATIVE");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Decap/OSSL");
+
+#endif  // SAFE_CRYPTO_PQC_LIBOQS
 
 
 BENCHMARK_MAIN(); // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

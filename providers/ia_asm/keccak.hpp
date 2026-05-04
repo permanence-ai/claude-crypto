@@ -8,9 +8,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 // Keccak-f[1600] permutation (24 rounds) — pure scalar 64-bit implementation.
 //
 // All 25 state lanes remain in named uint64_t scalar registers throughout each
-// round.  No NEON vector types are used, so there are no vector-to-scalar lane
-// extractions (vgetq_lane_u64), which were the bottleneck in the prior NEON
-// implementation.
+// round.  No SIMD vector types are used.
 //
 // ρ+π is fully unrolled into 25 named locals with compile-time rotation
 // constants, so the compiler emits one ROR per lane.
@@ -19,13 +17,12 @@ Copyright Permanence AI, 2026. All rights reserved.
 // State convention: flat array of 25 uint64_t lanes in little-endian byte
 // order, indexed as state[x + 5*y].
 
-#include <arm_neon.h>
 #include <cstdint>
 
 #include "defs.hpp"
 
 
-namespace arm_asm::detail {
+namespace ia_asm::detail {
 
 // Keccak-f[1600] round constants (ι step).
 inline constexpr uint64_t keccak_rc[24] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
@@ -43,8 +40,8 @@ inline constexpr uint64_t keccak_rc[24] = { // NOLINT(cppcoreguidelines-avoid-c-
     0x0000000080000001ULL, 0x8000000080008008ULL,
 };
 
-// Rotate left by n bits; n must be a compile-time constant so the compiler
-// emits a single ROR instruction on AArch64.
+// Rotate left by N bits; N must be a compile-time constant so the compiler
+// emits a single ROR/ROL instruction.
 template<int N>
 static inline uint64_t krotl(uint64_t x) noexcept {
     static_assert(N > 0 && N < 64);
@@ -57,7 +54,7 @@ static inline uint64_t krotl(uint64_t x) noexcept {
 // Pure scalar: all 25 state lanes stay in uint64_t named registers.
 // ρ+π is fully unrolled with compile-time rotation constants (one ROR each).
 // χ uses scalar bitwise NOT-AND: a ^ (~b & c).
-[[gnu::target("sha3,neon")]]
+[[gnu::target("aes,sha")]]
 inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
     for (const uint64_t rc : keccak_rc) {
@@ -184,4 +181,4 @@ inline void keccak_f1600(uint64_t state[25]) noexcept // NOLINT(cppcoreguideline
     }
 }
 
-}  // namespace arm_asm::detail
+}  // namespace ia_asm::detail

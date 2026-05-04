@@ -11,11 +11,19 @@ set_property(CACHE SAFE_CRYPTO_ACTIVE_PROVIDER PROPERTY STRINGS
     "IA_ASM"
     "OPENSSL")
 
+set(SAFE_CRYPTO_PQC "NONE" CACHE STRING
+    "PQC supplement provider. One of: NONE, LIBOQS")
+set_property(CACHE SAFE_CRYPTO_PQC PROPERTY STRINGS "NONE" "LIBOQS")
+
 include(FetchContent)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(PermBuildOptions)
 include(PermGBenchmark)
 include(PermGTest)
 include(PermMbedTLS)
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    include(PermLibOqs)
+endif()
 include(CTest)
 
 # Providers must be configured before safe-crypto-lib so their targets exist
