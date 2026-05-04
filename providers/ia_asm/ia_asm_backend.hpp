@@ -730,6 +730,7 @@ struct IaAsmBackend {
             if (key_len != ss_len) { return err_invalid_arg; }
             const Fe256 Qx = fe256_from_bytes(peer + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             const Fe256 Qy = fe256_from_bytes(peer + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (!p256_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P256Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
             const P256Point S = p256_to_affine(p256_scalar_mul(Q, key));
             if (p256_point_is_identity(S)) { return err_invalid_arg; }
@@ -745,6 +746,7 @@ struct IaAsmBackend {
             if (key_len != ss_len) { return err_invalid_arg; }
             const Fe384 Qx = fe384_from_bytes(peer + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             const Fe384 Qy = fe384_from_bytes(peer + 49); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (!p384_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P384Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
             const P384Point S = p384_to_affine(p384_scalar_mul(Q, key));
             if (p384_point_is_identity(S)) { return err_invalid_arg; }
@@ -758,8 +760,11 @@ struct IaAsmBackend {
             if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
             if (out_size < ss_len) { return err_invalid_arg; }
             if (key_len != ss_len) { return err_invalid_arg; }
+            if ((peer[1]  & 0xFEU) != 0U) { return err_invalid_arg; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            if ((peer[67] & 0xFEU) != 0U) { return err_invalid_arg; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
             const Fe521 Qx = fe521_from_bytes(peer + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             const Fe521 Qy = fe521_from_bytes(peer + 67);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (!p521_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P521Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
             const P521Point S = p521_to_affine(p521_scalar_mul(Q, key));
             if (p521_point_is_identity(S)) { return err_invalid_arg; }

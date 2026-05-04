@@ -9,6 +9,7 @@ add_executable(${EXE_NAME}
         digests_tests.hpp
         ecc_tests.hpp
         ecdh_tests.hpp
+        ia_asm_tests.hpp
         init_tests.hpp
         kdf_tests.hpp
         mac_tests.hpp
