@@ -31,12 +31,9 @@ add_executable(${EXE_NAME}
         test_utils.hpp
 )
 
-target_compile_options(${EXE_NAME} PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-        -Wconversion
-        $<$<CONFIG:Release>:-O3>
+target_link_libraries(${EXE_NAME} PRIVATE
+        safe_crypto_warnings
+        safe_crypto_optimize
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE

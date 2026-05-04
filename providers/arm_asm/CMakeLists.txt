@@ -49,9 +49,12 @@ if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
     )
     target_compile_options(safe_crypto_lib_dilithium_ntt PRIVATE
             -march=armv8.2-a+crypto+sha3
-            -O3
     )
     target_include_directories(safe_crypto_lib_dilithium_ntt PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    target_link_libraries(safe_crypto_lib_dilithium_ntt PRIVATE
+            safe_crypto_warnings
+            safe_crypto_optimize
     )
 endif()
