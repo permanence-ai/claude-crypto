@@ -314,6 +314,60 @@ static inline auto p521_G_table_select(unsigned nibble) noexcept -> P521AffinePo
 
 
 // -----------------------------------------------------------------------
+// CT doubling/addition for fixed-base scalar multiplication.
+// Always executes the formula; CT-selects identity/q_jac on the identity case.
+// -----------------------------------------------------------------------
+
+[[nodiscard]]
+static inline auto p521_point_double_ct(const P521Point& p) noexcept -> P521Point
+{
+    const P521Point doubled = [&]() noexcept -> P521Point {
+        const Fe521 delta  = fe521_sqr(p.Z);
+        const Fe521 gamma  = fe521_sqr(p.Y);
+        const Fe521 beta   = fe521_mul(p.X, gamma);
+        const Fe521 xmd    = fe521_sub(p.X, delta);
+        const Fe521 xpd    = fe521_add(p.X, delta);
+        const Fe521 xmxp   = fe521_mul(xmd, xpd);
+        const Fe521 alpha  = fe521_add(fe521_add(xmxp, xmxp), xmxp);
+        const Fe521 beta4  = fe521_add(fe521_add(beta, beta), fe521_add(beta, beta));
+        const Fe521 beta8  = fe521_add(beta4, beta4);
+        const Fe521 x3     = fe521_sub(fe521_sqr(alpha), beta8);
+        const Fe521 z3     = fe521_sub(fe521_sub(fe521_sqr(fe521_add(p.Y, p.Z)), gamma), delta);
+        const Fe521 gsq    = fe521_sqr(gamma);
+        const Fe521 gsq2   = fe521_add(gsq, gsq);
+        const Fe521 gsq4   = fe521_add(gsq2, gsq2);
+        const Fe521 gamma8 = fe521_add(gsq4, gsq4);
+        const Fe521 y3     = fe521_sub(fe521_mul(alpha, fe521_sub(beta4, x3)), gamma8);
+        return P521Point{.X = x3, .Y = y3, .Z = z3};
+    }();
+    const uint64_t is_identity = static_cast<uint64_t>(fe521_is_zero(p.Z));
+    return p521_point_ct_select(p521_identity, doubled, is_identity);
+}
+
+[[nodiscard]]
+static inline auto p521_point_add_affine_ct(const P521Point& p, const P521AffinePoint& q) noexcept -> P521Point
+{
+    const P521Point added = [&]() noexcept -> P521Point {
+        const Fe521 z1sq = fe521_sqr(p.Z);
+        const Fe521 u2   = fe521_mul(q.X, z1sq);
+        const Fe521 s2   = fe521_mul(q.Y, fe521_mul(p.Z, z1sq));
+        const Fe521 h    = fe521_sub(u2, p.X);
+        const Fe521 r    = fe521_sub(s2, p.Y);
+        const Fe521 h2   = fe521_sqr(h);
+        const Fe521 h3   = fe521_mul(h, h2);
+        const Fe521 u1h2 = fe521_mul(p.X, h2);
+        const Fe521 x3   = fe521_sub(fe521_sub(fe521_sqr(r), h3), fe521_add(u1h2, u1h2));
+        const Fe521 y3   = fe521_sub(fe521_mul(r, fe521_sub(u1h2, x3)), fe521_mul(p.Y, h3));
+        const Fe521 z3   = fe521_mul(h, p.Z);
+        return P521Point{.X = x3, .Y = y3, .Z = z3};
+    }();
+    const P521Point q_jac{.X = q.X, .Y = q.Y, .Z = fe521_one};
+    const uint64_t is_identity = static_cast<uint64_t>(fe521_is_zero(p.Z));
+    return p521_point_ct_select(q_jac, added, is_identity);
+}
+
+
+// -----------------------------------------------------------------------
 // Fixed-base scalar multiplication using 4-bit window: k·G.
 // scalar is 66-byte big-endian.
 // Constant-time: no branches or memory accesses depend on secret nibble values.
@@ -330,10 +384,10 @@ static inline auto p521_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
 
     // Process the single top bit: scalar[0] bit 0 (the 521st bit, MSB of the scalar).
     {
-        result = p521_point_double(result);
+        result = p521_point_double_ct(result);
         const auto nibble = static_cast<unsigned>(scalar[0] & 0x01U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         // table[0] == 1*G is the only entry; CT-select it without branching on nibble.
-        const P521Point added = p521_point_add_affine(result, p521_G_table[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const P521Point added = p521_point_add_affine_ct(result, p521_G_table[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         result = p521_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
     }
 
@@ -342,16 +396,16 @@ static inline auto p521_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
         const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
         for (int pass = 0; pass < 2; ++pass) {
-            result = p521_point_double(result);
-            result = p521_point_double(result);
-            result = p521_point_double(result);
-            result = p521_point_double(result);
+            result = p521_point_double_ct(result);
+            result = p521_point_double_ct(result);
+            result = p521_point_double_ct(result);
+            result = p521_point_double_ct(result);
 
             const auto nibble = static_cast<unsigned>(
                 (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
 
             const P521AffinePoint tab = p521_G_table_select(nibble);
-            const P521Point added = p521_point_add_affine(result, tab);
+            const P521Point added = p521_point_add_affine_ct(result, tab);
             result = p521_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
         }
     }
