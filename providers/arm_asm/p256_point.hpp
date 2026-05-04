@@ -97,6 +97,27 @@ static inline auto p256_point_is_identity(const P256Point& p) noexcept -> bool {
     return fe256_is_zero(p.Z);
 }
 
+// Validate an uncompressed P-256 public key (x, y already loaded as field elements).
+// Checks: x < p, y < p, (x,y) != (0,0), y² == x³ - 3x + b mod p.
+[[nodiscard]]
+static inline auto p256_validate_public_point(const Fe256& x, const Fe256& y) noexcept -> bool {
+    // Reject coordinates >= p (fe256_sub_p returns borrow=1 iff a < p).
+    Fe256 tmp{};
+    if (fe256_sub_p(x, tmp) == 0U) { return false; }
+    if (fe256_sub_p(y, tmp) == 0U) { return false; }
+    // Reject (0,0) — the point at infinity in affine form.
+    if (fe256_is_zero(x) && fe256_is_zero(y)) { return false; }
+    // On-curve check: y² == x³ - 3x + b  (a = -3 for P-256).
+    const Fe256 y2   = fe256_sqr(y);
+    const Fe256 x3   = fe256_mul(fe256_sqr(x), x);
+    const Fe256 x3_b = fe256_add(x3, p256_b);
+    // Subtract 3x: compute 3x = x+x+x, then x³ + b - 3x.
+    const Fe256 x2   = fe256_add(x, x);
+    const Fe256 x3x  = fe256_add(x2, x);
+    const Fe256 rhs  = fe256_sub(x3_b, x3x);
+    return fe256_equal(y2, rhs);
+}
+
 
 // -----------------------------------------------------------------------
 // Constant-time conditional swap of two points.

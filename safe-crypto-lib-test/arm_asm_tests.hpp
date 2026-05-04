@@ -2150,4 +2150,224 @@ TEST_F(ArmAsmSha3Tests, BackendSha3_256Dispatch) {
     }
 }
 
+
+// ---------------------------------------------------------------------------
+// ECDH peer-point validation tests (issue #1 regression tests).
+//
+// These tests verify that raw_key_agreement rejects invalid peer public keys:
+// all-zero points, off-curve points, coordinates >= p, wrong SEC1 prefix, and
+// non-canonical P-521 encodings with high bits set.
+// ---------------------------------------------------------------------------
+
+class ArmAsmEcdhValidationTests : public ::testing::Test {
+protected:
+    void TearDown() override {
+        for (unsigned int i = 0; i < static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity); ++i) {
+            arm_asm::detail::ec_key_store_destroy(arm_asm::detail::ec_key_id_base + i);
+        }
+    }
+
+    // Generate a real ECDH private key for the given curve; return the key id.
+    static ArmAsmBackend::KeyId generate_ecdh_key(arm_asm::detail::EcCurveId curve) {
+        std::size_t bits = 0;
+        if (curve == arm_asm::detail::EcCurveId::P256) { bits = 256; }
+        else if (curve == arm_asm::detail::EcCurveId::P384) { bits = 384; }
+        else { bits = 521; }
+        auto attrs = ArmAsmBackend::make_ecdh_generate_attrs(bits);
+        ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
+        if (ArmAsmBackend::generate_key(&attrs, &id) != ArmAsmBackend::ok) { return ArmAsmBackend::null_key_id(); }
+        return id;
+    }
+
+    // Export the public key for an ECDH key pair.
+    static std::vector<uint8_t> export_public(ArmAsmBackend::KeyId id, std::size_t pk_len) {
+        std::vector<uint8_t> buf(pk_len);
+        std::size_t out_len = 0;
+        if (ArmAsmBackend::export_public_key(id, buf.data(), buf.size(), &out_len) != ArmAsmBackend::ok) { return {}; }
+        buf.resize(out_len);
+        return buf;
+    }
+};
+
+// P-256 tests.
+
+TEST_F(ArmAsmEcdhValidationTests, P256ValidPeerSucceeds) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 65);
+    ASSERT_EQ(peer.size(), 65U);
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P256WrongPrefixReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 65);
+    ASSERT_EQ(peer.size(), 65U);
+    peer[0] = 0x02U;  // compressed-point prefix is invalid here
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    std::array<uint8_t, 65> peer{};
+    peer[0] = 0x04U;  // prefix ok, but x=0, y=0 is the point at infinity
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P256CoordinateEqualToPReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    // P-256 prime p = 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF
+    std::array<uint8_t, 65> peer{};
+    peer[0] = 0x04U;
+    // Set x = p (all-FF then the specific pattern for P-256).
+    peer[1]  = 0xFFU; peer[2]  = 0xFFU; peer[3]  = 0xFFU; peer[4]  = 0xFFU; // NOLINT
+    peer[5]  = 0x00U; peer[6]  = 0x00U; peer[7]  = 0x00U; peer[8]  = 0x01U; // NOLINT
+    peer[9]  = 0x00U; peer[10] = 0x00U; peer[11] = 0x00U; peer[12] = 0x00U; // NOLINT
+    peer[13] = 0x00U; peer[14] = 0x00U; peer[15] = 0x00U; peer[16] = 0x00U; // NOLINT
+    peer[17] = 0x00U; peer[18] = 0x00U; peer[19] = 0x00U; peer[20] = 0x00U; // NOLINT
+    peer[21] = 0xFFU; peer[22] = 0xFFU; peer[23] = 0xFFU; peer[24] = 0xFFU; // NOLINT
+    peer[25] = 0xFFU; peer[26] = 0xFFU; peer[27] = 0xFFU; peer[28] = 0xFFU; // NOLINT
+    peer[29] = 0xFFU; peer[30] = 0xFFU; peer[31] = 0xFFU; peer[32] = 0xFFU; // NOLINT
+    // y can be anything — range check on x alone should reject.
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 65);
+    ASSERT_EQ(peer.size(), 65U);
+    // Flip the last byte of y to make the point off-curve.
+    peer[64] ^= 0x01U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+// P-384 tests.
+
+TEST_F(ArmAsmEcdhValidationTests, P384ValidPeerSucceeds) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P384);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 97); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_EQ(peer.size(), 97U);
+    std::array<uint8_t, 48> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P384AllZeroPeerReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P384);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    std::array<uint8_t, 97> peer{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    peer[0] = 0x04U;
+    std::array<uint8_t, 48> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P384);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 97); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_EQ(peer.size(), 97U);
+    peer[96] ^= 0x01U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 48> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+// P-521 tests.
+
+TEST_F(ArmAsmEcdhValidationTests, P521ValidPeerSucceeds) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 133); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_EQ(peer.size(), 133U);
+    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P521AllZeroPeerReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    std::array<uint8_t, 133> peer{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    peer[0] = 0x04U;
+    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 133); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_EQ(peer.size(), 133U);
+    peer[132] ^= 0x01U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
+    const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
+    ASSERT_NE(id, ArmAsmBackend::null_key_id());
+    auto peer = export_public(id, 133); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_EQ(peer.size(), 133U);
+    // Set a high bit in the first byte of the x coordinate (bytes 1..66 of peer).
+    // A valid P-521 x coordinate has at most 1 bit set in byte[0], so bit 7 must be 0.
+    peer[1] |= 0x80U;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
+                                                peer.data(), peer.size(),
+                                                out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
 #endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM

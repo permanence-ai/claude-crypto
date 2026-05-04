@@ -234,6 +234,7 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     // Compute u1·G + u2·Q.
     const Fe Qx = fe256_from_bytes(public_key_uncompressed + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const Fe Qy = fe256_from_bytes(public_key_uncompressed + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    if (!p256_validate_public_point(Qx, Qy)) { return false; }
     const Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
 
     const Point X = p256_to_affine(p256_point_add(
@@ -321,6 +322,7 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     const Fe Qx = fe384_from_bytes(public_key_uncompressed + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const Fe Qy = fe384_from_bytes(public_key_uncompressed + 49);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    if (!p384_validate_public_point(Qx, Qy)) { return false; }
     const Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
 
     const Point X = p384_to_affine(p384_point_add(
@@ -407,8 +409,12 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     fe521_to_bytes(u1, u1b);
     fe521_to_bytes(u2, u2b);
 
+    // Reject non-canonical P-521 encodings: top 7 bits of each coordinate's first byte must be zero.
+    if ((public_key_uncompressed[1]  & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if ((public_key_uncompressed[67] & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const Fe Qx = fe521_from_bytes(public_key_uncompressed + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const Fe Qy = fe521_from_bytes(public_key_uncompressed + 67);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    if (!p521_validate_public_point(Qx, Qy)) { return false; }
     const Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
 
     const Point X = p521_to_affine(p521_point_add(
