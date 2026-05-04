@@ -112,6 +112,25 @@ static inline auto p521_point_is_identity(const P521Point& p) noexcept -> bool {
     return fe521_is_zero(p.Z);
 }
 
+// Validate an uncompressed P-521 public key (x, y already loaded as field elements).
+// Checks: x < p, y < p, (x,y) != (0,0), y² == x³ - 3x + b mod p.
+// The caller must also ensure the top 7 bits of the first coordinate byte are zero
+// before calling fe521_from_bytes (fe521_from_bytes masks them but we require strict).
+[[nodiscard]]
+static inline auto p521_validate_public_point(const Fe521& x, const Fe521& y) noexcept -> bool {
+    Fe521 tmp{};
+    if (fe521_sub_p(x, tmp) == 0U) { return false; }
+    if (fe521_sub_p(y, tmp) == 0U) { return false; }
+    if (fe521_is_zero(x) && fe521_is_zero(y)) { return false; }
+    const Fe521 y2   = fe521_sqr(y);
+    const Fe521 x3   = fe521_mul(fe521_sqr(x), x);
+    const Fe521 x3_b = fe521_add(x3, p521_b);
+    const Fe521 x2   = fe521_add(x, x);
+    const Fe521 x3x  = fe521_add(x2, x);
+    const Fe521 rhs  = fe521_sub(x3_b, x3x);
+    return fe521_equal(y2, rhs);
+}
+
 
 // -----------------------------------------------------------------------
 // Point doubling (dbl-2001-b, a=−3 curve).

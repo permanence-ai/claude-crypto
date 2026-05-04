@@ -100,6 +100,23 @@ static inline auto p384_point_is_identity(const P384Point& p) noexcept -> bool {
     return fe384_is_zero(p.Z);
 }
 
+// Validate an uncompressed P-384 public key (x, y already loaded as field elements).
+// Checks: x < p, y < p, (x,y) != (0,0), y² == x³ - 3x + b mod p.
+[[nodiscard]]
+static inline auto p384_validate_public_point(const Fe384& x, const Fe384& y) noexcept -> bool {
+    Fe384 tmp{};
+    if (fe384_sub_p(x, tmp) == 0U) { return false; }
+    if (fe384_sub_p(y, tmp) == 0U) { return false; }
+    if (fe384_is_zero(x) && fe384_is_zero(y)) { return false; }
+    const Fe384 y2   = fe384_sqr(y);
+    const Fe384 x3   = fe384_mul(fe384_sqr(x), x);
+    const Fe384 x3_b = fe384_add(x3, p384_b);
+    const Fe384 x2   = fe384_add(x, x);
+    const Fe384 x3x  = fe384_add(x2, x);
+    const Fe384 rhs  = fe384_sub(x3_b, x3x);
+    return fe384_equal(y2, rhs);
+}
+
 
 // -----------------------------------------------------------------------
 // Point doubling (dbl-2001-b, a=−3 curve).
