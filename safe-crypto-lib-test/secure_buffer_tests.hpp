@@ -114,6 +114,92 @@ TEST_F(SecureBufferTests, IterateConstFixedSecureBuffer) {
 }
 
 
+TEST_F(SecureBufferTests, MoveConstructorTransfersData) {
+    SecureBuffer src(3);
+    src[0] = 0x11;
+    src[1] = 0x22;
+    src[2] = 0x33;
+    SecureBuffer dst(std::move(src));
+    EXPECT_EQ(dst.size(), 3U);
+    EXPECT_EQ(dst[0], CryptoByte{0x11});
+    EXPECT_EQ(dst[1], CryptoByte{0x22});
+    EXPECT_EQ(dst[2], CryptoByte{0x33});
+    EXPECT_TRUE(src.empty()); // NOLINT(bugprone-use-after-move,hicpp-invalid-access-moved)
+}
+
+TEST_F(SecureBufferTests, MoveAssignmentTransfersData) {
+    SecureBuffer src(3);
+    src[0] = 0xAA;
+    src[1] = 0xBB;
+    src[2] = 0xCC;
+    SecureBuffer dst(2);
+    dst[0] = 0x01;
+    dst[1] = 0x02;
+    dst = std::move(src);
+    EXPECT_EQ(dst.size(), 3U);
+    EXPECT_EQ(dst[0], CryptoByte{0xAA});
+    EXPECT_EQ(dst[1], CryptoByte{0xBB});
+    EXPECT_EQ(dst[2], CryptoByte{0xCC});
+    EXPECT_TRUE(src.empty()); // NOLINT(bugprone-use-after-move,hicpp-invalid-access-moved)
+}
+
+TEST_F(SecureBufferTests, MoveAssignmentSelfAssignIsNoop) {
+    SecureBuffer buf(2);
+    buf[0] = 0x55;
+    buf[1] = 0x66;
+    // Self-assignment via reference cast must not corrupt state.
+    buf = std::move(buf); // NOLINT(bugprone-use-after-move,hicpp-invalid-access-moved,clang-diagnostic-self-move)
+    EXPECT_EQ(buf.size(), 2U);
+}
+
+TEST_F(SecureBufferTests, FixedMoveConstructorZeroesSource) {
+    FixedSecureBuffer<4> src;
+    src[0] = 0xDE;
+    src[1] = 0xAD;
+    src[2] = 0xBE;
+    src[3] = 0xEF;
+    const CryptoByte* src_ptr = src.data();
+    FixedSecureBuffer<4> dst(std::move(src));
+    EXPECT_EQ(dst[0], CryptoByte{0xDE});
+    EXPECT_EQ(dst[3], CryptoByte{0xEF});
+    // Source bytes must be zeroed after move.
+    for (std::size_t i = 0; i < 4; ++i) {
+        EXPECT_EQ(src_ptr[i], CryptoByte{0}); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    }
+}
+
+TEST_F(SecureBufferTests, FixedMoveAssignmentZeroesSourceAndDest) {
+    FixedSecureBuffer<4> src;
+    src[0] = 0x11;
+    src[1] = 0x22;
+    src[2] = 0x33;
+    src[3] = 0x44;
+    const CryptoByte* src_ptr = src.data();
+
+    FixedSecureBuffer<4> dst;
+    dst[0] = 0xAA;
+    dst[1] = 0xBB;
+    dst[2] = 0xCC;
+    dst[3] = 0xDD;
+    dst = std::move(src);
+
+    EXPECT_EQ(dst[0], CryptoByte{0x11});
+    EXPECT_EQ(dst[3], CryptoByte{0x44});
+    // Source bytes must be zeroed after move.
+    for (std::size_t i = 0; i < 4; ++i) {
+        EXPECT_EQ(src_ptr[i], CryptoByte{0}); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    }
+}
+
+TEST_F(SecureBufferTests, FixedMoveAssignmentSelfAssignIsNoop) {
+    FixedSecureBuffer<2> buf;
+    buf[0] = 0x77;
+    buf[1] = 0x88;
+    buf = std::move(buf); // NOLINT(bugprone-use-after-move,hicpp-invalid-access-moved,clang-diagnostic-self-move)
+    EXPECT_EQ(buf.size(), 2U);
+}
+
+
 #ifdef SAFE_CRYPTO_CONTRACTS_ENFORCED
 
 TEST_F(SecureBufferTests, IndexOperatorOutOfBoundsDies) {
