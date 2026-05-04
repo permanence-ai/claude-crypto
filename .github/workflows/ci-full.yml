@@ -42,7 +42,7 @@ jobs:
       - name: Install toolchain
         run: |
           brew install cmake ninja openssl@3
-          pip3 install --break-system-packages jsonschema
+          pip3 install --break-system-packages jsonschema jinja2
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
@@ -104,7 +104,7 @@ jobs:
       - name: Install toolchain
         run: |
           brew install cmake ninja openssl@3 llvm
-          pip3 install --break-system-packages jsonschema
+          pip3 install --break-system-packages jsonschema jinja2
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
@@ -165,7 +165,7 @@ jobs:
       - name: Install toolchain
         run: |
           brew install cmake ninja openssl@3 llvm
-          pip3 install --break-system-packages jsonschema
+          pip3 install --break-system-packages jsonschema jinja2
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
@@ -190,13 +190,13 @@ jobs:
 
       - name: Test
         run: |
-          LLVM_PROFILE_FILE="build-cov/coverage-%p.profraw" \
+          LLVM_PROFILE_FILE="${{ github.workspace }}/build-cov/coverage-%p.profraw" \
             ctest --test-dir build-cov --output-on-failure
 
       - name: Merge profiles
         run: |
           "$(brew --prefix llvm)/bin/llvm-profdata" merge \
-            -sparse build-cov/coverage-*.profraw \
+            -sparse "${{ github.workspace }}"/build-cov/coverage-*.profraw \
             -o build-cov/coverage.profdata
 
       - name: Report (terminal summary)
