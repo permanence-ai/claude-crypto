@@ -454,6 +454,57 @@ TEST_F(SigmaIWrapperTests, AesGcmEncryptDecryptRoundTrip) {
 }
 
 
+// -----------------------------------------------------------------------
+// Direct tests for sigma_i_deserialize_bundle parse-error paths.
+// These branches are unreachable through the full handshake because
+// AES-GCM tag verification intercepts ciphertext tampering before the
+// deserializer ever sees the plaintext.
+// -----------------------------------------------------------------------
+
+class SigmaIDeserializeTests : public ::testing::Test {};
+
+TEST_F(SigmaIDeserializeTests, BundleTooShortIsRejected) {
+    // min_size = 2+1+2+1+48 = 54; pass 53 bytes.
+    constexpr std::size_t min_size = 2 + 1 + 2 + 1 + sigma_mac_key_size_bytes;
+    SecureBuffer buf(min_size - 1);
+    std::ranges::fill(buf, CryptoByte{0});
+    const auto result = detail::sigma_i_deserialize_bundle(buf);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
+
+TEST_F(SigmaIDeserializeTests, PubLenTooLargeIsRejected) {
+    // 54-byte buffer, pub_len=3: 2+3+2+48=55 > 54 → identity_pub length invalid.
+    constexpr std::size_t min_size = 2 + 1 + 2 + 1 + sigma_mac_key_size_bytes;
+    SecureBuffer buf(min_size);
+    std::ranges::fill(buf, CryptoByte{0});
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    buf[0] = 0x00;
+    buf[1] = 0x03;  // pub_len = 3, too large for this buffer
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    const auto result = detail::sigma_i_deserialize_bundle(buf);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
+
+TEST_F(SigmaIDeserializeTests, SigLenMismatchIsRejected) {
+    // 54-byte buffer, pub_len=1, sig_len=2: 4+1+2+48=55 != 54 → sig length invalid.
+    constexpr std::size_t min_size = 2 + 1 + 2 + 1 + sigma_mac_key_size_bytes;
+    SecureBuffer buf(min_size);
+    std::ranges::fill(buf, CryptoByte{0});
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    buf[0] = 0x00;
+    buf[1] = 0x01;  // pub_len = 1 (valid — fits in 54 bytes)
+    // offset 2: identity_pub byte (0x00)
+    buf[3] = 0x00;
+    buf[4] = 0x02;  // sig_len = 2, but only 1 byte of sig fits before the 48-byte mac
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+    const auto result = detail::sigma_i_deserialize_bundle(buf);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::SigmaAuthFailed);
+}
+
+
 TEST_F(SigmaIWrapperTests, AesGcmDecryptFailsWithWrongKey) {
     const auto key_a = ecdh_generate_key(EcCurve::P256);
     const auto key_b = ecdh_generate_key(EcCurve::P256);
