@@ -43,7 +43,7 @@ jobs:
       - name: Install toolchain
         run: |
           brew install cmake ninja openssl@3
-          pip3 install jsonschema
+          pip3 install --break-system-packages jsonschema
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
@@ -105,7 +105,7 @@ jobs:
       - name: Install toolchain
         run: |
           brew install cmake ninja openssl@3 llvm
-          pip3 install jsonschema
+          pip3 install --break-system-packages jsonschema
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
