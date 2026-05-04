@@ -1,6 +1,6 @@
 # safe-crypto-lib
 
-A modern C++26 cryptography library built on the PSA Crypto API (via MbedTLS 4.1). All operations return `std::expected` — no exceptions, no output parameters. Secrets are held in `SecureBuffer` / `FixedSecureBuffer` types that scrub memory on destruction.
+A modern C++26 cryptography library with three interchangeable backends: PSA/MbedTLS 4.1, ARM intrinsics (ARMv8.2-A+crypto+sha3), and OpenSSL 3.x. All operations return `std::expected` — no exceptions, no output parameters. Secrets are held in `SecureBuffer` / `FixedSecureBuffer` types that scrub memory on destruction.
 
 ## Features
 
@@ -70,7 +70,7 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 
 ### ARM ASM provider
 
-`providers/arm_asm/` is a header-only provider targeting ARMv8.2-A+crypto+sha3 (Apple Silicon M1 and later). It uses ARM Crypto Extension intrinsics directly — no MbedTLS dependency — compiled with `-march=armv8.2-a+crypto+sha3`.
+`providers/arm_asm/` targets ARMv8.2-A+crypto+sha3 (Apple Silicon M1 and later). Most operations are header-only intrinsics — no MbedTLS dependency. When the LIBOQS supplement is enabled, `dilithium_ntt_neon.cpp` is added as an OBJECT library that overrides liboqs's scalar Dilithium NTT via link-order interposition. Compiled with `-march=armv8.2-a+crypto+sha3`.
 
 **Implemented operations:**
 
@@ -107,6 +107,8 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | RSA-OAEP-3072/4096 encrypt/decrypt | Pure C++ Montgomery multiplication + CRT; SHA-384 MGF1; separate 8-slot RSA key store (key ID base 0xC000) |
 | RSA-PSS-3072/4096 sign/verify | Pure C++ Montgomery multiplication + CRT; SHA-384 MGF1; constant-time OAEP/PSS padding |
 | RSA key generation | Miller-Rabin primality (40 rounds) + CRT parameters; PKCS#1 DER output, SubjectPublicKeyInfo DER public key; no PSA/MbedTLS dependency |
+| ML-DSA-44/65/87 keygen/sign/verify | Via liboqs supplement (`SAFE_CRYPTO_PQC=LIBOQS`); forward/inverse NTT replaced by `dilithium_ntt_neon.cpp` NEON implementation |
+| ML-KEM-512/768/1024 keygen/encap/decap | Via liboqs supplement; uses mlkem-native's hand-written AArch64 assembly NTT (already optimal) |
 
 **SHA-512 compression loop detail.** The two-round step pattern cycles through four roles (ab/cd/ef/gh) every eight rounds. Each step requires cross-pair word interleaving that cannot be expressed as a simple state rotation:
 
@@ -127,10 +129,12 @@ Rounds 16–79 interleave message schedule (`vsha512su0q_u64` / `vsha512su1q_u64
 safe-crypto-lib/          # INTERFACE library — headers only, no PSA dependency
 providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
-  arm_asm/                # INTERFACE library — ArmAsmBackend, ARM intrinsics
+  arm_asm/                # INTERFACE + OBJECT library — ArmAsmBackend, ARM intrinsics
+  openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
+  liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs)
   ia_asm/                 # INTERFACE library stub — skeleton only
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (242 tests in OpenSSL build; 427 in ARM_ASM; 440 in ARM_ASM+LIBOQS; 248 in OPENSSL+LIBOQS; 232 in PSA_MBEDTLS+LIBOQS)
-safe-crypto-lib-bench/    # Google Benchmark harness — PSA vs ARM ASM comparison
+safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
 ```
 
@@ -207,13 +211,21 @@ Verify `SecureBuffer` and `FixedSecureBuffer<N>` behaviour: index operator reads
 
 ## Benchmarks
 
-`safe-crypto-lib-bench` uses Google Benchmark (via FetchContent) to measure throughput across all operations. Both `RealPsaBackend` and `ArmAsmBackend` are instantiated in the same binary so results are directly comparable. Symmetric payloads are swept across 64 B / 1 KiB / 16 KiB / 256 KiB; throughput is reported in GB/s or MB/s via `SetBytesProcessed`. EC and RSA operations report ops/s.
+`safe-crypto-lib-bench` uses Google Benchmark (via FetchContent) to measure throughput across all operations. `RealPsaBackend`, `ArmAsmBackend`, and `OpenSslBackend` are all instantiated in the same binary so results are directly comparable. Symmetric payloads are swept across 64 B / 1 KiB / 16 KiB / 256 KiB; throughput is reported in GB/s or MB/s via `SetBytesProcessed`. EC, RSA, and PQC operations report ops/s. PQC benchmarks (ML-DSA, ML-KEM) across all three providers require `-DSAFE_CRYPTO_PQC=LIBOQS` at configure time.
 
 ```bash
 # Build and run (Release mandatory for meaningful numbers)
 cmake -G Ninja -B cmake-build-release -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build cmake-build-release --target safe_crypto_lib_bench
 ./cmake-build-release/safe-crypto-lib-bench/safe_crypto_lib_bench
+
+# With PQC benchmarks (ML-DSA and ML-KEM across PSA, ARM, OpenSSL)
+cmake -G Ninja -B cmake-build-pqc-bench -S . \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DSAFE_CRYPTO_PQC=LIBOQS \
+  -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/openssl@3
+cmake --build cmake-build-pqc-bench --target safe_crypto_lib_bench
+./cmake-build-pqc-bench/safe-crypto-lib-bench/safe_crypto_lib_bench --benchmark_filter="MLDSA|MLKEM"
 
 # Filter to one family
 ./cmake-build-release/safe-crypto-lib-bench/safe_crypto_lib_bench --benchmark_filter=SHA256
@@ -277,6 +289,12 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | ML-KEM-512 Keygen | 9.29 µs | 9.31 µs | 1.00× |
 | ML-KEM-512 Encap | 7.00 µs | 7.03 µs | 1.00× |
 | ML-KEM-512 Decap | 8.11 µs | 8.14 µs | 1.00× |
+| ML-KEM-768 Keygen | 14.7 µs | 14.8 µs | 1.00× |
+| ML-KEM-768 Encap | 11.2 µs | 11.2 µs | 1.00× |
+| ML-KEM-768 Decap | 12.5 µs | 12.8 µs | 1.00× |
+| ML-KEM-1024 Keygen | 20.8 µs | 20.8 µs | 1.00× |
+| ML-KEM-1024 Encap | 16.4 µs | 16.1 µs | 1.00× |
+| ML-KEM-1024 Decap | 18.9 µs | 19.0 µs | 1.00× |
 
 ML-KEM is unaffected because the ARM backend uses mlkem-native's hand-written AArch64 assembly for its NTT — already optimal. ML-DSA uses the NEON NTT implemented in `providers/arm_asm/dilithium_ntt_neon.cpp`; it overrides the liboqs scalar C reference via link-order interposition (object files are resolved before archive members).
 
@@ -286,7 +304,7 @@ Notable findings:
 - **SHA3 / HMAC-SHA3** beats PSA at 2.1× after two optimization passes. (1) The first pass fully unrolled the ρ+π step, naming each of the 25 intermediate values explicitly so every rotation became a single `ROR Xd, Xn, #N`. (2) The second pass replaced the NEON `uint64x2_t`-pair implementation with a pure scalar one: all 25 Keccak state lanes remain in named `uint64_t` local variables throughout the round, eliminating the 50 `vgetq_lane_u64` vector-to-scalar lane extractions that dominated the NEON implementation's latency (each extraction costs ~3 cycles at 50×24 rounds = 3,600 scalar-pipeline stalls per permutation call).
 - **ChaCha20-Poly1305** leads MbedTLS at 1.33–1.37× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
 - **ECDSA / ECDH** beats PSA across all three curves for verify and key agreement, and for sign on P-256. Four optimization passes compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). Third, P-384 field inversion and scalar inversion were replaced with addition chains: `fe384_invert` (used in affine conversion after every scalar multiplication) drops from ~702 field ops to ~490; `p384_scalar_invert` now stays in Montgomery domain throughout its addition chain, reducing cost from ~1344 to ~490 Montgomery multiplications. Fourth, a dormant bug in the point-doubling formula (present across all three curves) was fixed — the `8γ²` term was squaring γ twice rather than once. P-384 sign still trails PSA (0.92×) and P-521 sign at 0.67×; both have no hardware modular reduction and the variable-base `p*_scalar_mul(Q, ...)` for ECDH and u2·Q in verification does not yet use a precomputed window.
-- **RSA** (3072 and 4096-bit) is now implemented entirely in pure C++ without any PSA/MbedTLS dependency. Key generation uses Miller-Rabin primality testing (40 rounds) followed by CRT parameter computation. Public and private operations use CIOS Montgomery multiplication with a constant-time final reduction. OAEP and PSS padding use SHA-384 MGF1. The benchmark numbers above predate this migration and reflect the prior PSA-delegated implementation; the current implementation has not been re-benchmarked.
+- **RSA** (3072 and 4096-bit) is implemented entirely in pure C++ without any PSA/MbedTLS dependency. Key generation uses Miller-Rabin primality testing (40 rounds) followed by CRT parameter computation. Public and private operations use CIOS Montgomery multiplication with a constant-time final reduction. OAEP and PSS padding use SHA-384 MGF1. ARM and PSA show near-parity because both use the same pure C++ implementation (PSA delegates to the same code path rather than MbedTLS's hardware-accelerated RSA).
 
 ## Provider selection
 
