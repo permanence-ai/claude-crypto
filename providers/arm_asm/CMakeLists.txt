@@ -32,10 +32,15 @@ target_include_directories(${LIB_NAME} INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/../../safe-crypto-lib
 )
 
-# ARM Crypto Extensions: AES, SHA2, SHA3, PMULL
-target_compile_options(${LIB_NAME} INTERFACE
-        -march=armv8.2-a+crypto+sha3
-)
+# ARM Crypto Extensions: AES, SHA2, SHA3, PMULL — only valid on AArch64.
+# Skip the march flag when cross-compiling for x86_64 on macOS (IA ASM build)
+# so the ARM flag does not propagate to x86_64 translation units that link
+# safe_crypto_lib_arm_asm transitively for cross-provider tests.
+if(NOT (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64"))
+    target_compile_options(${LIB_NAME} INTERFACE
+            -march=armv8.2-a+crypto+sha3
+    )
+endif()
 
 if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
     target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_liboqs)

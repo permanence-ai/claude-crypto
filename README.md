@@ -1,6 +1,6 @@
 # safe-crypto-lib
 
-A modern C++26 cryptography library with three interchangeable backends: PSA/MbedTLS 4.1, ARM intrinsics (ARMv8.2-A+crypto+sha3), and OpenSSL 3.x. All operations return `std::expected` — no exceptions, no output parameters. Secrets are held in `SecureBuffer` / `FixedSecureBuffer` types that scrub memory on destruction.
+A modern C++26 cryptography library with four interchangeable backends: PSA/MbedTLS 4.1, ARM intrinsics (ARMv8.2-A+crypto+sha3), OpenSSL 3.x, and Intel x86-64 intrinsics (SHA-NI, AES-NI, PCLMULQDQ). All operations return `std::expected` — no exceptions, no output parameters. Secrets are held in `SecureBuffer` / `FixedSecureBuffer` types that scrub memory on destruction.
 
 ## Features
 
@@ -56,7 +56,7 @@ The companion macro `SAFE_CRYPTO_CONTRACTS_ENFORCED` is defined when contracts p
 
 All crypto operations are templated on a `CryptoProvider` concept defined in `crypto_provider.hpp`. The concept requires associated types (`Status`, `KeyId`, `Algorithm`, `KeyAttributes`, `KdfOperation`, `KdfStep`), status sentinels, object factories, algorithm constants, and all low-level crypto primitives.
 
-The default provider (`RealPsaBackend`) forwards to PSA/MbedTLS. A second provider (`ArmAsmBackend`) implements all operations directly via ARM Crypto Extension intrinsics — see [ARM ASM provider](#arm-asm-provider) below. A third provider (`OpenSslBackend`) implements the full API using the OpenSSL 3.x EVP high-level API — see [OpenSSL provider](#openssl-provider) below. Tests use `MockPsaBackend` (GMock) to exercise every error path without inducing real PSA failures.
+The default provider (`RealPsaBackend`) forwards to PSA/MbedTLS. A second provider (`ArmAsmBackend`) implements all operations directly via ARM Crypto Extension intrinsics — see [ARM ASM provider](#arm-asm-provider) below. A third provider (`OpenSslBackend`) implements the full API using the OpenSSL 3.x EVP high-level API — see [OpenSSL provider](#openssl-provider) below. A fourth provider (`IaAsmBackend`) implements hash/HMAC/HKDF/AEAD via Intel SHA-NI/AES-NI/PCLMULQDQ intrinsics — see [IA ASM provider](#ia-asm-provider) below. Tests use `MockPsaBackend` (GMock) to exercise every error path without inducing real PSA failures.
 
 ### No PSA types in library headers
 
@@ -132,10 +132,10 @@ providers/
   arm_asm/                # INTERFACE + OBJECT library — ArmAsmBackend, ARM intrinsics
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs)
-  ia_asm/                 # INTERFACE library stub — skeleton only
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 434 in ARM_ASM; 447 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
+  ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 434 in ARM_ASM; 447 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
-cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark
+cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
 ```
 
 ## Build
@@ -434,7 +434,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
 | `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096 (pure C++, no MbedTLS), key management |
 | `OPENSSL` | OpenSSL 3.x EVP API | Full + SLH-DSA (FIPS 205, all 6 SHA2 variants) + ML-DSA (FIPS 204, parameter sets 44/65/87) + ML-KEM (FIPS 203, parameter sets 512/768/1024) — 249 tests; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
-| `IA_ASM` | Native assembly | Stub only |
+| `IA_ASM` | x86-64 SHA-NI + AES-NI + PCLMULQDQ + SSE2/SSSE3 | Full — hash/HMAC/HKDF/AEAD via x86 intrinsics; EC/RSA/PQC/random reuse arm_asm pure-C++ bignum (x86-portable); cross-compiled on Apple Silicon via `-DCMAKE_OSX_ARCHITECTURES=x86_64`, runs under Rosetta 2 (SHA-NI not emulated) |
 
 A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement fetched via FetchContent:
 
@@ -448,6 +448,11 @@ SLH-DSA is not yet available via liboqs (liboqs 0.13.0 uses `SPHINCS+` naming in
 ```bash
 # Use the ARM ASM provider
 cmake -G Ninja -B cmake-build-arm-asm -S . -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM
+
+# Use the IA ASM provider (cross-compile for x86_64 on Apple Silicon)
+cmake -G Ninja -B cmake-build-ia-asm -S . \
+  -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+  -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM
 
 # Use the ARM ASM provider with liboqs PQC supplement
 cmake -G Ninja -B cmake-build-arm-asm-pqc -S . \
@@ -471,6 +476,33 @@ cmake -G Ninja -B cmake-build-psa-pqc -S . \
 ```
 
 Specifying an unrecognised value is a configure-time fatal error that lists the valid choices. Adding a new provider means creating a `providers/<name>/` subdirectory with a backend struct and CMakeLists, then registering it in the top-level `SAFE_CRYPTO_ACTIVE_PROVIDER` string list.
+
+### IA ASM provider
+
+`providers/ia_asm/` targets x86-64 with SHA-NI, AES-NI, PCLMULQDQ, and SSE2/SSSE3. Hash/HMAC/HKDF/AEAD operations use x86 intrinsics; EC scalar math, RSA bignum, and PQC operations reuse the `arm_asm::detail` pure-C++ implementation (which has no NEON dependency). Compiled with `-march=x86-64-v2 -maes -msha -mpclmul -mssse3`.
+
+On macOS with Apple Silicon, cross-compile with `-DCMAKE_OSX_ARCHITECTURES=x86_64`. The resulting binary runs under Rosetta 2, which emulates AES-NI and most SSE extensions but **does not emulate SHA-NI** (`sha256rnds2`, `sha256msg1`, `sha256msg2`). Tests that require SHA-NI (all digest and HMAC tests) will SIGILL under Rosetta; RSA, AEAD (ChaCha20-Poly1305), and most buffer/error-path tests pass.
+
+**Implemented operations:**
+
+| Operation | Notes |
+|---|---|
+| SHA-256 | `_mm_sha256rnds2_epu32` SHA-NI rounds; full padding; requires native x86 |
+| SHA-384 / SHA-512 | SSE2 scalar compression; no special extensions needed |
+| SHA3-256/384/512 | Same scalar Keccak as ARM ASM, x86-portable |
+| HMAC-SHA-256/384/512 | SHA-NI / SSE2 |
+| HMAC-SHA3-256/384/512 | Scalar Keccak |
+| AES-256-GCM encrypt/decrypt | AES-NI key expansion + CTR; PCLMULQDQ GHASH |
+| ChaCha20-Poly1305 encrypt/decrypt | SSE2 quarter-round; Poly1305 with SIMD |
+| HKDF / HKDF-Expand (SHA-384) | RFC 5869 state machine |
+| ECDSA P-256/384/521 sign/verify | RFC 6979 deterministic k via ia_asm HMAC; EC math reuses `arm_asm::detail` |
+| ECDH P-256/384/521 | Pure C++ scalar multiplication |
+| RSA-OAEP-3072/4096 encrypt/decrypt | SHA-384 MGF1 using ia_asm SHA-384; same pure C++ bignum |
+| RSA-PSS-3072/4096 sign/verify | SHA-384 MGF1 using ia_asm SHA-384 |
+| RSA key generation | Same Miller-Rabin + CRT as ARM ASM |
+| EC/RSA key store | Shared `arm_asm::detail` key stores (same 16-slot EC, 8-slot RSA) |
+| Random bytes | `arc4random_buf` |
+| ML-DSA / ML-KEM | Via liboqs supplement (`SAFE_CRYPTO_PQC=LIBOQS`) |
 
 ### OpenSSL provider
 

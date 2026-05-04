@@ -45,7 +45,12 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha_variant.hpp"
 #include "secure_buffer.hpp"
 
+#ifndef SAFE_CRYPTO_PROVIDER_IA_ASM
 #include "arm_asm_backend.hpp"
+#else
+#include "ia_asm_backend.hpp"
+using ArmAsmBackend = IaAsmBackend;
+#endif
 #include "psa_mbedtls_backend.hpp"
 
 #include "aead.hpp"

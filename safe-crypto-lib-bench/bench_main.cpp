@@ -36,8 +36,15 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha_variant.hpp"
 #include "secure_buffer.hpp"
 
-// Always pull in all three provider headers so we can instantiate all three.
+// Pull in provider headers. arm_asm uses NEON intrinsics incompatible with x86_64.
+#ifndef SAFE_CRYPTO_PROVIDER_IA_ASM
 #include "arm_asm_backend.hpp"
+#else
+// On IA ASM (x86_64 cross-compile) arm_asm headers cannot be compiled.
+// Alias ArmAsmBackend → IaAsmBackend so all benchmark registrations build.
+#include "ia_asm_backend.hpp"
+using ArmAsmBackend = IaAsmBackend;
+#endif
 #include "openssl_backend.hpp"
 #include "psa_mbedtls_backend.hpp"
 

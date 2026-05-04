@@ -38,11 +38,18 @@ target_link_libraries(${EXE_NAME} PRIVATE
 
 target_link_libraries(${EXE_NAME} PRIVATE
         safe_crypto_lib
-        safe_crypto_lib_arm_asm      # cross_provider_tests always needs both backends
         safe_crypto_lib_psa_mbedtls  # MockPsaBackend always needs PSA headers + mbedtls
         gmock
         gtest
 )
+
+# arm_asm backend cannot be compiled for x86_64 (NEON headers).
+# Skip it when cross-compiling for IA ASM.
+if(NOT SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "IA_ASM")
+    target_link_libraries(${EXE_NAME} PRIVATE
+            safe_crypto_lib_arm_asm  # cross_provider_tests needs both backends
+    )
+endif()
 
 # When PQC supplement is enabled, link liboqs into the test binary so that
 # pqc_cross_provider_tests.hpp can instantiate ArmAsmBackend with real PQC ops.
