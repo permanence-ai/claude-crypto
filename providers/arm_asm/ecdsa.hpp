@@ -215,9 +215,9 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    const Fe r = p256_scalar_from_bytes32(sig);
-    const Fe s = p256_scalar_from_bytes32(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (p256_scalar_is_zero(r) || p256_scalar_is_zero(s)) { return false; }
+    Fe r{}, s{};
+    if (!p256_scalar_sig_decode(sig,          r)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (!p256_scalar_sig_decode(sig + qlen,   s)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
     const Fe e = p256_scalar_from_bytes32(msg_hash);
     const Fe w = p256_scalar_invert(s);
@@ -305,9 +305,9 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    const Fe r = p384_scalar_from_bytes48(sig);
-    const Fe s = p384_scalar_from_bytes48(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (p384_scalar_is_zero(r) || p384_scalar_is_zero(s)) { return false; }
+    Fe r{}, s{};
+    if (!p384_scalar_sig_decode(sig,          r)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (!p384_scalar_sig_decode(sig + qlen,   s)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
     const Fe e = p384_scalar_from_bytes48(msg_hash);
     const Fe w = p384_scalar_invert(s);
@@ -394,9 +394,9 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    const Fe r = p521_scalar_from_bytes66(sig);
-    const Fe s = p521_scalar_from_bytes66(sig + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (p521_scalar_is_zero(r) || p521_scalar_is_zero(s)) { return false; }
+    Fe r{}, s{};
+    if (!p521_scalar_sig_decode(sig,          r)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (!p521_scalar_sig_decode(sig + qlen,   s)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
     const Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
     const Fe w = p521_scalar_invert(s);

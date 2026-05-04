@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and test matrix
+  #
+  # 7 provider/PQC configurations × 2 build types = 14 jobs.
+  # IA_ASM is cross-compiled for x86_64 via Rosetta 2 but tests are NOT run:
+  # SHA-NI is not emulated under Rosetta 2, so SHA-256 tests would SIGILL.
+  # ---------------------------------------------------------------------------
+  build-test:
+    name: ${{ matrix.config.provider }}-${{ matrix.config.pqc }} / ${{ matrix.build_type }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { provider: PSA_MBEDTLS, pqc: NONE,   build_only: false }
+          - { provider: PSA_MBEDTLS, pqc: LIBOQS, build_only: false }
+          - { provider: ARM_ASM,     pqc: NONE,   build_only: false }
+          - { provider: ARM_ASM,     pqc: LIBOQS, build_only: false }
+          - { provider: OPENSSL,     pqc: NONE,   build_only: false }
+          - { provider: OPENSSL,     pqc: LIBOQS, build_only: false }
+          - { provider: IA_ASM,      pqc: NONE,   build_only: true  }
+        build_type: [Debug, Sanitize]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3
+          pip3 install --break-system-packages jsonschema jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-${{ matrix.config.provider }}-${{ matrix.config.pqc }}-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: |
+            fetchcontent-${{ matrix.config.provider }}-${{ matrix.config.pqc }}-
+
+      - name: Configure (ARM/PSA/OpenSSL)
+        if: matrix.config.provider != 'IA_ASM'
+        run: |
+          cmake -G Ninja -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=${{ matrix.config.provider }} \
+            -DSAFE_CRYPTO_PQC=${{ matrix.config.pqc }} \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Configure (IA_ASM — cross-compile x86_64)
+        if: matrix.config.provider == 'IA_ASM'
+        run: |
+          cmake -G Ninja -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        if: ${{ !matrix.config.build_only }}
+        run: ctest --test-dir build --output-on-failure
+
+  # ---------------------------------------------------------------------------
+  # Clang-tidy lint
+  #
+  # Configured against PSA_MBEDTLS/Debug so all headers are reachable.
+  # Uses Homebrew llvm for a pinned clang-tidy version.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: clang-tidy
+    runs-on: macos-15
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-llvm-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3 llvm
+          pip3 install --break-system-packages jsonschema jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build-lint/_deps
+          key: fetchcontent-lint-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fetchcontent-lint-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build-lint \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=PSA_MBEDTLS \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          find safe-crypto-lib providers -name '*.hpp' \
+            | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
+                -p build-lint \
+                --config-file=.clang-tidy
