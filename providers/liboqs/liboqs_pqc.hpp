@@ -18,7 +18,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "ml_dsa_variant.hpp"
 #include "ml_kem_variant.hpp"
 
-
 namespace liboqs_pqc {
 
 // Returns the OQS algorithm name string for a MlKemVariant.

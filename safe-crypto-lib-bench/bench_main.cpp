@@ -36,9 +36,11 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "sha_variant.hpp"
 #include "secure_buffer.hpp"
 
-// Always pull in both provider headers so we can instantiate both.
+// Always pull in all three provider headers so we can instantiate all three.
 #include "arm_asm_backend.hpp"
+#include "openssl_backend.hpp"
 #include "psa_mbedtls_backend.hpp"
+
 
 // Remaining library headers.
 #include "aead.hpp"
@@ -48,6 +50,8 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "ecdh.hpp"
 #include "kdf.hpp"
 #include "mac.hpp"
+#include "pqc_dsa.hpp"
+#include "pqc_kem.hpp"
 #include "random.hpp"
 
 
@@ -521,6 +525,159 @@ BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits4096, RealPsaBackend)->Uni
 BENCHMARK_TEMPLATE(BM_RsaPssSign,     RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Sign/ARM");
 BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, RealPsaBackend)->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Verify/PSA");
 BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, ArmAsmBackend) ->Unit(benchmark::kMicrosecond)->Name("RSA4096_PSS_Verify/ARM");
+
+
+// ---------------------------------------------------------------------------
+// PQC benchmarks — ML-DSA and ML-KEM across all three providers.
+// Guarded by SAFE_CRYPTO_PQC_LIBOQS (ARM/PSA) + OpenSslBackend (always).
+// ---------------------------------------------------------------------------
+
+#if defined(SAFE_CRYPTO_PQC_LIBOQS)
+
+// ML-DSA keygen
+template<MlDsaVariant V, typename Provider>
+static void BM_MlDsaKeygen(benchmark::State& state) {
+    for (auto _ : state) {
+        auto result = ml_dsa_generate_key_impl<V, Provider>();
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-DSA sign (keygen once, sign in loop)
+template<MlDsaVariant V, typename Provider>
+static void BM_MlDsaSign(benchmark::State& state) {
+    auto kp = ml_dsa_generate_key_impl<V, Provider>();
+    const auto msg = make_payload(64);
+    for (auto _ : state) {
+        auto result = ml_dsa_sign_impl<V, Provider>(*kp, msg);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-DSA verify (keygen + sign once, verify in loop)
+template<MlDsaVariant V, typename Provider>
+static void BM_MlDsaVerify(benchmark::State& state) {
+    auto kp  = ml_dsa_generate_key_impl<V, Provider>();
+    const auto msg = make_payload(64);
+    auto sig = ml_dsa_sign_impl<V, Provider>(*kp, msg);
+    const MlDsaPublicKey<V> pub{
+        .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
+    };
+    for (auto _ : state) {
+        auto result = ml_dsa_verify_impl<V, Provider>(pub, msg, *sig);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-KEM keygen
+template<MlKemVariant V, typename Provider>
+static void BM_MlKemKeygen(benchmark::State& state) {
+    for (auto _ : state) {
+        auto result = ml_kem_generate_key_impl<V, Provider>();
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-KEM encapsulate (keygen once, encap in loop)
+template<MlKemVariant V, typename Provider>
+static void BM_MlKemEncap(benchmark::State& state) {
+    auto kp = ml_kem_generate_key_impl<V, Provider>();
+    const MlKemPublicKey<V> pub{
+        .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
+    };
+    for (auto _ : state) {
+        auto result = ml_kem_encapsulate_impl<V, Provider>(pub);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// ML-KEM decapsulate (keygen + encap once, decap in loop)
+template<MlKemVariant V, typename Provider>
+static void BM_MlKemDecap(benchmark::State& state) {
+    auto kp  = ml_kem_generate_key_impl<V, Provider>();
+    const MlKemPublicKey<V> pub{
+        .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
+    };
+    auto enc = ml_kem_encapsulate_impl<V, Provider>(pub);
+    for (auto _ : state) {
+        auto result = ml_kem_decapsulate_impl<V, Provider>(*kp, enc->ciphertext);
+        benchmark::DoNotOptimize(result);
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+// --- ML-DSA-44 ---
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa44, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa44, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Keygen/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa44, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa44, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa44, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Sign/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa44, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Sign/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa44, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa44, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Verify/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa44, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA44_Verify/OSSL");
+
+// --- ML-DSA-65 ---
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa65, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa65, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Keygen/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa65, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa65, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa65, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Sign/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa65, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Sign/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa65, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa65, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Verify/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa65, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA65_Verify/OSSL");
+
+// --- ML-DSA-87 ---
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa87, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa87, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Keygen/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaKeygen, MlDsaVariant::Dsa87, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa87, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Sign/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa87, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Sign/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaSign,   MlDsaVariant::Dsa87, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Sign/OSSL");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa87, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Verify/PSA");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa87, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Verify/ARM");
+BENCHMARK_TEMPLATE(BM_MlDsaVerify, MlDsaVariant::Dsa87, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLDSA87_Verify/OSSL");
+
+// --- ML-KEM-512 ---
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem512, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem512, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Keygen/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem512, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem512, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Encap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem512, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Encap/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem512, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Encap/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem512, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Decap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem512, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Decap/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem512, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM512_Decap/OSSL");
+
+// --- ML-KEM-768 ---
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem768, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem768, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Keygen/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem768, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem768, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Encap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem768, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Encap/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem768, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Encap/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem768, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Decap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem768, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Decap/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem768, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM768_Decap/OSSL");
+
+// --- ML-KEM-1024 ---
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem1024, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Keygen/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem1024, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Keygen/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemKeygen, MlKemVariant::Kem1024, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Keygen/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem1024, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Encap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem1024, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Encap/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemEncap,  MlKemVariant::Kem1024, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Encap/OSSL");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, RealPsaBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Decap/PSA");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, ArmAsmBackend)  ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Decap/ARM");
+BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Decap/OSSL");
+
+#endif  // SAFE_CRYPTO_PQC_LIBOQS
 
 
 BENCHMARK_MAIN(); // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

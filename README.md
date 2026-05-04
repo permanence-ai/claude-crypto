@@ -82,9 +82,9 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 | HMAC-SHA-256 | Incremental `Sha256Ctx`; key hashing when key > 64 bytes |
 | HMAC-SHA-384 | Incremental `Sha512Ctx` initialised with SHA-384 H₀; key hashing uses SHA-384 |
 | HMAC-SHA-512 | Incremental `Sha512Ctx` initialised with SHA-512 H₀ |
-| SHA3-256 | Keccak-f[1600] via ARM SHA3 instructions (`veor3q_u64`, `vrax1q_u64`, `vbcaxq_u64`); rate=136B |
-| SHA3-384 | Same permutation, rate=104B, output=48B |
-| SHA3-512 | Same permutation, rate=72B, output=64B |
+| SHA3-256 | Keccak-f[1600] — 25 named `uint64_t` scalar registers throughout, no NEON lane extractions; rate=136B |
+| SHA3-384 | Same scalar Keccak permutation, rate=104B, output=48B |
+| SHA3-512 | Same scalar Keccak permutation, rate=72B, output=64B |
 | HMAC-SHA3-256 | FIPS 198-1 HMAC with SHA3 block size (136B) as key pad width |
 | HMAC-SHA3-384 | Block size 104B; key hashing uses SHA3-384 |
 | HMAC-SHA3-512 | Block size 72B; key hashing uses SHA3-512 |
@@ -229,15 +229,15 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | SHA-256 | 366 MB/s | 2,275 MB/s | **6.2×** |
 | SHA-384 | 509 MB/s | 1,585 MB/s | **3.1×** |
 | SHA-512 | 515 MB/s | 1,563 MB/s | **3.0×** |
-| SHA3-256 | 376 MB/s | 468 MB/s | **1.2×** |
-| SHA3-384 | 301 MB/s | 360 MB/s | **1.2×** |
-| SHA3-512 | 207 MB/s | 250 MB/s | **1.2×** |
+| SHA3-256 | 374 MB/s | 770 MB/s | **2.1×** |
+| SHA3-384 | 300 MB/s | 616 MB/s | **2.1×** |
+| SHA3-512 | 207 MB/s | 424 MB/s | **2.0×** |
 | HMAC-SHA-256 | 356 MB/s | 2,282 MB/s | **6.4×** |
 | HMAC-SHA-384 | 512 MB/s | 1,557 MB/s | **3.0×** |
 | HMAC-SHA-512 | 469 MB/s | 1,566 MB/s | **3.3×** |
-| HMAC-SHA3-256 | 367 MB/s | 468 MB/s | **1.3×** |
-| HMAC-SHA3-384 | 293 MB/s | 360 MB/s | **1.2×** |
-| HMAC-SHA3-512 | 207 MB/s | 250 MB/s | **1.2×** |
+| HMAC-SHA3-256 | 367 MB/s | 774 MB/s | **2.1×** |
+| HMAC-SHA3-384 | 293 MB/s | 618 MB/s | **2.1×** |
+| HMAC-SHA3-512 | 207 MB/s | 425 MB/s | **2.1×** |
 | AES-256-GCM encrypt | 1,060 MB/s | 1,249 MB/s | **1.18×** |
 | AES-256-GCM decrypt | 1,071 MB/s | 1,216 MB/s | **1.14×** |
 | ChaCha20-Poly1305 encrypt | 564 MB/s | 753 MB/s | **1.33×** |
@@ -261,10 +261,29 @@ cmake --build cmake-build-release --target safe_crypto_lib_bench
 | RSA-4096 PSS sign | 77 ops/s | 78 ops/s | **1.01×** |
 | RSA-4096 PSS verify | 4,121 ops/s | 3,968 ops/s | **0.96×** |
 
+**PQC results — ARM ASM+LIBOQS vs PSA/MbedTLS+LIBOQS (`-DSAFE_CRYPTO_PQC=LIBOQS`):**
+
+| Operation | PSA/liboqs-ref | ARM/NEON-NTT | Speedup |
+|---|---|---|---|
+| ML-DSA-44 Keygen | 43.0 µs | 38.3 µs | 1.12× |
+| ML-DSA-44 Sign | 167 µs | 123 µs | **1.36×** |
+| ML-DSA-44 Verify | 40.7 µs | 33.7 µs | **1.21×** |
+| ML-DSA-65 Keygen | 81.5 µs | 74.9 µs | 1.09× |
+| ML-DSA-65 Sign | 279 µs | 203 µs | **1.37×** |
+| ML-DSA-65 Verify | 66.1 µs | 56.3 µs | **1.17×** |
+| ML-DSA-87 Keygen | 115 µs | 106 µs | 1.08× |
+| ML-DSA-87 Sign | 343 µs | 256 µs | **1.34×** |
+| ML-DSA-87 Verify | 110 µs | 95.7 µs | **1.15×** |
+| ML-KEM-512 Keygen | 9.29 µs | 9.31 µs | 1.00× |
+| ML-KEM-512 Encap | 7.00 µs | 7.03 µs | 1.00× |
+| ML-KEM-512 Decap | 8.11 µs | 8.14 µs | 1.00× |
+
+ML-KEM is unaffected because the ARM backend uses mlkem-native's hand-written AArch64 assembly for its NTT — already optimal. ML-DSA uses the NEON NTT implemented in `providers/arm_asm/dilithium_ntt_neon.cpp`; it overrides the liboqs scalar C reference via link-order interposition (object files are resolved before archive members).
+
 Notable findings:
 - **SHA-256** sees the largest gain — `vsha256h`/`vsha256h2` intrinsics compress two rounds per cycle vs MbedTLS's scalar loop.
 - **AES-256-GCM** is near-parity because MbedTLS already uses `vaeseq_u8`/`vmull_p64` hardware acceleration on this platform.
-- **SHA3 / HMAC-SHA3** beats PSA at 1.2× after fully unrolling the ρ+π step. The original implementation used a runtime-indexed loop over `keccak_pi[]`/`keccak_rho[]` tables which prevented the compiler from emitting `ROR` instructions (all 25 rotation amounts are distinct compile-time constants). The rewrite names each of the 25 intermediate values explicitly so every rotation becomes a single `ROR Xd, Xn, #N` in the output, and the 200-byte `B[25]` scratch array is eliminated — all intermediates stay in registers across χ.
+- **SHA3 / HMAC-SHA3** beats PSA at 2.1× after two optimization passes. (1) The first pass fully unrolled the ρ+π step, naming each of the 25 intermediate values explicitly so every rotation became a single `ROR Xd, Xn, #N`. (2) The second pass replaced the NEON `uint64x2_t`-pair implementation with a pure scalar one: all 25 Keccak state lanes remain in named `uint64_t` local variables throughout the round, eliminating the 50 `vgetq_lane_u64` vector-to-scalar lane extractions that dominated the NEON implementation's latency (each extraction costs ~3 cycles at 50×24 rounds = 3,600 scalar-pipeline stalls per permutation call).
 - **ChaCha20-Poly1305** leads MbedTLS at 1.33–1.37× after adding a 4-block NEON parallel ChaCha20 path. The keystream generator uses a word-major state layout where each of the 16 `uint32x4_t` registers holds one ChaCha20 state word across all four blocks. Both column and diagonal quarter-rounds are plain `chacha20_qr` calls (no `vextq` needed), and all four QRs within each round type operate on disjoint registers so the out-of-order pipeline issues them simultaneously. After 10 double-rounds the state is transposed back to block-major order with `vzipq_u32`/`vzip1q_u64`/`vzip2q_u64` and XOR'd directly with the input. Poly1305 already used 4-block parallelism and 3-limb 44-bit integer arithmetic (9 MUL+UMULH pairs per block) from the prior optimization pass.
 - **ECDSA / ECDH** beats PSA across all three curves for verify and key agreement, and for sign on P-256. Four optimization passes compound here. First, a 4-bit fixed-base window over a precomputed [1..15]·G affine table replaces the variable-base double-and-add for k·G (signing) and u1·G (verification). Each nibble costs 4 doublings + 1 mixed Jacobian–affine add (Z₂=1, saving ~4 field multiplications per step), reducing the per-sign iteration count from 256→64 (P-256), 384→96 (P-384), 521→131 (P-521). Second, P-384 `fe384_mul` was rewritten as a 6×6 u64 schoolbook multiply (36 MUL-ACC) before Solinas reduction, replacing the old 12×12 u32 schoolbook (144 MUL-ACC). Third, P-384 field inversion and scalar inversion were replaced with addition chains: `fe384_invert` (used in affine conversion after every scalar multiplication) drops from ~702 field ops to ~490; `p384_scalar_invert` now stays in Montgomery domain throughout its addition chain, reducing cost from ~1344 to ~490 Montgomery multiplications. Fourth, a dormant bug in the point-doubling formula (present across all three curves) was fixed — the `8γ²` term was squaring γ twice rather than once. P-384 sign still trails PSA (0.92×) and P-521 sign at 0.67×; both have no hardware modular reduction and the variable-base `p*_scalar_mul(Q, ...)` for ECDH and u2·Q in verification does not yet use a precomputed window.
 - **RSA** (3072 and 4096-bit) is now implemented entirely in pure C++ without any PSA/MbedTLS dependency. Key generation uses Miller-Rabin primality testing (40 rounds) followed by CRT parameter computation. Public and private operations use CIOS Montgomery multiplication with a constant-time final reduction. OAEP and PSS padding use SHA-384 MGF1. The benchmark numbers above predate this migration and reflect the prior PSA-delegated implementation; the current implementation has not been re-benchmarked.

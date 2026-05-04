@@ -39,4 +39,19 @@ target_compile_options(${LIB_NAME} INTERFACE
 
 if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
     target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_liboqs)
+
+    # NEON NTT override for Dilithium (ML-DSA).  Built as an OBJECT library so
+    # the translation unit is unconditionally included in any executable that
+    # links safe_crypto_lib_dilithium_ntt, ensuring our symbols are resolved
+    # before the linker consults liboqs.a.
+    add_library(safe_crypto_lib_dilithium_ntt OBJECT
+            dilithium_ntt_neon.cpp
+    )
+    target_compile_options(safe_crypto_lib_dilithium_ntt PRIVATE
+            -march=armv8.2-a+crypto+sha3
+            -O3
+    )
+    target_include_directories(safe_crypto_lib_dilithium_ntt PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+    )
 endif()

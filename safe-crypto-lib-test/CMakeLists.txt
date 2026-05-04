@@ -51,6 +51,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 # pqc_cross_provider_tests.hpp can instantiate ArmAsmBackend with real PQC ops.
 if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
     target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib_liboqs)
+    target_link_libraries(${EXE_NAME} PRIVATE $<TARGET_OBJECTS:safe_crypto_lib_dilithium_ntt>)
 endif()
 
 include(GoogleTest)
