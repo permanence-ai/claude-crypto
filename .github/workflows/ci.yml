@@ -41,7 +41,9 @@ jobs:
           key: brew-cmake-ninja-openssl3-${{ runner.os }}
 
       - name: Install toolchain
-        run: brew install cmake ninja openssl@3
+        run: |
+          brew install cmake ninja openssl@3
+          pip3 install jsonschema
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
@@ -101,7 +103,9 @@ jobs:
           key: brew-cmake-ninja-openssl3-llvm-${{ runner.os }}
 
       - name: Install toolchain
-        run: brew install cmake ninja openssl@3 llvm
+        run: |
+          brew install cmake ninja openssl@3 llvm
+          pip3 install jsonschema
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
