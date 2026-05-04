@@ -37,8 +37,15 @@ public:
     SecureBuffer(const SecureBuffer&) = delete;
     SecureBuffer& operator=(const SecureBuffer&) = delete;
 
-    SecureBuffer(SecureBuffer&&) = default;
-    SecureBuffer& operator=(SecureBuffer&&) = default;
+    SecureBuffer(SecureBuffer&& other) noexcept : data_(std::move(other.data_)) {}
+
+    SecureBuffer& operator=(SecureBuffer&& other) noexcept {
+        if (this != &other) {
+            detail::secure_zero(data_.data(), data_.size());
+            data_ = std::move(other.data_);
+        }
+        return *this;
+    }
 
     ~SecureBuffer() {
         detail::secure_zero(data_.data(), data_.size());
@@ -127,8 +134,18 @@ public:
     FixedSecureBuffer(const FixedSecureBuffer&) = delete;
     FixedSecureBuffer& operator=(const FixedSecureBuffer&) = delete;
 
-    FixedSecureBuffer(FixedSecureBuffer&&) = default;
-    FixedSecureBuffer& operator=(FixedSecureBuffer&&) = default;
+    FixedSecureBuffer(FixedSecureBuffer&& other) noexcept : data_(other.data_) {
+        detail::secure_zero(other.data_.data(), N);
+    }
+
+    FixedSecureBuffer& operator=(FixedSecureBuffer&& other) noexcept {
+        if (this != &other) {
+            detail::secure_zero(data_.data(), N);
+            data_ = other.data_;
+            detail::secure_zero(other.data_.data(), N);
+        }
+        return *this;
+    }
 
     ~FixedSecureBuffer() {
         detail::secure_zero(data_.data(), N);
