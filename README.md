@@ -243,72 +243,72 @@ Verify `SecureBuffer` and `FixedSecureBuffer<N>` behaviour: index operator reads
 
 LLVM source-based coverage measured against the `safe-crypto-lib/` headers for each provider build (Debug + `-fprofile-instr-generate -fcoverage-mapping`, run against the full test suite). Branch coverage is per-file; the TOTAL row includes all instrumented code in the binary (provider implementation headers, test utilities, etc.) which lowers the overall branch %.
 
-### PSA/MbedTLS provider — 249 tests
+### PSA/MbedTLS provider — 226 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
-| `aead.hpp` | 74 | 85.1% | 8 | 100% | 156 | 91.0% |
-| `asymmetric.hpp` | 61 | 86.9% | 8 | 100% | 153 | 94.1% |
-| `crypto_error.hpp` | 5 | 100% | 3 | 100% | 7 | 100% |
-| `crypto_provider.hpp` | 7 | 100% | 3 | 100% | 7 | 100% |
-| `digests.hpp` | 8 | 87.5% | 2 | 100% | 23 | 95.7% |
-| `ecc.hpp` | 45 | 93.3% | 7 | 100% | 125 | 93.6% |
-| `ecdh.hpp` | 25 | 100% | 4 | 100% | 83 | 100% |
-| `kdf.hpp` | 84 | 86.9% | 6 | 100% | 176 | 87.5% |
-| `mac.hpp` | 25 | 92.0% | 4 | 100% | 62 | 95.2% |
-| `ml_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 21 | 0% |
-| `ml_kem_variant.hpp` | 4 | 0% | 4 | 0% | 24 | 0% |
-| `random.hpp` | 15 | 86.7% | 3 | 100% | 31 | 93.5% |
-| `secure_buffer.hpp` | 35 | 91.4% | 29 | 89.7% | 83 | 91.6% |
-| `sigma.hpp` | 93 | 88.2% | 11 | 90.9% | 226 | 87.6% |
-| `sigma_i.hpp` | 139 | 82.7% | 15 | 100% | 387 | 81.7% |
-| `slh_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 30 | 0% |
+| `aead.hpp` | 156 | 91.0% | 8 | 100% | 44 | 75.0% |
+| `asymmetric.hpp` | 153 | 94.1% | 8 | 100% | 36 | 75.0% |
+| `crypto_error.hpp` | 7 | 100% | 3 | 100% | 0 | — |
+| `crypto_provider.hpp` | 7 | 100% | 3 | 100% | 2 | 50.0% |
+| `digests.hpp` | 23 | 95.7% | 2 | 100% | 4 | 75.0% |
+| `ecc.hpp` | 125 | 93.6% | 7 | 100% | 32 | 84.4% |
+| `ecdh.hpp` | 83 | 100% | 4 | 100% | 14 | 100% |
+| `kdf.hpp` | 176 | 87.5% | 6 | 100% | 54 | 77.8% |
+| `mac.hpp` | 62 | 95.2% | 4 | 100% | 14 | 85.7% |
+| `ml_dsa_variant.hpp` | 21 | 0% | 3 | 0% | 0 | — |
+| `ml_kem_variant.hpp` | 24 | 0% | 4 | 0% | 0 | — |
+| `random.hpp` | 31 | 93.6% | 3 | 100% | 8 | 75.0% |
+| `secure_buffer.hpp` | 83 | 91.6% | 29 | 89.7% | 4 | 100% |
+| `sigma.hpp` | 226 | 87.6% | 11 | 90.9% | 56 | 78.6% |
+| `sigma_i.hpp` | 387 | 81.7% | 15 | 100% | 84 | 69.1% |
+| `slh_dsa_variant.hpp` | 30 | 0% | 3 | 0% | 0 | — |
 
 `ml_dsa_variant.hpp`, `ml_kem_variant.hpp`, and `slh_dsa_variant.hpp` show 0% because PSA/MbedTLS has no PQC implementation — those headers are only instantiated when `SAFE_CRYPTO_PQC=LIBOQS` or via the OpenSSL provider.
 
-### ARM ASM provider — 434 tests
+### ARM ASM provider — 446 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
-| `aead.hpp` | 74 | 85.1% | 8 | 100% | 156 | 91.0% |
-| `asymmetric.hpp` | 61 | 86.9% | 8 | 100% | 153 | 94.1% |
-| `crypto_error.hpp` | 5 | 100% | 3 | 100% | 7 | 100% |
-| `crypto_provider.hpp` | 7 | 100% | 3 | 100% | 7 | 100% |
-| `digests.hpp` | 8 | 87.5% | 2 | 100% | 23 | 95.7% |
-| `ecc.hpp` | 45 | 93.3% | 7 | 100% | 125 | 93.6% |
-| `ecdh.hpp` | 25 | 100% | 4 | 100% | 83 | 100% |
-| `kdf.hpp` | 84 | 86.9% | 6 | 100% | 176 | 87.5% |
-| `mac.hpp` | 25 | 92.0% | 4 | 100% | 62 | 95.2% |
-| `ml_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 21 | 0% |
-| `ml_kem_variant.hpp` | 4 | 0% | 4 | 0% | 24 | 0% |
-| `random.hpp` | 15 | 86.7% | 3 | 100% | 31 | 93.5% |
-| `secure_buffer.hpp` | 35 | 91.4% | 29 | 89.7% | 83 | 91.6% |
-| `sigma.hpp` | 93 | 85.0% | 11 | 90.9% | 226 | 84.1% |
-| `sigma_i.hpp` | 139 | 82.7% | 15 | 100% | 387 | 81.7% |
-| `slh_dsa_variant.hpp` | 3 | 0% | 3 | 0% | 30 | 0% |
+| `aead.hpp` | 156 | 91.0% | 8 | 100% | 44 | 75.0% |
+| `asymmetric.hpp` | 153 | 94.1% | 8 | 100% | 36 | 75.0% |
+| `crypto_error.hpp` | 7 | 100% | 3 | 100% | 0 | — |
+| `crypto_provider.hpp` | 7 | 100% | 3 | 100% | 2 | 50.0% |
+| `digests.hpp` | 23 | 95.7% | 2 | 100% | 4 | 75.0% |
+| `ecc.hpp` | 125 | 93.6% | 7 | 100% | 32 | 84.4% |
+| `ecdh.hpp` | 83 | 100% | 4 | 100% | 14 | 100% |
+| `kdf.hpp` | 176 | 87.5% | 6 | 100% | 54 | 77.8% |
+| `mac.hpp` | 62 | 95.2% | 4 | 100% | 14 | 85.7% |
+| `ml_dsa_variant.hpp` | 21 | 0% | 3 | 0% | 0 | — |
+| `ml_kem_variant.hpp` | 24 | 0% | 4 | 0% | 0 | — |
+| `random.hpp` | 31 | 93.6% | 3 | 100% | 8 | 75.0% |
+| `secure_buffer.hpp` | 83 | 91.6% | 29 | 89.7% | 4 | 100% |
+| `sigma.hpp` | 226 | 87.6% | 11 | 90.9% | 56 | 78.6% |
+| `sigma_i.hpp` | 387 | 81.7% | 15 | 100% | 84 | 69.1% |
+| `slh_dsa_variant.hpp` | 30 | 0% | 3 | 0% | 0 | — |
 
-### OpenSSL provider — 249 tests
+### OpenSSL provider — 255 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
-| `aead.hpp` | 74 | 85.1% | 8 | 100% | 156 | 91.0% |
-| `asymmetric.hpp` | 61 | 86.9% | 8 | 100% | 153 | 94.1% |
-| `crypto_error.hpp` | 5 | 100% | 3 | 100% | 7 | 100% |
-| `crypto_provider.hpp` | 7 | 100% | 3 | 100% | 7 | 100% |
-| `digests.hpp` | 8 | 87.5% | 2 | 100% | 23 | 95.7% |
-| `ecc.hpp` | 45 | 93.3% | 7 | 100% | 125 | 93.6% |
-| `ecdh.hpp` | 25 | 100% | 4 | 100% | 83 | 100% |
-| `kdf.hpp` | 84 | 86.9% | 6 | 100% | 176 | 87.5% |
-| `mac.hpp` | 25 | 92.0% | 4 | 100% | 62 | 95.2% |
-| `ml_dsa_variant.hpp` | 12 | 100% | 3 | 100% | 21 | 100% |
-| `ml_kem_variant.hpp` | 13 | 100% | 4 | 100% | 24 | 100% |
-| `pqc_dsa.hpp` | 72 | **72.2%** | 6 | 100% | 214 | 62.6% |
-| `pqc_kem.hpp` | 33 | **69.7%** | 3 | 100% | 109 | 63.3% |
-| `random.hpp` | 15 | 86.7% | 3 | 100% | 31 | 93.5% |
-| `secure_buffer.hpp` | 35 | 91.4% | 29 | 89.7% | 83 | 91.6% |
-| `sigma.hpp` | 93 | 88.2% | 11 | 90.9% | 226 | 87.6% |
-| `sigma_i.hpp` | 139 | 82.7% | 15 | 100% | 387 | 81.7% |
-| `slh_dsa_variant.hpp` | 21 | 100% | 3 | 100% | 30 | 100% |
+| `aead.hpp` | 156 | 91.0% | 8 | 100% | 44 | 75.0% |
+| `asymmetric.hpp` | 153 | 94.1% | 8 | 100% | 36 | 75.0% |
+| `crypto_error.hpp` | 7 | 100% | 3 | 100% | 0 | — |
+| `crypto_provider.hpp` | 7 | 100% | 3 | 100% | 2 | 50.0% |
+| `digests.hpp` | 23 | 95.7% | 2 | 100% | 4 | 75.0% |
+| `ecc.hpp` | 125 | 93.6% | 7 | 100% | 32 | 84.4% |
+| `ecdh.hpp` | 83 | 100% | 4 | 100% | 14 | 100% |
+| `kdf.hpp` | 176 | 87.5% | 6 | 100% | 54 | 77.8% |
+| `mac.hpp` | 62 | 95.2% | 4 | 100% | 14 | 85.7% |
+| `ml_dsa_variant.hpp` | 21 | 100% | 3 | 100% | 24 | 87.5% |
+| `ml_kem_variant.hpp` | 24 | 100% | 4 | 100% | 24 | 87.5% |
+| `pqc_dsa.hpp` | 214 | **62.6%** | 6 | 100% | 44 | 54.6% |
+| `pqc_kem.hpp` | 109 | **63.3%** | 3 | 100% | 20 | 50.0% |
+| `random.hpp` | 31 | 93.6% | 3 | 100% | 8 | 75.0% |
+| `secure_buffer.hpp` | 83 | 91.6% | 29 | 89.7% | 4 | 100% |
+| `sigma.hpp` | 226 | 87.6% | 11 | 90.9% | 56 | 78.6% |
+| `sigma_i.hpp` | 387 | 81.7% | 15 | 100% | 84 | 69.1% |
+| `slh_dsa_variant.hpp` | 30 | 100% | 3 | 100% | 42 | 92.9% |
 
 ### Coverage analysis
 
@@ -316,17 +316,17 @@ LLVM source-based coverage measured against the `safe-crypto-lib/` headers for e
 
 Every file with less than 100% line coverage has the same category of gap: **error-path `std::unexpected` returns**. No happy-path code is uncovered. Specifically:
 
-- `aead.hpp`, `asymmetric.hpp`, `random.hpp` — `crypto_init()` failure return, key-import failure return, encrypt/decrypt failure return. These branches require inducing low-level PSA/OpenSSL failures; they are covered in the `PsaErrorTests` mock suite (107 tests) but that suite runs against `MockPsaBackend`, not `RealPsaBackend`/`ArmAsmBackend`/`OpenSslBackend`, so the real-provider builds don't count them.
+- `aead.hpp`, `asymmetric.hpp`, `random.hpp` — `crypto_init()` failure return, key-import failure return, encrypt/decrypt failure return. These branches require inducing low-level PSA/OpenSSL failures; they are covered in the `PsaErrorTests` mock suite but that suite runs against `MockPsaBackend`, not the real backends, so real-provider builds don't count them.
 - `kdf.hpp` — HKDF-info input failure (one specific KDF step error path) and a few `expand_key_impl` error returns not covered by `PsaErrorTests`.
 - `sigma.hpp` / `sigma_i.hpp` — KDF setup/input failure returns inside `derive_keys` and `respond` paths. The happy-path handshake is fully covered; the three `sigma_i_deserialize_bundle` parse-error paths are directly tested; only injected-KDF/AES-failure branches remain uncovered in real-provider builds.
-- `pqc_dsa.hpp` (OpenSSL — **72.2%**) / `pqc_kem.hpp` (OpenSSL — **69.7%**) — Same pattern: all error-path returns for keygen failure, key-export failure, sign failure, encap/decap failure. The PQC tests cover the happy path and tamper-detection path but do not inject low-level OpenSSL failures into `OQS_SIG_keypair` / `OQS_KEM_encaps` etc.
+- `pqc_dsa.hpp` (OpenSSL — **62.6% lines**) / `pqc_kem.hpp` (OpenSSL — **63.3% lines**) — Same pattern: all error-path returns for keygen failure, key-export failure, sign failure, encap/decap failure. The PQC tests cover the happy path and tamper-detection path but do not inject low-level OpenSSL failures into `OQS_SIG_keypair` / `OQS_KEM_encaps` etc.
 
 **Files at or above 80% in all providers:** `aead.hpp`, `asymmetric.hpp`, `crypto_error.hpp`, `crypto_provider.hpp`, `digests.hpp`, `ecc.hpp`, `ecdh.hpp`, `kdf.hpp`, `mac.hpp`, `random.hpp`, `secure_buffer.hpp`, `sigma.hpp`.
 
 **Files below 80% in at least one provider:**
-- `sigma_i.hpp` — 82.7% line / 69.1% branch (all providers). Remaining gap: injected-failure branches in `derive_keys_impl` and `sigma_i_aes_gcm_{encrypt,decrypt}_impl` — require fault injection into PSA/AES primitives.
-- `pqc_dsa.hpp` — 72.2% (OpenSSL only). Missing: error-path returns for keygen/export/sign/verify failures — no mock infrastructure for `OQS_SIG_*` failures exists.
-- `pqc_kem.hpp` — 69.7% (OpenSSL only). Same: error-path returns for keygen/export/encap/decap failures.
+- `sigma_i.hpp` — 81.7% line / 69.1% branch (all providers). Remaining gap: injected-failure branches in `derive_keys_impl` and `sigma_i_aes_gcm_{encrypt,decrypt}_impl` — require fault injection into PSA/AES primitives.
+- `pqc_dsa.hpp` — 62.6% lines (OpenSSL only). Missing: error-path returns for keygen/export/sign/verify failures — no mock infrastructure for `OQS_SIG_*` failures exists.
+- `pqc_kem.hpp` — 63.3% lines (OpenSSL only). Same: error-path returns for keygen/export/encap/decap failures.
 
 ## Benchmarks
 
