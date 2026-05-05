@@ -1273,15 +1273,17 @@ TEST_F(ArmAsmEcKeyStoreTests, ImportOversizedKeyReturnsZero) {
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
-    std::array<uint8_t, 32> dummy{};
+    // Scalar = 1 (valid: 1 <= 1 < n).
+    std::array<uint8_t, 32> scalar_one{};
+    scalar_one[31] = 0x01U;
     for (std::size_t i = 0; i < arm_asm::detail::ec_key_store_capacity; ++i) {
         EXPECT_NE(arm_asm::detail::ec_key_store_import(
             arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
-            dummy.data(), dummy.size()), 0U) << "slot " << i;
+            scalar_one.data(), scalar_one.size()), 0U) << "slot " << i;
     }
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
-        dummy.data(), dummy.size()), 0U);
+        scalar_one.data(), scalar_one.size()), 0U);
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, GetWithIdBelowBaseReturnsFalse) {
@@ -1320,6 +1322,211 @@ TEST_F(ArmAsmEcKeyStoreTests, DestroyWithIdAboveRangeIsNoOp) {
     arm_asm::detail::ec_key_store_destroy(
         arm_asm::detail::ec_key_id_base +
         static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity));
+}
+
+// ---------------------------------------------------------------------------
+// ArmAsmEcKeyImportValidationTests — Issue #4: import rejects malformed keys.
+// ---------------------------------------------------------------------------
+
+class ArmAsmEcKeyImportValidationTests : public ::testing::Test {
+protected:
+    void TearDown() override {
+        for (unsigned int i = 0; i < static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity); ++i) {
+            arm_asm::detail::ec_key_store_destroy(arm_asm::detail::ec_key_id_base + i);
+        }
+    }
+
+    // P-256 generator point (1*G) as uncompressed public key.
+    static constexpr std::array<uint8_t, 65> kP256Pub = {{
+        0x04,
+        0x6b,0x17,0xd1,0xf2,0xe1,0x2c,0x42,0x47,0xf8,0xbc,0xe6,0xe5,0x63,0xa4,0x40,0xf2,
+        0x77,0x03,0x7d,0x81,0x2d,0xeb,0x33,0xa0,0xf4,0xa1,0x39,0x45,0xd8,0x98,0xc2,0x96,
+        0x4f,0xe3,0x42,0xe2,0xfe,0x1a,0x7f,0x9b,0x8e,0xe7,0xeb,0x4a,0x7c,0x0f,0x9e,0x16,
+        0x2b,0xce,0x33,0x57,0x6b,0x31,0x5e,0xce,0xcb,0xb6,0x40,0x68,0x37,0xbf,0x51,0xf5,
+    }};
+
+    // P-384 generator point (1*G) as uncompressed public key.
+    static constexpr std::array<uint8_t, 97> kP384Pub = {{
+        0x04,
+        0xaa,0x87,0xca,0x22,0xbe,0x8b,0x05,0x37,0x8e,0xb1,0xc7,0x1e,0xf3,0x20,0xad,0x74,
+        0x6e,0x1d,0x3b,0x62,0x8b,0xa7,0x9b,0x98,0x59,0xf7,0x41,0xe0,0x82,0x54,0x2a,0x38,
+        0x55,0x02,0xf2,0x5d,0xbf,0x55,0x29,0x6c,0x3a,0x54,0x5e,0x38,0x72,0x76,0x0a,0xb7,
+        0x36,0x17,0xde,0x4a,0x96,0x26,0x2c,0x6f,0x5d,0x9e,0x98,0xbf,0x92,0x92,0xdc,0x29,
+        0xf8,0xf4,0x1d,0xbd,0x28,0x9a,0x14,0x7c,0xe9,0xda,0x31,0x13,0xb5,0xf0,0xb8,0xc0,
+        0x0a,0x60,0xb1,0xce,0x1d,0x7e,0x81,0x9d,0x7a,0x43,0x1d,0x7c,0x90,0xea,0x0e,0x5f,
+    }};
+
+    // P-521 generator point (1*G) as uncompressed public key.
+    static constexpr std::array<uint8_t, 133> kP521Pub = {{
+        0x04,
+        0x00,0xc6,0x85,0x8e,0x06,0xb7,0x04,0x04,0xe9,0xcd,0x9e,0x3e,0xcb,0x66,0x23,0x95,
+        0xb4,0x42,0x9c,0x64,0x81,0x39,0x05,0x3f,0xb5,0x21,0xf8,0x28,0xaf,0x60,0x6b,0x4d,
+        0x3d,0xba,0xa1,0x4b,0x5e,0x77,0xef,0xe7,0x59,0x28,0xfe,0x1d,0xc1,0x27,0xa2,0xff,
+        0xa8,0xde,0x33,0x48,0xb3,0xc1,0x85,0x6a,0x42,0x9b,0xf9,0x7e,0x7e,0x31,0xc2,0xe5,
+        0xbd,0x66,
+        0x01,0x18,0x39,0x29,0x6a,0x78,0x9a,0x3b,0xc0,0x04,0x5c,0x8a,0x5f,0xb4,0x2c,0x7d,
+        0x1b,0xd9,0x98,0xf5,0x44,0x49,0x57,0x9b,0x44,0x68,0x17,0xaf,0xbd,0x17,0x27,0x3e,
+        0x66,0x2c,0x97,0xee,0x72,0x99,0x5e,0xf4,0x26,0x40,0xc5,0x50,0xb9,0x01,0x3f,0xad,
+        0x07,0x61,0x35,0x3c,0x70,0x86,0xa2,0x72,0xc2,0x40,0x88,0xbe,0x94,0x76,0x9f,0xd1,
+        0x66,0x50,
+    }};
+};
+
+// Private key: valid and invalid cases.
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256ValidPrivateKeyImports) {
+    std::array<uint8_t, 32> scalar{};
+    scalar[31] = 0x01U; // d = 1
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256ZeroPrivateKeyRejected) {
+    std::array<uint8_t, 32> scalar{};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyWrongLengthRejected) {
+    std::array<uint8_t, 48> buf{};
+    buf[47] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        buf.data(), buf.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyEqualsNRejected) {
+    // P-256 group order n.
+    static constexpr std::array<uint8_t, 32> kN = {{
+        0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
+        0xbc,0xe6,0xfa,0xad,0xa7,0x17,0x9e,0x84,0xf3,0xb9,0xca,0xc2,0xfc,0x63,0x25,0x51,
+    }};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        kN.data(), kN.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384ValidPrivateKeyImports) {
+    std::array<uint8_t, 48> scalar{};
+    scalar[47] = 0x01U;
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384ZeroPrivateKeyRejected) {
+    std::array<uint8_t, 48> scalar{};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521ValidPrivateKeyImports) {
+    std::array<uint8_t, 66> scalar{};
+    scalar[65] = 0x01U;
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521ZeroPrivateKeyRejected) {
+    std::array<uint8_t, 66> scalar{};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521PrivateKeyHighBitRejected) {
+    std::array<uint8_t, 66> scalar{};
+    scalar[0]  = 0x02U; // top 7 bits of first byte must be zero
+    scalar[65] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+// Public key: valid and invalid cases.
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256ValidPublicKeyImports) {
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        kP256Pub.data(), kP256Pub.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PublicKeyWrongPrefixRejected) {
+    auto bad = kP256Pub;
+    bad[0] = 0x02U; // compressed prefix — not accepted
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PublicKeyOffCurveRejected) {
+    auto bad = kP256Pub;
+    bad[1] ^= 0x01U; // corrupt x coordinate
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PublicKeyWrongLengthRejected) {
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        kP256Pub.data(), 32U), 0U); // too short
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384ValidPublicKeyImports) {
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Public,
+        kP384Pub.data(), kP384Pub.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384PublicKeyOffCurveRejected) {
+    auto bad = kP384Pub;
+    bad[1] ^= 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521ValidPublicKeyImports) {
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Public,
+        kP521Pub.data(), kP521Pub.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521PublicKeyHighBitRejected) {
+    auto bad = kP521Pub;
+    bad[1] = 0x02U; // top 7 bits of x[0] must be zero
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521PublicKeyOffCurveRejected) {
+    auto bad = kP521Pub;
+    bad[2] ^= 0x01U; // corrupt x coordinate
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, NoneKindRejected) {
+    std::array<uint8_t, 32> buf{};
+    buf[31] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::None,
+        buf.data(), buf.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, NoneCurveRejected) {
+    std::array<uint8_t, 32> buf{};
+    buf[31] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::None, arm_asm::detail::EcKeyKind::Private,
+        buf.data(), buf.size()), 0U);
 }
 
 
