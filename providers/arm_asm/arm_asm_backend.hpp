@@ -493,7 +493,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static Status aead_encrypt(  // NOLINT(readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
-                               const CryptoByte* nonce, std::size_t /*nonce_len*/,
+                               const CryptoByte* nonce, std::size_t nonce_len,
                                const CryptoByte* aad, std::size_t aad_len,
                                const CryptoByte* pt, std::size_t pt_len,
                                CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -502,12 +502,16 @@ struct ArmAsmBackend {
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
         if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         if (alg == alg_aes_gcm()) {
+            if (nonce_len != arm_asm::detail::aes_gcm_iv_bytes) { return err_invalid_arg; }
+            if (pt_len > SIZE_MAX - arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
             if (out_size < pt_len + arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
             arm_asm::detail::aes256_gcm_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
             *out_len = pt_len + arm_asm::detail::aes_gcm_tag_bytes;
             return ok;
         }
         if (alg == alg_chacha20_poly1305()) {
+            if (nonce_len != arm_asm::detail::chacha20_poly1305_nonce_bytes) { return err_invalid_arg; }
+            if (pt_len > SIZE_MAX - arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
             if (out_size < pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
             arm_asm::detail::chacha20_poly1305_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
             *out_len = pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes;
@@ -518,7 +522,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static Status aead_decrypt(  // NOLINT(readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
-                               const CryptoByte* nonce, std::size_t /*nonce_len*/,
+                               const CryptoByte* nonce, std::size_t nonce_len,
                                const CryptoByte* aad, std::size_t aad_len,
                                const CryptoByte* ct, std::size_t ct_len,
                                CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -527,6 +531,7 @@ struct ArmAsmBackend {
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
         if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         if (alg == alg_aes_gcm()) {
+            if (nonce_len != arm_asm::detail::aes_gcm_iv_bytes) { return err_invalid_arg; }
             if (ct_len < arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
             const std::size_t pt_len = ct_len - arm_asm::detail::aes_gcm_tag_bytes;
             if (out_size < pt_len) { return err_invalid_arg; }
@@ -537,6 +542,7 @@ struct ArmAsmBackend {
             return ok;
         }
         if (alg == alg_chacha20_poly1305()) {
+            if (nonce_len != arm_asm::detail::chacha20_poly1305_nonce_bytes) { return err_invalid_arg; }
             if (ct_len < arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
             const std::size_t pt_len = ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes;
             if (out_size < pt_len) { return err_invalid_arg; }
@@ -946,11 +952,11 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static std::size_t ec_public_key_export_size(std::size_t bits)       noexcept { return (((bits + 7U) / 8U) * 2U) + 1U; }  // 256→65, 384→97, 521→133
     [[nodiscard]]
-    static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len + arm_asm::detail::aes_gcm_tag_bytes; }
+    static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len <= SIZE_MAX - arm_asm::detail::aes_gcm_tag_bytes ? pt_len + arm_asm::detail::aes_gcm_tag_bytes : 0; }
     [[nodiscard]]
     static std::size_t aes_gcm_decrypt_output_size(std::size_t ct_len)        noexcept { return ct_len > arm_asm::detail::aes_gcm_tag_bytes ? ct_len - arm_asm::detail::aes_gcm_tag_bytes : 0; }
     [[nodiscard]]
-    static std::size_t chacha20_encrypt_output_size(std::size_t pt_len) noexcept { return pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes; }
+    static std::size_t chacha20_encrypt_output_size(std::size_t pt_len) noexcept { return pt_len <= SIZE_MAX - arm_asm::detail::chacha20_poly1305_tag_bytes ? pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes : 0; }
     [[nodiscard]]
     static std::size_t chacha20_decrypt_output_size(std::size_t ct_len) noexcept { return ct_len > arm_asm::detail::chacha20_poly1305_tag_bytes ? ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes : 0; }
     [[nodiscard]]

@@ -389,7 +389,7 @@ struct OpenSslBackend {
     }
     [[nodiscard]]
     static std::size_t aes_gcm_encrypt_output_size(const std::size_t plaintext_size) noexcept {
-        return plaintext_size + 16U;  // + 128-bit GCM tag
+        return plaintext_size <= SIZE_MAX - 16U ? plaintext_size + 16U : 0U;  // + 128-bit GCM tag
     }
     [[nodiscard]]
     static std::size_t aes_gcm_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
@@ -397,7 +397,7 @@ struct OpenSslBackend {
     }
     [[nodiscard]]
     static std::size_t chacha20_encrypt_output_size(const std::size_t plaintext_size) noexcept {
-        return plaintext_size + 16U;  // + 128-bit Poly1305 tag
+        return plaintext_size <= SIZE_MAX - 16U ? plaintext_size + 16U : 0U;  // + 128-bit Poly1305 tag
     }
     [[nodiscard]]
     static std::size_t chacha20_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
@@ -1016,8 +1016,10 @@ struct OpenSslBackend {
         std::size_t* ciphertext_length) noexcept
     {
         using namespace openssl_provider::detail;
-        (void)nonce_length;
         constexpr std::size_t tag_len = 16U;
+        constexpr std::size_t aead_nonce_len = 12U;
+        if (nonce_length != aead_nonce_len) { return err_invalid_arg; }
+        if (plaintext_length > SIZE_MAX - tag_len) { return err_invalid_arg; }
         if (ciphertext_size < plaintext_length + tag_len) { return err_invalid_arg; }
 
         const EVP_CIPHER* cipher = aead_cipher(alg);
@@ -1066,8 +1068,9 @@ struct OpenSslBackend {
         std::size_t* plaintext_length) noexcept
     {
         using namespace openssl_provider::detail;
-        (void)nonce_length;
         constexpr std::size_t tag_len = 16U;
+        constexpr std::size_t aead_nonce_len = 12U;
+        if (nonce_length != aead_nonce_len) { return err_invalid_arg; }
         if (ciphertext_length < tag_len) { return err_invalid_arg; }
         const std::size_t ct_len = ciphertext_length - tag_len;
         if (plaintext_size < ct_len) { return err_invalid_arg; }
