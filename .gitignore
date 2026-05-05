@@ -12,11 +12,16 @@ cmake-build-sanitize/
 cmake-build-openssl-pqc/
 cmake-build-pqc-bench/
 cmake-build-psa-pqc/
+cmake-build-cov-arm/
+cmake-build-cov-openssl/
+cmake-build-cov-psa/
 cmake-build-debug/
 cmake-build-gcc15/
+cmake-build-lint/
 cmake-build-openssl/
 cmake-build-release/
 cmake-build-release
+default.profraw
 .idea/
 Testing/
 a.out
