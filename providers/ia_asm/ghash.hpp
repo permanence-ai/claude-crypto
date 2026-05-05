@@ -74,8 +74,9 @@ static inline void ghash_clmul256(__m128i a, __m128i b,
 // Uses the Montgomery reduction with r(z) = 0x87 = x⁷ + x² + x + 1.
 [[gnu::target("pclmul,ssse3")]]
 static inline __m128i ghash_reduce(__m128i lo, __m128i hi) noexcept {
-    // r(z) = 0xE1 in reflected bit order (= 0x87 reversed).
-    const __m128i poly = _mm_set_epi64x(0, static_cast<long long>(0xE100000000000000ULL)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // r(z) = 0xE1 in reflected bit order (= 0x87 reversed); must be in high 64-bit lane
+    // so that clmulepi64_si128(..., 0x01) selects it as poly[127:64].
+    const __m128i poly = _mm_set_epi64x(static_cast<long long>(0xE100000000000000ULL), 0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // First reduction step: reduce lower 64 bits of hi using r(z).
     __m128i tmp1 = _mm_clmulepi64_si128(hi, poly, 0x01); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) hi0 * r

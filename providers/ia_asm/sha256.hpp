@@ -214,12 +214,12 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     state0 = _mm_add_epi32(state0, init0);
     state1 = _mm_add_epi32(state1, init1);
 
-    // Convert back from SHA-NI layout { d c b a } / { h g f e } to h0..h7.
-    tmp    = _mm_alignr_epi8(state0, state1, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    state1 = _mm_blend_epi16(state1, state0, 0xF0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    state0 = tmp;
-    state0 = _mm_shuffle_epi32(state0, 0x1B); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) { a b c d }
-    state1 = _mm_shuffle_epi32(state1, 0xB1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) { e f g h }
+    // Convert back from SHA-NI ABEF/CDGH layout to h0..h7 word order.
+    // Reference: noloader/SHA-Intrinsics sha256-x86.c
+    tmp    = _mm_shuffle_epi32(state0, 0x1B); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) FEBA
+    state1 = _mm_shuffle_epi32(state1, 0xB1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) DCHG
+    state0 = _mm_blend_epi16(tmp, state1, 0xF0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) DCBA
+    state1 = _mm_alignr_epi8(state1, tmp, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) HGFE
 
     _mm_storeu_si128(reinterpret_cast<__m128i*>(state),     state0);
     _mm_storeu_si128(reinterpret_cast<__m128i*>(state + 4), state1);

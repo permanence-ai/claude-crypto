@@ -309,9 +309,8 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P256AllOnesRRejectsSignature) {
 TEST_F(IaAsmEcdsaSigDecodeTests, P256OffCurvePublicKeyRejectsVerify) {
     const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    const auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ASSERT_FALSE(sig.empty());
     // Export the public key, flip last byte of y to make it off-curve, re-import.
+    // EC key validation now rejects off-curve points at import time.
     std::array<uint8_t, 65> pk_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t pk_len = 0;
     ASSERT_EQ(IaAsmBackend::export_public_key(pub_id, pk_buf.data(), pk_buf.size(), &pk_len), IaAsmBackend::ok);
@@ -320,8 +319,7 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P256OffCurvePublicKeyRejectsVerify) {
         arm_asm::detail::ec_key_store_import(
             arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
             pk_buf.data(), pk_len));
-    ASSERT_NE(bad_pub, IaAsmBackend::null_key_id());
-    EXPECT_NE(verify(bad_pub, sig), IaAsmBackend::ok);
+    EXPECT_EQ(bad_pub, IaAsmBackend::null_key_id());
 }
 
 // ---- P-384 ----
