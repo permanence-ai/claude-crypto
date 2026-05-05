@@ -8,9 +8,9 @@ jobs:
   # ---------------------------------------------------------------------------
   # Fast build and test subset for PR checks.
   #
-  # One provider per ISA family × Debug only = 3 jobs:
-  #   PSA_MBEDTLS, ARM_ASM, OPENSSL — all PQC=NONE.
-  # Plus one Sanitize job (PSA_MBEDTLS) as a cheap ASan/UBSan safety net.
+  # PSA_MBEDTLS (Debug + Sanitize) and OPENSSL (Debug) — all PQC=NONE.
+  # ARM_ASM is excluded here: its test suite takes too long to block PR merges.
+  # It runs in ci-full.yml on every push to main.
   # IA_ASM is excluded: cross-compiled only, cannot run under Rosetta 2.
   # Full matrix (all PQC variants, all build types) runs in ci-full.yml.
   # ---------------------------------------------------------------------------
@@ -23,7 +23,6 @@ jobs:
         include:
           - { provider: PSA_MBEDTLS, build_type: Debug     }
           - { provider: PSA_MBEDTLS, build_type: Sanitize  }
-          - { provider: ARM_ASM,     build_type: Debug     }
           - { provider: OPENSSL,     build_type: Debug     }
 
     steps:
