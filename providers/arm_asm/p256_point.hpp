@@ -348,11 +348,69 @@ static inline auto p256_G_table_select(unsigned nibble) noexcept -> P256AffinePo
 }
 
 
+// CT point doubling: branch-free with respect to identity.
+// When p.Z == 0 (identity), the dbl formula produces a garbage point;
+// we CT-select back to p256_identity so the result is correct.
+[[nodiscard]]
+static inline auto p256_point_double_ct(const P256Point& p) noexcept -> P256Point
+{
+    const P256Point doubled = [&]() noexcept -> P256Point {
+        const Fe256 delta = fe256_sqr(p.Z);
+        const Fe256 gamma = fe256_sqr(p.Y);
+        const Fe256 beta  = fe256_mul(p.X, gamma);
+        const Fe256 xmd   = fe256_sub(p.X, delta);
+        const Fe256 xpd   = fe256_add(p.X, delta);
+        const Fe256 xmxp  = fe256_mul(xmd, xpd);
+        const Fe256 alpha = fe256_add(fe256_add(xmxp, xmxp), xmxp);
+        const Fe256 beta4 = fe256_add(fe256_add(beta, beta), fe256_add(beta, beta));
+        const Fe256 beta8 = fe256_add(beta4, beta4);
+        const Fe256 x3    = fe256_sub(fe256_sqr(alpha), beta8);
+        const Fe256 z3    = fe256_sub(fe256_sub(fe256_sqr(fe256_add(p.Y, p.Z)), gamma), delta);
+        const Fe256 gsq   = fe256_sqr(gamma);
+        const Fe256 gsq2  = fe256_add(gsq, gsq);
+        const Fe256 gsq4  = fe256_add(gsq2, gsq2);
+        const Fe256 gamma8 = fe256_add(gsq4, gsq4);
+        const Fe256 y3    = fe256_sub(fe256_mul(alpha, fe256_sub(beta4, x3)), gamma8);
+        return P256Point{.X = x3, .Y = y3, .Z = z3};
+    }();
+    // If p is identity (Z==0), return identity; otherwise return doubled.
+    const uint64_t is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
+    return p256_point_ct_select(p256_identity, doubled, is_identity);
+}
+
+// CT mixed Jacobian+affine add: branch-free with respect to identity.
+// When p.Z == 0, return {q.X, q.Y, 1} (affine q as Jacobian).
+// The p == q case (h==0, r==0) cannot occur in fixed-base multiplication
+// because the accumulator and precomputed table points are always distinct.
+[[nodiscard]]
+static inline auto p256_point_add_affine_ct(const P256Point& p, const P256AffinePoint& q) noexcept -> P256Point
+{
+    const P256Point added = [&]() noexcept -> P256Point {
+        const Fe256 z1sq = fe256_sqr(p.Z);
+        const Fe256 u2   = fe256_mul(q.X, z1sq);
+        const Fe256 s2   = fe256_mul(q.Y, fe256_mul(p.Z, z1sq));
+        const Fe256 h    = fe256_sub(u2, p.X);
+        const Fe256 r    = fe256_sub(s2, p.Y);
+        const Fe256 h2   = fe256_sqr(h);
+        const Fe256 h3   = fe256_mul(h, h2);
+        const Fe256 u1h2 = fe256_mul(p.X, h2);
+        const Fe256 x3   = fe256_sub(fe256_sub(fe256_sqr(r), h3), fe256_add(u1h2, u1h2));
+        const Fe256 y3   = fe256_sub(fe256_mul(r, fe256_sub(u1h2, x3)), fe256_mul(p.Y, h3));
+        const Fe256 z3   = fe256_mul(h, p.Z);
+        return P256Point{.X = x3, .Y = y3, .Z = z3};
+    }();
+    // If p is identity (Z==0), return q as Jacobian with Z=1.
+    const P256Point q_jac{.X = q.X, .Y = q.Y, .Z = fe256_one};
+    const uint64_t is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
+    return p256_point_ct_select(q_jac, added, is_identity);
+}
+
+
 // -----------------------------------------------------------------------
 // Fixed-base scalar multiplication using 4-bit window: k·G.
 // Processes 64 nibbles MSB→LSB: 4 doublings + 1 mixed-affine-add per step.
 // scalar is 32-byte big-endian.
-// Constant-time: no branches or memory accesses depend on secret nibble values.
+// Fully constant-time: no branches on secret data, including identity state.
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -366,18 +424,18 @@ static inline auto p256_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
 
         // High nibble first.
         for (int pass = 0; pass < 2; ++pass) {
-            // 4 doublings.
-            result = p256_point_double(result);
-            result = p256_point_double(result);
-            result = p256_point_double(result);
-            result = p256_point_double(result);
+            // 4 doublings — CT, no branch on identity.
+            result = p256_point_double_ct(result);
+            result = p256_point_double_ct(result);
+            result = p256_point_double_ct(result);
+            result = p256_point_double_ct(result);
 
             const auto nibble = static_cast<unsigned>(
                 (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
 
-            // CT table lookup and unconditional add; discard result when nibble == 0.
+            // CT table lookup; CT add; CT-select based on nibble == 0.
             const P256AffinePoint tab = p256_G_table_select(nibble);
-            const P256Point added = p256_point_add_affine(result, tab);
+            const P256Point added = p256_point_add_affine_ct(result, tab);
             result = p256_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
         }
     }
@@ -719,6 +777,42 @@ static inline auto p256_scalar_invert(const Fe256& a) noexcept -> Fe256 {
 [[nodiscard]]
 static inline auto p256_scalar_is_zero(const Fe256& a) noexcept -> bool {
     return (a.v[0] | a.v[1] | a.v[2] | a.v[3]) == 0U;
+}
+
+// Strictly decode a 32-byte big-endian ECDSA signature scalar (r or s).
+// Returns true and writes the scalar iff 1 <= val < n; rejects val == 0 or val >= n.
+// Unlike p256_scalar_from_bytes32, this does NOT reduce mod n — it rejects instead.
+[[nodiscard]]
+static inline auto p256_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t b[32], Fe256& out) noexcept -> bool
+{
+    Fe256 r{};
+    for (int i = 0; i < 4; ++i) {
+        const uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        r.v[i] =
+            (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
+            (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
+            (static_cast<uint64_t>(p[4]) << 24U) | (static_cast<uint64_t>(p[5]) << 16U) |
+            (static_cast<uint64_t>(p[6]) <<  8U) |  static_cast<uint64_t>(p[7]);
+    }
+    if (p256_scalar_is_zero(r)) { return false; }
+    // Reject if r >= n: subtract n and check borrow; borrow == 0 means r >= n.
+    using u128 = unsigned __int128;
+    Fe256 sub{};
+    auto t = static_cast<u128>(r.v[0]) - p256_n[0];
+    sub.v[0] = static_cast<uint64_t>(t);
+    auto borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[1]) - p256_n[1] - borrow;
+    sub.v[1] = static_cast<uint64_t>(t);
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[2]) - p256_n[2] - borrow;
+    sub.v[2] = static_cast<uint64_t>(t);
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[3]) - p256_n[3] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    if (borrow == 0U) { return false; } // r >= n
+    out = r;
+    return true;
 }
 
 

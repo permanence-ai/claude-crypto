@@ -1273,15 +1273,17 @@ TEST_F(ArmAsmEcKeyStoreTests, ImportOversizedKeyReturnsZero) {
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
-    std::array<uint8_t, 32> dummy{};
+    // Scalar = 1 (valid: 1 <= 1 < n).
+    std::array<uint8_t, 32> scalar_one{};
+    scalar_one[31] = 0x01U;
     for (std::size_t i = 0; i < arm_asm::detail::ec_key_store_capacity; ++i) {
         EXPECT_NE(arm_asm::detail::ec_key_store_import(
             arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
-            dummy.data(), dummy.size()), 0U) << "slot " << i;
+            scalar_one.data(), scalar_one.size()), 0U) << "slot " << i;
     }
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
-        dummy.data(), dummy.size()), 0U);
+        scalar_one.data(), scalar_one.size()), 0U);
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, GetWithIdBelowBaseReturnsFalse) {
@@ -1322,6 +1324,211 @@ TEST_F(ArmAsmEcKeyStoreTests, DestroyWithIdAboveRangeIsNoOp) {
         static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity));
 }
 
+// ---------------------------------------------------------------------------
+// ArmAsmEcKeyImportValidationTests — Issue #4: import rejects malformed keys.
+// ---------------------------------------------------------------------------
+
+class ArmAsmEcKeyImportValidationTests : public ::testing::Test {
+protected:
+    void TearDown() override {
+        for (unsigned int i = 0; i < static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity); ++i) {
+            arm_asm::detail::ec_key_store_destroy(arm_asm::detail::ec_key_id_base + i);
+        }
+    }
+
+    // P-256 generator point (1*G) as uncompressed public key.
+    static constexpr std::array<uint8_t, 65> kP256Pub = {{
+        0x04,
+        0x6b,0x17,0xd1,0xf2,0xe1,0x2c,0x42,0x47,0xf8,0xbc,0xe6,0xe5,0x63,0xa4,0x40,0xf2,
+        0x77,0x03,0x7d,0x81,0x2d,0xeb,0x33,0xa0,0xf4,0xa1,0x39,0x45,0xd8,0x98,0xc2,0x96,
+        0x4f,0xe3,0x42,0xe2,0xfe,0x1a,0x7f,0x9b,0x8e,0xe7,0xeb,0x4a,0x7c,0x0f,0x9e,0x16,
+        0x2b,0xce,0x33,0x57,0x6b,0x31,0x5e,0xce,0xcb,0xb6,0x40,0x68,0x37,0xbf,0x51,0xf5,
+    }};
+
+    // P-384 generator point (1*G) as uncompressed public key.
+    static constexpr std::array<uint8_t, 97> kP384Pub = {{
+        0x04,
+        0xaa,0x87,0xca,0x22,0xbe,0x8b,0x05,0x37,0x8e,0xb1,0xc7,0x1e,0xf3,0x20,0xad,0x74,
+        0x6e,0x1d,0x3b,0x62,0x8b,0xa7,0x9b,0x98,0x59,0xf7,0x41,0xe0,0x82,0x54,0x2a,0x38,
+        0x55,0x02,0xf2,0x5d,0xbf,0x55,0x29,0x6c,0x3a,0x54,0x5e,0x38,0x72,0x76,0x0a,0xb7,
+        0x36,0x17,0xde,0x4a,0x96,0x26,0x2c,0x6f,0x5d,0x9e,0x98,0xbf,0x92,0x92,0xdc,0x29,
+        0xf8,0xf4,0x1d,0xbd,0x28,0x9a,0x14,0x7c,0xe9,0xda,0x31,0x13,0xb5,0xf0,0xb8,0xc0,
+        0x0a,0x60,0xb1,0xce,0x1d,0x7e,0x81,0x9d,0x7a,0x43,0x1d,0x7c,0x90,0xea,0x0e,0x5f,
+    }};
+
+    // P-521 generator point (1*G) as uncompressed public key.
+    static constexpr std::array<uint8_t, 133> kP521Pub = {{
+        0x04,
+        0x00,0xc6,0x85,0x8e,0x06,0xb7,0x04,0x04,0xe9,0xcd,0x9e,0x3e,0xcb,0x66,0x23,0x95,
+        0xb4,0x42,0x9c,0x64,0x81,0x39,0x05,0x3f,0xb5,0x21,0xf8,0x28,0xaf,0x60,0x6b,0x4d,
+        0x3d,0xba,0xa1,0x4b,0x5e,0x77,0xef,0xe7,0x59,0x28,0xfe,0x1d,0xc1,0x27,0xa2,0xff,
+        0xa8,0xde,0x33,0x48,0xb3,0xc1,0x85,0x6a,0x42,0x9b,0xf9,0x7e,0x7e,0x31,0xc2,0xe5,
+        0xbd,0x66,
+        0x01,0x18,0x39,0x29,0x6a,0x78,0x9a,0x3b,0xc0,0x04,0x5c,0x8a,0x5f,0xb4,0x2c,0x7d,
+        0x1b,0xd9,0x98,0xf5,0x44,0x49,0x57,0x9b,0x44,0x68,0x17,0xaf,0xbd,0x17,0x27,0x3e,
+        0x66,0x2c,0x97,0xee,0x72,0x99,0x5e,0xf4,0x26,0x40,0xc5,0x50,0xb9,0x01,0x3f,0xad,
+        0x07,0x61,0x35,0x3c,0x70,0x86,0xa2,0x72,0xc2,0x40,0x88,0xbe,0x94,0x76,0x9f,0xd1,
+        0x66,0x50,
+    }};
+};
+
+// Private key: valid and invalid cases.
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256ValidPrivateKeyImports) {
+    std::array<uint8_t, 32> scalar{};
+    scalar[31] = 0x01U; // d = 1
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256ZeroPrivateKeyRejected) {
+    std::array<uint8_t, 32> scalar{};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyWrongLengthRejected) {
+    std::array<uint8_t, 48> buf{};
+    buf[47] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        buf.data(), buf.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyEqualsNRejected) {
+    // P-256 group order n.
+    static constexpr std::array<uint8_t, 32> kN = {{
+        0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
+        0xbc,0xe6,0xfa,0xad,0xa7,0x17,0x9e,0x84,0xf3,0xb9,0xca,0xc2,0xfc,0x63,0x25,0x51,
+    }};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
+        kN.data(), kN.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384ValidPrivateKeyImports) {
+    std::array<uint8_t, 48> scalar{};
+    scalar[47] = 0x01U;
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384ZeroPrivateKeyRejected) {
+    std::array<uint8_t, 48> scalar{};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521ValidPrivateKeyImports) {
+    std::array<uint8_t, 66> scalar{};
+    scalar[65] = 0x01U;
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521ZeroPrivateKeyRejected) {
+    std::array<uint8_t, 66> scalar{};
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521PrivateKeyHighBitRejected) {
+    std::array<uint8_t, 66> scalar{};
+    scalar[0]  = 0x02U; // top 7 bits of first byte must be zero
+    scalar[65] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
+        scalar.data(), scalar.size()), 0U);
+}
+
+// Public key: valid and invalid cases.
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256ValidPublicKeyImports) {
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        kP256Pub.data(), kP256Pub.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PublicKeyWrongPrefixRejected) {
+    auto bad = kP256Pub;
+    bad[0] = 0x02U; // compressed prefix — not accepted
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PublicKeyOffCurveRejected) {
+    auto bad = kP256Pub;
+    bad[1] ^= 0x01U; // corrupt x coordinate
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P256PublicKeyWrongLengthRejected) {
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
+        kP256Pub.data(), 32U), 0U); // too short
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384ValidPublicKeyImports) {
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Public,
+        kP384Pub.data(), kP384Pub.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P384PublicKeyOffCurveRejected) {
+    auto bad = kP384Pub;
+    bad[1] ^= 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521ValidPublicKeyImports) {
+    EXPECT_NE(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Public,
+        kP521Pub.data(), kP521Pub.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521PublicKeyHighBitRejected) {
+    auto bad = kP521Pub;
+    bad[1] = 0x02U; // top 7 bits of x[0] must be zero
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, P521PublicKeyOffCurveRejected) {
+    auto bad = kP521Pub;
+    bad[2] ^= 0x01U; // corrupt x coordinate
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Public,
+        bad.data(), bad.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, NoneKindRejected) {
+    std::array<uint8_t, 32> buf{};
+    buf[31] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::None,
+        buf.data(), buf.size()), 0U);
+}
+
+TEST_F(ArmAsmEcKeyImportValidationTests, NoneCurveRejected) {
+    std::array<uint8_t, 32> buf{};
+    buf[31] = 0x01U;
+    EXPECT_EQ(arm_asm::detail::ec_key_store_import(
+        arm_asm::detail::EcCurveId::None, arm_asm::detail::EcKeyKind::Private,
+        buf.data(), buf.size()), 0U);
+}
+
 
 // ---------------------------------------------------------------------------
 // ArmAsmBackend error-path tests (arm_asm_backend.hpp).
@@ -1347,13 +1554,58 @@ protected:
         return arm_asm::detail::key_store_import(buf.data(), len);
     }
 
-    // Import an EC key (raw bytes, arbitrary) and return its id.
+    // Import an EC private key (scalar = 1) or public key (generator point) and return its id.
     static unsigned int import_ec(arm_asm::detail::EcCurveId curve,
                                    arm_asm::detail::EcKeyKind kind,
-                                   std::size_t len) {
-        std::vector<uint8_t> buf(len, 0x13U);
-        buf[0] = 0x04U;  // public key prefix for public keys
-        return arm_asm::detail::ec_key_store_import(curve, kind, buf.data(), len);
+                                   std::size_t /*len*/) {
+        if (kind == arm_asm::detail::EcKeyKind::Private) {
+            // scalar = 1: the minimum valid private key for any curve.
+            std::size_t scalar_len = 0;
+            if (curve == arm_asm::detail::EcCurveId::P256) { scalar_len = 32U; }
+            else if (curve == arm_asm::detail::EcCurveId::P384) { scalar_len = 48U; }
+            else { scalar_len = 66U; }
+            std::vector<uint8_t> buf(scalar_len, 0U);
+            buf[scalar_len - 1] = 0x01U;
+            return arm_asm::detail::ec_key_store_import(curve, kind, buf.data(), scalar_len);
+        }
+        // Public key: use the generator point (1*G) for the requested curve.
+        if (curve == arm_asm::detail::EcCurveId::P256) {
+            static constexpr std::array<uint8_t, 65> kG = {{
+                0x04,
+                0x6b,0x17,0xd1,0xf2,0xe1,0x2c,0x42,0x47,0xf8,0xbc,0xe6,0xe5,0x63,0xa4,0x40,0xf2,
+                0x77,0x03,0x7d,0x81,0x2d,0xeb,0x33,0xa0,0xf4,0xa1,0x39,0x45,0xd8,0x98,0xc2,0x96,
+                0x4f,0xe3,0x42,0xe2,0xfe,0x1a,0x7f,0x9b,0x8e,0xe7,0xeb,0x4a,0x7c,0x0f,0x9e,0x16,
+                0x2b,0xce,0x33,0x57,0x6b,0x31,0x5e,0xce,0xcb,0xb6,0x40,0x68,0x37,0xbf,0x51,0xf5,
+            }};
+            return arm_asm::detail::ec_key_store_import(curve, kind, kG.data(), kG.size());
+        }
+        if (curve == arm_asm::detail::EcCurveId::P384) {
+            static constexpr std::array<uint8_t, 97> kG = {{
+                0x04,
+                0xaa,0x87,0xca,0x22,0xbe,0x8b,0x05,0x37,0x8e,0xb1,0xc7,0x1e,0xf3,0x20,0xad,0x74,
+                0x6e,0x1d,0x3b,0x62,0x8b,0xa7,0x9b,0x98,0x59,0xf7,0x41,0xe0,0x82,0x54,0x2a,0x38,
+                0x55,0x02,0xf2,0x5d,0xbf,0x55,0x29,0x6c,0x3a,0x54,0x5e,0x38,0x72,0x76,0x0a,0xb7,
+                0x36,0x17,0xde,0x4a,0x96,0x26,0x2c,0x6f,0x5d,0x9e,0x98,0xbf,0x92,0x92,0xdc,0x29,
+                0xf8,0xf4,0x1d,0xbd,0x28,0x9a,0x14,0x7c,0xe9,0xda,0x31,0x13,0xb5,0xf0,0xb8,0xc0,
+                0x0a,0x60,0xb1,0xce,0x1d,0x7e,0x81,0x9d,0x7a,0x43,0x1d,0x7c,0x90,0xea,0x0e,0x5f,
+            }};
+            return arm_asm::detail::ec_key_store_import(curve, kind, kG.data(), kG.size());
+        }
+        // P-521 generator point.
+        static constexpr std::array<uint8_t, 133> kG521 = {{
+            0x04,
+            0x00,0xc6,0x85,0x8e,0x06,0xb7,0x04,0x04,0xe9,0xcd,0x9e,0x3e,0xcb,0x66,0x23,0x95,
+            0xb4,0x42,0x9c,0x64,0x81,0x39,0x05,0x3f,0xb5,0x21,0xf8,0x28,0xaf,0x60,0x6b,0x4d,
+            0x3d,0xba,0xa1,0x4b,0x5e,0x77,0xef,0xe7,0x59,0x28,0xfe,0x1d,0xc1,0x27,0xa2,0xff,
+            0xa8,0xde,0x33,0x48,0xb3,0xc1,0x85,0x6a,0x42,0x9b,0xf9,0x7e,0x7e,0x31,0xc2,0xe5,
+            0xbd,0x66,
+            0x01,0x18,0x39,0x29,0x6a,0x78,0x9a,0x3b,0xc0,0x04,0x5c,0x8a,0x5f,0xb4,0x2c,0x7d,
+            0x1b,0xd9,0x98,0xf5,0x44,0x49,0x57,0x9b,0x44,0x68,0x17,0xaf,0xbd,0x17,0x27,0x3e,
+            0x66,0x2c,0x97,0xee,0x72,0x99,0x5e,0xf4,0x26,0x40,0xc5,0x50,0xb9,0x01,0x3f,0xad,
+            0x07,0x61,0x35,0x3c,0x70,0x86,0xa2,0x72,0xc2,0x40,0x88,0xbe,0x94,0x76,0x9f,0xd1,
+            0x66,0x50,
+        }};
+        return arm_asm::detail::ec_key_store_import(curve, kind, kG521.data(), kG521.size());
     }
 };
 
@@ -2368,6 +2620,263 @@ TEST_F(ArmAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
                                                 peer.data(), peer.size(),
                                                 out.data(), out.size(), &out_len),
               ArmAsmBackend::err_invalid_arg);
+}
+
+
+// ---------------------------------------------------------------------------
+// ArmAsmEcdsaSigDecodeTests — Issue #3: reject non-canonical r/s in verify.
+// Tests that verify_message rejects r=0, s=0, r=n, s=n, r=n+1, s=n+1,
+// all-ones, and P-521 high-bit-set encodings.
+// ---------------------------------------------------------------------------
+
+class ArmAsmEcdsaSigDecodeTests : public ::testing::Test {
+protected:
+    void TearDown() override {
+        for (unsigned int i = 0; i < static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity); ++i) {
+            arm_asm::detail::ec_key_store_destroy(arm_asm::detail::ec_key_id_base + i);
+        }
+    }
+
+    // Generate an ECDSA key pair and return {priv_id, pub_id}.
+    static std::pair<ArmAsmBackend::KeyId, ArmAsmBackend::KeyId>
+    generate_ecdsa_pair(std::size_t bits) {
+        auto attrs = ArmAsmBackend::make_ecdsa_generate_attrs(bits);
+        ArmAsmBackend::KeyId priv_id = ArmAsmBackend::null_key_id();
+        if (ArmAsmBackend::generate_key(&attrs, &priv_id) != ArmAsmBackend::ok) {
+            return {ArmAsmBackend::null_key_id(), ArmAsmBackend::null_key_id()};
+        }
+        // The backend stores the private key; import the public key separately.
+        std::size_t pk_len = 0;
+        if (bits == 256) { pk_len = 65; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        else if (bits == 384) { pk_len = 97; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        else { pk_len = 133; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        std::vector<uint8_t> pub_buf(pk_len);
+        std::size_t exported = 0;
+        if (ArmAsmBackend::export_public_key(priv_id, pub_buf.data(), pk_len, &exported) != ArmAsmBackend::ok) {
+            return {priv_id, ArmAsmBackend::null_key_id()};
+        }
+        auto curve = (bits == 256) ? arm_asm::detail::EcCurveId::P256
+                   : (bits == 384) ? arm_asm::detail::EcCurveId::P384
+                                   : arm_asm::detail::EcCurveId::P521;
+        const auto pub_id = arm_asm::detail::ec_key_store_import(
+            curve, arm_asm::detail::EcKeyKind::Public, pub_buf.data(), exported);
+        return {priv_id, static_cast<ArmAsmBackend::KeyId>(pub_id)};
+    }
+
+    // Sign a fixed message with the given private key id.
+    static std::vector<uint8_t> sign(ArmAsmBackend::KeyId priv_id, std::size_t sig_len) {
+        static constexpr std::array<uint8_t, 64> kMsg{};
+        std::vector<uint8_t> sig(sig_len);
+        std::size_t out_len = 0;
+        if (ArmAsmBackend::sign_message(priv_id, ArmAsmBackend::alg_ecdsa(),
+                                        kMsg.data(), kMsg.size(),
+                                        sig.data(), sig.size(), &out_len) != ArmAsmBackend::ok) {
+            return {};
+        }
+        sig.resize(out_len);
+        return sig;
+    }
+
+    // Verify a signature with the given public key id.
+    static ArmAsmBackend::Status verify(ArmAsmBackend::KeyId pub_id,
+                                        const std::vector<uint8_t>& sig) {
+        static constexpr std::array<uint8_t, 64> kMsg{};
+        return ArmAsmBackend::verify_message(pub_id, ArmAsmBackend::alg_ecdsa(),
+                                             kMsg.data(), kMsg.size(),
+                                             sig.data(), sig.size());
+    }
+};
+
+// ---- P-256 ----
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P256ValidSignatureVerifies) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    ASSERT_NE(pub_id,  ArmAsmBackend::null_key_id());
+    const auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    EXPECT_EQ(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P256ZeroRRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    std::fill(sig.begin(), sig.begin() + 32, 0x00U); // zero r
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P256ZeroSRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    std::fill(sig.begin() + 32, sig.end(), 0x00U); // zero s
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P256REqualsNRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    // P-256 n = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551 (BE)
+    static constexpr std::array<uint8_t, 32> kP256N = {{
+        0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x00,0x00, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xBC,0xE6,0xFA,0xAD,0xA7,0x17,0x9E,0x84, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xF3,0xB9,0xCA,0xC2,0xFC,0x63,0x25,0x51  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::copy(kP256N.begin(), kP256N.end(), sig.begin()); // r = n
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P256SEqualsNRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    static constexpr std::array<uint8_t, 32> kP256N = {{
+        0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x00,0x00, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xBC,0xE6,0xFA,0xAD,0xA7,0x17,0x9E,0x84, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xF3,0xB9,0xCA,0xC2,0xFC,0x63,0x25,0x51  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::copy(kP256N.begin(), kP256N.end(), sig.begin() + 32); // s = n
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P256REqualsNPlusOneRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    // n+1 = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632552
+    static constexpr std::array<uint8_t, 32> kP256NPlus1 = {{
+        0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x00,0x00, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xBC,0xE6,0xFA,0xAD,0xA7,0x17,0x9E,0x84, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xF3,0xB9,0xCA,0xC2,0xFC,0x63,0x25,0x52  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::copy(kP256NPlus1.begin(), kP256NPlus1.end(), sig.begin());
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P256AllOnesRRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    std::fill(sig.begin(), sig.begin() + 32, 0xFFU); // r = 2^256 - 1 > n
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+// ---- P-384 ----
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P384ValidSignatureVerifies) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    ASSERT_NE(pub_id,  ArmAsmBackend::null_key_id());
+    const auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    EXPECT_EQ(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P384ZeroRRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    std::fill(sig.begin(), sig.begin() + 48, 0x00U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P384REqualsNRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    // P-384 n BE: FFFFFFFF...FFFFC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973
+    static constexpr std::array<uint8_t, 48> kP384N = {{ // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xC7,0x63,0x4D,0x81,0xF4,0x37,0x2D,0xDF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x58,0x1A,0x0D,0xB2,0x48,0xB0,0xA7,0x7A, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xEC,0xEC,0x19,0x6A,0xCC,0xC5,0x29,0x73  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::copy(kP384N.begin(), kP384N.end(), sig.begin());
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P384AllOnesRRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    std::fill(sig.begin(), sig.begin() + 48, 0xFFU); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+// ---- P-521 ----
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P521ValidSignatureVerifies) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    ASSERT_NE(pub_id,  ArmAsmBackend::null_key_id());
+    const auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    EXPECT_EQ(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P521ZeroRRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    std::fill(sig.begin(), sig.begin() + 66, 0x00U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P521REqualsNRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    // P-521 n BE: 01FF...FFFA51868783BF2F966B7FCC0148F709A5D03BB5C9B8899C47AEBB6FB71E91386409
+    static constexpr std::array<uint8_t, 66> kP521N = {{ // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x01,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xFF,0xFA,0x51,0x86,0x87,0x83,0xBF,0x2F, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x96,0x6B,0x7F,0xCC,0x01,0x48,0xF7,0x09, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xA5,0xD0,0x3B,0xB5,0xC9,0xB8,0x89,0x9C, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x47,0xAE,0xBB,0x6F,0xB7,0x1E,0x91,0x38, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x64,0x09                                  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::copy(kP521N.begin(), kP521N.end(), sig.begin());
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P521RHighBitSetRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    // Set bit 7 of r[0]; P-521 scalars are 521 bits so the top 7 bits of byte 0 must be zero.
+    sig[0] |= 0x80U;
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
+}
+
+TEST_F(ArmAsmEcdsaSigDecodeTests, P521SHighBitSetRejectsSignature) {
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
+    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ASSERT_FALSE(sig.empty());
+    sig[66] |= 0x80U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
 }
 
 #endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM

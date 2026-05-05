@@ -299,10 +299,61 @@ static inline auto p384_G_table_select(unsigned nibble) noexcept -> P384AffinePo
 }
 
 
+// CT point doubling: branch-free with respect to identity.
+[[nodiscard]]
+static inline auto p384_point_double_ct(const P384Point& p) noexcept -> P384Point
+{
+    const P384Point doubled = [&]() noexcept -> P384Point {
+        const Fe384 delta = fe384_sqr(p.Z);
+        const Fe384 gamma = fe384_sqr(p.Y);
+        const Fe384 beta  = fe384_mul(p.X, gamma);
+        const Fe384 xmd   = fe384_sub(p.X, delta);
+        const Fe384 xpd   = fe384_add(p.X, delta);
+        const Fe384 xmxp  = fe384_mul(xmd, xpd);
+        const Fe384 alpha = fe384_add(fe384_add(xmxp, xmxp), xmxp);
+        const Fe384 beta4 = fe384_add(fe384_add(beta, beta), fe384_add(beta, beta));
+        const Fe384 beta8 = fe384_add(beta4, beta4);
+        const Fe384 x3    = fe384_sub(fe384_sqr(alpha), beta8);
+        const Fe384 z3    = fe384_sub(fe384_sub(fe384_sqr(fe384_add(p.Y, p.Z)), gamma), delta);
+        const Fe384 gsq   = fe384_sqr(gamma);
+        const Fe384 gsq2  = fe384_add(gsq, gsq);
+        const Fe384 gsq4  = fe384_add(gsq2, gsq2);
+        const Fe384 gamma8 = fe384_add(gsq4, gsq4);
+        const Fe384 y3    = fe384_sub(fe384_mul(alpha, fe384_sub(beta4, x3)), gamma8);
+        return P384Point{.X = x3, .Y = y3, .Z = z3};
+    }();
+    const uint64_t is_identity = static_cast<uint64_t>(fe384_is_zero(p.Z));
+    return p384_point_ct_select(p384_identity, doubled, is_identity);
+}
+
+// CT mixed Jacobian+affine add: branch-free with respect to identity.
+[[nodiscard]]
+static inline auto p384_point_add_affine_ct(const P384Point& p, const P384AffinePoint& q) noexcept -> P384Point
+{
+    const P384Point added = [&]() noexcept -> P384Point {
+        const Fe384 z1sq = fe384_sqr(p.Z);
+        const Fe384 u2   = fe384_mul(q.X, z1sq);
+        const Fe384 s2   = fe384_mul(q.Y, fe384_mul(p.Z, z1sq));
+        const Fe384 h    = fe384_sub(u2, p.X);
+        const Fe384 r    = fe384_sub(s2, p.Y);
+        const Fe384 h2   = fe384_sqr(h);
+        const Fe384 h3   = fe384_mul(h, h2);
+        const Fe384 u1h2 = fe384_mul(p.X, h2);
+        const Fe384 x3   = fe384_sub(fe384_sub(fe384_sqr(r), h3), fe384_add(u1h2, u1h2));
+        const Fe384 y3   = fe384_sub(fe384_mul(r, fe384_sub(u1h2, x3)), fe384_mul(p.Y, h3));
+        const Fe384 z3   = fe384_mul(h, p.Z);
+        return P384Point{.X = x3, .Y = y3, .Z = z3};
+    }();
+    const P384Point q_jac{.X = q.X, .Y = q.Y, .Z = fe384_one};
+    const uint64_t is_identity = static_cast<uint64_t>(fe384_is_zero(p.Z));
+    return p384_point_ct_select(q_jac, added, is_identity);
+}
+
+
 // -----------------------------------------------------------------------
 // Fixed-base scalar multiplication using 4-bit window: k·G.
 // scalar is 48-byte big-endian.
-// Constant-time: no branches or memory accesses depend on secret nibble values.
+// Fully constant-time: no branches on secret data, including identity state.
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
@@ -315,16 +366,16 @@ static inline auto p384_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
         const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
         for (int pass = 0; pass < 2; ++pass) {
-            result = p384_point_double(result);
-            result = p384_point_double(result);
-            result = p384_point_double(result);
-            result = p384_point_double(result);
+            result = p384_point_double_ct(result);
+            result = p384_point_double_ct(result);
+            result = p384_point_double_ct(result);
+            result = p384_point_double_ct(result);
 
             const auto nibble = static_cast<unsigned>(
                 (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
 
             const P384AffinePoint tab = p384_G_table_select(nibble);
-            const P384Point added = p384_point_add_affine(result, tab);
+            const P384Point added = p384_point_add_affine_ct(result, tab);
             result = p384_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
         }
     }
@@ -707,6 +758,40 @@ static inline auto p384_scalar_invert(const Fe384& a) noexcept -> Fe384 {
 [[nodiscard]]
 static inline auto p384_scalar_is_zero(const Fe384& a) noexcept -> bool {
     return (a.v[0] | a.v[1] | a.v[2] | a.v[3] | a.v[4] | a.v[5]) == 0U;
+}
+
+// Strictly decode a 48-byte big-endian ECDSA signature scalar (r or s).
+// Returns true and writes the scalar iff 1 <= val < n; rejects val == 0 or val >= n.
+[[nodiscard]]
+static inline auto p384_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t b[48], Fe384& out) noexcept -> bool // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+{
+    Fe384 r{};
+    for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint8_t* p = b + (5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        r.v[i] =
+            (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
+            (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
+            (static_cast<uint64_t>(p[4]) << 24U) | (static_cast<uint64_t>(p[5]) << 16U) |
+            (static_cast<uint64_t>(p[6]) <<  8U) |  static_cast<uint64_t>(p[7]);
+    }
+    if (p384_scalar_is_zero(r)) { return false; }
+    using u128 = unsigned __int128;
+    auto t = static_cast<u128>(r.v[0]) - p384_n[0];
+    auto borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[1]) - p384_n[1] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[2]) - p384_n[2] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[3]) - p384_n[3] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[4]) - p384_n[4] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    t = static_cast<u128>(r.v[5]) - p384_n[5] - borrow;
+    borrow = static_cast<uint64_t>(t >> 127U);
+    if (borrow == 0U) { return false; } // r >= n
+    out = r;
+    return true;
 }
 
 

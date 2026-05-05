@@ -133,7 +133,7 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 434 in ARM_ASM; 447 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
 ```
@@ -207,7 +207,7 @@ These run against the active provider (default: `RealPsaBackend`) and verify cor
 - **SIGMA / SIGMA-I** — Full two-party handshake; identity hiding; tamper detection on MAC, signature, ephemeral key, and encrypted bundle IV fields; session key encrypt/decrypt round-trip; replay attack rejection; fresh handshakes produce distinct session keys.
 - **Random** — Output length, non-zero probability, successive calls differ.
 
-### 3. ARM ASM known-answer-vector tests (`arm_asm_tests.hpp` — 110 tests)
+### 3. ARM ASM known-answer-vector tests (`arm_asm_tests.hpp` — 138 tests)
 
 Guarded by `SAFE_CRYPTO_PROVIDER_ARM_ASM`, these test the ARM intrinsic implementations directly against published test vectors and boundary conditions:
 
@@ -222,6 +222,8 @@ Guarded by `SAFE_CRYPTO_PROVIDER_ARM_ASM`, these test the ARM intrinsic implemen
 - **Key management** — `generate_key`, `import_key`, `export_key`, `destroy_key` round-trips and error paths.
 - **ARM ASM backend errors** — every `std::unexpected` path exercised via direct backend calls.
 - **Point utilities** — P-256/384/521 scalar multiplication edge cases.
+- **ECDH peer validation** — invalid-curve attack prevention: wrong prefix, identity point, coordinate ≥ p, off-curve y, P-521 non-canonical high bits.
+- **ECDSA signature decode** — strict r/s validation: r=0, s=0, r=n, s=n, r=n+1, all-ones, P-521 high-bit-set encodings rejected across all three curves.
 
 These verify the ARM ASM provider's correctness independently of the PSA layer.
 

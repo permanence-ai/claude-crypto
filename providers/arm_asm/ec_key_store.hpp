@@ -19,6 +19,9 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include "defs.hpp"
+#include "p256_point.hpp"
+#include "p384_point.hpp"
+#include "p521_point.hpp"
 #include "secure_buffer.hpp"
 
 
@@ -56,9 +59,63 @@ inline EcKeySlot& ec_key_slot(std::size_t idx) noexcept {
 }
 
 [[nodiscard]]
+inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind,
+                             const CryptoByte* key, std::size_t key_len) noexcept {
+    if (curve == EcCurveId::None || kind == EcKeyKind::None) { return false; }
+
+    if (kind == EcKeyKind::Private) {
+        if (curve == EcCurveId::P256) {
+            if (key_len != 32U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            Fe256 tmp{};
+            return p256_scalar_sig_decode(key, tmp);
+        }
+        if (curve == EcCurveId::P384) {
+            if (key_len != 48U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            Fe384 tmp{};
+            return p384_scalar_sig_decode(key, tmp);
+        }
+        if (curve == EcCurveId::P521) {
+            if (key_len != 66U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            Fe521 tmp{};
+            return p521_scalar_sig_decode(key, tmp);
+        }
+        return false;
+    }
+
+    if (kind == EcKeyKind::Public) {
+        if (curve == EcCurveId::P256) {
+            if (key_len != 65U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key[0] != 0x04U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const Fe256 x = fe256_from_bytes(key + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const Fe256 y = fe256_from_bytes(key + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            return p256_validate_public_point(x, y);
+        }
+        if (curve == EcCurveId::P384) {
+            if (key_len != 97U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key[0] != 0x04U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const Fe384 x = fe384_from_bytes(key + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const Fe384 y = fe384_from_bytes(key + 49); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            return p384_validate_public_point(x, y);
+        }
+        if (curve == EcCurveId::P521) {
+            if (key_len != 133U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key[0] != 0x04U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            if ((key[1]  & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            if ((key[67] & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            const Fe521 x = fe521_from_bytes(key + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            const Fe521 y = fe521_from_bytes(key + 67); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            return p521_validate_public_point(x, y);
+        }
+        return false;
+    }
+
+    return false;
+}
+
+[[nodiscard]]
 inline unsigned int ec_key_store_import(EcCurveId curve, EcKeyKind kind,
                                          const CryptoByte* key, std::size_t key_len) noexcept {
-    if (key_len > ec_max_key_bytes) { return 0U; }
+    if (!ec_key_validate(curve, kind, key, key_len)) { return 0U; }
     for (std::size_t i = 0; i < ec_key_store_capacity; ++i) {
         if (!ec_key_slot(i).in_use) {
             std::memcpy(ec_key_slot(i).data.data(), key, key_len);
