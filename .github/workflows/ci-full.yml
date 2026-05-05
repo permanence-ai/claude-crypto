@@ -88,7 +88,7 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y cmake ninja-build libssl-dev python3-jsonschema
+          sudo apt-get install -y cmake ninja-build libssl-dev python3-jsonschema python3-jinja2
 
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
