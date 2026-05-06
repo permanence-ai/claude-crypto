@@ -78,7 +78,7 @@ inline constexpr uint32_t sha256_k[64] = { // NOLINT(cppcoreguidelines-avoid-c-a
 //   msg0 = W[ 0.. 3], msg1 = W[ 4.. 7], msg2 = W[ 8..11], msg3 = W[12..15]
 //   After the first 16 rounds, each group is updated in-place using
 //   _mm_sha256msg1_epu32 (σ0) and _mm_sha256msg2_epu32 (σ1).
-[[gnu::target("sha,ssse3")]]
+[[gnu::target("sha,ssse3,sse4.1")]]
 inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-size)
 {
     // Big-endian byte-swap mask: reverses 4-byte words within each 16-byte lane.
@@ -228,7 +228,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 
 // Full SHA-256 over an arbitrary-length message.
 // Handles padding and big-endian length encoding.
-[[gnu::target("sha,ssse3")]]
+[[gnu::target("sha,ssse3,sse4.1")]]
 inline void sha256(const CryptoByte* msg, std::size_t msg_len,
                    CryptoByte out[32]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
