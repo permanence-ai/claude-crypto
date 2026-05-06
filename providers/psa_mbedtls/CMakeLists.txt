@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 set(LIB_NAME safe_crypto_lib_psa_mbedtls)
 
 add_library(${LIB_NAME} INTERFACE)
