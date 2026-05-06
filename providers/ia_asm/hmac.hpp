@@ -25,6 +25,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "defs.hpp"
 #include "secure_buffer.hpp"
 #include "sha256.hpp"
+
+#ifdef __GNUC__
+#pragma GCC target("sha,ssse3,sse4.1")
+#endif
 #include "sha3.hpp"
 #include "sha512.hpp"
 

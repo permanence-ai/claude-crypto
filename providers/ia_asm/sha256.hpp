@@ -33,6 +33,13 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "defs.hpp"
 
+// Activate SHA-NI + SSE4.1 + SSSE3 for the entire translation unit on GCC.
+// [[gnu::target(...)]] on individual functions is unreliable in header-only
+// TUs under GCC — the pragma form is the documented workaround.
+#ifdef __GNUC__
+#pragma GCC target("sha,ssse3,sse4.1")
+#endif
+
 
 namespace ia_asm::detail {
 
