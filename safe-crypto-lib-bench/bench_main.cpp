@@ -1,7 +1,5 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Permanence AI
 
 // Provider-agnostic benchmarks for safe-crypto-lib.
 //
