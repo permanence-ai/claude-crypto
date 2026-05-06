@@ -228,6 +228,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 
 // Full SHA-256 over an arbitrary-length message.
 // Handles padding and big-endian length encoding.
+[[gnu::target("sha,ssse3")]]
 inline void sha256(const CryptoByte* msg, std::size_t msg_len,
                    CryptoByte out[32]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {

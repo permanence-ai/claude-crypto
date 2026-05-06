@@ -50,6 +50,7 @@ struct Sha256Ctx {
         buf_used = 0;
     }
 
+    [[gnu::target("sha,ssse3")]]
     void update(const uint8_t* data, std::size_t len) noexcept {
         total_bytes += len;
         while (len > 0) {
@@ -66,6 +67,7 @@ struct Sha256Ctx {
         }
     }
 
+    [[gnu::target("sha,ssse3")]]
     void finish(uint8_t out[32]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
         alignas(64) uint8_t pad[128]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         std::memcpy(pad, buf.data(), buf_used);
