@@ -105,6 +105,7 @@ jobs:
             -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM \
             -DSAFE_CRYPTO_PQC=NONE \
             -DSAFE_CRYPTO_IA_ASM_SHA_NI=OFF \
+            -DSAFE_CRYPTO_IA_ASM_AES_NI=OFF \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Build

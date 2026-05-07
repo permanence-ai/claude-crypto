@@ -205,8 +205,10 @@ TEST_F(CrossProviderHmacTests, HmacSha3_512Parity) { run_hmac_parity_test<ShaVar
 
 // ---------------------------------------------------------------------------
 // AES-256-GCM parity
+// Disabled on IA_ASM when AES-NI is off (SAFE_CRYPTO_IA_ASM_AES_NI=OFF).
 // ---------------------------------------------------------------------------
 
+#if !defined(SAFE_CRYPTO_PROVIDER_IA_ASM) || defined(IA_ASM_AES_NI_ENABLED)
 class CrossProviderAesGcmTests : public CrossProviderTest {};
 
 TEST_F(CrossProviderAesGcmTests, EncryptParity) {
@@ -614,6 +616,8 @@ TEST_F(CrossProviderAesGcmTests, CrossDecryptArmCtWithPsa) {
     ASSERT_EQ(recovered_len, pt_arr.size());
     expect_equal_outputs(pt_arr, recovered_pt, "AES-256-GCM cross-decrypt ARM→PSA");
 }
+
+#endif // !SAFE_CRYPTO_PROVIDER_IA_ASM || IA_ASM_AES_NI_ENABLED
 
 
 // ---------------------------------------------------------------------------
