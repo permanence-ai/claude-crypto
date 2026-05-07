@@ -232,7 +232,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_ecdsa_generate_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Verify | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Verify | KeyAttributes::Export),
                  .alg = kAlgEcdsa };
     }
     [[nodiscard]]
@@ -248,7 +248,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_ecdh_generate_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Derive | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Derive) | KeyAttributes::Export),
                  .alg = kAlgEcdh };
     }
     [[nodiscard]]
@@ -299,7 +299,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::RsaKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Encrypt | KeyAttributes::Decrypt |
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Encrypt) | KeyAttributes::Decrypt |
                                                KeyAttributes::Sign    | KeyAttributes::Verify  |
                                                KeyAttributes::Export),
                  .alg = kAlgRsaOaep };
@@ -320,7 +320,7 @@ struct OpenSslBackend {
     static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
                  .bits = slh_dsa_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Export),
                  .alg = alg_slh_dsa(v) };
     }
     [[nodiscard]]
@@ -339,14 +339,14 @@ struct OpenSslBackend {
     static KeyAttributes make_ml_dsa_generate_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
                  .bits = ml_dsa_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Export),
                  .alg = alg_ml_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemKeyPair,
                  .bits = ml_kem_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Decrypt | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Decrypt) | KeyAttributes::Export),
                  .alg = alg_ml_kem(v) };
     }
     [[nodiscard]]

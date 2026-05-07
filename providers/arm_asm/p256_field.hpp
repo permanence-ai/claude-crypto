@@ -264,12 +264,13 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
          + c[8] - c[10] - c[11] - c[12] - c[13];
 
     // Carry-propagate to normalise each word to [0, 2^32-1].
+    // Arithmetic right-shift on int64_t is intentional: negative words carry a signed borrow.
     for (int i = 0; i < 7; ++i) {
-        r[i + 1] += r[i] >> 32;
-        r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        r[i + 1] += r[i] >> 32; // NOLINT(hicpp-signed-bitwise)
+        r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
     }
-    r[8] = r[7] >> 32;
-    r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[8] = r[7] >> 32; // NOLINT(hicpp-signed-bitwise)
+    r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
 
     // Reduce overflow word twice (always, for constant time).
     // 2^256 ≡ 2^224 − 2^192 − 2^96 + 1 (mod p)
@@ -279,11 +280,11 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
         r[8] = 0;
         r[0] += ov; r[3] -= ov; r[6] -= ov; r[7] += ov;
         for (int i = 0; i < 7; ++i) {
-            r[i + 1] += r[i] >> 32;
-            r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            r[i + 1] += r[i] >> 32; // NOLINT(hicpp-signed-bitwise)
+            r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
         }
-        r[8] = r[7] >> 32;
-        r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        r[8] = r[7] >> 32; // NOLINT(hicpp-signed-bitwise)
+        r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
     }
 
     // Pack 8 × 32-bit into 4 × 64-bit LE.
