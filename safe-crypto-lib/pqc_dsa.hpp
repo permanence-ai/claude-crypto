@@ -93,6 +93,11 @@ auto slh_dsa_sign_impl(
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
+    if (key_pair.private_key.size() != slh_dsa_private_key_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "SLH-DSA private key has wrong size"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
@@ -141,6 +146,16 @@ auto slh_dsa_verify_impl(
     const Signature& signature)
     -> std::expected<void, CryptoError>
 {
+    if (public_key.public_key.size() != slh_dsa_public_key_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "SLH-DSA public key has wrong size"));
+    }
+    if (signature.size() != slh_dsa_signature_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "SLH-DSA signature has wrong size"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
@@ -272,6 +287,11 @@ auto ml_dsa_sign_impl(
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
+    if (key_pair.private_key.size() != ml_dsa_private_key_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "ML-DSA private key has wrong size"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
@@ -320,6 +340,16 @@ auto ml_dsa_verify_impl(
     const Signature& signature)
     -> std::expected<void, CryptoError>
 {
+    if (public_key.public_key.size() != ml_dsa_public_key_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "ML-DSA public key has wrong size"));
+    }
+    if (signature.size() != ml_dsa_signature_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "ML-DSA signature has wrong size"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,

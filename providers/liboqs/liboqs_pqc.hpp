@@ -66,8 +66,8 @@ inline bool ml_kem_encaps(
 {
     OQS_KEM* kem = OQS_KEM_new(ml_kem_alg_name(variant));
     if (kem == nullptr) { return false; }
-    if (public_key_size   < kem->length_public_key  ||
-        ciphertext_size   < kem->length_ciphertext  ||
+    if (public_key_size   != kem->length_public_key  ||
+        ciphertext_size   < kem->length_ciphertext   ||
         shared_secret_size < kem->length_shared_secret) {
         OQS_KEM_free(kem);
         return false;
@@ -87,8 +87,8 @@ inline bool ml_kem_decaps(
 {
     OQS_KEM* kem = OQS_KEM_new(ml_kem_alg_name(variant));
     if (kem == nullptr) { return false; }
-    if (private_key_size   < kem->length_secret_key     ||
-        ciphertext_size    < kem->length_ciphertext     ||
+    if (private_key_size   != kem->length_secret_key    ||
+        ciphertext_size    != kem->length_ciphertext    ||
         shared_secret_size < kem->length_shared_secret) {
         OQS_KEM_free(kem);
         return false;
@@ -130,7 +130,7 @@ inline bool ml_dsa_sign(
 {
     OQS_SIG* sig = OQS_SIG_new(ml_dsa_alg_name(variant));
     if (sig == nullptr) { return false; }
-    if (private_key_size < sig->length_secret_key ||
+    if (private_key_size != sig->length_secret_key ||
         signature_size   < sig->length_signature) {
         OQS_SIG_free(sig);
         return false;
@@ -152,7 +152,8 @@ inline bool ml_dsa_verify(
 {
     OQS_SIG* sig = OQS_SIG_new(ml_dsa_alg_name(variant));
     if (sig == nullptr) { return false; }
-    if (public_key_size < sig->length_public_key) {
+    if (public_key_size != sig->length_public_key ||
+        signature_len   != sig->length_signature) {
         OQS_SIG_free(sig);
         return false;
     }

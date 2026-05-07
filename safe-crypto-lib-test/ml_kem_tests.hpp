@@ -118,6 +118,66 @@ TEST_F(MlKemTests, Kem512_ExportImportRoundTrip) {
 }
 
 
+TEST_F(MlKemTests, Kem512_EncapRejectsPublicKeyWithTrailingByte) {
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    // Append one extra byte to the public key.
+    SecureBuffer oversized(kp->public_key.size() + 1);
+    std::memcpy(oversized.data(), kp->public_key.data(), kp->public_key.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlKemPublicKey<MlKemVariant::Kem512> bad_pub{ .public_key = std::move(oversized) };
+    const auto result = ml_kem_encapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(bad_pub);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlKemTests, Kem512_DecapRejectsCiphertextWithTrailingByte) {
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const MlKemPublicKey<MlKemVariant::Kem512> pub{
+        .public_key = copy_secure_buffer_kem(kp->public_key)
+    };
+    const auto encap = ml_kem_encapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(pub);
+    ASSERT_TRUE(encap.has_value());
+
+    // Append one extra byte to the ciphertext.
+    SecureBuffer oversized(encap->ciphertext.size() + 1);
+    std::memcpy(oversized.data(), encap->ciphertext.data(), encap->ciphertext.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const auto result = ml_kem_decapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(kp.value(), oversized);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlKemTests, Kem512_DecapRejectsPrivateKeyWithTrailingByte) {
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const MlKemPublicKey<MlKemVariant::Kem512> pub{
+        .public_key = copy_secure_buffer_kem(kp->public_key)
+    };
+    const auto encap = ml_kem_encapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(pub);
+    ASSERT_TRUE(encap.has_value());
+
+    // Append one extra byte to the private key.
+    SecureBuffer oversized_priv(kp->private_key.size() + 1);
+    std::memcpy(oversized_priv.data(), kp->private_key.data(), kp->private_key.size());
+    oversized_priv[oversized_priv.size() - 1] = 0x00U;
+
+    const MlKemKeyPair<MlKemVariant::Kem512> bad_kp{
+        .private_key = std::move(oversized_priv),
+        .public_key  = copy_secure_buffer_kem(kp->public_key),
+    };
+    const auto result = ml_kem_decapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(bad_kp, encap->ciphertext);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+
 // --- ML-KEM-768 ---
 
 TEST_F(MlKemTests, Kem768_EncapDecapRoundTrip) {
