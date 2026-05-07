@@ -7,7 +7,7 @@ A modern C++26 cryptography library with four interchangeable backends: PSA/Mbed
 
 ## Problem Statement
 
-A long-standing problem in the applied cryptography arena is that most cryptographic libraries assume the developer using them has sufficient applied crypto knowledge to use the libraries correctly. This is an unreasonable assumption. Most developers do not have applied crypto expertise, nor should they be expected to. The problem is exacerbated by the fact that the design goals of most cryptographic libraries is maximal functionality and flexibility — not ensuring best practices, NIST/FIPS compliance, or enterprise policy enforcement. This library is an attempt to provide a very thin API layer on top of existing crypto implementations (SW and HW) that is easy to use correctly, and difficult to use incorrectly.
+A long-standing problem in the applied cryptography arena is that most cryptographic libraries assume the developer using them has sufficient applied crypto knowledge to use the libraries correctly. This is an unreasonable assumption. Most developers do not have applied crypto expertise, nor should they be expected to. The problem is exacerbated by the fact that the design goals of most cryptographic libraries are maximal functionality and flexibility — not ensuring best practices, NIST/FIPS compliance, or enterprise policy enforcement. This library is an attempt to provide a very thin API layer on top of existing crypto implementations (SW and HW) that is easy to use correctly, and difficult to use incorrectly.
 
 ## Features
 
