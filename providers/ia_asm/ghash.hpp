@@ -32,6 +32,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "defs.hpp"
 
+#ifdef __GNUC__
+#pragma GCC target("pclmul,ssse3")
+#endif
+
 
 namespace ia_asm::detail {
 
