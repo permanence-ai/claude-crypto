@@ -95,6 +95,11 @@ template<MlKemVariant V, CryptoProvider Provider = DefaultProvider>
 auto ml_kem_encapsulate_impl(const MlKemPublicKey<V>& public_key)
     -> std::expected<MlKemEncapResult, CryptoError>
 {
+    if (public_key.public_key.size() != ml_kem_public_key_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "ML-KEM public key has wrong size"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
@@ -145,6 +150,16 @@ auto ml_kem_decapsulate_impl(
     const Ciphertext& ciphertext)
     -> std::expected<SecureBuffer, CryptoError>
 {
+    if (key_pair.private_key.size() != ml_kem_private_key_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "ML-KEM private key has wrong size"));
+    }
+    if (ciphertext.size() != ml_kem_ciphertext_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "ML-KEM ciphertext has wrong size"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,

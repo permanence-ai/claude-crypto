@@ -84,6 +84,33 @@ inline std::mutex& pqc_store_mutex() noexcept {
 inline unsigned int pqc_key_store_import(PqcKeyType type, std::uint8_t variant,
                                           const CryptoByte* priv, std::size_t priv_len,
                                           const CryptoByte* pub,  std::size_t pub_len) noexcept {
+    // Enforce canonical sizes: reject keys with trailing bytes or wrong length.
+    switch (type) {
+        case PqcKeyType::MlKemPrivate: {
+            const auto v = static_cast<MlKemVariant>(variant);
+            if (priv_len != ml_kem_private_key_size(v)) { return 0U; }
+            if (pub_len != 0 && pub_len != ml_kem_public_key_size(v)) { return 0U; }
+            break;
+        }
+        case PqcKeyType::MlKemPublic: {
+            const auto v = static_cast<MlKemVariant>(variant);
+            if (priv_len != 0 || pub_len != ml_kem_public_key_size(v)) { return 0U; }
+            break;
+        }
+        case PqcKeyType::MlDsaPrivate: {
+            const auto v = static_cast<MlDsaVariant>(variant);
+            if (priv_len != ml_dsa_private_key_size(v)) { return 0U; }
+            if (pub_len != 0 && pub_len != ml_dsa_public_key_size(v)) { return 0U; }
+            break;
+        }
+        case PqcKeyType::MlDsaPublic: {
+            const auto v = static_cast<MlDsaVariant>(variant);
+            if (priv_len != 0 || pub_len != ml_dsa_public_key_size(v)) { return 0U; }
+            break;
+        }
+        case PqcKeyType::None:
+            return 0U;
+    }
     const std::size_t total = priv_len + pub_len;
     if (total == 0 || total > pqc_max_key_bytes) { return 0U; }
     auto* buf = new (std::nothrow) CryptoByte[total];  // NOLINT(cppcoreguidelines-owning-memory)

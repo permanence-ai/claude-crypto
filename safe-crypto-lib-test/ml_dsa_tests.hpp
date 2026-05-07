@@ -106,6 +106,62 @@ TEST_F(MlDsaTests, Dsa44_VerifyRejectsTamperedMessage) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST_F(MlDsaTests, Dsa44_SignRejectsPrivateKeyWithTrailingByte) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    SecureBuffer oversized(kp->private_key.size() + 1);
+    std::memcpy(oversized.data(), kp->private_key.data(), kp->private_key.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlDsaKeyPair<MlDsaVariant::Dsa44> bad_kp{
+        .private_key = std::move(oversized),
+        .public_key  = copy_secure_buffer_ml(kp->public_key),
+    };
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto result = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(bad_kp, msg);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlDsaTests, Dsa44_VerifyRejectsPublicKeyWithTrailingByte) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto sig = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(*kp, msg);
+    ASSERT_TRUE(sig.has_value());
+
+    SecureBuffer oversized(kp->public_key.size() + 1);
+    std::memcpy(oversized.data(), kp->public_key.data(), kp->public_key.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlDsaPublicKey<MlDsaVariant::Dsa44> bad_pub{ .public_key = std::move(oversized) };
+    const auto result = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(bad_pub, msg, *sig);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlDsaTests, Dsa44_VerifyRejectsSignatureWithTrailingByte) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto sig = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(*kp, msg);
+    ASSERT_TRUE(sig.has_value());
+
+    SecureBuffer oversized(sig->size() + 1);
+    std::memcpy(oversized.data(), sig->data(), sig->size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlDsaPublicKey<MlDsaVariant::Dsa44> pub{
+        .public_key = std::move(kp->public_key)
+    };
+    const auto result = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(pub, msg, oversized);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
 TEST_F(MlDsaTests, Dsa44_ExportImportRoundTrip) {
     auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
     ASSERT_TRUE(kp.has_value());
