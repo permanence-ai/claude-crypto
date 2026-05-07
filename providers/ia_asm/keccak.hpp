@@ -21,10 +21,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 
 #include "defs.hpp"
 
-#ifdef __GNUC__
-#pragma GCC target("aes,sha")
-#endif
-
 
 namespace ia_asm::detail {
 

@@ -22,10 +22,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "defs.hpp"
 #include "ghash.hpp"
 
-#ifdef __GNUC__
-#pragma GCC target("aes,pclmul,ssse3,sse4.1")
-#endif
-
 
 namespace ia_asm::detail {
 

@@ -21,10 +21,6 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "poly1305.hpp"
 #include "secure_buffer.hpp"
 
-#ifdef __GNUC__
-#pragma GCC target("sse2")
-#endif
-
 
 namespace ia_asm::detail {
 

@@ -10,3 +10,10 @@ Copyright Permanence AI, 2026. All rights reserved.
 // library root.
 
 #include "../../safe-crypto-lib/defs.hpp"
+
+// Activate the full IA-ASM ISA for every TU that includes this header.
+// Per-function [[gnu::target(...)]] attributes are unreliable in header-only
+// TUs under GCC — the pragma form is the documented reliable mechanism.
+#ifdef __GNUC__
+#pragma GCC target("aes,sha,pclmul,ssse3,sse4.1")
+#endif
