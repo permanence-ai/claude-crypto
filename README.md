@@ -2,6 +2,13 @@
 
 A modern C++26 cryptography library with four interchangeable backends: PSA/MbedTLS 4.1, ARM intrinsics (ARMv8.2-A+crypto+sha3), OpenSSL 3.x, and Intel x86-64 intrinsics (SHA-NI, AES-NI, PCLMULQDQ). All operations return `std::expected` — no exceptions, no output parameters. Secrets are held in `SecureBuffer` / `FixedSecureBuffer` types that scrub memory on destruction.
 
+> [!WARNING]
+> **This is an experimental research project and is not suitable for production use.** The API, implementation, and security properties have not been formally audited or reviewed for production deployment. Use at your own risk.
+
+## Problem Statement
+
+A long-standing problem in the applied cryptography arena is that most cryptographic libraries assume the developer using them has sufficient applied crypto knowledge to use the libraries correctly. This is an unreasonable assumption. Most developers do not have applied crypto expertise, nor should they be expected to. The problem is exacerbated by the fact that the design goals of most cryptographic libraries is maximal functionality and flexibility — not ensuring best practices, NIST/FIPS compliance, or enterprise policy enforcement. This library is an attempt to provide a very thin API layer on top of existing crypto implementations (SW and HW) that is easy to use correctly, and difficult to use incorrectly.
+
 ## Features
 
 | Area | API |
