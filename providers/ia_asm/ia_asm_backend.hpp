@@ -571,13 +571,12 @@ struct IaAsmBackend {
             return ok;
         }
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if (alg == alg_ml_dsa(MlDsaVariant::Dsa44) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa65) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa87)) {
+        if ((alg & 0xFF00U) == 0x0700U) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
             const auto kv = pqc_key_store_get_private(id);
             if (!kv || kv->type != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
             const auto v = static_cast<MlDsaVariant>(kv->variant);
+            if (alg != alg_ml_dsa(v)) { return err_invalid_arg; }
             if (sig_size < ml_dsa_signature_size(v)) { return err_invalid_arg; }
             if (!liboqs_pqc::ml_dsa_sign(v, kv->data.data(), kv->data.size(), msg, msg_len, sig, sig_size, sig_len)) {
                 return err_invalid_arg;
@@ -647,13 +646,12 @@ struct IaAsmBackend {
                 ? ok : err_invalid_sig;
         }
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if (alg == alg_ml_dsa(MlDsaVariant::Dsa44) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa65) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa87)) {
+        if ((alg & 0xFF00U) == 0x0700U) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
             const auto kv = pqc_key_store_get_public(id);
             if (!kv || (kv->type != PqcKeyType::MlDsaPublic && kv->type != PqcKeyType::MlDsaPrivate)) { return err_invalid_arg; }
             const auto v = static_cast<MlDsaVariant>(kv->variant);
+            if (alg != alg_ml_dsa(v)) { return err_invalid_arg; }
             return liboqs_pqc::ml_dsa_verify(v, kv->data.data(), kv->data.size(), msg, msg_len, sig, sig_len)
                 ? ok : err_invalid_sig;
         }
@@ -980,7 +978,7 @@ struct IaAsmBackend {
     static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v)    noexcept { return slh_dsa_public_key_size(v); }
 
     [[nodiscard]]
-    static Algorithm alg_ml_dsa(const MlDsaVariant) noexcept { return 0x0702U; }
+    static Algorithm alg_ml_dsa(const MlDsaVariant v) noexcept { return 0x0700U | static_cast<Algorithm>(v); }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -1016,7 +1014,7 @@ struct IaAsmBackend {
     static std::size_t ml_dsa_public_key_export_size(const MlDsaVariant v)    noexcept { return ml_dsa_public_key_size(v); }
 
     [[nodiscard]]
-    static Algorithm alg_ml_kem(const MlKemVariant) noexcept { return 0x0703U; }
+    static Algorithm alg_ml_kem(const MlKemVariant v) noexcept { return 0x0800U | static_cast<Algorithm>(v); }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -1060,13 +1058,12 @@ struct IaAsmBackend {
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
-        if (alg != alg_ml_kem(MlKemVariant::Kem512) &&
-            alg != alg_ml_kem(MlKemVariant::Kem768) &&
-            alg != alg_ml_kem(MlKemVariant::Kem1024)) { return err_invalid_arg; }
+        if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }
         if (!arm_asm::detail::pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
         const auto kv_enc = arm_asm::detail::pqc_key_store_get_public(id);
         if (!kv_enc || (kv_enc->type != PqcKeyType::MlKemPublic && kv_enc->type != PqcKeyType::MlKemPrivate)) { return err_invalid_arg; }
         const auto v = static_cast<MlKemVariant>(kv_enc->variant);
+        if (alg != alg_ml_kem(v)) { return err_invalid_arg; }
         if (ciphertext_size    < ml_kem_ciphertext_size(v))    { return err_invalid_arg; }
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return err_invalid_arg; }
         if (!liboqs_pqc::ml_kem_encaps(v, kv_enc->data.data(), kv_enc->data.size(),
@@ -1090,13 +1087,12 @@ struct IaAsmBackend {
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
-        if (alg != alg_ml_kem(MlKemVariant::Kem512) &&
-            alg != alg_ml_kem(MlKemVariant::Kem768) &&
-            alg != alg_ml_kem(MlKemVariant::Kem1024)) { return err_invalid_arg; }
+        if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }
         if (!arm_asm::detail::pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
         const auto kv_dec = arm_asm::detail::pqc_key_store_get_private(id);
         if (!kv_dec || kv_dec->type != PqcKeyType::MlKemPrivate) { return err_invalid_arg; }
         const auto v = static_cast<MlKemVariant>(kv_dec->variant);
+        if (alg != alg_ml_kem(v)) { return err_invalid_arg; }
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return err_invalid_arg; }
         if (!liboqs_pqc::ml_kem_decaps(v, kv_dec->data.data(), kv_dec->data.size(),
                                         ciphertext, ciphertext_len,
