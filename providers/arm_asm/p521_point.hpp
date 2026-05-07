@@ -660,7 +660,7 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
         t[s + 1] = 0;
     }
 
-    Fe521 r{{t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe521 r{{t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const uint64_t overflow = t[s];
 
     Fe521 sub{};

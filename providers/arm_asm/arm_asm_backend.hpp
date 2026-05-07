@@ -318,10 +318,10 @@ struct ArmAsmBackend {
     static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) {
         if (arm_asm::detail::rsa_key_id_is_rsa(id)) {
             using namespace arm_asm::detail;
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
             if (size < key_len) { return err_invalid_arg; }
@@ -331,10 +331,10 @@ struct ArmAsmBackend {
         }
         if (arm_asm::detail::ec_key_id_is_ec(id)) {
             using namespace arm_asm::detail;
-            EcCurveId curve = EcCurveId::None;
-            EcKeyKind kind  = EcKeyKind::None;
+            EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+            EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
             if (kind != EcKeyKind::Private) { return err_invalid_arg; }
             if (size < key_len) { return err_invalid_arg; }
@@ -363,10 +363,10 @@ struct ArmAsmBackend {
                                     std::size_t* len) {
         using namespace arm_asm::detail;
         if (rsa_key_id_is_rsa(id)) {
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
             return rsa_derive_public_key_der(key, key_len, out, size, len)
@@ -381,10 +381,10 @@ struct ArmAsmBackend {
             return ok;
         }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind == EcKeyKind::Public) {
             if (size < key_len) { return err_invalid_arg; }
@@ -552,10 +552,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg == alg_rsa_pss()) {
             if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
             if (!rsa_pss_sign(bits, key, key_len, msg, msg_len, sig, sig_size, sig_len)) {
@@ -579,10 +579,10 @@ struct ArmAsmBackend {
 #endif
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Private) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
@@ -628,10 +628,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg == alg_rsa_pss()) {
             if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Public) { return err_invalid_arg; }
             return rsa_pss_verify(bits, key, key_len, msg, msg_len, sig, sig_len)
@@ -652,10 +652,10 @@ struct ArmAsmBackend {
 #endif
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Public) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
@@ -695,10 +695,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_ecdh()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Private) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
@@ -764,10 +764,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_rsa_oaep()) { return err_invalid_arg; }
         if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-        RsaKeyKind kind = RsaKeyKind::None;
-        std::size_t bits = 0;
+        RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+        std::size_t bits = 0; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
         if (kind != RsaKeyKind::Public) { return err_invalid_arg; }
         if (!rsa_oaep_encrypt(bits, key, key_len, pt, pt_len, salt, salt_len, out, out_size, out_len)) {
@@ -784,10 +784,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_rsa_oaep()) { return err_invalid_arg; }
         if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-        RsaKeyKind kind = RsaKeyKind::None;
-        std::size_t bits = 0;
+        RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+        std::size_t bits = 0; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
         if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
         if (!rsa_oaep_decrypt(bits, key, key_len, ct, ct_len, salt, salt_len, out, out_size, out_len)) {
