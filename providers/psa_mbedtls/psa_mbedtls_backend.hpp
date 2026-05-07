@@ -322,6 +322,7 @@ struct RealPsaBackend {
             }
             if (ptype != PqcKeyType::MlDsaPrivate) { return PSA_ERROR_INVALID_ARGUMENT; }
             const auto v = static_cast<MlDsaVariant>(pvariant);
+            if (alg != alg_ml_dsa(v)) { return PSA_ERROR_INVALID_ARGUMENT; }
             if (signature_size < ml_dsa_signature_size(v)) { return PSA_ERROR_BUFFER_TOO_SMALL; }
             if (!liboqs_pqc::ml_dsa_sign(v, priv, priv_len,
                                           input, input_length,
@@ -360,6 +361,7 @@ struct RealPsaBackend {
                 return PSA_ERROR_INVALID_ARGUMENT;
             }
             const auto v = static_cast<MlDsaVariant>(pvariant);
+            if (alg != alg_ml_dsa(v)) { return PSA_ERROR_INVALID_ARGUMENT; }
             return liboqs_pqc::ml_dsa_verify(v, pub, pub_len,
                                               input, input_length,
                                               signature, signature_length)
@@ -828,8 +830,8 @@ struct RealPsaBackend {
 
     // ML-KEM — not supported by native MbedTLS 4.1; routed via liboqs when available.
     [[nodiscard]]
-    static Algorithm alg_ml_kem(const MlKemVariant) noexcept {
-        return static_cast<Algorithm>(0);  // PSA_ALG_NONE — routing done by key ID, not alg
+    static Algorithm alg_ml_kem(const MlKemVariant v) noexcept {
+        return static_cast<Algorithm>(0xE200U) | static_cast<Algorithm>(v);
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
@@ -886,8 +888,8 @@ struct RealPsaBackend {
         CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        (void)alg;
         using psa_mbedtls::detail::PqcKeyType;
+        if ((alg & 0xFF00U) != 0xE200U) { return PSA_ERROR_INVALID_ARGUMENT; }
         if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
             return PSA_ERROR_INVALID_ARGUMENT;
         }
@@ -903,6 +905,7 @@ struct RealPsaBackend {
             return PSA_ERROR_INVALID_ARGUMENT;
         }
         const auto v = static_cast<MlKemVariant>(pvariant);
+        if (alg != alg_ml_kem(v)) { return PSA_ERROR_INVALID_ARGUMENT; }
         if (ciphertext_size    < ml_kem_ciphertext_size(v))    { return PSA_ERROR_BUFFER_TOO_SMALL; }
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return PSA_ERROR_BUFFER_TOO_SMALL; }
         if (!liboqs_pqc::ml_kem_encaps(v, pub, pub_len,
@@ -926,8 +929,8 @@ struct RealPsaBackend {
         const CryptoByte* ciphertext, std::size_t ciphertext_len,
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        (void)alg;
         using psa_mbedtls::detail::PqcKeyType;
+        if ((alg & 0xFF00U) != 0xE200U) { return PSA_ERROR_INVALID_ARGUMENT; }
         if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
             return PSA_ERROR_INVALID_ARGUMENT;
         }
@@ -941,6 +944,7 @@ struct RealPsaBackend {
         }
         if (ptype != PqcKeyType::MlKemPrivate) { return PSA_ERROR_INVALID_ARGUMENT; }
         const auto v = static_cast<MlKemVariant>(pvariant);
+        if (alg != alg_ml_kem(v)) { return PSA_ERROR_INVALID_ARGUMENT; }
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return PSA_ERROR_BUFFER_TOO_SMALL; }
         if (!liboqs_pqc::ml_kem_decaps(v, priv, priv_len,
                                         ciphertext, ciphertext_len,

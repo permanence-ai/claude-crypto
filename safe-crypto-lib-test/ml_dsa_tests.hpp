@@ -164,4 +164,55 @@ TEST_F(MlDsaTests, Dsa87_SignVerifyRoundTrip) {
     EXPECT_TRUE(verify_r.has_value());
 }
 
+// --- Variant mismatch rejection ---
+
+TEST_F(MlDsaTests, Dsa44_SignRejectsAlgorithmVariantMismatch) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    auto attrs = MlDsaBackend::make_ml_dsa_sign_attrs(MlDsaVariant::Dsa44);
+    auto raw_id = MlDsaBackend::null_key_id();
+    ASSERT_EQ(MlDsaBackend::import_key(&attrs,
+                                        kp->private_key.data(), kp->private_key.size(),
+                                        &raw_id), MlDsaBackend::ok);
+
+    constexpr std::size_t sig_size = ml_dsa_signature_size(MlDsaVariant::Dsa65);
+    SecureBuffer sig_buf(sig_size);
+    std::size_t sig_len = 0;
+    const auto msg = make_random_secure_buffer(kMessageSize);
+
+    // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
+    const auto status = MlDsaBackend::sign_message(
+        raw_id, MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+        msg.data(), msg.size(),
+        sig_buf.data(), sig_size, &sig_len);
+    EXPECT_NE(status, MlDsaBackend::ok);
+
+    MlDsaBackend::destroy_key(raw_id);
+}
+
+TEST_F(MlDsaTests, Dsa44_VerifyRejectsAlgorithmVariantMismatch) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto sig = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(*kp, msg);
+    ASSERT_TRUE(sig.has_value());
+
+    auto attrs = MlDsaBackend::make_ml_dsa_verify_attrs(MlDsaVariant::Dsa44);
+    auto raw_id = MlDsaBackend::null_key_id();
+    ASSERT_EQ(MlDsaBackend::import_key(&attrs,
+                                        kp->public_key.data(), kp->public_key.size(),
+                                        &raw_id), MlDsaBackend::ok);
+
+    // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
+    const auto status = MlDsaBackend::verify_message(
+        raw_id, MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+        msg.data(), msg.size(),
+        sig->data(), sig->size());
+    EXPECT_NE(status, MlDsaBackend::ok);
+
+    MlDsaBackend::destroy_key(raw_id);
+}
+
 #endif  // SAFE_CRYPTO_PROVIDER_OPENSSL || SAFE_CRYPTO_PQC_LIBOQS
