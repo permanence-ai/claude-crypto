@@ -571,7 +571,7 @@ struct IaAsmBackend {
             return ok;
         }
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if ((alg & 0xFF00U) == 0x0700U) {
+        if ((alg & 0xFFF0U) == 0x0710U) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
             const auto kv = pqc_key_store_get_private(id);
             if (!kv || kv->type != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
@@ -646,7 +646,7 @@ struct IaAsmBackend {
                 ? ok : err_invalid_sig;
         }
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if ((alg & 0xFF00U) == 0x0700U) {
+        if ((alg & 0xFFF0U) == 0x0710U) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
             const auto kv = pqc_key_store_get_public(id);
             if (!kv || (kv->type != PqcKeyType::MlDsaPublic && kv->type != PqcKeyType::MlDsaPrivate)) { return err_invalid_arg; }
@@ -978,7 +978,7 @@ struct IaAsmBackend {
     static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v)    noexcept { return slh_dsa_public_key_size(v); }
 
     [[nodiscard]]
-    static Algorithm alg_ml_dsa(const MlDsaVariant v) noexcept { return 0x0700U | static_cast<Algorithm>(v); }
+    static Algorithm alg_ml_dsa(const MlDsaVariant v) noexcept { return 0x0710U | static_cast<Algorithm>(v); }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS

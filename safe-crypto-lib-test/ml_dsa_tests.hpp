@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include "slh_dsa_variant.hpp"
+
 #if defined(SAFE_CRYPTO_PROVIDER_OPENSSL)
 #include "ml_dsa_variant.hpp"
 #include "openssl_backend.hpp"
@@ -221,6 +223,21 @@ TEST_F(MlDsaTests, Dsa87_SignVerifyRoundTrip) {
 }
 
 // --- Variant mismatch rejection ---
+
+TEST_F(MlDsaTests, AlgorithmIdsDoNotCollideWithSlhDsa) {
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa44),
+              MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa44),
+              MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa87));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+              MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa87));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa44),
+              MlDsaBackend::alg_slh_dsa(SlhDsaVariant::Sha2_128s));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+              MlDsaBackend::alg_slh_dsa(SlhDsaVariant::Sha2_128s));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa87),
+              MlDsaBackend::alg_slh_dsa(SlhDsaVariant::Sha2_128s));
+}
 
 TEST_F(MlDsaTests, Dsa44_SignRejectsAlgorithmVariantMismatch) {
     auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
