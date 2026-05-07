@@ -855,7 +855,7 @@ struct OpenSslBackend {
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
         using namespace openssl_provider::detail;
-        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        EVP_PKEY* pkey = ossl_asym_store_get(key); // NOLINT(misc-const-correctness)
         if (pkey == nullptr) { return err_invalid_arg; }
 
         if (EVP_PKEY_is_a(pkey, "RSA") == 1) {
@@ -902,7 +902,7 @@ struct OpenSslBackend {
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
         using namespace openssl_provider::detail;
-        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        EVP_PKEY* pkey = ossl_asym_store_get(key); // NOLINT(misc-const-correctness)
         if (pkey == nullptr) { return err_invalid_arg; }
 
         if (EVP_PKEY_is_a(pkey, "RSA") == 1) {
@@ -1101,7 +1101,7 @@ struct OpenSslBackend {
             }
             if (EVP_DecryptUpdate(ctx, plaintext, &out_len,
                                   ciphertext, static_cast<int>(ct_len)) != ok) { break; }
-            std::size_t written = static_cast<std::size_t>(out_len);
+            const std::size_t written = static_cast<std::size_t>(out_len);
             int final_len = 0;
             // EVP_DecryptFinal_ex returns 0 if tag verification fails.
             if (EVP_DecryptFinal_ex(ctx, plaintext + written, &final_len) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -1205,11 +1205,11 @@ struct OpenSslBackend {
         if (our_pkey == nullptr) { return err_invalid_arg; }
 
         // Derive the curve name from our key so we can import the peer's public key.
-        char curve_name[32]{};
-        std::size_t name_len = sizeof(curve_name);
+        char curve_name[32]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-const-correctness)
+        const std::size_t name_len = sizeof(curve_name);
         if (EVP_PKEY_get_utf8_string_param(our_pkey,
                 OSSL_PKEY_PARAM_GROUP_NAME,
-                curve_name, name_len, &name_len) != ok) { return err_invalid_arg; }
+                curve_name, name_len, nullptr) != ok) { return err_invalid_arg; }
 
         // Import peer uncompressed point (04||x||y) via EVP_PKEY_fromdata.
         OSSL_PARAM peer_params[] = {  // NOLINT(*)

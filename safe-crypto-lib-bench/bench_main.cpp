@@ -405,7 +405,7 @@ static void BM_EcdsaVerify(benchmark::State& state) {
     auto kp  = ecdsa_generate_key_impl<Provider>(Curve);
     const auto msg = make_payload(64);
     auto sig = ecdsa_sign_impl<Provider>(kp.value(), Curve, msg);
-    EcPublicKey pub_only{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    const EcPublicKey pub_only{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     for (auto _ : state) {
         auto result = ecdsa_verify_impl<Provider>(pub_only, Curve, msg, sig.value());
         benchmark::DoNotOptimize(result);
@@ -463,7 +463,7 @@ BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P521, NativeAsmBackend) ->Unit(benchmark::k
 template<RsaKeyBits KB, typename Provider>
 static void BM_RsaOaepEncrypt(benchmark::State& state) {
     auto kp = generate_rsa_key_impl<KB, Provider>();
-    RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    const RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     const auto pt = make_payload(64);
     for (auto _ : state) {
         auto result = rsa_oaep_encrypt_impl<KB, Provider>(pub, pt);
@@ -475,7 +475,7 @@ static void BM_RsaOaepEncrypt(benchmark::State& state) {
 template<RsaKeyBits KB, typename Provider>
 static void BM_RsaOaepDecrypt(benchmark::State& state) {
     auto kp = generate_rsa_key_impl<KB, Provider>();
-    RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    const RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     const auto pt = make_payload(64);
     auto ct = rsa_oaep_encrypt_impl<KB, Provider>(pub, pt);
     for (auto _ : state) {
@@ -499,7 +499,7 @@ static void BM_RsaPssSign(benchmark::State& state) {
 template<RsaKeyBits KB, typename Provider>
 static void BM_RsaPssVerify(benchmark::State& state) {
     auto kp = generate_rsa_key_impl<KB, Provider>();
-    RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    const RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     const auto msg = make_payload(64);
     auto sig = rsa_pss_sign_impl<KB, Provider>(kp.value(), msg);
     for (auto _ : state) {

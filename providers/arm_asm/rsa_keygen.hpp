@@ -288,7 +288,7 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
           181, 191, 193, 197, 199, 211, 223, 227, 229, 233,
           239, 241, 251, 257
         };
-        bool divisible = false;
+        bool divisible = false; // NOLINT(misc-const-correctness)
         for (const uint32_t sp : small_primes) {
             if (bigint_mod_small(candidate, sp) == 0U) { divisible = true; break; }
         }
@@ -307,7 +307,7 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
 
 // Encode DER length field, returns bytes written.
 inline std::size_t der_write_length(std::size_t len, CryptoByte* buf) noexcept {
-    CryptoByte* w = buf;
+    CryptoByte* w = buf; // NOLINT(misc-const-correctness)
     if (len < 0x80U) {
         *w++ = static_cast<CryptoByte>(len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     } else if (len < 0x100U) {
