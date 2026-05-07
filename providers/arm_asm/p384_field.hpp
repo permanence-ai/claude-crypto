@@ -305,11 +305,11 @@ static inline auto fe384_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
         s[3] += ov;
         s[4] += ov;
         for (int i = 0; i < 11; ++i) {
-            s[i + 1] += s[i] >> 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            s[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            s[i + 1] += s[i] >> 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
+            s[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
         }
-        s[12] = s[11] >> 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        s[11] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        s[12] = s[11] >> 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
+        s[11] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
     }
 
     Fe384 result{{
