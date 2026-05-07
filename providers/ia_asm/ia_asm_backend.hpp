@@ -346,15 +346,11 @@ struct IaAsmBackend {
             return ok;
         }
         if (arm_asm::detail::pqc_key_id_is_pqc(id)) {
-            using namespace arm_asm::detail;
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
-            if (!pqc_key_store_get_private(id, &ptype, &pvariant, &key, &key_len)) { return err_invalid_arg; }
-            if (size < key_len) { return err_invalid_arg; }
-            std::memcpy(out, key, key_len);
-            *len = key_len;
+            const auto kv = arm_asm::detail::pqc_key_store_get_private(id);
+            if (!kv) { return err_invalid_arg; }
+            if (size < kv->data.size()) { return err_invalid_arg; }
+            std::memcpy(out, kv->data.data(), kv->data.size());
+            *len = kv->data.size();
             return ok;
         }
         const CryptoByte* key = nullptr;
@@ -381,14 +377,11 @@ struct IaAsmBackend {
                 ? ok : err_invalid_arg;
         }
         if (pqc_key_id_is_pqc(id)) {
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* pub = nullptr;
-            std::size_t pub_len = 0;
-            if (!pqc_key_store_get_public(id, &ptype, &pvariant, &pub, &pub_len)) { return err_invalid_arg; }
-            if (size < pub_len) { return err_invalid_arg; }
-            std::memcpy(out, pub, pub_len);
-            *len = pub_len;
+            const auto kv = pqc_key_store_get_public(id);
+            if (!kv) { return err_invalid_arg; }
+            if (size < kv->data.size()) { return err_invalid_arg; }
+            std::memcpy(out, kv->data.data(), kv->data.size());
+            *len = kv->data.size();
             return ok;
         }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
@@ -582,15 +575,11 @@ struct IaAsmBackend {
             alg == alg_ml_dsa(MlDsaVariant::Dsa65) ||
             alg == alg_ml_dsa(MlDsaVariant::Dsa87)) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* priv = nullptr;
-            std::size_t priv_len = 0;
-            if (!pqc_key_store_get_private(id, &ptype, &pvariant, &priv, &priv_len)) { return err_invalid_arg; }
-            if (ptype != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
-            const auto v = static_cast<MlDsaVariant>(pvariant);
+            const auto kv = pqc_key_store_get_private(id);
+            if (!kv || kv->type != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
+            const auto v = static_cast<MlDsaVariant>(kv->variant);
             if (sig_size < ml_dsa_signature_size(v)) { return err_invalid_arg; }
-            if (!liboqs_pqc::ml_dsa_sign(v, priv, priv_len, msg, msg_len, sig, sig_size, sig_len)) {
+            if (!liboqs_pqc::ml_dsa_sign(v, kv->data.data(), kv->data.size(), msg, msg_len, sig, sig_size, sig_len)) {
                 return err_invalid_arg;
             }
             return ok;
@@ -662,14 +651,10 @@ struct IaAsmBackend {
             alg == alg_ml_dsa(MlDsaVariant::Dsa65) ||
             alg == alg_ml_dsa(MlDsaVariant::Dsa87)) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* pub = nullptr;
-            std::size_t pub_len = 0;
-            if (!pqc_key_store_get_public(id, &ptype, &pvariant, &pub, &pub_len)) { return err_invalid_arg; }
-            if (ptype != PqcKeyType::MlDsaPublic && ptype != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
-            const auto v = static_cast<MlDsaVariant>(pvariant);
-            return liboqs_pqc::ml_dsa_verify(v, pub, pub_len, msg, msg_len, sig, sig_len)
+            const auto kv = pqc_key_store_get_public(id);
+            if (!kv || (kv->type != PqcKeyType::MlDsaPublic && kv->type != PqcKeyType::MlDsaPrivate)) { return err_invalid_arg; }
+            const auto v = static_cast<MlDsaVariant>(kv->variant);
+            return liboqs_pqc::ml_dsa_verify(v, kv->data.data(), kv->data.size(), msg, msg_len, sig, sig_len)
                 ? ok : err_invalid_sig;
         }
 #endif
@@ -1079,16 +1064,12 @@ struct IaAsmBackend {
             alg != alg_ml_kem(MlKemVariant::Kem768) &&
             alg != alg_ml_kem(MlKemVariant::Kem1024)) { return err_invalid_arg; }
         if (!arm_asm::detail::pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-        PqcKeyType ptype = PqcKeyType::None;
-        std::uint8_t pvariant = 0;
-        const CryptoByte* pub = nullptr;
-        std::size_t pub_len = 0;
-        if (!arm_asm::detail::pqc_key_store_get_public(id, &ptype, &pvariant, &pub, &pub_len)) { return err_invalid_arg; }
-        if (ptype != PqcKeyType::MlKemPublic && ptype != PqcKeyType::MlKemPrivate) { return err_invalid_arg; }
-        const auto v = static_cast<MlKemVariant>(pvariant);
+        const auto kv_enc = arm_asm::detail::pqc_key_store_get_public(id);
+        if (!kv_enc || (kv_enc->type != PqcKeyType::MlKemPublic && kv_enc->type != PqcKeyType::MlKemPrivate)) { return err_invalid_arg; }
+        const auto v = static_cast<MlKemVariant>(kv_enc->variant);
         if (ciphertext_size    < ml_kem_ciphertext_size(v))    { return err_invalid_arg; }
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return err_invalid_arg; }
-        if (!liboqs_pqc::ml_kem_encaps(v, pub, pub_len,
+        if (!liboqs_pqc::ml_kem_encaps(v, kv_enc->data.data(), kv_enc->data.size(),
                                         ciphertext,    ciphertext_size,
                                         shared_secret, shared_secret_size)) { return err_invalid_arg; }
         *ciphertext_len    = ml_kem_ciphertext_size(v);
@@ -1113,15 +1094,11 @@ struct IaAsmBackend {
             alg != alg_ml_kem(MlKemVariant::Kem768) &&
             alg != alg_ml_kem(MlKemVariant::Kem1024)) { return err_invalid_arg; }
         if (!arm_asm::detail::pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-        PqcKeyType ptype = PqcKeyType::None;
-        std::uint8_t pvariant = 0;
-        const CryptoByte* priv = nullptr;
-        std::size_t priv_len = 0;
-        if (!arm_asm::detail::pqc_key_store_get_private(id, &ptype, &pvariant, &priv, &priv_len)) { return err_invalid_arg; }
-        if (ptype != PqcKeyType::MlKemPrivate) { return err_invalid_arg; }
-        const auto v = static_cast<MlKemVariant>(pvariant);
+        const auto kv_dec = arm_asm::detail::pqc_key_store_get_private(id);
+        if (!kv_dec || kv_dec->type != PqcKeyType::MlKemPrivate) { return err_invalid_arg; }
+        const auto v = static_cast<MlKemVariant>(kv_dec->variant);
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return err_invalid_arg; }
-        if (!liboqs_pqc::ml_kem_decaps(v, priv, priv_len,
+        if (!liboqs_pqc::ml_kem_decaps(v, kv_dec->data.data(), kv_dec->data.size(),
                                         ciphertext, ciphertext_len,
                                         shared_secret, shared_secret_size)) { return err_invalid_arg; }
         *shared_secret_len = ml_kem_shared_secret_size(v);
