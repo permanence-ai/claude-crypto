@@ -104,23 +104,13 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM \
             -DSAFE_CRYPTO_PQC=NONE \
+            -DSAFE_CRYPTO_IA_ASM_SHA_NI=OFF \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Build
         run: cmake --build build
 
-      - name: Check SHA-NI support
-        id: sha_ni
-        run: |
-          if grep -q '\bsha_ni\b' /proc/cpuinfo; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SHA-NI not available on this runner — skipping IA_ASM tests"
-          fi
-
       - name: Test
-        if: steps.sha_ni.outputs.available == 'true'
         run: ctest --test-dir build --output-on-failure
 
   # ---------------------------------------------------------------------------

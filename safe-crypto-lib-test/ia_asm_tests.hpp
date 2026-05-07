@@ -431,8 +431,10 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P521SHighBitSetRejectsSignature) {
 // IaAsmSha256KatTest — NIST FIPS 180-4 known-answer test for SHA-256.
 // Exercises the Intel SHA-NI compress path independently of the cross-provider
 // comparison so failures are unambiguous.
+// Only compiled when SHA-NI is enabled (SAFE_CRYPTO_IA_ASM_SHA_NI=ON).
 // ---------------------------------------------------------------------------
 
+#ifdef IA_ASM_SHA_NI_ENABLED
 class IaAsmSha256KatTest : public ::testing::Test {};
 
 TEST_F(IaAsmSha256KatTest, EmptyMessage) {
@@ -476,5 +478,7 @@ TEST_F(IaAsmSha256KatTest, MultiBlockMessage) {
     ia_asm::detail::sha256(reinterpret_cast<const uint8_t*>(msg), 56, out.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     EXPECT_EQ(out, expected);
 }
+
+#endif  // IA_ASM_SHA_NI_ENABLED
 
 #endif  // SAFE_CRYPTO_PROVIDER_IA_ASM
