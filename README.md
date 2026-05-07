@@ -144,7 +144,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE + OBJECT library — ArmAsmBackend, ARM intrinsics
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
-  liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs)
+  liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
@@ -456,7 +456,7 @@ A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement 
 | `SAFE_CRYPTO_PQC` | Effect |
 |---|---|
 | `NONE` *(default)* | No PQC supplement; `ARM_ASM` and `PSA_MBEDTLS` providers return `err_invalid_arg` for ML-DSA and ML-KEM |
-| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` and `PSA_MBEDTLS` backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (447 total for `ARM_ASM+LIBOQS`; 239 total for `PSA_MBEDTLS+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (255 total for `OPENSSL+LIBOQS`) |
+| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` and `PSA_MBEDTLS` backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (447 total for `ARM_ASM+LIBOQS`; 239 total for `PSA_MBEDTLS+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (255 total for `OPENSSL+LIBOQS`); `OQS_KEM` and `OQS_SIG` descriptors are allocated once per variant (C++11 thread-safe local statics) and reused across all operations — `OQS_KEM_new()`/`OQS_SIG_new()` are no longer called per-operation |
 
 SLH-DSA is not yet available via liboqs (liboqs 0.13.0 uses `SPHINCS+` naming internally and has no `slh_dsa` aliases). It remains OpenSSL-only.
 
