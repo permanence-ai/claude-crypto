@@ -11,7 +11,7 @@ A long-standing problem in the applied cryptography arena is that most cryptogra
 
 ## Built by AI Agents
 
-Every line of code, test, and CI configuration in this repository was written by AI coding agents — primarily Claude (Anthropic) and Codex (OpenAI). No human has written any of the source code, test cases, CMake build system, or GitHub Actions workflows. Human involvement has been limited to directing the agents, reviewing their output, and merging pull requests.
+Every line of code, test, and CI configuration in this repository was written by AI coding agents — primarily Claude (Anthropic) and Codex (OpenAI). No human has written any of the source code, test cases, CMake build system, or GitHub Actions workflows. Human involvement has been limited to directing the agents and reviewing their output. Most pull requests have been merged by the agents themselves.
 
 This project serves as an ongoing experiment in AI-driven software development: exploring how far autonomous coding agents can carry a non-trivial systems project — applied cryptography in modern C++ — without human authorship of the implementation itself.
 
