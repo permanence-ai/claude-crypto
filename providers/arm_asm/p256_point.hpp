@@ -670,10 +670,10 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
     constexpr uint64_t n_prime = 0xccd1c8aaee00bc4fULL;
 
     uint64_t t[s + 2]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < s; ++i) {
+    for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         // Step 1: t += a[i] * b
         uint64_t carry = 0;
-        for (int j = 0; j < s; ++j) {
+        for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
             const u128 tt = static_cast<u128>(a.v[i]) * b.v[j] + t[j] + carry;
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
