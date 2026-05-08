@@ -109,7 +109,9 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
                                     const uint8_t s_bytes[16], // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
                                     uint8_t tag[16]) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
-    uint64_t h0 = h_in.h0, h1 = h_in.h1, h2 = h_in.h2;
+    uint64_t h0 = h_in.h0;
+    uint64_t h1 = h_in.h1;
+    uint64_t h2 = h_in.h2;
     uint64_t c = 0;
     c = h0 >> 44U; h0 &= mask44; h1 += c;
     c = h1 >> 44U; h1 &= mask44; h2 += c;

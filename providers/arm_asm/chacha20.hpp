@@ -297,10 +297,10 @@ static inline void chacha20_xor4(
     //   g{X}0 = words {4X..4X+3} of block 0
     //   g{X}1 = words {4X..4X+3} of block 1
     //   etc.
-    uint32x4_t g00, g01, g02, g03;   // NOLINT(misc-non-private-member-variables-in-classes)
-    uint32x4_t g10, g11, g12, g13;   // NOLINT(misc-non-private-member-variables-in-classes)
-    uint32x4_t g20, g21, g22, g23;   // NOLINT(misc-non-private-member-variables-in-classes)
-    uint32x4_t g30, g31, g32, g33;   // NOLINT(misc-non-private-member-variables-in-classes)
+    uint32x4_t g00{}; uint32x4_t g01{}; uint32x4_t g02{}; uint32x4_t g03{};
+    uint32x4_t g10{}; uint32x4_t g11{}; uint32x4_t g12{}; uint32x4_t g13{};
+    uint32x4_t g20{}; uint32x4_t g21{}; uint32x4_t g22{}; uint32x4_t g23{};
+    uint32x4_t g30{}; uint32x4_t g31{}; uint32x4_t g32{}; uint32x4_t g33{};
 
     chacha20_transpose4(s0,  s1,  s2,  s3,  g00, g01, g02, g03);
     chacha20_transpose4(s4,  s5,  s6,  s7,  g10, g11, g12, g13);
