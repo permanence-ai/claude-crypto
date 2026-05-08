@@ -152,7 +152,7 @@ inline std::optional<PqcKeyView> pqc_key_store_get_private(unsigned int id) noex
     try {
         SecureBuffer copy{s.priv_len};
         std::memcpy(copy.data(), s.data, s.priv_len);
-        return PqcKeyView{std::move(copy), s.type, s.variant};
+        return PqcKeyView{.data = std::move(copy), .type = s.type, .variant = s.variant};
     } catch (...) { return std::nullopt; }
 }
 
@@ -171,7 +171,7 @@ inline std::optional<PqcKeyView> pqc_key_store_get_public(unsigned int id) noexc
     try {
         SecureBuffer copy{pub_len};
         std::memcpy(copy.data(), s.data + s.priv_len, pub_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        return PqcKeyView{std::move(copy), s.type, s.variant};
+        return PqcKeyView{.data = std::move(copy), .type = s.type, .variant = s.variant};
     } catch (...) { return std::nullopt; }
 }
 

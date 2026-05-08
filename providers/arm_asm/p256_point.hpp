@@ -276,35 +276,80 @@ static inline auto p256_point_add_affine(const P256Point& p, const P256AffinePoi
 
 static constexpr P256AffinePoint p256_G_table[15] = { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     // [1]*G
-    {{0xf4a13945d898c296ULL, 0x77037d812deb33a0ULL, 0xf8bce6e563a440f2ULL, 0x6b17d1f2e12c4247ULL}, {0xcbb6406837bf51f5ULL, 0x2bce33576b315eceULL, 0x8ee7eb4a7c0f9e16ULL, 0x4fe342e2fe1a7f9bULL}},
+    {
+        .X = {.v = {0xf4a13945d898c296ULL, 0x77037d812deb33a0ULL, 0xf8bce6e563a440f2ULL, 0x6b17d1f2e12c4247ULL}},
+        .Y = {.v = {0xcbb6406837bf51f5ULL, 0x2bce33576b315eceULL, 0x8ee7eb4a7c0f9e16ULL, 0x4fe342e2fe1a7f9bULL}},
+    },
     // [2]*G
-    {{0xa60b48fc47669978ULL, 0xc08969e277f21b35ULL, 0x8a52380304b51ac3ULL, 0x7cf27b188d034f7eULL}, {0x9e04b79d227873d1ULL, 0xba7dade63ce98229ULL, 0x293d9ac69f7430dbULL, 0x07775510db8ed040ULL}},
+    {
+        .X = {.v = {0xa60b48fc47669978ULL, 0xc08969e277f21b35ULL, 0x8a52380304b51ac3ULL, 0x7cf27b188d034f7eULL}},
+        .Y = {.v = {0x9e04b79d227873d1ULL, 0xba7dade63ce98229ULL, 0x293d9ac69f7430dbULL, 0x07775510db8ed040ULL}},
+    },
     // [3]*G
-    {{0xfb41661bc6e7fd6cULL, 0xe6c6b721efada985ULL, 0xc8f7ef951d4bf165ULL, 0x5ecbe4d1a6330a44ULL}, {0x9a79b127a27d5032ULL, 0xd82ab036384fb83dULL, 0x374b06ce1a64a2ecULL, 0x8734640c4998ff7eULL}},
+    {
+        .X = {.v = {0xfb41661bc6e7fd6cULL, 0xe6c6b721efada985ULL, 0xc8f7ef951d4bf165ULL, 0x5ecbe4d1a6330a44ULL}},
+        .Y = {.v = {0x9a79b127a27d5032ULL, 0xd82ab036384fb83dULL, 0x374b06ce1a64a2ecULL, 0x8734640c4998ff7eULL}},
+    },
     // [4]*G
-    {{0x509302446b030852ULL, 0x031fe2db785596efULL, 0xa02dde659ee62bd0ULL, 0xe2534a3532d08fbbULL}, {0x5c42c23f184ed8c6ULL, 0x4efc96c3f30ee005ULL, 0x19dfee5fda862d76ULL, 0xe0f1575a4c633cc7ULL}},
+    {
+        .X = {.v = {0x509302446b030852ULL, 0x031fe2db785596efULL, 0xa02dde659ee62bd0ULL, 0xe2534a3532d08fbbULL}},
+        .Y = {.v = {0x5c42c23f184ed8c6ULL, 0x4efc96c3f30ee005ULL, 0x19dfee5fda862d76ULL, 0xe0f1575a4c633cc7ULL}},
+    },
     // [5]*G
-    {{0x21554a0dc3d033edULL, 0xef8c82fd1f5be524ULL, 0xd784c85608668fdfULL, 0x51590b7a515140d2ULL}, {0xd1d0bb44fda16da4ULL, 0x0d012f00d4d80888ULL, 0x8ae1bf36bf8a7926ULL, 0xe0c17da8904a727dULL}},
+    {
+        .X = {.v = {0x21554a0dc3d033edULL, 0xef8c82fd1f5be524ULL, 0xd784c85608668fdfULL, 0x51590b7a515140d2ULL}},
+        .Y = {.v = {0xd1d0bb44fda16da4ULL, 0x0d012f00d4d80888ULL, 0x8ae1bf36bf8a7926ULL, 0xe0c17da8904a727dULL}},
+    },
     // [6]*G
-    {{0xc6b0aae93c2291a9ULL, 0x024c740debb215b4ULL, 0x92d3242cb897dde3ULL, 0xb01a172a76a4602cULL}, {0xfd7c48538fc77fe2ULL, 0x1c00f7701c7e16bdULL, 0x6fec0e2dfba70379ULL, 0xe85c10743237dad5ULL}},
+    {
+        .X = {.v = {0xc6b0aae93c2291a9ULL, 0x024c740debb215b4ULL, 0x92d3242cb897dde3ULL, 0xb01a172a76a4602cULL}},
+        .Y = {.v = {0xfd7c48538fc77fe2ULL, 0x1c00f7701c7e16bdULL, 0x6fec0e2dfba70379ULL, 0xe85c10743237dad5ULL}},
+    },
     // [7]*G
-    {{0x300628703187b2a3ULL, 0x7ef9f8b8a80fef5bULL, 0x25bb30667c01fb60ULL, 0x8e533b6fa0bf7b46ULL}, {0xc55e1a86c1f400b4ULL, 0x53c73633cb041b21ULL, 0x6d069f83a6f59000ULL, 0x73eb1dbde0331836ULL}},
+    {
+        .X = {.v = {0x300628703187b2a3ULL, 0x7ef9f8b8a80fef5bULL, 0x25bb30667c01fb60ULL, 0x8e533b6fa0bf7b46ULL}},
+        .Y = {.v = {0xc55e1a86c1f400b4ULL, 0x53c73633cb041b21ULL, 0x6d069f83a6f59000ULL, 0x73eb1dbde0331836ULL}},
+    },
     // [8]*G
-    {{0xb4dd9dc1db6fb393ULL, 0xc1d238980fce97dbULL, 0x4042742d3ab54cadULL, 0x62d9779dbee9b053ULL}, {0xda540a6a0f09957eULL, 0xa2ed51f6bbe76a78ULL, 0x4ff15d771167cee0ULL, 0xad5accbd91e9d824ULL}},
+    {
+        .X = {.v = {0xb4dd9dc1db6fb393ULL, 0xc1d238980fce97dbULL, 0x4042742d3ab54cadULL, 0x62d9779dbee9b053ULL}},
+        .Y = {.v = {0xda540a6a0f09957eULL, 0xa2ed51f6bbe76a78ULL, 0x4ff15d771167cee0ULL, 0xad5accbd91e9d824ULL}},
+    },
     // [9]*G
-    {{0xd79e8a4b90949ee0ULL, 0x9e0acb8c2c6df8b3ULL, 0x878938d51d71f872ULL, 0xea68d7b6fedf0b71ULL}, {0xe85a224a4dd048faULL, 0x4d714feaa4de823fULL, 0x87014a964a8ea0c8ULL, 0x2a2744c972c9fce7ULL}},
+    {
+        .X = {.v = {0xd79e8a4b90949ee0ULL, 0x9e0acb8c2c6df8b3ULL, 0x878938d51d71f872ULL, 0xea68d7b6fedf0b71ULL}},
+        .Y = {.v = {0xe85a224a4dd048faULL, 0x4d714feaa4de823fULL, 0x87014a964a8ea0c8ULL, 0x2a2744c972c9fce7ULL}},
+    },
     // [10]*G
-    {{0x4c36069404c5723fULL, 0x45ca6c471c48306eULL, 0x591214d1ea223fb5ULL, 0xcef66d6b2a3a993eULL}, {0xca34bbaa44af0773ULL, 0x590ded29fe751eeeULL, 0x6e123cdd9d3b4c10ULL, 0x878662a229aaae90ULL}},
+    {
+        .X = {.v = {0x4c36069404c5723fULL, 0x45ca6c471c48306eULL, 0x591214d1ea223fb5ULL, 0xcef66d6b2a3a993eULL}},
+        .Y = {.v = {0xca34bbaa44af0773ULL, 0x590ded29fe751eeeULL, 0x6e123cdd9d3b4c10ULL, 0x878662a229aaae90ULL}},
+    },
     // [11]*G
-    {{0x433391d374bc21d1ULL, 0x16742ed0255048bfULL, 0x0638379db0c21cdaULL, 0x3ed113b7883b4c59ULL}, {0xe2f8eefce82a3740ULL, 0x090d04da5e9889daULL, 0x24c843afa4f4c68aULL, 0x9099209accc4c8a2ULL}},
+    {
+        .X = {.v = {0x433391d374bc21d1ULL, 0x16742ed0255048bfULL, 0x0638379db0c21cdaULL, 0x3ed113b7883b4c59ULL}},
+        .Y = {.v = {0xe2f8eefce82a3740ULL, 0x090d04da5e9889daULL, 0x24c843afa4f4c68aULL, 0x9099209accc4c8a2ULL}},
+    },
     // [12]*G
-    {{0xd500c5ee8624e3c4ULL, 0x79983028b2f82c99ULL, 0x4626537320e5d551ULL, 0x741dd5bda817d95eULL}, {0x1995ff22cd4481d3ULL, 0x8eeb912c35ba5ca7ULL, 0x567383554887b154ULL, 0x0770b46a9c385fdcULL}},
+    {
+        .X = {.v = {0xd500c5ee8624e3c4ULL, 0x79983028b2f82c99ULL, 0x4626537320e5d551ULL, 0x741dd5bda817d95eULL}},
+        .Y = {.v = {0x1995ff22cd4481d3ULL, 0x8eeb912c35ba5ca7ULL, 0x567383554887b154ULL, 0x0770b46a9c385fdcULL}},
+    },
     // [13]*G
-    {{0x98e15d9d46072c01ULL, 0x792e284b65ead58aULL, 0x61805df2d85ee2fcULL, 0x177c837ae0ac495aULL}, {0x9c43bbe2efc7bfd8ULL, 0x26ee14c3a1fb4df3ULL, 0xa24091adb40f4e72ULL, 0x63bb58cd4ebea558ULL}},
+    {
+        .X = {.v = {0x98e15d9d46072c01ULL, 0x792e284b65ead58aULL, 0x61805df2d85ee2fcULL, 0x177c837ae0ac495aULL}},
+        .Y = {.v = {0x9c43bbe2efc7bfd8ULL, 0x26ee14c3a1fb4df3ULL, 0xa24091adb40f4e72ULL, 0x63bb58cd4ebea558ULL}},
+    },
     // [14]*G
-    {{0x5709277324d2920bULL, 0xf126acbe7a069c5eULL, 0x7a76647f4336df3cULL, 0x54e77a001c3862b9ULL}, {0x1ba7c82f60d0b375ULL, 0x7171ea7773509008ULL, 0x42121f8c05a2e7c3ULL, 0xf599f1bb29f43175ULL}},
+    {
+        .X = {.v = {0x5709277324d2920bULL, 0xf126acbe7a069c5eULL, 0x7a76647f4336df3cULL, 0x54e77a001c3862b9ULL}},
+        .Y = {.v = {0x1ba7c82f60d0b375ULL, 0x7171ea7773509008ULL, 0x42121f8c05a2e7c3ULL, 0xf599f1bb29f43175ULL}},
+    },
     // [15]*G
-    {{0x63668c63e59b9d5fULL, 0xae03af92de3a0ef1ULL, 0xadfb378999888265ULL, 0xf0454dc6971abae7ULL}, {0x47e59cde0d034f36ULL, 0x2a3b21ce75b5fa3fULL, 0x4e6594e51f9643e6ULL, 0xb5b93ee3592e2d1fULL}},
+    {
+        .X = {.v = {0x63668c63e59b9d5fULL, 0xae03af92de3a0ef1ULL, 0xadfb378999888265ULL, 0xf0454dc6971abae7ULL}},
+        .Y = {.v = {0x47e59cde0d034f36ULL, 0x2a3b21ce75b5fa3fULL, 0x4e6594e51f9643e6ULL, 0xb5b93ee3592e2d1fULL}},
+    },
 }; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 
