@@ -370,7 +370,7 @@ struct OpenSslBackend {
     static std::size_t ecdsa_sign_output_size(const std::size_t key_bits) noexcept {
         // DER-encoded ECDSA signature: 2 * ceil(key_bits/8) + 8 bytes overhead.
         const std::size_t coord = (key_bits + 7U) / 8U;
-        return 2U * coord + 8U;
+        return (2U * coord) + 8U;
     }
     [[nodiscard]]
     static std::size_t ecdh_shared_secret_size(const std::size_t key_bits) noexcept {
@@ -383,7 +383,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static std::size_t ec_public_key_export_size(const std::size_t key_bits) noexcept {
         // Uncompressed point: 0x04 + 2 * coord_bytes
-        return 1U + 2U * ((key_bits + 7U) / 8U);
+        return 1U + (2U * ((key_bits + 7U) / 8U));
     }
     [[nodiscard]]
     static std::size_t aes_gcm_encrypt_output_size(const std::size_t plaintext_size) noexcept {
@@ -416,12 +416,12 @@ struct OpenSslBackend {
     [[nodiscard]]
     static std::size_t rsa_private_key_export_size(const std::size_t key_bits) noexcept {
         // PKCS#1 DER: ~5 * (key_bits/8) + overhead.  Use a generous bound.
-        return 5U * (key_bits / 8U) + 64U;
+        return (5U * (key_bits / 8U)) + 64U;
     }
     [[nodiscard]]
     static std::size_t rsa_public_key_export_size(const std::size_t key_bits) noexcept {
         // SubjectPublicKeyInfo DER: key_bits/8 + ~50 bytes overhead.
-        return key_bits / 8U + 50U;
+        return (key_bits / 8U) + 50U;
     }
     [[nodiscard]]
     static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v) noexcept {

@@ -484,7 +484,7 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
     uint32_t w[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 24; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         const int j = 23 - i; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(j) * 4; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -493,7 +493,7 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
 
     uint64_t acc[12]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 12; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i) + 1]) << 32U);
+        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
 
     using u128 = unsigned __int128;
@@ -551,7 +551,7 @@ static inline auto p384_scalar_from_bytes48( // NOLINT(cppcoreguidelines-avoid-c
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -655,7 +655,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
-            const u128 tt = static_cast<u128>(a.v[i]) * b.v[j] + t[j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry;
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
         }
@@ -664,10 +664,10 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
         t[s + 1] = static_cast<uint64_t>(tt >> 64U);
 
         const uint64_t m = t[0] * n_prime;
-        tt = static_cast<u128>(m) * p384_n[0] + t[0];
+        tt = (static_cast<u128>(m) * p384_n[0]) + t[0];
         carry = static_cast<uint64_t>(tt >> 64U);
         for (int j = 1; j < s; ++j) {
-            tt       = static_cast<u128>(m) * p384_n[j] + t[j] + carry;
+            tt       = (static_cast<u128>(m) * p384_n[j]) + t[j] + carry;
             t[j - 1] = static_cast<uint64_t>(tt);
             carry    = static_cast<uint64_t>(tt >> 64U);
         }
@@ -810,7 +810,7 @@ static inline auto p384_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |

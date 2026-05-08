@@ -559,7 +559,7 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
     uint32_t w[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 16; ++i) {
         const int j = 15 - i;
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(j) * 4; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -576,7 +576,7 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
     // Represent as 8 uint64_t LE limbs.
     uint64_t acc[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 8; ++i) {
-        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i) + 1]) << 32U);
+        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
 
     // Reduce top 4 limbs (acc[4..7]) by replacing 2^256 = n + (2^256 - n).
@@ -633,7 +633,7 @@ static inline auto p256_scalar_from_bytes32( // NOLINT(cppcoreguidelines-avoid-c
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -719,7 +719,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
         // Step 1: t += a[i] * b
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
-            const u128 tt = static_cast<u128>(a.v[i]) * b.v[j] + t[j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry;
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
         }
@@ -729,10 +729,10 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
 
         // Step 2: Montgomery reduction step.
         const uint64_t m = t[0] * n_prime;
-        tt = static_cast<u128>(m) * p256_n[0] + t[0];
+        tt = (static_cast<u128>(m) * p256_n[0]) + t[0];
         carry = static_cast<uint64_t>(tt >> 64U);
         for (int j = 1; j < s; ++j) {
-            tt    = static_cast<u128>(m) * p256_n[j] + t[j] + carry;
+            tt    = (static_cast<u128>(m) * p256_n[j]) + t[j] + carry;
             t[j - 1] = static_cast<uint64_t>(tt);
             carry    = static_cast<uint64_t>(tt >> 64U);
         }
@@ -828,7 +828,7 @@ static inline auto p256_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
