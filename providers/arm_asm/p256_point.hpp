@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -553,12 +550,12 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
             acc[step + i] = static_cast<uint64_t>(diff);
             borrow = static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U))
                    - (diff < 0 ? 0LL : 0LL);
-            borrow = -(static_cast<int64_t>(prod >> 64U) + (diff >> 63));
+            borrow = -(static_cast<int64_t>(prod >> 64U) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
         }
         acc[step + 4] = static_cast<uint64_t>(static_cast<int64_t>(acc[step + 4]) + borrow);
     }
 
-    Fe256 r{{acc[0], acc[1], acc[2], acc[3]}};
+    const Fe256 r{{acc[0], acc[1], acc[2], acc[3]}};
 
     // Final reduction: subtract n if r >= n.
     Fe256 sub{};
@@ -704,7 +701,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
         t[s + 1] = 0;
     }
 
-    Fe256 r{{t[0], t[1], t[2], t[3]}};
+    const Fe256 r{{t[0], t[1], t[2], t[3]}};
     const uint64_t overflow = t[s];
 
     // Conditional subtract n.

@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -339,7 +336,7 @@ inline BigInt<NW> bigint_powmod_ct(
     // Convert base to Montgomery form.
     BigInt<NW> result_m{};
     result_m.d[0] = 1U;  // will hold 1 in Montgomery form after first iteration
-    BigInt<NW> base_m = mont_to(base, m, m0inv, r2);
+    const BigInt<NW> base_m = mont_to(base, m, m0inv, r2);
 
     // result = R mod m (Montgomery representation of 1)
     result_m = mont_to(result_m, m, m0inv, r2);
@@ -352,7 +349,7 @@ inline BigInt<NW> bigint_powmod_ct(
             // Conditionally multiply by base if bit is set.
             const uint64_t bit = (exp.d[wi] >> static_cast<unsigned>(bi)) & 1U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             const uint64_t bit_mask = static_cast<uint64_t>(-static_cast<int64_t>(bit));  // all-ones if bit==1
-            BigInt<NW> prod = mont_mul(result_m, base_m, m, m0inv);
+            const BigInt<NW> prod = mont_mul(result_m, base_m, m, m0inv);
             result_m = bigint_ct_select(prod, result_m, bit_mask);
         }
     }

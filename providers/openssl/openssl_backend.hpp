@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -235,7 +232,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_ecdsa_generate_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Verify | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Verify | KeyAttributes::Export),
                  .alg = kAlgEcdsa };
     }
     [[nodiscard]]
@@ -251,7 +248,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_ecdh_generate_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Derive | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Derive) | KeyAttributes::Export),
                  .alg = kAlgEcdh };
     }
     [[nodiscard]]
@@ -302,7 +299,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::RsaKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Encrypt | KeyAttributes::Decrypt |
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Encrypt) | KeyAttributes::Decrypt |
                                                KeyAttributes::Sign    | KeyAttributes::Verify  |
                                                KeyAttributes::Export),
                  .alg = kAlgRsaOaep };
@@ -323,7 +320,7 @@ struct OpenSslBackend {
     static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
                  .bits = slh_dsa_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Export),
                  .alg = alg_slh_dsa(v) };
     }
     [[nodiscard]]
@@ -342,14 +339,14 @@ struct OpenSslBackend {
     static KeyAttributes make_ml_dsa_generate_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
                  .bits = ml_dsa_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Sign | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Export),
                  .alg = alg_ml_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemKeyPair,
                  .bits = ml_kem_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Decrypt | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Decrypt) | KeyAttributes::Export),
                  .alg = alg_ml_kem(v) };
     }
     [[nodiscard]]
@@ -626,7 +623,7 @@ struct OpenSslBackend {
                     ? ok : err_invalid_arg;
                 EVP_PKEY_CTX_free(pctx);
                 if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -650,7 +647,7 @@ struct OpenSslBackend {
                     ? ok : err_invalid_arg;
                 EVP_PKEY_CTX_free(pctx);
                 if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -660,7 +657,7 @@ struct OpenSslBackend {
                 const CryptoByte* p = data;
                 EVP_PKEY* pkey = d2i_PrivateKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -670,7 +667,7 @@ struct OpenSslBackend {
                 const CryptoByte* p = data;
                 EVP_PKEY* pkey = d2i_PublicKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -682,7 +679,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -694,7 +691,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -706,7 +703,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -718,7 +715,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -730,7 +727,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -742,7 +739,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -769,7 +766,7 @@ struct OpenSslBackend {
             if (curve == nullptr) { return err_invalid_arg; }
             EVP_PKEY* pkey = EVP_EC_gen(curve);
             if (pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -778,7 +775,7 @@ struct OpenSslBackend {
         if (attributes->type == KeyAttributes::KeyType::RsaKeyPair) {
             EVP_PKEY* pkey = EVP_RSA_gen(static_cast<unsigned int>(attributes->bits));
             if (pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -795,7 +792,7 @@ struct OpenSslBackend {
                 ? ok : err_invalid_arg;
             EVP_PKEY_CTX_free(pctx);
             if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -812,7 +809,7 @@ struct OpenSslBackend {
                 ? ok : err_invalid_arg;
             EVP_PKEY_CTX_free(pctx);
             if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -829,7 +826,7 @@ struct OpenSslBackend {
                 ? ok : err_invalid_arg;
             EVP_PKEY_CTX_free(pctx);
             if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -858,7 +855,7 @@ struct OpenSslBackend {
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
         using namespace openssl_provider::detail;
-        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        EVP_PKEY* pkey = ossl_asym_store_get(key); // NOLINT(misc-const-correctness)
         if (pkey == nullptr) { return err_invalid_arg; }
 
         if (EVP_PKEY_is_a(pkey, "RSA") == 1) {
@@ -905,7 +902,7 @@ struct OpenSslBackend {
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
         using namespace openssl_provider::detail;
-        EVP_PKEY* pkey = ossl_asym_store_get(key);
+        EVP_PKEY* pkey = ossl_asym_store_get(key); // NOLINT(misc-const-correctness)
         if (pkey == nullptr) { return err_invalid_arg; }
 
         if (EVP_PKEY_is_a(pkey, "RSA") == 1) {
@@ -1104,7 +1101,7 @@ struct OpenSslBackend {
             }
             if (EVP_DecryptUpdate(ctx, plaintext, &out_len,
                                   ciphertext, static_cast<int>(ct_len)) != ok) { break; }
-            std::size_t written = static_cast<std::size_t>(out_len);
+            const std::size_t written = static_cast<std::size_t>(out_len);
             int final_len = 0;
             // EVP_DecryptFinal_ex returns 0 if tag verification fails.
             if (EVP_DecryptFinal_ex(ctx, plaintext + written, &final_len) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -1129,6 +1126,7 @@ struct OpenSslBackend {
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
+        if (is_pqc && ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
 
         EVP_MD_CTX* ctx = EVP_MD_CTX_new();
         if (ctx == nullptr) { return err_invalid_arg; }
@@ -1166,6 +1164,7 @@ struct OpenSslBackend {
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc_v) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
+        if (is_pqc_v && ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
 
         EVP_MD_CTX* ctx = EVP_MD_CTX_new();
         if (ctx == nullptr) { return err_invalid_arg; }
@@ -1206,11 +1205,11 @@ struct OpenSslBackend {
         if (our_pkey == nullptr) { return err_invalid_arg; }
 
         // Derive the curve name from our key so we can import the peer's public key.
-        char curve_name[32]{};
-        std::size_t name_len = sizeof(curve_name);
+        char curve_name[32]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-const-correctness)
+        const std::size_t name_len = sizeof(curve_name);
         if (EVP_PKEY_get_utf8_string_param(our_pkey,
                 OSSL_PKEY_PARAM_GROUP_NAME,
-                curve_name, name_len, &name_len) != ok) { return err_invalid_arg; }
+                curve_name, name_len, nullptr) != ok) { return err_invalid_arg; }
 
         // Import peer uncompressed point (04||x||y) via EVP_PKEY_fromdata.
         OSSL_PARAM peer_params[] = {  // NOLINT(*)
@@ -1343,6 +1342,7 @@ struct OpenSslBackend {
         if ((alg & 0xFF'000000U) != kAlgMlKemBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
+        if (ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
 
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
         if (ctx == nullptr) { return err_invalid_arg; }
@@ -1383,6 +1383,7 @@ struct OpenSslBackend {
         if ((alg & 0xFF'000000U) != kAlgMlKemBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
+        if (ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
 
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
         if (ctx == nullptr) { return err_invalid_arg; }

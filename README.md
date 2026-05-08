@@ -2,6 +2,19 @@
 
 A modern C++26 cryptography library with four interchangeable backends: PSA/MbedTLS 4.1, ARM intrinsics (ARMv8.2-A+crypto+sha3), OpenSSL 3.x, and Intel x86-64 intrinsics (SHA-NI, AES-NI, PCLMULQDQ). All operations return `std::expected` — no exceptions, no output parameters. Secrets are held in `SecureBuffer` / `FixedSecureBuffer` types that scrub memory on destruction.
 
+> [!WARNING]
+> **This is an experimental research project and is not suitable for production use.** The API, implementation, and security properties have not been formally audited or reviewed for production deployment. Use at your own risk.
+
+## Problem Statement
+
+A long-standing problem in the applied cryptography arena is that most cryptographic libraries assume the developer using them has sufficient applied crypto knowledge to use the libraries correctly. This is an unreasonable assumption. Most developers do not have applied crypto expertise, nor should they be expected to. The problem is exacerbated by the fact that the design goals of most cryptographic libraries are maximal functionality and flexibility — not ensuring best practices, NIST/FIPS compliance, or enterprise policy enforcement. This library is an attempt to provide a very thin API layer on top of existing crypto implementations (SW and HW) that is easy to use correctly, and difficult to use incorrectly.
+
+## Built by AI Agents
+
+Every line of code, test, and CI configuration in this repository was written by AI coding agents — primarily Claude (Anthropic) and Codex (OpenAI). No human has written any of the source code, test cases, CMake build system, or GitHub Actions workflows. Human involvement has been limited to directing the agents and reviewing their output. Most pull requests have been merged by the agents themselves.
+
+This project serves as an ongoing experiment in AI-driven software development: exploring how far autonomous coding agents can carry a non-trivial systems project — applied cryptography in modern C++ — without human authorship of the implementation itself.
+
 ## Features
 
 | Area | API |
@@ -131,7 +144,7 @@ providers/
   psa_mbedtls/            # INTERFACE library — RealPsaBackend, links MbedTLS
   arm_asm/                # INTERFACE + OBJECT library — ArmAsmBackend, ARM intrinsics
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
-  liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs)
+  liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
@@ -443,7 +456,7 @@ A second CMake variable, `SAFE_CRYPTO_PQC`, controls an optional PQC supplement 
 | `SAFE_CRYPTO_PQC` | Effect |
 |---|---|
 | `NONE` *(default)* | No PQC supplement; `ARM_ASM` and `PSA_MBEDTLS` providers return `err_invalid_arg` for ML-DSA and ML-KEM |
-| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` and `PSA_MBEDTLS` backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (447 total for `ARM_ASM+LIBOQS`; 239 total for `PSA_MBEDTLS+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (255 total for `OPENSSL+LIBOQS`) |
+| `LIBOQS` | Fetches [liboqs 0.13.0](https://github.com/open-quantum-safe/liboqs) and wires ML-DSA 44/65/87 and ML-KEM 512/768/1024 into the `ARM_ASM` and `PSA_MBEDTLS` backends via `providers/liboqs/liboqs_pqc.hpp`; defines `SAFE_CRYPTO_PQC_LIBOQS`; adds 13 PQC tests (447 total for `ARM_ASM+LIBOQS`; 239 total for `PSA_MBEDTLS+LIBOQS`); when combined with `OPENSSL`, also activates 6 cross-provider parity tests (255 total for `OPENSSL+LIBOQS`); `OQS_KEM` and `OQS_SIG` descriptors are allocated once per variant (C++11 thread-safe local statics) and reused across all operations — `OQS_KEM_new()`/`OQS_SIG_new()` are no longer called per-operation |
 
 SLH-DSA is not yet available via liboqs (liboqs 0.13.0 uses `SPHINCS+` naming internally and has no `slh_dsa` aliases). It remains OpenSSL-only.
 

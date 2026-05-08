@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -309,9 +306,8 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P256AllOnesRRejectsSignature) {
 TEST_F(IaAsmEcdsaSigDecodeTests, P256OffCurvePublicKeyRejectsVerify) {
     const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    const auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    ASSERT_FALSE(sig.empty());
     // Export the public key, flip last byte of y to make it off-curve, re-import.
+    // EC key validation now rejects off-curve points at import time.
     std::array<uint8_t, 65> pk_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t pk_len = 0;
     ASSERT_EQ(IaAsmBackend::export_public_key(pub_id, pk_buf.data(), pk_buf.size(), &pk_len), IaAsmBackend::ok);
@@ -320,8 +316,7 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P256OffCurvePublicKeyRejectsVerify) {
         arm_asm::detail::ec_key_store_import(
             arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
             pk_buf.data(), pk_len));
-    ASSERT_NE(bad_pub, IaAsmBackend::null_key_id());
-    EXPECT_NE(verify(bad_pub, sig), IaAsmBackend::ok);
+    EXPECT_EQ(bad_pub, IaAsmBackend::null_key_id());
 }
 
 // ---- P-384 ----
@@ -427,5 +422,60 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P521SHighBitSetRejectsSignature) {
     sig[66] |= 0x80U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
+
+
+// ---------------------------------------------------------------------------
+// IaAsmSha256KatTest — NIST FIPS 180-4 known-answer test for SHA-256.
+// Exercises the Intel SHA-NI compress path independently of the cross-provider
+// comparison so failures are unambiguous.
+// Only compiled when SHA-NI is enabled (SAFE_CRYPTO_IA_ASM_SHA_NI=ON).
+// ---------------------------------------------------------------------------
+
+#ifdef IA_ASM_SHA_NI_ENABLED
+class IaAsmSha256KatTest : public ::testing::Test {};
+
+TEST_F(IaAsmSha256KatTest, EmptyMessage) {
+    // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    const std::array<uint8_t, 32> expected = {{
+        0xe3,0xb0,0xc4,0x42,0x98,0xfc,0x1c,0x14, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x9a,0xfb,0xf4,0xc8,0x99,0x6f,0xb9,0x24, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x27,0xae,0x41,0xe4,0x64,0x9b,0x93,0x4c, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xa4,0x95,0x99,0x1b,0x78,0x52,0xb8,0x55, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::array<uint8_t, 32> out{};
+    ia_asm::detail::sha256(nullptr, 0, out.data());
+    EXPECT_EQ(out, expected);
+}
+
+TEST_F(IaAsmSha256KatTest, AbcMessage) {
+    // SHA-256("abc") = ba7816bf8f01cfea414140de5dae2ec73b00361bbef0469318423f9d438bf977
+    const uint8_t msg[] = {'a','b','c'}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const std::array<uint8_t, 32> expected = {{
+        0xba,0x78,0x16,0xbf,0x8f,0x01,0xcf,0xea, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x41,0x41,0x40,0xde,0x5d,0xae,0x2e,0xc7, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x3b,0x00,0x36,0x1b,0xbe,0xf0,0x46,0x93, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0x18,0x42,0x3f,0x9d,0x43,0x8b,0xf9,0x77, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::array<uint8_t, 32> out{};
+    ia_asm::detail::sha256(msg, 3, out.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_EQ(out, expected);
+}
+
+TEST_F(IaAsmSha256KatTest, MultiBlockMessage) {
+    // SHA-256("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")
+    // = 248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1
+    const char* msg = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+    const std::array<uint8_t, 32> expected = {{
+        0x24,0x8d,0x6a,0x61,0xd2,0x06,0x38,0xb8, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xe5,0xc0,0x26,0x93,0x0c,0x3e,0x60,0x39, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xa3,0x3c,0xe4,0x59,0x64,0xff,0x21,0x67, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        0xf6,0xec,0xed,0xd4,0x19,0xdb,0x06,0xc1, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    }};
+    std::array<uint8_t, 32> out{};
+    ia_asm::detail::sha256(reinterpret_cast<const uint8_t*>(msg), 56, out.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_EQ(out, expected);
+}
+
+#endif  // IA_ASM_SHA_NI_ENABLED
 
 #endif  // SAFE_CRYPTO_PROVIDER_IA_ASM

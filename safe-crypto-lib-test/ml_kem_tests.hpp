@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -121,6 +118,66 @@ TEST_F(MlKemTests, Kem512_ExportImportRoundTrip) {
 }
 
 
+TEST_F(MlKemTests, Kem512_EncapRejectsPublicKeyWithTrailingByte) {
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    // Append one extra byte to the public key.
+    SecureBuffer oversized(kp->public_key.size() + 1);
+    std::memcpy(oversized.data(), kp->public_key.data(), kp->public_key.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlKemPublicKey<MlKemVariant::Kem512> bad_pub{ .public_key = std::move(oversized) };
+    const auto result = ml_kem_encapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(bad_pub);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlKemTests, Kem512_DecapRejectsCiphertextWithTrailingByte) {
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const MlKemPublicKey<MlKemVariant::Kem512> pub{
+        .public_key = copy_secure_buffer_kem(kp->public_key)
+    };
+    const auto encap = ml_kem_encapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(pub);
+    ASSERT_TRUE(encap.has_value());
+
+    // Append one extra byte to the ciphertext.
+    SecureBuffer oversized(encap->ciphertext.size() + 1);
+    std::memcpy(oversized.data(), encap->ciphertext.data(), encap->ciphertext.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const auto result = ml_kem_decapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(kp.value(), oversized);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlKemTests, Kem512_DecapRejectsPrivateKeyWithTrailingByte) {
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const MlKemPublicKey<MlKemVariant::Kem512> pub{
+        .public_key = copy_secure_buffer_kem(kp->public_key)
+    };
+    const auto encap = ml_kem_encapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(pub);
+    ASSERT_TRUE(encap.has_value());
+
+    // Append one extra byte to the private key.
+    SecureBuffer oversized_priv(kp->private_key.size() + 1);
+    std::memcpy(oversized_priv.data(), kp->private_key.data(), kp->private_key.size());
+    oversized_priv[oversized_priv.size() - 1] = 0x00U;
+
+    const MlKemKeyPair<MlKemVariant::Kem512> bad_kp{
+        .private_key = std::move(oversized_priv),
+        .public_key  = copy_secure_buffer_kem(kp->public_key),
+    };
+    const auto result = ml_kem_decapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(bad_kp, encap->ciphertext);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+
 // --- ML-KEM-768 ---
 
 TEST_F(MlKemTests, Kem768_EncapDecapRoundTrip) {
@@ -158,6 +215,65 @@ TEST_F(MlKemTests, Kem1024_EncapDecapRoundTrip) {
     ASSERT_TRUE(decap.has_value());
     ASSERT_EQ(encap->shared_secret.size(), decap->size());
     EXPECT_EQ(std::memcmp(encap->shared_secret.data(), decap->data(), decap->size()), 0);
+}
+
+// --- Variant mismatch rejection ---
+
+TEST_F(MlKemTests, Kem512_EncapRejectsAlgorithmVariantMismatch) {
+    // Generate a Kem512 key pair, then try to encapsulate using the Kem768 algorithm ID.
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    auto attrs = MlKemBackend::make_ml_kem_encap_attrs(MlKemVariant::Kem512);
+    auto raw_id = MlKemBackend::null_key_id();
+    ASSERT_EQ(MlKemBackend::import_key(&attrs,
+                                        kp->public_key.data(), kp->public_key.size(),
+                                        &raw_id), MlKemBackend::ok);
+
+    constexpr std::size_t ct_size = ml_kem_ciphertext_size(MlKemVariant::Kem768);
+    constexpr std::size_t ss_size = ml_kem_shared_secret_size(MlKemVariant::Kem768);
+    SecureBuffer ct(ct_size);
+    SecureBuffer ss(ss_size);
+    std::size_t ct_len = 0;
+    std::size_t ss_len = 0;
+
+    // Pass the Kem768 algorithm ID but the key was imported as Kem512 — must fail.
+    const auto status = MlKemBackend::kem_encapsulate(
+        raw_id, MlKemBackend::alg_ml_kem(MlKemVariant::Kem768),
+        ct.data(), ct_size, &ct_len,
+        ss.data(), ss_size, &ss_len);
+    EXPECT_NE(status, MlKemBackend::ok);
+
+    EXPECT_EQ(MlKemBackend::destroy_key(raw_id), MlKemBackend::ok);
+}
+
+TEST_F(MlKemTests, Kem512_DecapRejectsAlgorithmVariantMismatch) {
+    // Generate a Kem512 key pair, then try to decapsulate using the Kem768 algorithm ID.
+    auto kp = ml_kem_generate_key_impl<MlKemVariant::Kem512, MlKemBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const MlKemPublicKey<MlKemVariant::Kem512> pub{ .public_key = copy_secure_buffer_kem(kp->public_key) };
+    const auto encap = ml_kem_encapsulate_impl<MlKemVariant::Kem512, MlKemBackend>(pub);
+    ASSERT_TRUE(encap.has_value());
+
+    auto attrs = MlKemBackend::make_ml_kem_decap_attrs(MlKemVariant::Kem512);
+    auto raw_id = MlKemBackend::null_key_id();
+    ASSERT_EQ(MlKemBackend::import_key(&attrs,
+                                        kp->private_key.data(), kp->private_key.size(),
+                                        &raw_id), MlKemBackend::ok);
+
+    constexpr std::size_t ss_size = ml_kem_shared_secret_size(MlKemVariant::Kem768);
+    SecureBuffer ss(ss_size);
+    std::size_t ss_len = 0;
+
+    // Pass the Kem768 algorithm ID but the key was imported as Kem512 — must fail.
+    const auto status = MlKemBackend::kem_decapsulate(
+        raw_id, MlKemBackend::alg_ml_kem(MlKemVariant::Kem768),
+        encap->ciphertext.data(), encap->ciphertext.size(),
+        ss.data(), ss_size, &ss_len);
+    EXPECT_NE(status, MlKemBackend::ok);
+
+    EXPECT_EQ(MlKemBackend::destroy_key(raw_id), MlKemBackend::ok);
 }
 
 #endif  // SAFE_CRYPTO_PROVIDER_OPENSSL || SAFE_CRYPTO_PQC_LIBOQS
