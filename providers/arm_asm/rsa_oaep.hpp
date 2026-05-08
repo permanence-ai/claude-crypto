@@ -86,7 +86,7 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
     std::size_t       modulus_bytes, // k
     CryptoByte*       out_em) noexcept
 {
-    if (modulus_bytes < 2U * oaep_hash_len + 2U) { return false; }
+    if (modulus_bytes < (2U * oaep_hash_len) + 2U) { return false; }
     const std::size_t db_len = modulus_bytes - oaep_hash_len - 1U;  // k - hLen - 1
     const std::size_t max_pt = db_len - oaep_hash_len - 1U;         // k - 2*hLen - 2
     if (pt_len > max_pt) { return false; }
@@ -145,7 +145,7 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     std::size_t       pt_max,
     std::size_t*      pt_len) noexcept
 {
-    if (modulus_bytes < 2U * oaep_hash_len + 2U) { return false; }
+    if (modulus_bytes < (2U * oaep_hash_len) + 2U) { return false; }
     const std::size_t db_len = modulus_bytes - oaep_hash_len - 1U;
 
     // Split EM: Y=em[0], maskedSeed=em[1..hLen], maskedDB=em[1+hLen..k-1].

@@ -231,35 +231,80 @@ static inline auto p384_point_add_affine(const P384Point& p, const P384AffinePoi
 
 static constexpr P384AffinePoint p384_G_table[15] = { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     // [1]*G
-    {{0x3a545e3872760ab7ULL, 0x5502f25dbf55296cULL, 0x59f741e082542a38ULL, 0x6e1d3b628ba79b98ULL, 0x8eb1c71ef320ad74ULL, 0xaa87ca22be8b0537ULL}, {0x7a431d7c90ea0e5fULL, 0x0a60b1ce1d7e819dULL, 0xe9da3113b5f0b8c0ULL, 0xf8f41dbd289a147cULL, 0x5d9e98bf9292dc29ULL, 0x3617de4a96262c6fULL}},
+    {
+        .X = {.v = {0x3a545e3872760ab7ULL, 0x5502f25dbf55296cULL, 0x59f741e082542a38ULL, 0x6e1d3b628ba79b98ULL, 0x8eb1c71ef320ad74ULL, 0xaa87ca22be8b0537ULL}},
+        .Y = {.v = {0x7a431d7c90ea0e5fULL, 0x0a60b1ce1d7e819dULL, 0xe9da3113b5f0b8c0ULL, 0xf8f41dbd289a147cULL, 0x5d9e98bf9292dc29ULL, 0x3617de4a96262c6fULL}},
+    },
     // [2]*G
-    {{0x5b96a9c75295df61ULL, 0x4fe0e86ebe0e64f8ULL, 0x51d207d19fb96e9eULL, 0x89025959a6f434d6ULL, 0x69260045c55b97f0ULL, 0x08d999057ba3d2d9ULL}, {0x61501e700a940e80ULL, 0x5ffd43e94d39e22dULL, 0x904e505f256ab425ULL, 0xb275d875bc6cc43eULL, 0xb7bfe8dffd6dba74ULL, 0x8e80f1fa5b1b3cedULL}},
+    {
+        .X = {.v = {0x5b96a9c75295df61ULL, 0x4fe0e86ebe0e64f8ULL, 0x51d207d19fb96e9eULL, 0x89025959a6f434d6ULL, 0x69260045c55b97f0ULL, 0x08d999057ba3d2d9ULL}},
+        .Y = {.v = {0x61501e700a940e80ULL, 0x5ffd43e94d39e22dULL, 0x904e505f256ab425ULL, 0xb275d875bc6cc43eULL, 0xb7bfe8dffd6dba74ULL, 0x8e80f1fa5b1b3cedULL}},
+    },
     // [3]*G
-    {{0x02d7e5c70500c831ULL, 0xb408bbae5026580dULL, 0xbea4f240d3566da6ULL, 0xcb9d3910202dcd06ULL, 0x64793c7e5fdc7d98ULL, 0x077a41d4606ffa14ULL}, {0xb65f28600a2f1df1ULL, 0xc24abd6be4b5d298ULL, 0xf7684c0edc111eacULL, 0x8520b41c85115aa5ULL, 0x7d0bbe9602a9fc99ULL, 0xc995f7ca0b0c4283ULL}},
+    {
+        .X = {.v = {0x02d7e5c70500c831ULL, 0xb408bbae5026580dULL, 0xbea4f240d3566da6ULL, 0xcb9d3910202dcd06ULL, 0x64793c7e5fdc7d98ULL, 0x077a41d4606ffa14ULL}},
+        .Y = {.v = {0xb65f28600a2f1df1ULL, 0xc24abd6be4b5d298ULL, 0xf7684c0edc111eacULL, 0x8520b41c85115aa5ULL, 0x7d0bbe9602a9fc99ULL, 0xc995f7ca0b0c4283ULL}},
+    },
     // [4]*G
-    {{0xe1efd631c63e1835ULL, 0x1589a1597e3a5120ULL, 0xa55dc8ad51dcfc9dULL, 0x97e709bd0b4ca0acULL, 0xc1c8aad977321debULL, 0x138251cd52ac9298ULL}, {0x549f1c02b270ed67ULL, 0xed7387be37bba569ULL, 0xab0e63cf792aa4dcULL, 0x6dc45d918abc09f3ULL, 0x31e8a28181ab5661ULL, 0xcacae29869a62e16ULL}},
+    {
+        .X = {.v = {0xe1efd631c63e1835ULL, 0x1589a1597e3a5120ULL, 0xa55dc8ad51dcfc9dULL, 0x97e709bd0b4ca0acULL, 0xc1c8aad977321debULL, 0x138251cd52ac9298ULL}},
+        .Y = {.v = {0x549f1c02b270ed67ULL, 0xed7387be37bba569ULL, 0xab0e63cf792aa4dcULL, 0x6dc45d918abc09f3ULL, 0x31e8a28181ab5661ULL, 0xcacae29869a62e16ULL}},
+    },
     // [5]*G
-    {{0x0abcdbc3836d84bcULL, 0x37882f4a1ca297e6ULL, 0x4f6661cbe56583b0ULL, 0xf208e51dbff98fc5ULL, 0x573cac5ea025e467ULL, 0x11de24a2c251c777ULL}, {0x184414abe6c1713aULL, 0x3177686d0ae8fb33ULL, 0x8c986533b6901aebULL, 0x284b447754d5dee8ULL, 0x0f5837e90a00e7c5ULL, 0x8fa696c77440f92dULL}},
+    {
+        .X = {.v = {0x0abcdbc3836d84bcULL, 0x37882f4a1ca297e6ULL, 0x4f6661cbe56583b0ULL, 0xf208e51dbff98fc5ULL, 0x573cac5ea025e467ULL, 0x11de24a2c251c777ULL}},
+        .Y = {.v = {0x184414abe6c1713aULL, 0x3177686d0ae8fb33ULL, 0x8c986533b6901aebULL, 0x284b447754d5dee8ULL, 0x0f5837e90a00e7c5ULL, 0x8fa696c77440f92dULL}},
+    },
     // [6]*G
-    {{0x0937f0854e35c5dfULL, 0x21317d7202ff30e5ULL, 0x1cbd41f262573830ULL, 0xc33ebcbb7f0f5da5ULL, 0x226fe0d26f2d15d3ULL, 0x627be1acd064d2b2ULL}, {0x1733a408d3f0f934ULL, 0x04c45b8d84e16531ULL, 0x99864f6137154416ULL, 0xb2c95352644f774cULL, 0x1be6dda6c14f1575ULL, 0x09766a4cb3f8b1c2ULL}},
+    {
+        .X = {.v = {0x0937f0854e35c5dfULL, 0x21317d7202ff30e5ULL, 0x1cbd41f262573830ULL, 0xc33ebcbb7f0f5da5ULL, 0x226fe0d26f2d15d3ULL, 0x627be1acd064d2b2ULL}},
+        .Y = {.v = {0x1733a408d3f0f934ULL, 0x04c45b8d84e16531ULL, 0x99864f6137154416ULL, 0xb2c95352644f774cULL, 0x1be6dda6c14f1575ULL, 0x09766a4cb3f8b1c2ULL}},
+    },
     // [7]*G
-    {{0x040f05b48fb6d0e1ULL, 0x8b05526f55b9ebb2ULL, 0x2d58cc9dfa7b1c50ULL, 0xad6fe997fbea5ffaULL, 0xf29f8ebf234edffeULL, 0x283c1d7365ce4788ULL}, {0x64664cdac512ef8cULL, 0x30d84ede32a78f9eULL, 0xd9c92cd01dbd2256ULL, 0x1a61d867ed799729ULL, 0xba52efdb8c169047ULL, 0x9475c99061e41b88ULL}},
+    {
+        .X = {.v = {0x040f05b48fb6d0e1ULL, 0x8b05526f55b9ebb2ULL, 0x2d58cc9dfa7b1c50ULL, 0xad6fe997fbea5ffaULL, 0xf29f8ebf234edffeULL, 0x283c1d7365ce4788ULL}},
+        .Y = {.v = {0x64664cdac512ef8cULL, 0x30d84ede32a78f9eULL, 0xd9c92cd01dbd2256ULL, 0x1a61d867ed799729ULL, 0xba52efdb8c169047ULL, 0x9475c99061e41b88ULL}},
+    },
     // [8]*G
-    {{0xe6e9b269d822c87dULL, 0x5a3258d6f403d5ecULL, 0x900c3c73256f11fbULL, 0x45bf227fbe58190aULL, 0x75114297a6fa3834ULL, 0x1692778ea596e0beULL}, {0x6f6abfa4022b0ad2ULL, 0x6bade1e9cdd1708dULL, 0xbd1c30c2ec0eec19ULL, 0x22554adc6d521cd4ULL, 0x835388ba3db8fd0eULL, 0xdcd2365700d4106aULL}},
+    {
+        .X = {.v = {0xe6e9b269d822c87dULL, 0x5a3258d6f403d5ecULL, 0x900c3c73256f11fbULL, 0x45bf227fbe58190aULL, 0x75114297a6fa3834ULL, 0x1692778ea596e0beULL}},
+        .Y = {.v = {0x6f6abfa4022b0ad2ULL, 0x6bade1e9cdd1708dULL, 0xbd1c30c2ec0eec19ULL, 0x22554adc6d521cd4ULL, 0x835388ba3db8fd0eULL, 0xdcd2365700d4106aULL}},
+    },
     // [9]*G
-    {{0x5c55e4461079118bULL, 0xc388528bfee2b953ULL, 0xc6cb1ee285fb6e21ULL, 0x2216f7291e6fd3baULL, 0xf1bf29b8b025b78fULL, 0x8f0a39a4049bcb3eULL}, {0x262da4f9ac664af8ULL, 0x9e743efedfd51b68ULL, 0xb7678854aed9b302ULL, 0x9a9b3d7ca3c400c6ULL, 0x452c4a5322c3a979ULL, 0x62c77e1438b601d6ULL}},
+    {
+        .X = {.v = {0x5c55e4461079118bULL, 0xc388528bfee2b953ULL, 0xc6cb1ee285fb6e21ULL, 0x2216f7291e6fd3baULL, 0xf1bf29b8b025b78fULL, 0x8f0a39a4049bcb3eULL}},
+        .Y = {.v = {0x262da4f9ac664af8ULL, 0x9e743efedfd51b68ULL, 0xb7678854aed9b302ULL, 0x9a9b3d7ca3c400c6ULL, 0x452c4a5322c3a979ULL, 0x62c77e1438b601d6ULL}},
+    },
     // [10]*G
-    {{0xa9cb2d13186658fbULL, 0xed8e85ab507bf91aULL, 0x931d5c29291238ccULL, 0x4f372d90b79b9e88ULL, 0x678d29d6ef4fde86ULL, 0xa669c5563bd67eecULL}, {0x97784f6ab73a21ddULL, 0x296d8195248288d9ULL, 0xc502df78c3b705a8ULL, 0xf70119550c183c31ULL, 0x22d9083db5f0ecddULL, 0xa988b72ae7c1279fULL}},
+    {
+        .X = {.v = {0xa9cb2d13186658fbULL, 0xed8e85ab507bf91aULL, 0x931d5c29291238ccULL, 0x4f372d90b79b9e88ULL, 0x678d29d6ef4fde86ULL, 0xa669c5563bd67eecULL}},
+        .Y = {.v = {0x97784f6ab73a21ddULL, 0x296d8195248288d9ULL, 0xc502df78c3b705a8ULL, 0xf70119550c183c31ULL, 0x22d9083db5f0ecddULL, 0xa988b72ae7c1279fULL}},
+    },
     // [11]*G
-    {{0x26356f3b55b4ddd8ULL, 0x4749b66e3afb81d6ULL, 0x56c9fd14892d3f8cULL, 0x7fe935ed5837c374ULL, 0xda1eeec2904816c5ULL, 0x099056e27da7b998ULL}, {0x7d5dba8138c5e0bbULL, 0x5466d51263aaff35ULL, 0x43ff93f41b52a325ULL, 0x6fc4eed8dfc363fdULL, 0x688505544ac5e039ULL, 0x2e4c0c234e30ab96ULL}},
+    {
+        .X = {.v = {0x26356f3b55b4ddd8ULL, 0x4749b66e3afb81d6ULL, 0x56c9fd14892d3f8cULL, 0x7fe935ed5837c374ULL, 0xda1eeec2904816c5ULL, 0x099056e27da7b998ULL}},
+        .Y = {.v = {0x7d5dba8138c5e0bbULL, 0x5466d51263aaff35ULL, 0x43ff93f41b52a325ULL, 0x6fc4eed8dfc363fdULL, 0x688505544ac5e039ULL, 0x2e4c0c234e30ab96ULL}},
+    },
     // [12]*G
-    {{0x66da2ea77d2a7022ULL, 0xda4a5e22da817cb4ULL, 0x648af2691a481406ULL, 0x8c2ed5e41f6d0e21ULL, 0xab3ac421dcf683d0ULL, 0x952a7a349bd49289ULL}, {0x9ef6bacce21bd16eULL, 0x031aa64589743e22ULL, 0xb9028b096196b50dULL, 0x09fb8036ce18a0ebULL, 0x63052deae6f66f2eULL, 0xa0320faf84b5bc05ULL}},
+    {
+        .X = {.v = {0x66da2ea77d2a7022ULL, 0xda4a5e22da817cb4ULL, 0x648af2691a481406ULL, 0x8c2ed5e41f6d0e21ULL, 0xab3ac421dcf683d0ULL, 0x952a7a349bd49289ULL}},
+        .Y = {.v = {0x9ef6bacce21bd16eULL, 0x031aa64589743e22ULL, 0xb9028b096196b50dULL, 0x09fb8036ce18a0ebULL, 0x63052deae6f66f2eULL, 0xa0320faf84b5bc05ULL}},
+    },
     // [13]*G
-    {{0xaaf1ca1e3b5cbce7ULL, 0x9ee5f441abd99f1bULL, 0x6267bcd1f0f11c13ULL, 0x9632bff9f01f873fULL, 0xafdaf5002ffcc6abULL, 0xa567ba97b67aea5bULL}, {0x6423a12736f429ccULL, 0x776bcb8272218a7dULL, 0x86329be057857d66ULL, 0x5185595046932ec0ULL, 0x644e4147af164eccULL, 0xde1b38b3989f3318ULL}},
+    {
+        .X = {.v = {0xaaf1ca1e3b5cbce7ULL, 0x9ee5f441abd99f1bULL, 0x6267bcd1f0f11c13ULL, 0x9632bff9f01f873fULL, 0xafdaf5002ffcc6abULL, 0xa567ba97b67aea5bULL}},
+        .Y = {.v = {0x6423a12736f429ccULL, 0x776bcb8272218a7dULL, 0x86329be057857d66ULL, 0x5185595046932ec0ULL, 0x644e4147af164eccULL, 0xde1b38b3989f3318ULL}},
+    },
     // [14]*G
-    {{0x37209accf0f59ea0ULL, 0x41aba24dbc02de66ULL, 0x5de541eb651cca2cULL, 0x877b1dffd23e7dc9ULL, 0x6bbeac481b89d2b0ULL, 0xe8c8f94d44fbc239ULL}, {0xd7ee5c9e1b67b888ULL, 0xfc468ba05509de22ULL, 0xc8319413a09d0f48ULL, 0x33b86191e7728d79ULL, 0x932bcbf6de52c8a9ULL, 0x891ae44356fc8ae0ULL}},
+    {
+        .X = {.v = {0x37209accf0f59ea0ULL, 0x41aba24dbc02de66ULL, 0x5de541eb651cca2cULL, 0x877b1dffd23e7dc9ULL, 0x6bbeac481b89d2b0ULL, 0xe8c8f94d44fbc239ULL}},
+        .Y = {.v = {0xd7ee5c9e1b67b888ULL, 0xfc468ba05509de22ULL, 0xc8319413a09d0f48ULL, 0x33b86191e7728d79ULL, 0x932bcbf6de52c8a9ULL, 0x891ae44356fc8ae0ULL}},
+    },
     // [15]*G
-    {{0x4b88701a9606860bULL, 0xa849557a10b6383bULL, 0x5b21f9f7da7c4e9cULL, 0x22a94156fff01c20ULL, 0x8cc15c11d8135255ULL, 0xb3d13fc8b32b0105ULL}, {0x985d588d33f7bd62ULL, 0x838d24f8b284af50ULL, 0x84d1114373dfbfd9ULL, 0xeebac4a11d749af4ULL, 0x1b049b2536164b1bULL, 0x152919e7df9162a6ULL}},
+    {
+        .X = {.v = {0x4b88701a9606860bULL, 0xa849557a10b6383bULL, 0x5b21f9f7da7c4e9cULL, 0x22a94156fff01c20ULL, 0x8cc15c11d8135255ULL, 0xb3d13fc8b32b0105ULL}},
+        .Y = {.v = {0x985d588d33f7bd62ULL, 0x838d24f8b284af50ULL, 0x84d1114373dfbfd9ULL, 0xeebac4a11d749af4ULL, 0x1b049b2536164b1bULL, 0x152919e7df9162a6ULL}},
+    },
 }; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 
@@ -439,7 +484,7 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
     uint32_t w[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 24; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         const int j = 23 - i; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(j) * 4; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -448,7 +493,7 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
 
     uint64_t acc[12]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 12; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i) + 1]) << 32U);
+        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
 
     using u128 = unsigned __int128;
@@ -506,7 +551,7 @@ static inline auto p384_scalar_from_bytes48( // NOLINT(cppcoreguidelines-avoid-c
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -610,7 +655,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
-            const u128 tt = static_cast<u128>(a.v[i]) * b.v[j] + t[j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry;
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
         }
@@ -619,10 +664,10 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
         t[s + 1] = static_cast<uint64_t>(tt >> 64U);
 
         const uint64_t m = t[0] * n_prime;
-        tt = static_cast<u128>(m) * p384_n[0] + t[0];
+        tt = (static_cast<u128>(m) * p384_n[0]) + t[0];
         carry = static_cast<uint64_t>(tt >> 64U);
         for (int j = 1; j < s; ++j) {
-            tt       = static_cast<u128>(m) * p384_n[j] + t[j] + carry;
+            tt       = (static_cast<u128>(m) * p384_n[j]) + t[j] + carry;
             t[j - 1] = static_cast<uint64_t>(tt);
             carry    = static_cast<uint64_t>(tt >> 64U);
         }
@@ -765,7 +810,7 @@ static inline auto p384_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |

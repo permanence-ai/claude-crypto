@@ -58,12 +58,14 @@ using NativeAsmBackend = ArmAsmBackend;
 #include "random.hpp"
 
 
+namespace {
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 // Fill a SecureBuffer with a deterministic byte pattern (no crypto needed).
-static SecureBuffer make_payload(std::size_t n) {
+SecureBuffer make_payload(std::size_t n) {
     SecureBuffer buf(n);
     for (std::size_t i = 0; i < n; ++i) {
         buf.data()[i] = static_cast<CryptoByte>(i & 0xFFU); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -73,7 +75,7 @@ static SecureBuffer make_payload(std::size_t n) {
 
 // 32-byte key filled with a fixed pattern.
 template<std::size_t N>
-static FixedSecureBuffer<N> make_key() {
+FixedSecureBuffer<N> make_key() {
     FixedSecureBuffer<N> k;
     for (std::size_t i = 0; i < N; ++i) {
         k.data()[i] = static_cast<CryptoByte>(0xA0U ^ (i & 0xFFU)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -82,7 +84,7 @@ static FixedSecureBuffer<N> make_key() {
 }
 
 // 48-byte HMAC key as a SecureBuffer (HMAC key is variable-length).
-static SecureBuffer make_hmac_key(std::size_t len = 48) {
+SecureBuffer make_hmac_key(std::size_t len = 48) {
     SecureBuffer k(len);
     for (std::size_t i = 0; i < len; ++i) {
         k.data()[i] = static_cast<CryptoByte>(0xB0U ^ (i & 0xFFU)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -96,7 +98,7 @@ static SecureBuffer make_hmac_key(std::size_t len = 48) {
 // ---------------------------------------------------------------------------
 
 template<ShaVariant V, typename Provider>
-static void BM_Sha(benchmark::State& state) {
+void BM_Sha(benchmark::State& state) {
     const auto payload = make_payload(static_cast<std::size_t>(state.range(0)));
     for (auto _ : state) {
         auto result = sha_impl<V, Provider>(payload);
@@ -160,7 +162,7 @@ BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, NativeAsmBackend)
 // ---------------------------------------------------------------------------
 
 template<ShaVariant V, typename Provider>
-static void BM_Hmac(benchmark::State& state) {
+void BM_Hmac(benchmark::State& state) {
     const auto key     = make_hmac_key();
     const auto payload = make_payload(static_cast<std::size_t>(state.range(0)));
     for (auto _ : state) {
@@ -225,7 +227,7 @@ BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, NativeAsmBackend)
 // ---------------------------------------------------------------------------
 
 template<typename Provider>
-static void BM_AesGcmEncrypt(benchmark::State& state) {
+void BM_AesGcmEncrypt(benchmark::State& state) {
     const auto key     = make_key<aes256_key_size_bytes>();
     const auto payload = make_payload(static_cast<std::size_t>(state.range(0)));
     for (auto _ : state) {
@@ -237,7 +239,7 @@ static void BM_AesGcmEncrypt(benchmark::State& state) {
 }
 
 template<typename Provider>
-static void BM_AesGcmDecrypt(benchmark::State& state) {
+void BM_AesGcmDecrypt(benchmark::State& state) {
     const auto key     = make_key<aes256_key_size_bytes>();
     const auto payload = make_payload(static_cast<std::size_t>(state.range(0)));
     // Pre-encrypt once; the decrypt benchmark measures only the decrypt path.
@@ -270,7 +272,7 @@ BENCHMARK_TEMPLATE(BM_AesGcmDecrypt, NativeAsmBackend)
 // ---------------------------------------------------------------------------
 
 template<typename Provider>
-static void BM_ChaCha20Poly1305Encrypt(benchmark::State& state) {
+void BM_ChaCha20Poly1305Encrypt(benchmark::State& state) {
     const auto key     = make_key<chacha20_key_size_bytes>();
     const auto payload = make_payload(static_cast<std::size_t>(state.range(0)));
     for (auto _ : state) {
@@ -282,7 +284,7 @@ static void BM_ChaCha20Poly1305Encrypt(benchmark::State& state) {
 }
 
 template<typename Provider>
-static void BM_ChaCha20Poly1305Decrypt(benchmark::State& state) {
+void BM_ChaCha20Poly1305Decrypt(benchmark::State& state) {
     const auto key     = make_key<chacha20_key_size_bytes>();
     const auto payload = make_payload(static_cast<std::size_t>(state.range(0)));
     auto enc = chacha20_poly1305_encrypt_impl<Provider>(key, payload);
@@ -316,12 +318,12 @@ BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Decrypt, NativeAsmBackend)
 // benchmark at a single representative output length and vary nothing else.
 
 // Raw byte arrays used to rebuild SecureBuffers each iteration (SecureBuffer is move-only).
-static constexpr std::size_t hkdf_ikm_len  = 128;
-static constexpr std::size_t hkdf_salt_len =  13;
-static constexpr std::size_t hkdf_info_len =  10;
+constexpr std::size_t hkdf_ikm_len  = 128;
+constexpr std::size_t hkdf_salt_len =  13;
+constexpr std::size_t hkdf_info_len =  10;
 
 template<typename Provider>
-static void BM_Hkdf(benchmark::State& state) {
+void BM_Hkdf(benchmark::State& state) {
     // Pre-build raw byte arrays; reconstruct SecureBuffers each iteration.
     uint8_t ikm_raw[hkdf_ikm_len]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (std::size_t i = 0; i < hkdf_ikm_len; ++i) {
@@ -366,7 +368,7 @@ BENCHMARK_TEMPLATE(BM_Hkdf, NativeAsmBackend)
 // ---------------------------------------------------------------------------
 
 template<typename Provider>
-static void BM_RandomBytes(benchmark::State& state) {
+void BM_RandomBytes(benchmark::State& state) {
     for (auto _ : state) {
         auto result = random_bytes_impl<Provider>(
             static_cast<std::size_t>(state.range(0)));
@@ -389,7 +391,7 @@ BENCHMARK_TEMPLATE(BM_RandomBytes, NativeAsmBackend)
 // ---------------------------------------------------------------------------
 
 template<EcCurve Curve, typename Provider>
-static void BM_EcdsaSign(benchmark::State& state) {
+void BM_EcdsaSign(benchmark::State& state) {
     // Generate key once; sign in the loop.
     auto kp = ecdsa_generate_key_impl<Provider>(Curve);
     const auto msg = make_payload(64);
@@ -401,7 +403,7 @@ static void BM_EcdsaSign(benchmark::State& state) {
 }
 
 template<EcCurve Curve, typename Provider>
-static void BM_EcdsaVerify(benchmark::State& state) {
+void BM_EcdsaVerify(benchmark::State& state) {
     auto kp  = ecdsa_generate_key_impl<Provider>(Curve);
     const auto msg = make_payload(64);
     auto sig = ecdsa_sign_impl<Provider>(kp.value(), Curve, msg);
@@ -437,7 +439,7 @@ BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P521, NativeAsmBackend) ->Unit(bench
 // ---------------------------------------------------------------------------
 
 template<EcCurve Curve, typename Provider>
-static void BM_Ecdh(benchmark::State& state) {
+void BM_Ecdh(benchmark::State& state) {
     // Generate two key pairs once; compute shared secret in the loop.
     auto kp_a = ecdh_generate_key_impl<Provider>(Curve);
     auto kp_b = ecdh_generate_key_impl<Provider>(Curve);
@@ -461,7 +463,7 @@ BENCHMARK_TEMPLATE(BM_Ecdh, EcCurve::P521, NativeAsmBackend) ->Unit(benchmark::k
 // ---------------------------------------------------------------------------
 
 template<RsaKeyBits KB, typename Provider>
-static void BM_RsaOaepEncrypt(benchmark::State& state) {
+void BM_RsaOaepEncrypt(benchmark::State& state) {
     auto kp = generate_rsa_key_impl<KB, Provider>();
     const RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     const auto pt = make_payload(64);
@@ -473,7 +475,7 @@ static void BM_RsaOaepEncrypt(benchmark::State& state) {
 }
 
 template<RsaKeyBits KB, typename Provider>
-static void BM_RsaOaepDecrypt(benchmark::State& state) {
+void BM_RsaOaepDecrypt(benchmark::State& state) {
     auto kp = generate_rsa_key_impl<KB, Provider>();
     const RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     const auto pt = make_payload(64);
@@ -486,7 +488,7 @@ static void BM_RsaOaepDecrypt(benchmark::State& state) {
 }
 
 template<RsaKeyBits KB, typename Provider>
-static void BM_RsaPssSign(benchmark::State& state) {
+void BM_RsaPssSign(benchmark::State& state) {
     auto kp = generate_rsa_key_impl<KB, Provider>();
     const auto msg = make_payload(64);
     for (auto _ : state) {
@@ -497,7 +499,7 @@ static void BM_RsaPssSign(benchmark::State& state) {
 }
 
 template<RsaKeyBits KB, typename Provider>
-static void BM_RsaPssVerify(benchmark::State& state) {
+void BM_RsaPssVerify(benchmark::State& state) {
     auto kp = generate_rsa_key_impl<KB, Provider>();
     const RsaPublicKey<KB> pub{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     const auto msg = make_payload(64);
@@ -539,7 +541,7 @@ BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, NativeAsmBackend) ->
 
 // ML-DSA keygen
 template<MlDsaVariant V, typename Provider>
-static void BM_MlDsaKeygen(benchmark::State& state) {
+void BM_MlDsaKeygen(benchmark::State& state) {
     for (auto _ : state) {
         auto result = ml_dsa_generate_key_impl<V, Provider>();
         benchmark::DoNotOptimize(result);
@@ -549,7 +551,7 @@ static void BM_MlDsaKeygen(benchmark::State& state) {
 
 // ML-DSA sign (keygen once, sign in loop)
 template<MlDsaVariant V, typename Provider>
-static void BM_MlDsaSign(benchmark::State& state) {
+void BM_MlDsaSign(benchmark::State& state) {
     auto kp = ml_dsa_generate_key_impl<V, Provider>();
     const auto msg = make_payload(64);
     for (auto _ : state) {
@@ -561,7 +563,7 @@ static void BM_MlDsaSign(benchmark::State& state) {
 
 // ML-DSA verify (keygen + sign once, verify in loop)
 template<MlDsaVariant V, typename Provider>
-static void BM_MlDsaVerify(benchmark::State& state) {
+void BM_MlDsaVerify(benchmark::State& state) {
     auto kp  = ml_dsa_generate_key_impl<V, Provider>();
     const auto msg = make_payload(64);
     auto sig = ml_dsa_sign_impl<V, Provider>(*kp, msg);
@@ -577,7 +579,7 @@ static void BM_MlDsaVerify(benchmark::State& state) {
 
 // ML-KEM keygen
 template<MlKemVariant V, typename Provider>
-static void BM_MlKemKeygen(benchmark::State& state) {
+void BM_MlKemKeygen(benchmark::State& state) {
     for (auto _ : state) {
         auto result = ml_kem_generate_key_impl<V, Provider>();
         benchmark::DoNotOptimize(result);
@@ -587,7 +589,7 @@ static void BM_MlKemKeygen(benchmark::State& state) {
 
 // ML-KEM encapsulate (keygen once, encap in loop)
 template<MlKemVariant V, typename Provider>
-static void BM_MlKemEncap(benchmark::State& state) {
+void BM_MlKemEncap(benchmark::State& state) {
     auto kp = ml_kem_generate_key_impl<V, Provider>();
     const MlKemPublicKey<V> pub{
         .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
@@ -601,7 +603,7 @@ static void BM_MlKemEncap(benchmark::State& state) {
 
 // ML-KEM decapsulate (keygen + encap once, decap in loop)
 template<MlKemVariant V, typename Provider>
-static void BM_MlKemDecap(benchmark::State& state) {
+void BM_MlKemDecap(benchmark::State& state) {
     auto kp  = ml_kem_generate_key_impl<V, Provider>();
     const MlKemPublicKey<V> pub{
         .public_key = [&]{ SecureBuffer b(kp->public_key.size()); std::memcpy(b.data(), kp->public_key.data(), b.size()); return b; }()
@@ -681,6 +683,8 @@ BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, NativeAsmBackend)  ->U
 BENCHMARK_TEMPLATE(BM_MlKemDecap,  MlKemVariant::Kem1024, OpenSslBackend) ->Unit(benchmark::kMicrosecond)->Name("MLKEM1024_Decap/OSSL");
 
 #endif  // SAFE_CRYPTO_PQC_LIBOQS
+
+}  // namespace
 
 
 BENCHMARK_MAIN(); // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

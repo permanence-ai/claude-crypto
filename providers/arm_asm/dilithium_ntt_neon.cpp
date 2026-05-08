@@ -76,7 +76,7 @@ static const int32_t k_zetas[256] = {
 // Scalar Montgomery reduction.
 [[nodiscard]] static inline int32_t mont_reduce(int64_t a) noexcept {
     const int32_t t = static_cast<int32_t>(a) * k_qinv;
-    return static_cast<int32_t>((a - static_cast<int64_t>(t) * k_q) >> 32);
+    return static_cast<int32_t>((a - (static_cast<int64_t>(t) * k_q)) >> 32);
 }
 
 // -------------------------------------------------------------------------
