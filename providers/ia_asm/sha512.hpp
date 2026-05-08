@@ -103,8 +103,14 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
         w[i] = w[i - 16] + s0 + w[i - 7] + s1; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }
 
-    uint64_t a = state[0]; uint64_t b = state[1]; uint64_t c = state[2]; uint64_t d = state[3];
-    uint64_t e = state[4]; uint64_t f = state[5]; uint64_t g = state[6]; uint64_t h = state[7];
+    uint64_t a = state[0];
+    uint64_t b = state[1];
+    uint64_t c = state[2];
+    uint64_t d = state[3];
+    uint64_t e = state[4];
+    uint64_t f = state[5];
+    uint64_t g = state[6];
+    uint64_t h = state[7];
 
     for (std::size_t t = 0; t < 80; ++t) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         // Σ1 = ROTR(e,14) ^ ROTR(e,18) ^ ROTR(e,41)
