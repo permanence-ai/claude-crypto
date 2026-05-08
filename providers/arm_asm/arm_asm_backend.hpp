@@ -966,13 +966,13 @@ struct ArmAsmBackend {
 
     // SLH-DSA — not yet implemented in ARM ASM backend; all operations return err_invalid_arg.
     [[nodiscard]]
-    static Algorithm alg_slh_dsa(const SlhDsaVariant) noexcept { return 0x0701U; }
+    static Algorithm alg_slh_dsa(const SlhDsaVariant /*v*/) noexcept { return 0x0701U; }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant)     noexcept { return {}; }
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant /*v*/)     noexcept { return {}; }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant)   noexcept { return {}; }
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant /*v*/)   noexcept { return {}; }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant) noexcept { return {}; }
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant /*v*/) noexcept { return {}; }
     [[nodiscard]]
     static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v)          noexcept { return slh_dsa_signature_size(v); }
     [[nodiscard]]

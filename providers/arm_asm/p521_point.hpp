@@ -633,9 +633,9 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
     constexpr uint64_t n_prime = 0x1d2f5ccd79a995c7ULL;
 
     uint64_t t[s + 2]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < s; ++i) {
+    for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
-        for (int j = 0; j < s; ++j) {
+        for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
             const u128 tt = static_cast<u128>(a.v[i]) * b.v[j] + t[j] + carry;
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);

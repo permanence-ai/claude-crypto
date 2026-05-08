@@ -720,19 +720,19 @@ struct RealPsaBackend {
 
     // SLH-DSA — not supported by MbedTLS 4.1; all operations return err_invalid_arg.
     [[nodiscard]]
-    static Algorithm alg_slh_dsa(const SlhDsaVariant) noexcept {
+    static Algorithm alg_slh_dsa(const SlhDsaVariant /*v*/) noexcept {
         return static_cast<Algorithm>(0);  // PSA_ALG_NONE — unsupported
     }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant) noexcept {
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant /*v*/) noexcept {
         return {};
     }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant) noexcept {
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant /*v*/) noexcept {
         return {};
     }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant) noexcept {
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant /*v*/) noexcept {
         return {};
     }
     [[nodiscard]]
