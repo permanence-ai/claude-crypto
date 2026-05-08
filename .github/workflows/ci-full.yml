@@ -115,15 +115,52 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   # ---------------------------------------------------------------------------
-  # Clang-tidy lint
+  # Clang-tidy lint — per-provider matrix
   #
-  # Configured against PSA_MBEDTLS/Debug so all headers are reachable.
+  # Each provider is built with its own compile_commands.json so that
+  # provider-internal includes (defs.hpp, openssl/bn.h, oqs/oqs.h, …) resolve
+  # correctly.  Each job lints only the headers that belong to its provider,
+  # plus safe-crypto-lib/ (linted under PSA_MBEDTLS which pulls in mbedtls
+  # and PSA headers that safe-crypto-lib uses).
+  #
+  # IA_ASM cross-compiles to x86_64 on macOS so SHA-NI / AES-NI intrinsics
+  # are available during tidy.
+  #
   # Uses Homebrew llvm for a pinned clang-tidy version.
   # ---------------------------------------------------------------------------
   lint:
-    name: clang-tidy
+    name: clang-tidy / ${{ matrix.label }}
     runs-on: macos-15
     continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: PSA_MBEDTLS
+            provider: PSA_MBEDTLS
+            pqc: NONE
+            cmake_extra: ""
+            tidy_paths: "safe-crypto-lib providers/psa_mbedtls"
+          - label: ARM_ASM
+            provider: ARM_ASM
+            pqc: NONE
+            cmake_extra: ""
+            tidy_paths: "providers/arm_asm"
+          - label: OPENSSL
+            provider: OPENSSL
+            pqc: NONE
+            cmake_extra: ""
+            tidy_paths: "providers/openssl"
+          - label: IA_ASM
+            provider: IA_ASM
+            pqc: NONE
+            cmake_extra: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            tidy_paths: "providers/ia_asm"
+          - label: LIBOQS
+            provider: ARM_ASM
+            pqc: LIBOQS
+            cmake_extra: ""
+            tidy_paths: "providers/liboqs"
 
     steps:
       - name: Checkout
@@ -143,24 +180,25 @@ jobs:
       - name: Cache FetchContent dependencies
         uses: actions/cache@v4
         with:
-          path: build-lint/_deps
-          key: fetchcontent-lint-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: fetchcontent-lint-
+          path: build-lint-${{ matrix.label }}/_deps
+          key: fetchcontent-lint-${{ matrix.label }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fetchcontent-lint-${{ matrix.label }}-
 
       - name: Configure
         run: |
-          cmake -G Ninja -B build-lint \
+          cmake -G Ninja -B build-lint-${{ matrix.label }} \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DSAFE_CRYPTO_ACTIVE_PROVIDER=PSA_MBEDTLS \
-            -DSAFE_CRYPTO_PQC=NONE \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=${{ matrix.provider }} \
+            -DSAFE_CRYPTO_PQC=${{ matrix.pqc }} \
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            ${{ matrix.cmake_extra }}
 
       - name: Run clang-tidy
         run: |
-          find safe-crypto-lib providers -name '*.hpp' \
+          find ${{ matrix.tidy_paths }} -name '*.hpp' \
             | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
-                -p build-lint \
+                -p build-lint-${{ matrix.label }} \
                 --config-file=.clang-tidy
 
   # ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 set(EXE_NAME safe_crypto_lib_test)
 
 add_executable(${EXE_NAME}

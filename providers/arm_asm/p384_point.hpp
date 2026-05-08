@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -465,12 +462,12 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
             const int64_t diff = static_cast<int64_t>(acc[step + i])
                 - static_cast<int64_t>(static_cast<uint64_t>(prod)) + borrow;
             acc[step + i] = static_cast<uint64_t>(diff);
-            borrow = -(static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U)) + (diff >> 63));
+            borrow = -(static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U)) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
         }
         acc[step + 6] = static_cast<uint64_t>(static_cast<int64_t>(acc[step + 6]) + borrow); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }
 
-    Fe384 r{{acc[0], acc[1], acc[2], acc[3], acc[4], acc[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 r{{acc[0], acc[1], acc[2], acc[3], acc[4], acc[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // Final conditional subtract mod n.
     Fe384 sub{};
@@ -637,7 +634,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
         t[s + 1] = 0;
     }
 
-    Fe384 r{{t[0], t[1], t[2], t[3], t[4], t[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 r{{t[0], t[1], t[2], t[3], t[4], t[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const uint64_t overflow = t[s];
 
     Fe384 sub{};

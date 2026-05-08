@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -1952,6 +1949,101 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptUnknownAlgReturnsInvalidArg) {
                                            ct.data(), ct.size(),
                                            out.data(), out.size(), &out_len),
               ArmAsmBackend::err_invalid_arg);
+}
+
+
+// aead nonce-length and overflow checks (issue #10).
+
+TEST_F(ArmAsmBackendErrorTests, AeadEncryptShortNonceReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 8> short_nonce{};  // 8 < 12
+    const std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           short_nonce.data(), short_nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
+                                           short_nonce.data(), short_nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadEncryptLongNonceReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 16> long_nonce{};  // 16 > 12
+    const std::array<uint8_t, 4> pt{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           long_nonce.data(), long_nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
+                                           long_nonce.data(), long_nonce.size(),
+                                           nullptr, 0,
+                                           pt.data(), pt.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadEncryptPtLenOverflowReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 12> nonce{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    // pt_len near SIZE_MAX would overflow when adding tag bytes.
+    const std::size_t huge = SIZE_MAX - 8U;
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           nullptr, huge,
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
+                                           nonce.data(), nonce.size(),
+                                           nullptr, 0,
+                                           nullptr, huge,
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadDecryptShortNonceReturnsInvalidArg) {
+    const unsigned int id = import_sym(32);
+    ASSERT_NE(id, 0U);
+    const std::array<uint8_t, 8> short_nonce{};
+    const std::array<uint8_t, 20> ct{};
+    std::array<uint8_t, 32> out{};
+    std::size_t out_len = 0;
+    EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
+                                           short_nonce.data(), short_nonce.size(),
+                                           nullptr, 0,
+                                           ct.data(), ct.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+    EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
+                                           short_nonce.data(), short_nonce.size(),
+                                           nullptr, 0,
+                                           ct.data(), ct.size(),
+                                           out.data(), out.size(), &out_len),
+              ArmAsmBackend::err_invalid_arg);
+}
+
+TEST_F(ArmAsmBackendErrorTests, AeadOutputSizeOverflowReturnsZero) {
+    // aes_gcm_encrypt_output_size and chacha20_encrypt_output_size must not wrap.
+    constexpr std::size_t huge = SIZE_MAX - 8U;
+    EXPECT_EQ(ArmAsmBackend::aes_gcm_encrypt_output_size(huge), 0U);
+    EXPECT_EQ(ArmAsmBackend::chacha20_encrypt_output_size(huge), 0U);
 }
 
 

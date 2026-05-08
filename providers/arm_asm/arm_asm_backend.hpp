@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -321,10 +318,10 @@ struct ArmAsmBackend {
     static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) {
         if (arm_asm::detail::rsa_key_id_is_rsa(id)) {
             using namespace arm_asm::detail;
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
             if (size < key_len) { return err_invalid_arg; }
@@ -334,10 +331,10 @@ struct ArmAsmBackend {
         }
         if (arm_asm::detail::ec_key_id_is_ec(id)) {
             using namespace arm_asm::detail;
-            EcCurveId curve = EcCurveId::None;
-            EcKeyKind kind  = EcKeyKind::None;
+            EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+            EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
             if (kind != EcKeyKind::Private) { return err_invalid_arg; }
             if (size < key_len) { return err_invalid_arg; }
@@ -346,15 +343,11 @@ struct ArmAsmBackend {
             return ok;
         }
         if (arm_asm::detail::pqc_key_id_is_pqc(id)) {
-            using namespace arm_asm::detail;
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
-            if (!pqc_key_store_get_private(id, &ptype, &pvariant, &key, &key_len)) { return err_invalid_arg; }
-            if (size < key_len) { return err_invalid_arg; }
-            std::memcpy(out, key, key_len);
-            *len = key_len;
+            const auto kv = arm_asm::detail::pqc_key_store_get_private(id);
+            if (!kv) { return err_invalid_arg; }
+            if (size < kv->data.size()) { return err_invalid_arg; }
+            std::memcpy(out, kv->data.data(), kv->data.size());
+            *len = kv->data.size();
             return ok;
         }
         const CryptoByte* key = nullptr;
@@ -370,31 +363,28 @@ struct ArmAsmBackend {
                                     std::size_t* len) {
         using namespace arm_asm::detail;
         if (rsa_key_id_is_rsa(id)) {
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
             return rsa_derive_public_key_der(key, key_len, out, size, len)
                 ? ok : err_invalid_arg;
         }
         if (pqc_key_id_is_pqc(id)) {
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* pub = nullptr;
-            std::size_t pub_len = 0;
-            if (!pqc_key_store_get_public(id, &ptype, &pvariant, &pub, &pub_len)) { return err_invalid_arg; }
-            if (size < pub_len) { return err_invalid_arg; }
-            std::memcpy(out, pub, pub_len);
-            *len = pub_len;
+            const auto kv = pqc_key_store_get_public(id);
+            if (!kv) { return err_invalid_arg; }
+            if (size < kv->data.size()) { return err_invalid_arg; }
+            std::memcpy(out, kv->data.data(), kv->data.size());
+            *len = kv->data.size();
             return ok;
         }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind == EcKeyKind::Public) {
             if (size < key_len) { return err_invalid_arg; }
@@ -493,7 +483,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static Status aead_encrypt(  // NOLINT(readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
-                               const CryptoByte* nonce, std::size_t /*nonce_len*/,
+                               const CryptoByte* nonce, std::size_t nonce_len,
                                const CryptoByte* aad, std::size_t aad_len,
                                const CryptoByte* pt, std::size_t pt_len,
                                CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -502,12 +492,16 @@ struct ArmAsmBackend {
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
         if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         if (alg == alg_aes_gcm()) {
+            if (nonce_len != arm_asm::detail::aes_gcm_iv_bytes) { return err_invalid_arg; }
+            if (pt_len > SIZE_MAX - arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
             if (out_size < pt_len + arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
             arm_asm::detail::aes256_gcm_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
             *out_len = pt_len + arm_asm::detail::aes_gcm_tag_bytes;
             return ok;
         }
         if (alg == alg_chacha20_poly1305()) {
+            if (nonce_len != arm_asm::detail::chacha20_poly1305_nonce_bytes) { return err_invalid_arg; }
+            if (pt_len > SIZE_MAX - arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
             if (out_size < pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
             arm_asm::detail::chacha20_poly1305_encrypt(key, nonce, aad, aad_len, pt, pt_len, out);
             *out_len = pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes;
@@ -518,7 +512,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static Status aead_decrypt(  // NOLINT(readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
-                               const CryptoByte* nonce, std::size_t /*nonce_len*/,
+                               const CryptoByte* nonce, std::size_t nonce_len,
                                const CryptoByte* aad, std::size_t aad_len,
                                const CryptoByte* ct, std::size_t ct_len,
                                CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -527,6 +521,7 @@ struct ArmAsmBackend {
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
         if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         if (alg == alg_aes_gcm()) {
+            if (nonce_len != arm_asm::detail::aes_gcm_iv_bytes) { return err_invalid_arg; }
             if (ct_len < arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
             const std::size_t pt_len = ct_len - arm_asm::detail::aes_gcm_tag_bytes;
             if (out_size < pt_len) { return err_invalid_arg; }
@@ -537,6 +532,7 @@ struct ArmAsmBackend {
             return ok;
         }
         if (alg == alg_chacha20_poly1305()) {
+            if (nonce_len != arm_asm::detail::chacha20_poly1305_nonce_bytes) { return err_invalid_arg; }
             if (ct_len < arm_asm::detail::chacha20_poly1305_tag_bytes) { return err_invalid_arg; }
             const std::size_t pt_len = ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes;
             if (out_size < pt_len) { return err_invalid_arg; }
@@ -556,10 +552,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg == alg_rsa_pss()) {
             if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
             if (!rsa_pss_sign(bits, key, key_len, msg, msg_len, sig, sig_size, sig_len)) {
@@ -568,19 +564,14 @@ struct ArmAsmBackend {
             return ok;
         }
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if (alg == alg_ml_dsa(MlDsaVariant::Dsa44) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa65) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa87)) {
+        if ((alg & 0xFFF0U) == 0x0710U) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* priv = nullptr;
-            std::size_t priv_len = 0;
-            if (!pqc_key_store_get_private(id, &ptype, &pvariant, &priv, &priv_len)) { return err_invalid_arg; }
-            if (ptype != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
-            const auto v = static_cast<MlDsaVariant>(pvariant);
+            const auto kv = pqc_key_store_get_private(id);
+            if (!kv || kv->type != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
+            const auto v = static_cast<MlDsaVariant>(kv->variant);
+            if (alg != alg_ml_dsa(v)) { return err_invalid_arg; }
             if (sig_size < ml_dsa_signature_size(v)) { return err_invalid_arg; }
-            if (!liboqs_pqc::ml_dsa_sign(v, priv, priv_len, msg, msg_len, sig, sig_size, sig_len)) {
+            if (!liboqs_pqc::ml_dsa_sign(v, kv->data.data(), kv->data.size(), msg, msg_len, sig, sig_size, sig_len)) {
                 return err_invalid_arg;
             }
             return ok;
@@ -588,10 +579,10 @@ struct ArmAsmBackend {
 #endif
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Private) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
@@ -637,37 +628,34 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg == alg_rsa_pss()) {
             if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
+            RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+            std::size_t bits = 0; // NOLINT(misc-const-correctness)
             const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
+            std::size_t key_len = 0; // NOLINT(misc-const-correctness)
             if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
             if (kind != RsaKeyKind::Public) { return err_invalid_arg; }
             return rsa_pss_verify(bits, key, key_len, msg, msg_len, sig, sig_len)
                 ? ok : err_invalid_sig;
         }
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if (alg == alg_ml_dsa(MlDsaVariant::Dsa44) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa65) ||
-            alg == alg_ml_dsa(MlDsaVariant::Dsa87)) {
+        if ((alg & 0xFFF0U) == 0x0710U) {
             if (!pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-            PqcKeyType ptype = PqcKeyType::None;
-            std::uint8_t pvariant = 0;
-            const CryptoByte* pub = nullptr;
-            std::size_t pub_len = 0;
-            if (!pqc_key_store_get_public(id, &ptype, &pvariant, &pub, &pub_len)) { return err_invalid_arg; }
-            if (ptype != PqcKeyType::MlDsaPublic && ptype != PqcKeyType::MlDsaPrivate) { return err_invalid_arg; }
-            const auto v = static_cast<MlDsaVariant>(pvariant);
-            return liboqs_pqc::ml_dsa_verify(v, pub, pub_len, msg, msg_len, sig, sig_len)
+            const auto kv = pqc_key_store_get_public(id);
+            if (!kv || (kv->type != PqcKeyType::MlDsaPublic && kv->type != PqcKeyType::MlDsaPrivate)) {
+                return err_invalid_arg;
+            }
+            const auto v = static_cast<MlDsaVariant>(kv->variant);
+            if (alg != alg_ml_dsa(v)) { return err_invalid_arg; }
+            return liboqs_pqc::ml_dsa_verify(v, kv->data.data(), kv->data.size(), msg, msg_len, sig, sig_len)
                 ? ok : err_invalid_sig;
         }
 #endif
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Public) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
@@ -707,10 +695,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_ecdh()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
+        EcCurveId curve = EcCurveId::None; // NOLINT(misc-const-correctness)
+        EcKeyKind kind  = EcKeyKind::None; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Private) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
@@ -776,10 +764,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_rsa_oaep()) { return err_invalid_arg; }
         if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-        RsaKeyKind kind = RsaKeyKind::None;
-        std::size_t bits = 0;
+        RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+        std::size_t bits = 0; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
         if (kind != RsaKeyKind::Public) { return err_invalid_arg; }
         if (!rsa_oaep_encrypt(bits, key, key_len, pt, pt_len, salt, salt_len, out, out_size, out_len)) {
@@ -796,10 +784,10 @@ struct ArmAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_rsa_oaep()) { return err_invalid_arg; }
         if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-        RsaKeyKind kind = RsaKeyKind::None;
-        std::size_t bits = 0;
+        RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
+        std::size_t bits = 0; // NOLINT(misc-const-correctness)
         const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
+        std::size_t key_len = 0; // NOLINT(misc-const-correctness)
         if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
         if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
         if (!rsa_oaep_decrypt(bits, key, key_len, ct, ct_len, salt, salt_len, out, out_size, out_len)) {
@@ -946,11 +934,11 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static std::size_t ec_public_key_export_size(std::size_t bits)       noexcept { return (((bits + 7U) / 8U) * 2U) + 1U; }  // 256→65, 384→97, 521→133
     [[nodiscard]]
-    static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len + arm_asm::detail::aes_gcm_tag_bytes; }
+    static std::size_t aes_gcm_encrypt_output_size(std::size_t pt_len)        noexcept { return pt_len <= SIZE_MAX - arm_asm::detail::aes_gcm_tag_bytes ? pt_len + arm_asm::detail::aes_gcm_tag_bytes : 0; }
     [[nodiscard]]
     static std::size_t aes_gcm_decrypt_output_size(std::size_t ct_len)        noexcept { return ct_len > arm_asm::detail::aes_gcm_tag_bytes ? ct_len - arm_asm::detail::aes_gcm_tag_bytes : 0; }
     [[nodiscard]]
-    static std::size_t chacha20_encrypt_output_size(std::size_t pt_len) noexcept { return pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes; }
+    static std::size_t chacha20_encrypt_output_size(std::size_t pt_len) noexcept { return pt_len <= SIZE_MAX - arm_asm::detail::chacha20_poly1305_tag_bytes ? pt_len + arm_asm::detail::chacha20_poly1305_tag_bytes : 0; }
     [[nodiscard]]
     static std::size_t chacha20_decrypt_output_size(std::size_t ct_len) noexcept { return ct_len > arm_asm::detail::chacha20_poly1305_tag_bytes ? ct_len - arm_asm::detail::chacha20_poly1305_tag_bytes : 0; }
     [[nodiscard]]
@@ -993,7 +981,7 @@ struct ArmAsmBackend {
     static std::size_t slh_dsa_public_key_export_size(const SlhDsaVariant v)    noexcept { return slh_dsa_public_key_size(v); }
 
     [[nodiscard]]
-    static Algorithm alg_ml_dsa(const MlDsaVariant) noexcept { return 0x0702U; }
+    static Algorithm alg_ml_dsa(const MlDsaVariant v) noexcept { return 0x0710U | static_cast<Algorithm>(v); }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -1029,7 +1017,7 @@ struct ArmAsmBackend {
     static std::size_t ml_dsa_public_key_export_size(const MlDsaVariant v)    noexcept { return ml_dsa_public_key_size(v); }
 
     [[nodiscard]]
-    static Algorithm alg_ml_kem(const MlKemVariant) noexcept { return 0x0703U; }
+    static Algorithm alg_ml_kem(const MlKemVariant v) noexcept { return 0x0800U | static_cast<Algorithm>(v); }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -1072,20 +1060,17 @@ struct ArmAsmBackend {
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
-        if (alg != alg_ml_kem(MlKemVariant::Kem512) &&
-            alg != alg_ml_kem(MlKemVariant::Kem768) &&
-            alg != alg_ml_kem(MlKemVariant::Kem1024)) { return err_invalid_arg; }
+        if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }
         if (!arm_asm::detail::pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-        PqcKeyType ptype = PqcKeyType::None;
-        std::uint8_t pvariant = 0;
-        const CryptoByte* pub = nullptr;
-        std::size_t pub_len = 0;
-        if (!arm_asm::detail::pqc_key_store_get_public(id, &ptype, &pvariant, &pub, &pub_len)) { return err_invalid_arg; }
-        if (ptype != PqcKeyType::MlKemPublic && ptype != PqcKeyType::MlKemPrivate) { return err_invalid_arg; }
-        const auto v = static_cast<MlKemVariant>(pvariant);
+        const auto kv_enc = arm_asm::detail::pqc_key_store_get_public(id);
+        if (!kv_enc || (kv_enc->type != PqcKeyType::MlKemPublic && kv_enc->type != PqcKeyType::MlKemPrivate)) {
+            return err_invalid_arg;
+        }
+        const auto v = static_cast<MlKemVariant>(kv_enc->variant);
+        if (alg != alg_ml_kem(v)) { return err_invalid_arg; }
         if (ciphertext_size    < ml_kem_ciphertext_size(v))    { return err_invalid_arg; }
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return err_invalid_arg; }
-        if (!liboqs_pqc::ml_kem_encaps(v, pub, pub_len,
+        if (!liboqs_pqc::ml_kem_encaps(v, kv_enc->data.data(), kv_enc->data.size(),
                                         ciphertext,    ciphertext_size,
                                         shared_secret, shared_secret_size)) { return err_invalid_arg; }
         *ciphertext_len    = ml_kem_ciphertext_size(v);
@@ -1105,19 +1090,14 @@ struct ArmAsmBackend {
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
-        if (alg != alg_ml_kem(MlKemVariant::Kem512) &&
-            alg != alg_ml_kem(MlKemVariant::Kem768) &&
-            alg != alg_ml_kem(MlKemVariant::Kem1024)) { return err_invalid_arg; }
+        if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }
         if (!arm_asm::detail::pqc_key_id_is_pqc(id)) { return err_invalid_arg; }
-        PqcKeyType ptype = PqcKeyType::None;
-        std::uint8_t pvariant = 0;
-        const CryptoByte* priv = nullptr;
-        std::size_t priv_len = 0;
-        if (!arm_asm::detail::pqc_key_store_get_private(id, &ptype, &pvariant, &priv, &priv_len)) { return err_invalid_arg; }
-        if (ptype != PqcKeyType::MlKemPrivate) { return err_invalid_arg; }
-        const auto v = static_cast<MlKemVariant>(pvariant);
+        const auto kv_dec = arm_asm::detail::pqc_key_store_get_private(id);
+        if (!kv_dec || kv_dec->type != PqcKeyType::MlKemPrivate) { return err_invalid_arg; }
+        const auto v = static_cast<MlKemVariant>(kv_dec->variant);
+        if (alg != alg_ml_kem(v)) { return err_invalid_arg; }
         if (shared_secret_size < ml_kem_shared_secret_size(v)) { return err_invalid_arg; }
-        if (!liboqs_pqc::ml_kem_decaps(v, priv, priv_len,
+        if (!liboqs_pqc::ml_kem_decaps(v, kv_dec->data.data(), kv_dec->data.size(),
                                         ciphertext, ciphertext_len,
                                         shared_secret, shared_secret_size)) { return err_invalid_arg; }
         *shared_secret_len = ml_kem_shared_secret_size(v);
