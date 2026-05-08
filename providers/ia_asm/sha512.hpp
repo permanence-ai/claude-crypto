@@ -101,8 +101,8 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
     // Message schedule: σ0 = ROTR(x,1) ^ ROTR(x,8) ^ SHR(x,7)
     //                   σ1 = ROTR(x,19) ^ ROTR(x,61) ^ SHR(x,6)
     for (std::size_t i = 16; i < 80; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint64_t s0 = std::rotr(w[i - 15], 1) ^ std::rotr(w[i - 15], 8) ^ (w[i - 15] >> 7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint64_t s1 = std::rotr(w[i -  2], 19) ^ std::rotr(w[i -  2], 61) ^ (w[i - 2] >> 6); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint64_t s0 = std::rotr(w[i - 15], 1U) ^ std::rotr(w[i - 15], 8U) ^ (w[i - 15] >> 7U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint64_t s1 = std::rotr(w[i -  2], 19U) ^ std::rotr(w[i -  2], 61U) ^ (w[i - 2] >> 6U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         w[i] = w[i - 16] + s0 + w[i - 7] + s1; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }
 
