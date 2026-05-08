@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -174,7 +171,7 @@ inline bool pss_verify(
     // Constant-time compare H' with H.
     uint8_t diff = 0U;
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
-        diff |= h[i] ^ h_prime[i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        diff |= static_cast<uint8_t>(h[i] ^ h_prime[i]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
     return diff == 0U;
 }

@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -442,7 +439,7 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
     uint32_t w[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 24; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         const int j = 23 - i; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (j * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(j) * 4; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -451,7 +448,7 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
 
     uint64_t acc[12]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 12; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        acc[i] = static_cast<uint64_t>(w[2 * i]) | (static_cast<uint64_t>(w[(2 * i) + 1]) << 32U);
+        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i) + 1]) << 32U);
     }
 
     using u128 = unsigned __int128;
@@ -465,12 +462,12 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
             const int64_t diff = static_cast<int64_t>(acc[step + i])
                 - static_cast<int64_t>(static_cast<uint64_t>(prod)) + borrow;
             acc[step + i] = static_cast<uint64_t>(diff);
-            borrow = -(static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U)) + (diff >> 63));
+            borrow = -(static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U)) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
         }
         acc[step + 6] = static_cast<uint64_t>(static_cast<int64_t>(acc[step + 6]) + borrow); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }
 
-    Fe384 r{{acc[0], acc[1], acc[2], acc[3], acc[4], acc[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 r{{acc[0], acc[1], acc[2], acc[3], acc[4], acc[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // Final conditional subtract mod n.
     Fe384 sub{};
@@ -509,7 +506,7 @@ static inline auto p384_scalar_from_bytes48( // NOLINT(cppcoreguidelines-avoid-c
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + ((5 - i) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -637,7 +634,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
         t[s + 1] = 0;
     }
 
-    Fe384 r{{t[0], t[1], t[2], t[3], t[4], t[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 r{{t[0], t[1], t[2], t[3], t[4], t[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const uint64_t overflow = t[s];
 
     Fe384 sub{};
@@ -768,7 +765,7 @@ static inline auto p384_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |

@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -113,7 +110,7 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
                                     uint8_t tag[16]) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 {
     uint64_t h0 = h_in.h0, h1 = h_in.h1, h2 = h_in.h2;
-    uint64_t c;
+    uint64_t c = 0;
     c = h0 >> 44U; h0 &= mask44; h1 += c;
     c = h1 >> 44U; h1 &= mask44; h2 += c;
     c = h2 >> 42U; h2 &= mask42; h0 += c * 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -176,7 +173,7 @@ static inline void poly1305_process_quad(
     h.h0 += x1.h0 + x2.h0 + x3.h0;
     h.h1 += x1.h1 + x2.h1 + x3.h1;
     h.h2 += x1.h2 + x2.h2 + x3.h2;
-    uint64_t c;
+    uint64_t c = 0;
     c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
     c = h.h1 >> 44U; h.h1 &= mask44; h.h2 += c;
     c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -194,7 +191,7 @@ static inline void poly1305_process_pair(
     poly1305_add_block(h, m1lo, m1hi, 1U);
     poly1305_multiply_precomp(h, pw.p2);
     h.h0 += m2.h0; h.h1 += m2.h1; h.h2 += m2.h2;
-    uint64_t c;
+    uint64_t c = 0;
     c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
     c = h.h1 >> 44U; h.h1 &= mask44; h.h2 += c;
     c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
