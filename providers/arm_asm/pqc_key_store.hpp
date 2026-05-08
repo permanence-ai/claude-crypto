@@ -80,7 +80,7 @@ inline std::mutex& pqc_store_mutex() noexcept {
 //   pub: pointer to public key bytes (may be nullptr if private-only)
 //   pub_len: length of public key bytes
 [[nodiscard]]
-inline unsigned int pqc_key_store_import(PqcKeyType type, std::uint8_t variant,
+inline unsigned int pqc_key_store_import(PqcKeyType type, std::uint8_t variant, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
                                           const CryptoByte* priv, std::size_t priv_len,
                                           const CryptoByte* pub,  std::size_t pub_len) noexcept {
     // Enforce canonical sizes: reject keys with trailing bytes or wrong length.

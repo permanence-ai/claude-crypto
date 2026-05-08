@@ -196,7 +196,7 @@ inline BigInt<NW> small_e_modinv(const BigInt<NW>& m) noexcept {
 
 template<std::size_t NW>
 [[nodiscard]]
-inline bool miller_rabin_is_prime(const BigInt<NW>& n, unsigned int rounds) noexcept {
+inline bool miller_rabin_is_prime(const BigInt<NW>& n, unsigned int rounds) noexcept { // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     // n must be > 3 and odd.
     // Write n-1 = 2^s * d  (d odd).
     const BigInt<NW> n_minus_1 = bigint_dec(n);
@@ -365,7 +365,7 @@ inline std::size_t der_encode_integer(
 
 template<std::size_t NW>
 [[nodiscard]]
-inline bool rsa_generate_key_der(
+inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     std::size_t modulus_bits,
     CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept
 {

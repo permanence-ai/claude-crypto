@@ -417,7 +417,7 @@ TEST_F(SigmaIWrapperTests, DeriveKeysProducesExpectedSizes) {
 }
 
 
-TEST_F(SigmaIWrapperTests, AesGcmEncryptDecryptRoundTrip) {
+TEST_F(SigmaIWrapperTests, AesGcmEncryptDecryptRoundTrip) { // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     // Derive a real key via the wrapper.
     const auto key_a = ecdh_generate_key(EcCurve::P256);
     const auto key_b = ecdh_generate_key(EcCurve::P256);

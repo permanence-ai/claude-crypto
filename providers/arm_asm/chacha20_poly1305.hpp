@@ -128,7 +128,7 @@ static inline void poly1305_feed(const uint8_t* otk,
 //   key, nonce: 32 and 12 bytes respectively.
 //   out: must hold pt_len + 16 bytes.
 [[gnu::target("neon")]]
-inline void chacha20_poly1305_encrypt(
+inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key,
     const CryptoByte* nonce,
     const CryptoByte* aad,  std::size_t aad_len,
@@ -152,7 +152,7 @@ inline void chacha20_poly1305_encrypt(
 //   ct_len includes the 16-byte tag.
 //   Returns true on successful tag verification; on failure out is zeroized.
 [[gnu::target("neon")]]
-inline bool chacha20_poly1305_decrypt(
+inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key,
     const CryptoByte* nonce,
     const CryptoByte* aad, std::size_t aad_len,

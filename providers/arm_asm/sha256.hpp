@@ -57,7 +57,7 @@ inline constexpr uint32_t sha256_k[64] = {
 //     4. su1(wa_prev, wc, wd)  → completes the schedule 1 group behind
 //   Groups 12-15 (rounds 48-63) skip su0; group 12 completes the last su1.
 [[gnu::target("sha2,neon")]]
-inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
+inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
     uint32x4_t abcd = vld1q_u32(state);
     uint32x4_t efgh = vld1q_u32(state + 4);

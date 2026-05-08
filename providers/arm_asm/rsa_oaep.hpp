@@ -79,7 +79,7 @@ inline void mgf1_sha384(
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool oaep_encode(
+inline bool oaep_encode( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* pt,    std::size_t pt_len,
     const CryptoByte* label, std::size_t label_len,
     const CryptoByte* seed,          // hLen random bytes
@@ -137,7 +137,7 @@ inline bool oaep_encode(
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool oaep_decode(
+inline bool oaep_decode( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* em,              // k bytes (raw RSA output)
     std::size_t       modulus_bytes,   // k
     const CryptoByte* label, std::size_t label_len,

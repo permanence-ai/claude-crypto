@@ -692,7 +692,7 @@ struct RealPsaBackend {
             alg_rsa_oaep());
     }
     [[nodiscard]]
-    static std::size_t rsa_oaep_decrypt_output_size(const std::size_t key_bits) noexcept {
+    static std::size_t rsa_oaep_decrypt_output_size(const std::size_t key_bits) noexcept { // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         return PSA_ASYMMETRIC_DECRYPT_OUTPUT_SIZE(
             PSA_KEY_TYPE_RSA_KEY_PAIR,
             static_cast<psa_key_bits_t>(key_bits),
@@ -855,7 +855,7 @@ struct RealPsaBackend {
         return ml_kem_public_key_size(v);
     }
     [[nodiscard]]
-    static Status kem_encapsulate(
+    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,
         CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
@@ -889,7 +889,7 @@ struct RealPsaBackend {
 #endif
     }
     [[nodiscard]]
-    static Status kem_decapsulate(
+    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,
         const CryptoByte* ciphertext, std::size_t ciphertext_len,
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {

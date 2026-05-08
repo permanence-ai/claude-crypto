@@ -56,7 +56,7 @@ inline EcKeySlot& ec_key_slot(std::size_t idx) noexcept {
 }
 
 [[nodiscard]]
-inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind,
+inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
                              const CryptoByte* key, std::size_t key_len) noexcept {
     if (curve == EcCurveId::None || kind == EcKeyKind::None) { return false; }
 

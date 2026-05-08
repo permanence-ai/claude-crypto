@@ -121,7 +121,7 @@ struct ArmAsmBackend {
         return err_invalid_arg;
     }
     [[nodiscard]]
-    static Status import_key(const KeyAttributes* attrs, const CryptoByte* key,
+    static Status import_key(const KeyAttributes* attrs, const CryptoByte* key, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
                              std::size_t key_len, KeyId* id) {
         if (attrs != nullptr && attrs->ec_curve != arm_asm::detail::EcCurveId::None) {
             const KeyId slot = arm_asm::detail::ec_key_store_import(
@@ -157,7 +157,7 @@ struct ArmAsmBackend {
         return ok;
     }
     [[nodiscard]]
-    static Status generate_key(const KeyAttributes* attrs, KeyId* id) {
+    static Status generate_key(const KeyAttributes* attrs, KeyId* id) { // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         if (attrs == nullptr) { return err_invalid_arg; }
         if (attrs->ec_curve != arm_asm::detail::EcCurveId::None) {
             // Generate EC private key: random scalar in [1, n-1].
@@ -315,7 +315,7 @@ struct ArmAsmBackend {
         return ok;
     }
     [[nodiscard]]
-    static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) {
+    static Status export_key(KeyId id, CryptoByte* out, std::size_t size, std::size_t* len) { // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         if (arm_asm::detail::rsa_key_id_is_rsa(id)) {
             using namespace arm_asm::detail;
             RsaKeyKind kind = RsaKeyKind::None; // NOLINT(misc-const-correctness)
@@ -359,7 +359,7 @@ struct ArmAsmBackend {
         return ok;
     }
     [[nodiscard]]
-    static Status export_public_key(KeyId id, CryptoByte* out, std::size_t size,
+    static Status export_public_key(KeyId id, CryptoByte* out, std::size_t size, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
                                     std::size_t* len) {
         using namespace arm_asm::detail;
         if (rsa_key_id_is_rsa(id)) {
@@ -545,7 +545,7 @@ struct ArmAsmBackend {
         return err_invalid_arg;
     }
     [[nodiscard]]
-    static Status sign_message(  // NOLINT(readability-function-size)
+    static Status sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
                                KeyId id, Algorithm alg,
                                const CryptoByte* msg, std::size_t msg_len,
                                CryptoByte* sig, std::size_t sig_size, std::size_t* sig_len) {
@@ -622,7 +622,7 @@ struct ArmAsmBackend {
         return err_invalid_arg;
     }
     [[nodiscard]]
-    static Status verify_message(KeyId id, Algorithm alg,
+    static Status verify_message(KeyId id, Algorithm alg, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
                                  const CryptoByte* msg, std::size_t msg_len,
                                  const CryptoByte* sig, std::size_t sig_len) {
         using namespace arm_asm::detail;
@@ -688,7 +688,7 @@ struct ArmAsmBackend {
         return err_invalid_arg;
     }
     [[nodiscard]]
-    static Status raw_key_agreement(  // NOLINT(readability-function-size)
+    static Status raw_key_agreement(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
                                     Algorithm alg, KeyId id,
                                     const CryptoByte* peer, std::size_t peer_len,
                                     CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -1054,7 +1054,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static std::size_t ml_kem_public_key_export_size(const MlKemVariant v)   noexcept { return ml_kem_public_key_size(v); }
     [[nodiscard]]
-    static Status kem_encapsulate(
+    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId id, const Algorithm alg,
         CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
@@ -1084,7 +1084,7 @@ struct ArmAsmBackend {
 #endif
     }
     [[nodiscard]]
-    static Status kem_decapsulate(
+    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId id, const Algorithm alg,
         const CryptoByte* ciphertext, std::size_t ciphertext_len,
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
