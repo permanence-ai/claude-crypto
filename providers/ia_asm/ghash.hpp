@@ -72,6 +72,7 @@ static inline void ghash_clmul256(__m128i a, __m128i b,
 [[gnu::target("pclmul,ssse3")]]
 static inline __m128i ghash_reduce(__m128i lo, __m128i hi) noexcept {
     // r(z) = 0xE1 in reflected bit order (= 0x87 reversed).
+    // clmulepi64_si128(..., 0x01) selects a[127:64] * b[63:0] so poly goes in the LOW lane.
     const __m128i poly = _mm_set_epi64x(0, static_cast<long long>(0xE100000000000000ULL)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // First reduction step: reduce lower 64 bits of hi using r(z).
