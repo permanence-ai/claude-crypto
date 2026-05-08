@@ -957,7 +957,7 @@ struct IaAsmBackend {
     [[nodiscard]]
     static std::size_t rsa_pss_sign_output_size(std::size_t bits)        noexcept { return bits / 8U; }
     [[nodiscard]]
-    static std::size_t rsa_private_key_export_size(std::size_t bits)     noexcept { return (9U * (bits / 16U + 6U)) + 14U; }
+    static std::size_t rsa_private_key_export_size(std::size_t bits)     noexcept { return (9U * ((bits / 16U) + 6U)) + 14U; }
     [[nodiscard]]
     static std::size_t rsa_public_key_export_size(std::size_t bits)      noexcept { return (bits / 8U) + 50U; }
 

@@ -57,7 +57,7 @@ static inline auto fe256_from_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + (static_cast<std::ptrdiff_t>(3 - i) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -71,7 +71,7 @@ static inline void fe256_to_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const Fe256& a, uint8_t b[32]) noexcept
 {
     for (int i = 0; i < 4; ++i) {
-        uint8_t* p = b + (static_cast<std::ptrdiff_t>(3 - i) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);

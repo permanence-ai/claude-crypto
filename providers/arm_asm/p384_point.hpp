@@ -439,7 +439,7 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
     uint32_t w[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 24; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         const int j = 23 - i; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (static_cast<std::ptrdiff_t>(j) * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -506,7 +506,7 @@ static inline auto p384_scalar_from_bytes48( // NOLINT(cppcoreguidelines-avoid-c
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (static_cast<std::ptrdiff_t>(5 - i) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -765,7 +765,7 @@ static inline auto p384_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (static_cast<std::ptrdiff_t>(5 - i) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
