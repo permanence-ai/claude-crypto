@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -35,7 +32,7 @@ static std::array<uint8_t, N> from_hex(const char* s) {
     for (std::size_t i = 0; i < N; ++i) {
         unsigned v = 0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+        std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
         out[i] = static_cast<uint8_t>(v);
     }

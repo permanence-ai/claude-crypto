@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -41,6 +38,7 @@ constexpr unsigned int ossl_asym_key_id_max =
 
 struct OpenSslAsymSlot {
     EVP_PKEY* pkey{nullptr};
+    std::uint32_t alg{0U};
     bool      in_use{false};
 };
 
@@ -50,10 +48,11 @@ inline OpenSslAsymSlot& ossl_asym_slot(std::size_t idx) noexcept {
 }
 
 [[nodiscard]]
-inline unsigned int ossl_asym_store_import(EVP_PKEY* pkey) noexcept {
+inline unsigned int ossl_asym_store_import(EVP_PKEY* pkey, std::uint32_t alg = 0U) noexcept {
     for (std::size_t i = 0; i < ossl_asym_key_store_size; ++i) {
         if (!ossl_asym_slot(i).in_use) {
             ossl_asym_slot(i).pkey   = pkey;
+            ossl_asym_slot(i).alg    = alg;
             ossl_asym_slot(i).in_use = true;
             return static_cast<unsigned int>(i) + ossl_asym_key_id_base;
         }
@@ -69,6 +68,14 @@ inline EVP_PKEY* ossl_asym_store_get(unsigned int id) noexcept {
     return ossl_asym_slot(idx).pkey;
 }
 
+[[nodiscard]]
+inline std::uint32_t ossl_asym_store_alg(unsigned int id) noexcept {
+    if (id < ossl_asym_key_id_base || id > ossl_asym_key_id_max) { return 0U; }
+    const std::size_t idx = id - ossl_asym_key_id_base;
+    if (!ossl_asym_slot(idx).in_use) { return 0U; }
+    return ossl_asym_slot(idx).alg;
+}
+
 inline bool ossl_asym_id_valid(unsigned int id) noexcept {
     return id >= ossl_asym_key_id_base && id <= ossl_asym_key_id_max;
 }
@@ -80,6 +87,7 @@ inline void ossl_asym_store_destroy(unsigned int id) noexcept {
     if (s.in_use) {
         EVP_PKEY_free(s.pkey);
         s.pkey   = nullptr;
+        s.alg    = 0U;
         s.in_use = false;
     }
 }

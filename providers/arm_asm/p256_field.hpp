@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -60,7 +57,7 @@ static inline auto fe256_from_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -74,7 +71,7 @@ static inline void fe256_to_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const Fe256& a, uint8_t b[32]) noexcept
 {
     for (int i = 0; i < 4; ++i) {
-        uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);
@@ -225,16 +222,16 @@ static inline void fe256_mul_raw( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
     uint32_t a32[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     uint32_t b32[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 4; ++i) {
-        a32[2 * i]     = static_cast<uint32_t>(a.v[i]);
-        a32[2 * i + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
-        b32[2 * i]     = static_cast<uint32_t>(b.v[i]);
-        b32[2 * i + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
+        a32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(a.v[i]);
+        a32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
+        b32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(b.v[i]);
+        b32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
     }
     using u128 = unsigned __int128;
     u128 tmp[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
-            tmp[i + j] += static_cast<uint64_t>(a32[i]) * b32[j];
+            tmp[static_cast<std::size_t>(i + j)] += static_cast<u128>(a32[i]) * b32[j];
         }
     }
     uint64_t carry = 0;
@@ -267,12 +264,13 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
          + c[8] - c[10] - c[11] - c[12] - c[13];
 
     // Carry-propagate to normalise each word to [0, 2^32-1].
+    // Arithmetic right-shift on int64_t is intentional: negative words carry a signed borrow.
     for (int i = 0; i < 7; ++i) {
-        r[i + 1] += r[i] >> 32;
-        r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        r[i + 1] += r[i] >> 32; // NOLINT(hicpp-signed-bitwise)
+        r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
     }
-    r[8] = r[7] >> 32;
-    r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[8] = r[7] >> 32; // NOLINT(hicpp-signed-bitwise)
+    r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
 
     // Reduce overflow word twice (always, for constant time).
     // 2^256 ≡ 2^224 − 2^192 − 2^96 + 1 (mod p)
@@ -282,11 +280,11 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
         r[8] = 0;
         r[0] += ov; r[3] -= ov; r[6] -= ov; r[7] += ov;
         for (int i = 0; i < 7; ++i) {
-            r[i + 1] += r[i] >> 32;
-            r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            r[i + 1] += r[i] >> 32; // NOLINT(hicpp-signed-bitwise)
+            r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
         }
-        r[8] = r[7] >> 32;
-        r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        r[8] = r[7] >> 32; // NOLINT(hicpp-signed-bitwise)
+        r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
     }
 
     // Pack 8 × 32-bit into 4 × 64-bit LE.
