@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -96,7 +93,7 @@ inline bool rsa_key_store_get(unsigned int id,
                                const CryptoByte** out_key, std::size_t* out_len) noexcept {
     if (id < rsa_key_id_base || (id - rsa_key_id_base) >= rsa_key_store_capacity) { return false; }
     const std::size_t idx = id - rsa_key_id_base;
-    RsaKeySlot& s = rsa_key_slot(idx);
+    const RsaKeySlot& s = rsa_key_slot(idx);
     if (!s.in_use) { return false; }
     *out_kind = s.kind;
     *out_bits = s.bits;

@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -109,7 +106,7 @@ inline bool read_length(const CryptoByte*& p, std::size_t& rem, std::size_t& out
 [[nodiscard]]
 inline bool enter_sequence(const CryptoByte*& p, std::size_t& rem) noexcept {
     if (!read_tag(p, rem, 0x30U)) { return false; }
-    std::size_t seq_len = 0;
+    std::size_t seq_len = 0; // NOLINT(misc-const-correctness)
     if (!read_length(p, rem, seq_len)) { return false; }
     rem = seq_len;
     return true;
@@ -165,7 +162,7 @@ inline bool skip_tlv(const CryptoByte*& p, std::size_t& rem) noexcept {
 [[nodiscard]]
 inline bool enter_bit_string(const CryptoByte*& p, std::size_t& rem) noexcept {
     if (!read_tag(p, rem, 0x03U)) { return false; }
-    std::size_t bs_len = 0;
+    std::size_t bs_len = 0; // NOLINT(misc-const-correctness)
     if (!read_length(p, rem, bs_len)) { return false; }
     if (bs_len < 1 || bs_len > rem) { return false; }
     // First byte of bit string content is "unused bits count" — must be 0.

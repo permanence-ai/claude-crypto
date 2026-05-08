@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # PermBuildOptions.cmake
 #
 # Defines two INTERFACE targets consumed by all compiled targets in this project:

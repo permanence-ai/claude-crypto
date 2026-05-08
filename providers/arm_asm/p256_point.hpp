@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -517,7 +514,7 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
     uint32_t w[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 16; ++i) {
         const int j = 15 - i;
-        const uint8_t* p = b + (j * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(j) * 4; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -534,7 +531,7 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
     // Represent as 8 uint64_t LE limbs.
     uint64_t acc[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 8; ++i) {
-        acc[i] = static_cast<uint64_t>(w[2 * i]) | (static_cast<uint64_t>(w[(2 * i) + 1]) << 32U);
+        acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i) + 1]) << 32U);
     }
 
     // Reduce top 4 limbs (acc[4..7]) by replacing 2^256 = n + (2^256 - n).
@@ -551,12 +548,12 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
             const int64_t diff = static_cast<int64_t>(acc[step + i])
                 - static_cast<int64_t>(static_cast<uint64_t>(prod)) + borrow;
             acc[step + i] = static_cast<uint64_t>(diff);
-            borrow = -(static_cast<int64_t>(prod >> 64U) + (diff >> 63));
+            borrow = -(static_cast<int64_t>(prod >> 64U) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
         }
         acc[step + 4] = static_cast<uint64_t>(static_cast<int64_t>(acc[step + 4]) + borrow);
     }
 
-    Fe256 r{{acc[0], acc[1], acc[2], acc[3]}};
+    const Fe256 r{{acc[0], acc[1], acc[2], acc[3]}};
 
     // Final reduction: subtract n if r >= n.
     Fe256 sub{};
@@ -591,7 +588,7 @@ static inline auto p256_scalar_from_bytes32( // NOLINT(cppcoreguidelines-avoid-c
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -702,7 +699,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
         t[s + 1] = 0;
     }
 
-    Fe256 r{{t[0], t[1], t[2], t[3]}};
+    const Fe256 r{{t[0], t[1], t[2], t[3]}};
     const uint64_t overflow = t[s];
 
     // Conditional subtract n.
@@ -786,7 +783,7 @@ static inline auto p256_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |

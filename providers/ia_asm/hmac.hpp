@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -25,6 +22,7 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include "defs.hpp"
 #include "secure_buffer.hpp"
 #include "sha256.hpp"
+
 #include "sha3.hpp"
 #include "sha512.hpp"
 

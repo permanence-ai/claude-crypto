@@ -1,7 +1,4 @@
-/*
-Copyright Permanence AI, 2026. All rights reserved.
-
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -12,6 +9,8 @@ Copyright Permanence AI, 2026. All rights reserved.
 #include <cstring>
 
 #include <gtest/gtest.h>
+
+#include "slh_dsa_variant.hpp"
 
 #if defined(SAFE_CRYPTO_PROVIDER_OPENSSL)
 #include "ml_dsa_variant.hpp"
@@ -109,6 +108,62 @@ TEST_F(MlDsaTests, Dsa44_VerifyRejectsTamperedMessage) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST_F(MlDsaTests, Dsa44_SignRejectsPrivateKeyWithTrailingByte) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    SecureBuffer oversized(kp->private_key.size() + 1);
+    std::memcpy(oversized.data(), kp->private_key.data(), kp->private_key.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlDsaKeyPair<MlDsaVariant::Dsa44> bad_kp{
+        .private_key = std::move(oversized),
+        .public_key  = copy_secure_buffer_ml(kp->public_key),
+    };
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto result = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(bad_kp, msg);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlDsaTests, Dsa44_VerifyRejectsPublicKeyWithTrailingByte) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto sig = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(*kp, msg);
+    ASSERT_TRUE(sig.has_value());
+
+    SecureBuffer oversized(kp->public_key.size() + 1);
+    std::memcpy(oversized.data(), kp->public_key.data(), kp->public_key.size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlDsaPublicKey<MlDsaVariant::Dsa44> bad_pub{ .public_key = std::move(oversized) };
+    const auto result = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(bad_pub, msg, *sig);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+TEST_F(MlDsaTests, Dsa44_VerifyRejectsSignatureWithTrailingByte) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto sig = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(*kp, msg);
+    ASSERT_TRUE(sig.has_value());
+
+    SecureBuffer oversized(sig->size() + 1);
+    std::memcpy(oversized.data(), sig->data(), sig->size());
+    oversized[oversized.size() - 1] = 0x00U;
+
+    const MlDsaPublicKey<MlDsaVariant::Dsa44> pub{
+        .public_key = std::move(kp->public_key)
+    };
+    const auto result = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(pub, msg, oversized);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
 TEST_F(MlDsaTests, Dsa44_ExportImportRoundTrip) {
     auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
     ASSERT_TRUE(kp.has_value());
@@ -165,6 +220,72 @@ TEST_F(MlDsaTests, Dsa87_SignVerifyRoundTrip) {
     const MlDsaPublicKey<MlDsaVariant::Dsa87> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = ml_dsa_verify_impl<MlDsaVariant::Dsa87, MlDsaBackend>(pub, msg, *sig);
     EXPECT_TRUE(verify_r.has_value());
+}
+
+// --- Variant mismatch rejection ---
+
+TEST_F(MlDsaTests, AlgorithmIdsDoNotCollideWithSlhDsa) {
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa44),
+              MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa44),
+              MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa87));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+              MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa87));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa44),
+              MlDsaBackend::alg_slh_dsa(SlhDsaVariant::Sha2_128s));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+              MlDsaBackend::alg_slh_dsa(SlhDsaVariant::Sha2_128s));
+    EXPECT_NE(MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa87),
+              MlDsaBackend::alg_slh_dsa(SlhDsaVariant::Sha2_128s));
+}
+
+TEST_F(MlDsaTests, Dsa44_SignRejectsAlgorithmVariantMismatch) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    auto attrs = MlDsaBackend::make_ml_dsa_sign_attrs(MlDsaVariant::Dsa44);
+    auto raw_id = MlDsaBackend::null_key_id();
+    ASSERT_EQ(MlDsaBackend::import_key(&attrs,
+                                        kp->private_key.data(), kp->private_key.size(),
+                                        &raw_id), MlDsaBackend::ok);
+
+    constexpr std::size_t sig_size = ml_dsa_signature_size(MlDsaVariant::Dsa65);
+    SecureBuffer sig_buf(sig_size);
+    std::size_t sig_len = 0;
+    const auto msg = make_random_secure_buffer(kMessageSize);
+
+    // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
+    const auto status = MlDsaBackend::sign_message(
+        raw_id, MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+        msg.data(), msg.size(),
+        sig_buf.data(), sig_size, &sig_len);
+    EXPECT_NE(status, MlDsaBackend::ok);
+
+    EXPECT_EQ(MlDsaBackend::destroy_key(raw_id), MlDsaBackend::ok);
+}
+
+TEST_F(MlDsaTests, Dsa44_VerifyRejectsAlgorithmVariantMismatch) {
+    auto kp = ml_dsa_generate_key_impl<MlDsaVariant::Dsa44, MlDsaBackend>();
+    ASSERT_TRUE(kp.has_value());
+
+    const auto msg = make_random_secure_buffer(kMessageSize);
+    const auto sig = ml_dsa_sign_impl<MlDsaVariant::Dsa44, MlDsaBackend>(*kp, msg);
+    ASSERT_TRUE(sig.has_value());
+
+    auto attrs = MlDsaBackend::make_ml_dsa_verify_attrs(MlDsaVariant::Dsa44);
+    auto raw_id = MlDsaBackend::null_key_id();
+    ASSERT_EQ(MlDsaBackend::import_key(&attrs,
+                                        kp->public_key.data(), kp->public_key.size(),
+                                        &raw_id), MlDsaBackend::ok);
+
+    // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
+    const auto status = MlDsaBackend::verify_message(
+        raw_id, MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
+        msg.data(), msg.size(),
+        sig->data(), sig->size());
+    EXPECT_NE(status, MlDsaBackend::ok);
+
+    EXPECT_EQ(MlDsaBackend::destroy_key(raw_id), MlDsaBackend::ok);
 }
 
 #endif  // SAFE_CRYPTO_PROVIDER_OPENSSL || SAFE_CRYPTO_PQC_LIBOQS
