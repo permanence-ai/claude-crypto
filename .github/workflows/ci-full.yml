@@ -304,12 +304,13 @@ jobs:
     name: Summary
     runs-on: ubuntu-latest
     if: always()
-    needs: [build-test, lint, coverage]
+    needs: [build-test, build-test-ia-asm, lint, coverage]
 
     steps:
       - name: Write job summary
         env:
           BUILD_TEST_RESULT:    ${{ needs.build-test.result }}
+          IA_ASM_RESULT:        ${{ needs.build-test-ia-asm.result }}
           LINT_RESULT:          ${{ needs.lint.result }}
           COVERAGE_RESULT:      ${{ needs.coverage.result }}
           RUN_URL:              ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -328,8 +329,8 @@ jobs:
           }
 
           overall="success"
-          for r in "$BUILD_TEST_RESULT" "$COVERAGE_RESULT"; do
-            [ "$r" = "failure" ] && overall="failure"
+          for r in "$BUILD_TEST_RESULT" "$IA_ASM_RESULT" "$COVERAGE_RESULT"; do
+            [ "$r" = "success" ] || overall="failure"
           done
           [ "$overall" = "success" ] && overall_icon="✅ Passed" || overall_icon="❌ Failed"
 
@@ -339,6 +340,7 @@ jobs:
           | | Job | Result |
           |---|---|---|
           | $(status_icon "$BUILD_TEST_RESULT") | build-test (macOS matrix) | ${BUILD_TEST_RESULT} |
+          | $(status_icon "$IA_ASM_RESULT") | build-test-ia-asm (Linux x86-64) | ${IA_ASM_RESULT} |
           | $(status_icon "$LINT_RESULT") | lint (clang-tidy, non-blocking) | ${LINT_RESULT} |
           | $(status_icon "$COVERAGE_RESULT") | coverage (PSA / ARM / OpenSSL) | ${COVERAGE_RESULT} |
 
