@@ -148,9 +148,11 @@ inline std::optional<PqcKeyView> pqc_key_store_get_private(unsigned int id) noex
     const std::lock_guard<std::mutex> lock{pqc_store_mutex()};
     const PqcKeySlot& s = pqc_key_slot(idx);
     if (!s.in_use || s.priv_len == 0) { return std::nullopt; }
-    SecureBuffer copy{s.priv_len};
-    std::memcpy(copy.data(), s.data, s.priv_len);
-    return PqcKeyView{std::move(copy), s.type, s.variant};
+    try {
+        SecureBuffer copy{s.priv_len};
+        std::memcpy(copy.data(), s.data, s.priv_len);
+        return PqcKeyView{std::move(copy), s.type, s.variant};
+    } catch (...) { return std::nullopt; }
 }
 
 // Returns a copy of the public key bytes, or an empty optional on failure.
@@ -165,9 +167,11 @@ inline std::optional<PqcKeyView> pqc_key_store_get_public(unsigned int id) noexc
     if (!s.in_use) { return std::nullopt; }
     const std::size_t pub_len = s.len - s.priv_len;
     if (pub_len == 0) { return std::nullopt; }
-    SecureBuffer copy{pub_len};
-    std::memcpy(copy.data(), s.data + s.priv_len, pub_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    return PqcKeyView{std::move(copy), s.type, s.variant};
+    try {
+        SecureBuffer copy{pub_len};
+        std::memcpy(copy.data(), s.data + s.priv_len, pub_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        return PqcKeyView{std::move(copy), s.type, s.variant};
+    } catch (...) { return std::nullopt; }
 }
 
 [[nodiscard]]
