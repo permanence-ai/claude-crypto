@@ -484,7 +484,7 @@ static inline auto p521_scalar_from_bytes66( // NOLINT(cppcoreguidelines-avoid-c
     // Load as field element, then conditionally subtract n once.
     Fe521 r{};
     for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (65 - i * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint8_t* p = b + (65 - (i * 8)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         r.v[i] =
             (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -636,7 +636,7 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
-            const u128 tt = static_cast<u128>(a.v[i]) * b.v[j] + t[j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry;
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
         }
@@ -645,10 +645,10 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
         t[s + 1] = static_cast<uint64_t>(tt >> 64U);
 
         const uint64_t m = t[0] * n_prime;
-        tt = static_cast<u128>(m) * p521_n[0] + t[0];
+        tt = (static_cast<u128>(m) * p521_n[0]) + t[0];
         carry = static_cast<uint64_t>(tt >> 64U);
         for (int j = 1; j < s; ++j) {
-            tt       = static_cast<u128>(m) * p521_n[j] + t[j] + carry;
+            tt       = (static_cast<u128>(m) * p521_n[j]) + t[j] + carry;
             t[j - 1] = static_cast<uint64_t>(tt);
             carry    = static_cast<uint64_t>(tt >> 64U);
         }
@@ -770,7 +770,7 @@ static inline auto p521_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
     if ((b[0] & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     Fe521 r{};
     for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (65 - i * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint8_t* p = b + (65 - (i * 8)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         r.v[i] =
             (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)

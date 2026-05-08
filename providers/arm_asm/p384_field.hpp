@@ -60,7 +60,7 @@ static inline auto fe384_from_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -74,7 +74,7 @@ static inline void fe384_to_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,hi
     const Fe384& a, uint8_t b[48]) noexcept
 {
     for (int i = 0; i < 6; ++i) {
-        uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);
@@ -267,18 +267,18 @@ static inline auto fe384_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
     constexpr u128 Wm2 = 0xfffffffeULL;  // W-2
     constexpr u128 Wm3 = 0xfffffffdULL;  // W-3
 
-    r[0]  = c[0]  + c12 + c20 + Wm1*c22 + Wm1*c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[1]  = c[1]  + Wm1*c12 + c13 + Wm1*c20 + c21 + c22; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[2]  = c[2]  + Wm1*c12 + Wm1*c13 + c14 + Wm1*c20 + Wm1*c21 + c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[3]  = c[3]  + Wm1*c13 + Wm1*c14 + c15 + Wm1*c21 + Wm2*c22 + Wm1*c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[4]  = c[4]  + c12 + Wm1*c14 + Wm1*c15 + c16 + c20 + Wm1*c22 + Wm3*c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[5]  = c[5]  + c13 + Wm1*c15 + Wm1*c16 + c17 + c21 + c22; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[6]  = c[6]  + c14 + Wm1*c16 + Wm1*c17 + c18 + c22 + static_cast<u128>(2)*c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[7]  = c[7]  + c15 + Wm1*c17 + Wm1*c18 + c19 + c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[8]  = c[8]  + c16 + Wm1*c18 + Wm1*c19 + c20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[9]  = c[9]  + c17 + Wm1*c19 + Wm1*c20 + c21; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[10] = c[10] + c18 + Wm1*c20 + Wm1*c21 + c22; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    r[11] = c[11] + c19 + Wm1*c21 + Wm1*c22 + c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[0]  = c[0]  + c12 + c20 + (Wm1*c22) + (Wm1*c23); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[1]  = c[1]  + (Wm1*c12) + c13 + (Wm1*c20) + c21 + c22; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[2]  = c[2]  + (Wm1*c12) + (Wm1*c13) + c14 + (Wm1*c20) + (Wm1*c21) + c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[3]  = c[3]  + (Wm1*c13) + (Wm1*c14) + c15 + (Wm1*c21) + (Wm2*c22) + (Wm1*c23); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[4]  = c[4]  + c12 + (Wm1*c14) + (Wm1*c15) + c16 + c20 + (Wm1*c22) + (Wm3*c23); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[5]  = c[5]  + c13 + (Wm1*c15) + (Wm1*c16) + c17 + c21 + c22; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[6]  = c[6]  + c14 + (Wm1*c16) + (Wm1*c17) + c18 + c22 + (static_cast<u128>(2)*c23); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[7]  = c[7]  + c15 + (Wm1*c17) + (Wm1*c18) + c19 + c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[8]  = c[8]  + c16 + (Wm1*c18) + (Wm1*c19) + c20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[9]  = c[9]  + c17 + (Wm1*c19) + (Wm1*c20) + c21; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[10] = c[10] + c18 + (Wm1*c20) + (Wm1*c21) + c22; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r[11] = c[11] + c19 + (Wm1*c21) + (Wm1*c22) + c23; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // Carry propagate (each r[j] < 2^68 before propagation; u128 handles it cleanly).
     for (int i = 0; i < 11; ++i) {
@@ -338,7 +338,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
     for (int i = 0; i < 6; ++i) {
         uint64_t carry = 0;
         for (int j = 0; j < 6; ++j) {
-            const u128 t = static_cast<u128>(a.v[i]) * b.v[j] + c[i + j] + carry;
+            const u128 t = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry;
             c[i + j] = static_cast<uint64_t>(t);
             carry    = static_cast<uint64_t>(t >> 64U);
         }
@@ -349,7 +349,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
     uint32_t c32[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 12; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         c32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(c[i]);
-        c32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(c[i] >> 32U);
+        c32[(2U * static_cast<std::size_t>(i)) + 1] = static_cast<uint32_t>(c[i] >> 32U);
     }
     return fe384_solinas(c32);
 }

@@ -57,7 +57,7 @@ static inline auto fe256_from_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -71,7 +71,7 @@ static inline void fe256_to_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const Fe256& a, uint8_t b[32]) noexcept
 {
     for (int i = 0; i < 4; ++i) {
-        uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);
@@ -223,9 +223,9 @@ static inline void fe256_mul_raw( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
     uint32_t b32[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 4; ++i) {
         a32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(a.v[i]);
-        a32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
+        a32[(2U * static_cast<std::size_t>(i)) + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
         b32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(b.v[i]);
-        b32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
+        b32[(2U * static_cast<std::size_t>(i)) + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
     }
     using u128 = unsigned __int128;
     u128 tmp[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
@@ -252,15 +252,15 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
     r[0] = static_cast<int64_t>(c[0]) + c[8] + c[9] - c[11] - c[12] - c[13] - c[14];
     r[1] = static_cast<int64_t>(c[1]) + c[9] + c[10] - c[12] - c[13] - c[14] - c[15];
     r[2] = static_cast<int64_t>(c[2]) + c[10] + c[11] - c[13] - c[14] - c[15];
-    r[3] = static_cast<int64_t>(c[3]) + 2*static_cast<int64_t>(c[11]) + 2*static_cast<int64_t>(c[12])
+    r[3] = static_cast<int64_t>(c[3]) + (2*static_cast<int64_t>(c[11])) + (2*static_cast<int64_t>(c[12]))
          + c[13] - c[15] - c[8] - c[9];
-    r[4] = static_cast<int64_t>(c[4]) + 2*static_cast<int64_t>(c[12]) + 2*static_cast<int64_t>(c[13])
+    r[4] = static_cast<int64_t>(c[4]) + (2*static_cast<int64_t>(c[12])) + (2*static_cast<int64_t>(c[13]))
          + c[14] - c[9] - c[10];
-    r[5] = static_cast<int64_t>(c[5]) + 2*static_cast<int64_t>(c[13]) + 2*static_cast<int64_t>(c[14])
+    r[5] = static_cast<int64_t>(c[5]) + (2*static_cast<int64_t>(c[13])) + (2*static_cast<int64_t>(c[14]))
          + c[15] - c[10] - c[11];
-    r[6] = static_cast<int64_t>(c[6]) + 3*static_cast<int64_t>(c[14]) + 2*static_cast<int64_t>(c[15])
+    r[6] = static_cast<int64_t>(c[6]) + (3*static_cast<int64_t>(c[14])) + (2*static_cast<int64_t>(c[15]))
          + c[13] - c[8] - c[9];
-    r[7] = static_cast<int64_t>(c[7]) + 3*static_cast<int64_t>(c[15])
+    r[7] = static_cast<int64_t>(c[7]) + (3*static_cast<int64_t>(c[15]))
          + c[8] - c[10] - c[11] - c[12] - c[13];
 
     // Carry-propagate to normalise each word to [0, 2^32-1].
