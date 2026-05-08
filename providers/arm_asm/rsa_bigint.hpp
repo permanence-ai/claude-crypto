@@ -282,7 +282,7 @@ inline BigInt<NW> mont_r2(const BigInt<NW>& m) noexcept {
     // Compute R mod m = 2^(64*NW) mod m by shifting left 64*NW bits.
     // Then compute R^2 mod m = (R mod m)^2 mod m.
     // We do 2*64*NW doublings of r, each time reducing.
-    const std::size_t total_bits = 2U * 64U * NW;
+    const std::size_t total_bits = std::size_t{2} * std::size_t{64} * NW;
     for (std::size_t i = 0; i < total_bits; ++i) {
         // r = r * 2 mod m (left shift by 1, then conditional subtract).
         // Left shift r by 1 bit.
