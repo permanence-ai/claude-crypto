@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include <openssl/bn.h>
 #include <openssl/core_names.h>
@@ -862,7 +863,7 @@ struct OpenSslBackend {
             // Export PKCS#1 DER private key.
             CryptoByte* p = data;
             const int len = i2d_PrivateKey(pkey, &p);
-            if (len < 0 || static_cast<std::size_t>(len) > data_size) { return err_invalid_arg; }
+            if (len < 0 || std::cmp_greater(len, data_size)) { return err_invalid_arg; }
             *data_length = static_cast<std::size_t>(len);
             return ok;
         }
@@ -884,7 +885,7 @@ struct OpenSslBackend {
             return err_invalid_arg;
         }
         const int nbytes = BN_num_bytes(bn);
-        if (nbytes < 0 || static_cast<std::size_t>(nbytes) > data_size) {
+        if (nbytes < 0 || std::cmp_greater(nbytes, data_size)) {
             BN_free(bn);
             return err_invalid_arg;
         }
@@ -909,7 +910,7 @@ struct OpenSslBackend {
             // Export SubjectPublicKeyInfo DER.
             CryptoByte* p = data;
             const int len = i2d_PublicKey(pkey, &p);
-            if (len < 0 || static_cast<std::size_t>(len) > data_size) { return err_invalid_arg; }
+            if (len < 0 || std::cmp_greater(len, data_size)) { return err_invalid_arg; }
             *data_length = static_cast<std::size_t>(len);
             return ok;
         }
@@ -1029,7 +1030,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_arg;
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             if (EVP_EncryptInit_ex2(ctx, cipher, slot->data.data(), nonce, nullptr) != ok) { break; }
             int out_len = 0;
             if (additional_data_length > 0) {
@@ -1049,7 +1050,7 @@ struct OpenSslBackend {
                                     ciphertext + written) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             *ciphertext_length = written + tag_len;
             rv = ok;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_CIPHER_CTX_free(ctx);
         return rv;
@@ -1082,7 +1083,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_sig;  // auth failure by default
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             if (EVP_DecryptInit_ex2(ctx, cipher, slot->data.data(), nonce, nullptr) != ok) {
                 rv = err_invalid_arg; break;
             }
@@ -1107,7 +1108,7 @@ struct OpenSslBackend {
             if (EVP_DecryptFinal_ex(ctx, plaintext + written, &final_len) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             *plaintext_length = written + static_cast<std::size_t>(final_len);
             rv = ok;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_CIPHER_CTX_free(ctx);
         return rv;
@@ -1132,7 +1133,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_arg;
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             EVP_PKEY_CTX* pctx = nullptr;
             // SLH-DSA and ML-DSA use NULL digest (pure-message schemes, no external hash).
             const char* digest = is_pqc ? nullptr : "SHA2-384";
@@ -1146,7 +1147,7 @@ struct OpenSslBackend {
             if (EVP_DigestSign(ctx, signature, &len, input, input_length) != ok) { break; }
             *signature_length = len;
             rv = ok;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_MD_CTX_free(ctx);
         return rv;
@@ -1170,7 +1171,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_arg;
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             EVP_PKEY_CTX* pctx = nullptr;
             const char* digest = is_pqc_v ? nullptr : "SHA2-384";
             if (EVP_DigestVerifyInit_ex(ctx, &pctx, digest,
@@ -1184,7 +1185,7 @@ struct OpenSslBackend {
             if (r == 1)  { rv = ok; break; }
             if (r == 0)  { rv = err_invalid_sig; break; }
             rv = err_invalid_arg;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_MD_CTX_free(ctx);
         return rv;
@@ -1263,7 +1264,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_arg;
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             if (EVP_PKEY_encrypt_init(ctx) != ok) { break; }
             if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) != ok) { break; }
             if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha384()) != ok) { break; }
@@ -1283,7 +1284,7 @@ struct OpenSslBackend {
             if (EVP_PKEY_encrypt(ctx, output, &len, input, input_length) != ok) { break; }
             *output_length = len;
             rv = ok;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_PKEY_CTX_free(ctx);
         return rv;
@@ -1306,7 +1307,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_arg;
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             if (EVP_PKEY_decrypt_init(ctx) != ok) { break; }
             if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) != ok) { break; }
             if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha384()) != ok) { break; }
@@ -1325,7 +1326,7 @@ struct OpenSslBackend {
             if (EVP_PKEY_decrypt(ctx, output, &len, input, input_length) != ok) { break; }
             *output_length = len;
             rv = ok;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_PKEY_CTX_free(ctx);
         return rv;
@@ -1348,7 +1349,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_arg;
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             if (EVP_PKEY_encapsulate_init(ctx, nullptr) != ok) { break; }
             // Query output sizes first (pass nullptr buffers).
             std::size_t ct_len = 0;
@@ -1366,7 +1367,7 @@ struct OpenSslBackend {
             *ciphertext_length    = ct_len;
             *shared_secret_length = ss_len;
             rv = ok;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_PKEY_CTX_free(ctx);
         return rv;
@@ -1389,7 +1390,7 @@ struct OpenSslBackend {
         if (ctx == nullptr) { return err_invalid_arg; }
 
         Status rv = err_invalid_arg;
-        do {
+        do { // NOLINT(cppcoreguidelines-avoid-do-while)
             if (EVP_PKEY_decapsulate_init(ctx, nullptr) != ok) { break; }
             std::size_t ss_len = shared_secret_size;
             if (EVP_PKEY_decapsulate(ctx,
@@ -1397,7 +1398,7 @@ struct OpenSslBackend {
                                      ciphertext, ciphertext_length) != ok) { break; }
             *shared_secret_length = ss_len;
             rv = ok;
-        } while (false);
+        } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_PKEY_CTX_free(ctx);
         return rv;
