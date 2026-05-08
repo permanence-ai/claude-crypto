@@ -60,7 +60,7 @@ static inline auto fe384_from_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
-        const uint8_t* p = b + (5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -74,7 +74,7 @@ static inline void fe384_to_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,hi
     const Fe384& a, uint8_t b[48]) noexcept
 {
     for (int i = 0; i < 6; ++i) {
-        uint8_t* p = b + (5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        uint8_t* p = b + static_cast<std::ptrdiff_t>(5 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);
@@ -348,8 +348,8 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
     // Expand 12 × 64-bit words to 24 × 32-bit words for the existing Solinas path.
     uint32_t c32[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 12; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        c32[2 * i]     = static_cast<uint32_t>(c[i]);
-        c32[2 * i + 1] = static_cast<uint32_t>(c[i] >> 32U);
+        c32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(c[i]);
+        c32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(c[i] >> 32U);
     }
     return fe384_solinas(c32);
 }

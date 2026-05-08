@@ -57,7 +57,7 @@ static inline auto fe256_from_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -71,7 +71,7 @@ static inline void fe256_to_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const Fe256& a, uint8_t b[32]) noexcept
 {
     for (int i = 0; i < 4; ++i) {
-        uint8_t* p = b + (3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        uint8_t* p = b + static_cast<std::ptrdiff_t>(3 - i) * 8; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);
@@ -222,16 +222,16 @@ static inline void fe256_mul_raw( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
     uint32_t a32[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     uint32_t b32[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 4; ++i) {
-        a32[2 * i]     = static_cast<uint32_t>(a.v[i]);
-        a32[2 * i + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
-        b32[2 * i]     = static_cast<uint32_t>(b.v[i]);
-        b32[2 * i + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
+        a32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(a.v[i]);
+        a32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
+        b32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(b.v[i]);
+        b32[2U * static_cast<std::size_t>(i) + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
     }
     using u128 = unsigned __int128;
     u128 tmp[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
-            tmp[i + j] += static_cast<uint64_t>(a32[i]) * b32[j];
+            tmp[static_cast<std::size_t>(i + j)] += static_cast<u128>(a32[i]) * b32[j];
         }
     }
     uint64_t carry = 0;
