@@ -188,7 +188,7 @@ inline bool oaep_decode(
         const uint8_t is_one  = static_cast<uint8_t>((db[i] == 0x01U) & (found == 0U)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         const uint8_t is_zero = static_cast<uint8_t>( db[i] == 0x00U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         // If we haven't found 0x01 yet and this byte is not 0x00 and not 0x01: error.
-        err |= static_cast<uint8_t>((found == 0U) & (is_zero == 0U) & (is_one == 0U));
+        err |= static_cast<uint8_t>(static_cast<unsigned>(found == 0U) & static_cast<unsigned>(is_zero == 0U) & static_cast<unsigned>(is_one == 0U));
         // Update msg_start in constant-time fashion.
         // When is_one transitions found 0→1, set msg_start = i+1.
         const std::size_t candidate = i + 1U;

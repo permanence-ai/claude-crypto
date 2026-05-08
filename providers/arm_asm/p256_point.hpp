@@ -548,8 +548,6 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
             const int64_t diff = static_cast<int64_t>(acc[step + i])
                 - static_cast<int64_t>(static_cast<uint64_t>(prod)) + borrow;
             acc[step + i] = static_cast<uint64_t>(diff);
-            borrow = static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U))
-                   - (diff < 0 ? 0LL : 0LL);
             borrow = -(static_cast<int64_t>(prod >> 64U) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
         }
         acc[step + 4] = static_cast<uint64_t>(static_cast<int64_t>(acc[step + 4]) + borrow);

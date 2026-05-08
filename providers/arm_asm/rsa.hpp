@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 #include "defs.hpp"
 #include "random.hpp"
@@ -128,9 +129,9 @@ template<typename Fn>
 [[nodiscard]]
 inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept {
     switch (bits) {
-        case 2048U: return fn.template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 3072U: return fn.template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 4096U: return fn.template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 2048U: return std::forward<Fn>(fn).template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 3072U: return std::forward<Fn>(fn).template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 4096U: return std::forward<Fn>(fn).template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         default: return false;
     }
 }
@@ -140,10 +141,10 @@ template<typename Fn>
 [[nodiscard]]
 inline bool rsa_dispatch_all(std::size_t bits, Fn&& fn) noexcept {
     switch (bits) {
-        case 1024U: return fn.template operator()<16U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 2048U: return fn.template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 3072U: return fn.template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 4096U: return fn.template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 1024U: return std::forward<Fn>(fn).template operator()<16U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 2048U: return std::forward<Fn>(fn).template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 3072U: return std::forward<Fn>(fn).template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 4096U: return std::forward<Fn>(fn).template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         default: return false;
     }
 }
