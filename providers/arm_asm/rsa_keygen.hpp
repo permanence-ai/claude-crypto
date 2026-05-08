@@ -163,7 +163,7 @@ inline BigInt<NW> small_e_modinv(const BigInt<NW>& m) noexcept {
     std::array<uint64_t, NW + 1U> num{};
     uint64_t carry = 1U;  // +1
     for (std::size_t i = 0; i < NW; ++i) {
-        const __uint128_t prod = static_cast<__uint128_t>(k) * m.d[i] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const __uint128_t prod = (static_cast<__uint128_t>(k) * m.d[i]) + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         num[i] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
         carry = static_cast<uint64_t>(prod >> 64U);
     }
@@ -335,7 +335,7 @@ inline std::size_t der_encode_integer(
     std::array<CryptoByte, NW * 8U> be{};
     bigint_to_bytes(val, be.data());
     // Source bytes occupy the last meaningful_bytes of the full NW*8 output.
-    const CryptoByte* src = be.data() + (NW * 8U - meaningful_bytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const CryptoByte* src = be.data() + ((NW * 8U) - meaningful_bytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
     // Strip leading zeros, keep at least one byte.
     std::size_t start = 0;
@@ -407,7 +407,7 @@ inline bool rsa_generate_key_der(
             if (p.d[i] == 0U) { continue; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             uint64_t carry = 0;
             for (std::size_t j = 0; j < HW; ++j) {
-                const __uint128_t prod = static_cast<__uint128_t>(p.d[i]) * q.d[j] // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const __uint128_t prod = (static_cast<__uint128_t>(p.d[i]) * q.d[j]) // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                                        + n.d[i + j] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                 n.d[i + j] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                 carry = static_cast<uint64_t>(prod >> 64U);
@@ -421,7 +421,7 @@ inline bool rsa_generate_key_der(
             if (p1.d[i] == 0U) { continue; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             uint64_t carry = 0;
             for (std::size_t j = 0; j < HW; ++j) {
-                const __uint128_t prod = static_cast<__uint128_t>(p1.d[i]) * q1.d[j] // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const __uint128_t prod = (static_cast<__uint128_t>(p1.d[i]) * q1.d[j]) // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                                        + phi.d[i + j] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                 phi.d[i + j] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                 carry = static_cast<uint64_t>(prod >> 64U);
@@ -448,8 +448,8 @@ inline bool rsa_generate_key_der(
         // Max body size: 9 integers, each up to mod_bytes+6 bytes, plus 3-byte sequence header.
         // version(3) + n,e,d overhead + p,q,dp,dq,qinv overhead
         const std::size_t max_body = 3U
-            + 3U * (mod_bytes + 6U)    // n, e (3 bytes), d
-            + 5U * (prime_bytes + 6U); // p, q, dp, dq, qinv
+            + (3U * (mod_bytes + 6U))    // n, e (3 bytes), d
+            + (5U * (prime_bytes + 6U)); // p, q, dp, dq, qinv
         const std::size_t hdr_reserve = 5U;
         if (out_max < max_body + hdr_reserve) { return false; }
 

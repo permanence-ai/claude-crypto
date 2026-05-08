@@ -956,7 +956,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static std::size_t rsa_private_key_export_size(std::size_t bits) noexcept {
         // PSA_KEY_EXPORT_RSA_KEY_PAIR_MAX_SIZE(bits) = 9*(bits/2/8+5+1)+14 = 9*(bits/16+6)+14
-        return (9U * (bits / 16U + 6U)) + 14U;
+        return (9U * ((bits / 16U) + 6U)) + 14U;
     }
     [[nodiscard]]
     static std::size_t rsa_public_key_export_size(std::size_t bits) noexcept {

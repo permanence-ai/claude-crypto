@@ -51,7 +51,7 @@ inline bool pss_encode(
     const std::size_t em_len  = (em_bits + 7U) / 8U;
 
     // PSS requires emLen >= hLen + sLen + 2.
-    if (em_len < 2U * oaep_hash_len + 2U) { return false; }
+    if (em_len < (2U * oaep_hash_len) + 2U) { return false; }
 
     const std::size_t db_len = em_len - oaep_hash_len - 1U;  // emLen - hLen - 1
 
@@ -82,7 +82,7 @@ inline bool pss_encode(
     }
 
     // Zero the top (8*emLen - emBits) bits of maskedDB[0].
-    const std::size_t top_bits = 8U * em_len - em_bits;
+    const std::size_t top_bits = (8U * em_len) - em_bits;
     if (top_bits > 0U) {
         out_em[0] &= static_cast<CryptoByte>(0xFFU >> top_bits); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -113,7 +113,7 @@ inline bool pss_verify(
     const std::size_t em_bits = modulus_bits - 1U;
     const std::size_t em_len  = (em_bits + 7U) / 8U;
 
-    if (em_len < 2U * oaep_hash_len + 2U) { return false; }
+    if (em_len < (2U * oaep_hash_len) + 2U) { return false; }
 
     const std::size_t db_len = em_len - oaep_hash_len - 1U;
 
@@ -124,7 +124,7 @@ inline bool pss_verify(
     const CryptoByte* h         = em + db_len; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
     // Check top bits of maskedDB[0] are zero.
-    const std::size_t top_bits = 8U * em_len - em_bits;
+    const std::size_t top_bits = (8U * em_len) - em_bits;
     const uint8_t top_mask = static_cast<uint8_t>(0xFFU << (8U - top_bits));
     if ((masked_db[0] & top_mask) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
