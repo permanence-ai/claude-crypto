@@ -65,7 +65,7 @@ protected:
         for (std::size_t i = 0; i < 32; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
             out[i] = static_cast<uint8_t>(v);
         }
@@ -78,7 +78,7 @@ protected:
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
             out[i] = static_cast<uint8_t>(v);
         }
@@ -249,7 +249,7 @@ protected:
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
             out[i] = static_cast<uint8_t>(v);
         }
@@ -564,7 +564,7 @@ protected:
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
             out[i] = static_cast<uint8_t>(v);
         }
@@ -662,7 +662,7 @@ protected:
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
             out[i] = static_cast<uint8_t>(v);
         }
@@ -940,7 +940,7 @@ protected:
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
             out[i] = static_cast<uint8_t>(v);
         }
@@ -1113,7 +1113,7 @@ protected:
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c)
+            std::sscanf(s + i * 2, "%02x", &v); // NOLINT(cert-err34-c,cert-err33-c,bugprone-unchecked-string-to-number-conversion)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
             out[i] = static_cast<uint8_t>(v);
         }
