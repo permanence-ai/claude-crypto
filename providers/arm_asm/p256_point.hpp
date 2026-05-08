@@ -514,7 +514,7 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
     uint32_t w[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     for (int i = 0; i < 16; ++i) {
         const int j = 15 - i;
-        const uint8_t* p = b + (j * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + static_cast<std::ptrdiff_t>(j) * 4; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
