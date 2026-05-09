@@ -48,7 +48,7 @@ static inline __m128i aes256_keygen_helper(__m128i key, __m128i keygen_result) n
 // Helper for the "odd" AES-256 round keys (those derived from SubWord without RotWord).
 [[gnu::target("aes,sse4.1")]]
 static inline __m128i aes256_keygen_helper2(__m128i key, __m128i keygen_result) noexcept {
-    keygen_result = _mm_shuffle_epi32(keygen_result, 0xAA); lane 2
+    keygen_result = _mm_shuffle_epi32(keygen_result, 0xAA); // lane 2
     key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
     key = _mm_xor_si128(key, _mm_slli_si128(key, 8));
     return _mm_xor_si128(key, keygen_result);

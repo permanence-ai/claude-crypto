@@ -111,9 +111,9 @@ inline void chacha20_block(const uint8_t key[32], uint32_t counter,
     for (int i = 0; i < 10; ++i) {
         chacha20_qr(r0, r1, r2, r3);
         // Rotate rows to form diagonals: r1 left 1, r2 left 2, r3 left 3.
-        r1 = _mm_shuffle_epi32(r1, 0x39); [1,2,3,0]
-        r2 = _mm_shuffle_epi32(r2, 0x4E); [2,3,0,1]
-        r3 = _mm_shuffle_epi32(r3, 0x93); [3,0,1,2]
+        r1 = _mm_shuffle_epi32(r1, 0x39); // [1,2,3,0]
+        r2 = _mm_shuffle_epi32(r2, 0x4E); // [2,3,0,1]
+        r3 = _mm_shuffle_epi32(r3, 0x93); // [3,0,1,2]
         chacha20_qr(r0, r1, r2, r3);
         // Rotate rows back.
         r1 = _mm_shuffle_epi32(r1, 0x93);
