@@ -34,10 +34,9 @@ target_include_directories(${LIB_NAME} INTERFACE
 )
 
 # ARM Crypto Extensions: AES, SHA2, SHA3, PMULL — only valid on AArch64.
-# Skip the march flag when cross-compiling for x86_64 on macOS (IA ASM build)
-# so the ARM flag does not propagate to x86_64 translation units that link
-# safe_crypto_lib_arm_asm transitively for cross-provider tests.
-if(NOT (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64"))
+# Skip these flags when configuring x86_64 builds so ARM options do not
+# propagate to translation units that include x86-portable ASM-provider helpers.
+if(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
     target_compile_options(${LIB_NAME} INTERFACE
             -march=armv8.2-a+crypto+sha3
     )
@@ -51,17 +50,20 @@ if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
     # the translation unit is unconditionally included in any executable that
     # links safe_crypto_lib_dilithium_ntt, ensuring our symbols are resolved
     # before the linker consults liboqs.a.
-    add_library(safe_crypto_lib_dilithium_ntt OBJECT
-            dilithium_ntt_neon.cpp
-    )
-    target_compile_options(safe_crypto_lib_dilithium_ntt PRIVATE
-            -march=armv8.2-a+crypto+sha3
-    )
-    target_include_directories(safe_crypto_lib_dilithium_ntt PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-    target_link_libraries(safe_crypto_lib_dilithium_ntt PRIVATE
-            safe_crypto_warnings
-            safe_crypto_optimize
-    )
+    if(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
+        add_library(safe_crypto_lib_dilithium_ntt OBJECT
+                dilithium_ntt_neon.cpp
+        )
+        target_compile_options(safe_crypto_lib_dilithium_ntt PRIVATE
+                -march=armv8.2-a+crypto+sha3
+        )
+        target_compile_definitions(safe_crypto_lib_dilithium_ntt PRIVATE SAFE_CRYPTO_ARM_ASM_AVAILABLE)
+        target_include_directories(safe_crypto_lib_dilithium_ntt PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+        target_link_libraries(safe_crypto_lib_dilithium_ntt PRIVATE
+                safe_crypto_warnings
+                safe_crypto_optimize
+        )
+    endif()
 endif()

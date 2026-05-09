@@ -18,7 +18,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 )
 
 # arm_asm backend cannot be compiled for x86_64 (NEON headers).
-if(NOT (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64"))
+if(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
     target_link_libraries(${EXE_NAME} PRIVATE
             safe_crypto_lib_arm_asm  # all three backends benchmarked side-by-side
     )
@@ -26,5 +26,7 @@ endif()
 
 if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
     target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib_liboqs)
-    target_link_libraries(${EXE_NAME} PRIVATE $<TARGET_OBJECTS:safe_crypto_lib_dilithium_ntt>)
+    if(TARGET safe_crypto_lib_dilithium_ntt)
+        target_link_libraries(${EXE_NAME} PRIVATE $<TARGET_OBJECTS:safe_crypto_lib_dilithium_ntt>)
+    endif()
 endif()

@@ -198,8 +198,7 @@ jobs:
         run: |
           find ${{ matrix.tidy_paths }} -name '*.hpp' \
             | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
-                -p build-lint-${{ matrix.label }} \
-                --config-file=.clang-tidy
+                -p build-lint-${{ matrix.label }}
 
   # ---------------------------------------------------------------------------
   # Coverage
