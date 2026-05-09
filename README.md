@@ -146,8 +146,8 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
-safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, mac, random subcommands; CLI11 v2.6.2
-safe-crypto-cli-test/     # GoogleTest suite for scli — 103 subprocess-based tests; validates stdout and exit codes
+safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, mac, random, rsa subcommands; CLI11 v2.6.2
+safe-crypto-cli-test/     # GoogleTest suite for scli — 112 subprocess-based tests; validates stdout and exit codes
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
@@ -690,6 +690,54 @@ scli ecdh compute --curve p256 \
   --key b_priv.der --peer-public a_pub.der
 ```
 
+#### `rsa` — RSA key generation, OAEP encryption/decryption, and PSS signing/verification
+
+```
+scli rsa keygen       --bits 3072|4096
+                      [--out-private <spec>]   # PKCS#1 DER, default: base64 to stdout
+                      [--out-public  <spec>]   # SPKI DER, default: base64 to stdout
+
+scli rsa oaep-encrypt --bits 3072|4096
+                      --key    <spec>          # public key DER
+                      --input  <spec>          # plaintext
+                      [--output <spec>]        # ciphertext (default: base64 to stdout)
+                      [--label  <spec>]        # optional OAEP label
+
+scli rsa oaep-decrypt --bits 3072|4096
+                      --key    <spec>          # private key DER
+                      --input  <spec>          # ciphertext
+                      [--output <spec>]
+                      [--label  <spec>]
+
+scli rsa pss-sign     --bits 3072|4096
+                      --key    <spec>          # private key DER
+                      --input  <spec>          # message
+                      [--output <spec>]        # signature (default: base64 to stdout)
+
+scli rsa pss-verify   --bits 3072|4096
+                      --key       <spec>       # public key DER
+                      --input     <spec>       # message
+                      --signature <spec>
+                      # exits 0 = valid, 1 = invalid
+```
+
+```bash
+# Generate a 3072-bit key pair
+scli rsa keygen --bits 3072 \
+  --out-private priv.der --out-public pub.der
+
+# Encrypt / decrypt
+scli rsa oaep-encrypt --bits 3072 --key pub.der \
+  --input base64:aGVsbG8gd29ybGQ= --output ct.bin
+scli rsa oaep-decrypt --bits 3072 --key priv.der \
+  --input ct.bin
+
+# Sign / verify
+scli rsa pss-sign   --bits 3072 --key priv.der --input message.bin
+scli rsa pss-verify --bits 3072 --key pub.der  --input message.bin \
+  --signature base64:<sig-b64>
+```
+
 #### `random` — Generate cryptographically secure random bytes
 
 ```
@@ -706,12 +754,14 @@ scli random --length 64 --output keyfile.bin
 
 ### CLI tests
 
-A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 103 tests covering all six subcommands run in under three seconds:
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 112 tests covering all seven subcommands:
 
 ```bash
 cmake --build build --target safe_crypto_cli_test
-cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|MacTests|RandomTests"
+cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|MacTests|RandomTests|RsaTests"
 ```
+
+> **Note:** RSA tests are slow in debug builds (~4 min) due to Miller-Rabin primality testing. Use a release build for speed: `cmake -DCMAKE_BUILD_TYPE=Release`.
 
 ## Stack
 

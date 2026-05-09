@@ -11,6 +11,7 @@ add_executable(${EXE_NAME}
         cmd_ecdsa.hpp
         cmd_mac.hpp
         cmd_random.hpp
+        cmd_rsa.hpp
         main.cpp
 )
 

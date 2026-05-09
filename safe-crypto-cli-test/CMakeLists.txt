@@ -11,6 +11,7 @@ add_executable(${EXE_NAME}
         mac_tests.hpp
         main.cpp
         random_tests.hpp
+        rsa_tests.hpp
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE
