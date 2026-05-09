@@ -43,7 +43,7 @@ using arm_asm::detail::p384_validate_public_point;
 using arm_asm::detail::p521_validate_public_point;
 
 
-static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
     const uint8_t* scalar_be, std::size_t qlen,
     const uint8_t* hash_be,   std::size_t hlen,
     const uint64_t* n_limbs,  std::size_t n_limb_count,

@@ -175,7 +175,7 @@ inline void hmac_sha256(const uint8_t* key, std::size_t key_len,
 // ---------------------------------------------------------------------------
 // HMAC-SHA-512 and HMAC-SHA-384
 // ---------------------------------------------------------------------------
-inline void hmac_sha512_impl(const uint64_t h0[8], // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline void hmac_sha512_impl(const uint64_t h0[8], // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
                               const uint8_t* key, std::size_t key_len,
                               const uint8_t* msg, std::size_t msg_len,
                               uint8_t* out, std::size_t out_bytes) noexcept
@@ -229,7 +229,7 @@ inline void hmac_sha384(const uint8_t* key, std::size_t key_len,
 // ---------------------------------------------------------------------------
 // HMAC-SHA3 (SHA3-256, SHA3-384, SHA3-512)
 // ---------------------------------------------------------------------------
-inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes,
+inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
                             const uint8_t* key, std::size_t key_len,
                             const uint8_t* msg, std::size_t msg_len,
                             uint8_t* out) noexcept

@@ -231,7 +231,7 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
 #else // IA_ASM_SHA_NI_ENABLED — portable scalar fallback
 
 // Portable scalar SHA-256 compress. Used when SHA-NI is disabled.
-inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-size)
+inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
 {
     auto rotr = [](uint32_t x, int n) noexcept { return (x >> n) | (x << (32 - n)); }; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     auto ch   = [](uint32_t x, uint32_t y, uint32_t z) noexcept { return (x & y) ^ (~x & z); };

@@ -91,7 +91,7 @@ static inline void poly1305_feed( // NOLINT(readability-function-size)
 
 
 [[gnu::target("sse2")]]
-inline void chacha20_poly1305_encrypt(
+inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key,
     const CryptoByte* nonce,
     const CryptoByte* aad,  std::size_t aad_len,
@@ -106,7 +106,7 @@ inline void chacha20_poly1305_encrypt(
 
 
 [[gnu::target("sse2")]]
-inline bool chacha20_poly1305_decrypt(
+inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key,
     const CryptoByte* nonce,
     const CryptoByte* aad, std::size_t aad_len,
