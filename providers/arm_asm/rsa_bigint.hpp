@@ -433,7 +433,7 @@ inline BigInt<NW> rsa_crt_combine(
 // -----------------------------------------------------------------------
 
 template<std::size_t NW>
-inline void rsa_private_op(
+inline void rsa_private_op( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* c_bytes,   std::size_t c_len,
     const CryptoByte* p_bytes,   std::size_t p_len,
     const CryptoByte* q_bytes,   std::size_t q_len,
@@ -466,7 +466,7 @@ inline void rsa_private_op(
 // -----------------------------------------------------------------------
 
 template<std::size_t NW>
-inline void rsa_public_op(
+inline void rsa_public_op( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* m_bytes,  std::size_t m_len,
     const CryptoByte* n_bytes,  std::size_t n_len,
     const CryptoByte* e_bytes,  std::size_t e_len,

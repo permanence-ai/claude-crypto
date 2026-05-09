@@ -104,7 +104,7 @@ inline bool ml_kem_keygen(
 }
 
 [[nodiscard]]
-inline bool ml_kem_encaps(
+inline bool ml_kem_encaps( // NOLINT(readability-function-size)
     const MlKemVariant variant,
     const CryptoByte* public_key, std::size_t public_key_size,
     CryptoByte* ciphertext,    std::size_t ciphertext_size,
@@ -121,7 +121,7 @@ inline bool ml_kem_encaps(
 }
 
 [[nodiscard]]
-inline bool ml_kem_decaps(
+inline bool ml_kem_decaps( // NOLINT(readability-function-size)
     const MlKemVariant variant,
     const CryptoByte* private_key,  std::size_t private_key_size,
     const CryptoByte* ciphertext,   std::size_t ciphertext_size,
@@ -155,7 +155,7 @@ inline bool ml_dsa_keygen(
 }
 
 [[nodiscard]]
-inline bool ml_dsa_sign(
+inline bool ml_dsa_sign( // NOLINT(readability-function-size)
     const MlDsaVariant variant,
     const CryptoByte* private_key,  std::size_t private_key_size,
     const CryptoByte* message,      std::size_t message_size,
@@ -174,7 +174,7 @@ inline bool ml_dsa_sign(
 }
 
 [[nodiscard]]
-inline bool ml_dsa_verify(
+inline bool ml_dsa_verify( // NOLINT(readability-function-size)
     const MlDsaVariant variant,
     const CryptoByte* public_key,  std::size_t public_key_size,
     const CryptoByte* message,     std::size_t message_size,

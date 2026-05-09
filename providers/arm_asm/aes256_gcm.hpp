@@ -105,7 +105,7 @@ static inline void gcm_length_block(
 //   E_J0    = AES_K(J0)
 //   tag     = GHASH_H(aad_padded ‖ ct_padded ‖ len_block) XOR E_J0
 [[gnu::target("aes,neon")]]
-static inline void gcm_compute_tag(
+static inline void gcm_compute_tag( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte*    aad,
     std::size_t          aad_len,
     const CryptoByte*    ct,
@@ -170,7 +170,7 @@ static inline void gcm_compute_tag(
 //   pt_len   : plaintext length
 //   out      : must hold pt_len + 16 bytes (ciphertext + tag)
 [[gnu::target("aes,neon")]]
-inline void aes256_gcm_encrypt(
+inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key,
     const CryptoByte* iv,
     const CryptoByte* aad,
@@ -205,7 +205,7 @@ inline void aes256_gcm_encrypt(
 //   ct_len includes the 16-byte tag; out must hold ct_len - 16 bytes.
 //   Returns true on successful tag verification; if false, out is zeroed.
 [[gnu::target("aes,neon")]]
-inline bool aes256_gcm_decrypt(
+inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key,
     const CryptoByte* iv,
     const CryptoByte* aad,

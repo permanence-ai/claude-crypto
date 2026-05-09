@@ -189,7 +189,7 @@ inline void chacha20_block(const uint8_t key[32], uint32_t counter,
 // Used to convert the word-major state produced by the 4-block round loop back
 // into the block-major layout needed for the XOR step.
 [[gnu::target("neon")]]
-static inline void chacha20_transpose4(
+static inline void chacha20_transpose4( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     uint32x4_t a0, uint32x4_t a1, uint32x4_t a2, uint32x4_t a3,
     uint32x4_t& b0, uint32x4_t& b1, uint32x4_t& b2, uint32x4_t& b3) noexcept
 {
@@ -220,7 +220,7 @@ static inline void chacha20_transpose4(
 // Initial-state add-back is computed from the scalar key/counter/nonce values
 // already in registers, saving 16 NEON registers vs. an explicit save.
 [[gnu::target("neon")]]
-static inline void chacha20_xor4(
+static inline void chacha20_xor4( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const uint8_t key[32], uint32_t counter, // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     const uint8_t nonce[12],                  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     const uint8_t* in, uint8_t* out) noexcept

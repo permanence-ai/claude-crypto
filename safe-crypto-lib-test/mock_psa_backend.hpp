@@ -432,13 +432,13 @@ struct MockPsaBackend {
     static std::size_t ml_kem_public_key_export_size(const MlKemVariant v) noexcept {
         return RealPsaBackend::ml_kem_public_key_export_size(v);
     }
-    static Status kem_encapsulate(
+    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId k, const Algorithm a,
         CryptoByte* ct, std::size_t ct_sz, std::size_t* ct_len,
         CryptoByte* ss, std::size_t ss_sz, std::size_t* ss_len) noexcept {
         return RealPsaBackend::kem_encapsulate(k, a, ct, ct_sz, ct_len, ss, ss_sz, ss_len);
     }
-    static Status kem_decapsulate(
+    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId k, const Algorithm a,
         const CryptoByte* ct, std::size_t ct_len,
         CryptoByte* ss, std::size_t ss_sz, std::size_t* ss_len) noexcept {

@@ -38,7 +38,7 @@ namespace arm_asm::detail {
 // k_out:     output k (big-endian, qlen bytes)
 // qlen:      byte length of curve order (32 for P-256, 48 for P-384, 66 for P-521)
 
-static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
     const uint8_t* scalar_be, std::size_t qlen,
     const uint8_t* hash_be,   std::size_t hlen,
     const uint64_t* n_limbs,  std::size_t n_limb_count,

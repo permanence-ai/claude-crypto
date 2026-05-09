@@ -285,7 +285,7 @@ inline bool rsa_parse_public_key_der(
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_encode_public_key_der(
+inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* n_bytes, std::size_t n_len,
     const CryptoByte* e_bytes, std::size_t e_len,
     CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept
@@ -422,7 +422,7 @@ inline bool rsa_derive_public_key_der(
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_encode_pkcs1_pubkey_der(
+inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* n_bytes, std::size_t n_len,
     const CryptoByte* e_bytes, std::size_t e_len,
     CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept

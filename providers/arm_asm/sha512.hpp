@@ -116,7 +116,7 @@ inline constexpr uint64_t sha512_k[80] = {
 //   <cd_complement> += intermed
 // where <ef>,<gh>,<cd>,<ab> rotate through {ef,gh,cd,ab} each step.
 [[gnu::target("sha3,neon")]]
-inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcept
+inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
     uint64x2_t ab = vld1q_u64(state);
     uint64x2_t cd = vld1q_u64(state + 2);

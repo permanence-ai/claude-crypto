@@ -154,7 +154,7 @@ struct Poly1305Powers {
     }
 };
 
-static inline void poly1305_process_quad(
+static inline void poly1305_process_quad( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     Poly1305Limbs& h,
     uint64_t m0lo, uint64_t m0hi,
     uint64_t m1lo, uint64_t m1hi,

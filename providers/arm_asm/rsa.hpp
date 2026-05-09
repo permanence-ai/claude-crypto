@@ -183,7 +183,7 @@ inline unsigned int rsa_generate_key_pair(
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_oaep_encrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline bool rsa_oaep_encrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* pub_der, std::size_t pub_len,
     const CryptoByte* pt, std::size_t pt_len,
@@ -218,7 +218,7 @@ inline bool rsa_oaep_encrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-a
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_oaep_decrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline bool rsa_oaep_decrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* priv_der, std::size_t priv_len,
     const CryptoByte* ct, std::size_t ct_len,
@@ -255,7 +255,7 @@ inline bool rsa_oaep_decrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-a
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_pss_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline bool rsa_pss_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* priv_der, std::size_t priv_len,
     const CryptoByte* msg, std::size_t msg_len,
@@ -294,7 +294,7 @@ inline bool rsa_pss_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_pss_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline bool rsa_pss_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* pub_der, std::size_t pub_len,
     const CryptoByte* msg, std::size_t msg_len,

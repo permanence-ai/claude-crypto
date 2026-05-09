@@ -86,7 +86,7 @@ inline constexpr uint64_t sha512_k[80] = { // NOLINT(cppcoreguidelines-avoid-c-a
 // state[0..7] = {h0,..,h7}, updated in place.
 // Message bytes are big-endian; load+byteswap is done here.
 // Constant-time by construction: no secret-dependent branches or memory accesses.
-inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-size)
+inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
 {
     // Load message words; block is big-endian.
     uint64_t w[80]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)

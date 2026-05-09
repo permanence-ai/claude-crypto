@@ -591,7 +591,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status import_key(
+    static Status import_key( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyAttributes* attributes,
         const CryptoByte* data, const std::size_t data_length,
         KeyId* key) noexcept
@@ -755,7 +755,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status generate_key(
+    static Status generate_key( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyAttributes* attributes,
         KeyId* key) noexcept
     {
@@ -1115,7 +1115,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status sign_message(  // NOLINT(readability-function-size)
+    static Status sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* signature, const std::size_t signature_size,
@@ -1154,7 +1154,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status verify_message(
+    static Status verify_message( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* signature, const std::size_t signature_length) noexcept
@@ -1248,7 +1248,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
+    static Status asymmetric_encrypt(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
@@ -1291,7 +1291,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status asymmetric_decrypt(  // NOLINT(readability-function-size)
+    static Status asymmetric_decrypt(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
@@ -1333,7 +1333,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status kem_encapsulate(
+    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,
         CryptoByte* ciphertext, const std::size_t ciphertext_size, std::size_t* ciphertext_length,
         CryptoByte* shared_secret, const std::size_t shared_secret_size,
@@ -1374,7 +1374,7 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status kem_decapsulate(
+    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,
         const CryptoByte* ciphertext, const std::size_t ciphertext_length,
         CryptoByte* shared_secret, const std::size_t shared_secret_size,
