@@ -63,12 +63,12 @@ static inline uint32_t aes_rot_word(uint32_t w) noexcept {
 [[gnu::target("aes,neon")]]
 inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) noexcept
 {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
     static constexpr uint8_t rcon[7] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40 };
 
     // The schedule is built as an array of 32-bit words, 60 words total.
     // Round key i occupies words [4i .. 4i+3].  We need 15 round keys → 60 words.
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
     uint32_t w[60]{};
 
     // W[0..7] = key bytes directly.
@@ -79,7 +79,7 @@ inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) n
     for (std::size_t i = 8; i < 60; ++i) {
         uint32_t tmp = w[i - 1];
         if (i % 8 == 0) {
-            tmp = aes_sub_word(aes_rot_word(tmp)) ^ rcon[(i / 8U) - 1U]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            tmp = aes_sub_word(aes_rot_word(tmp)) ^ rcon[(i / 8U) - 1U];
         } else if (i % 8 == 4) {
             tmp = aes_sub_word(tmp);
         }

@@ -15,8 +15,8 @@
 
 namespace ia_asm::detail {
 
-constexpr std::size_t key_store_capacity  = 16; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-constexpr std::size_t key_store_max_bytes = 512; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+constexpr std::size_t key_store_capacity  = 16;
+constexpr std::size_t key_store_max_bytes = 512;
 
 struct KeySlot {
     FixedSecureBuffer<key_store_max_bytes> data;
@@ -25,8 +25,8 @@ struct KeySlot {
 };
 
 inline KeySlot& key_slot(std::size_t idx) noexcept {
-    static KeySlot slots[key_store_capacity]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    return slots[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    static KeySlot slots[key_store_capacity]{};
+    return slots[idx];
 }
 
 [[nodiscard]]

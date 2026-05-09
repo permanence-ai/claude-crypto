@@ -65,7 +65,7 @@ inline void mgf1_sha384(
 
         const std::size_t take = (out_len - written < oaep_hash_len)
                                   ? (out_len - written) : oaep_hash_len;
-        std::memcpy(out + written, hash.data(), take); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(out + written, hash.data(), take);
         written += take;
     }
 }
@@ -93,8 +93,8 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
 
     // DB = lHash || PS || 0x01 || M
     // out_em layout: [0x00][seed: hLen bytes][DB: db_len bytes]
-    CryptoByte* out_seed = out_em + 1U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    CryptoByte* out_db   = out_em + 1U + oaep_hash_len; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    CryptoByte* out_seed = out_em + 1U;
+    CryptoByte* out_db   = out_em + 1U + oaep_hash_len;
 
     out_em[0] = 0x00U;
     std::memcpy(out_seed, seed, oaep_hash_len);
@@ -104,26 +104,26 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
 
     // PS (zero bytes) — already zero since we zero-fill below.
     // Ensure PS region is zeroed.
-    std::memset(out_db + oaep_hash_len, 0, db_len - oaep_hash_len - 1U - pt_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memset(out_db + oaep_hash_len, 0, db_len - oaep_hash_len - 1U - pt_len);
 
     // 0x01 separator.
-    out_db[db_len - pt_len - 1U] = 0x01U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    out_db[db_len - pt_len - 1U] = 0x01U;
 
     // M.
-    std::memcpy(out_db + db_len - pt_len, pt, pt_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memcpy(out_db + db_len - pt_len, pt, pt_len);
 
     // maskedDB = DB XOR MGF1(seed, db_len).
     std::array<CryptoByte, 512U> dbmask{};  // max db_len for RSA-4096: 4096/8 - 48 - 1 = 463
     mgf1_sha384(seed, oaep_hash_len, dbmask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
-        out_db[i] ^= dbmask[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        out_db[i] ^= dbmask[i];
     }
 
     // maskedSeed = seed XOR MGF1(maskedDB, hLen).
     std::array<CryptoByte, oaep_hash_len> seedmask{};
     mgf1_sha384(out_db, db_len, seedmask.data(), oaep_hash_len);
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
-        out_seed[i] ^= seedmask[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        out_seed[i] ^= seedmask[i];
     }
 
     return true;
@@ -149,16 +149,16 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     const std::size_t db_len = modulus_bytes - oaep_hash_len - 1U;
 
     // Split EM: Y=em[0], maskedSeed=em[1..hLen], maskedDB=em[1+hLen..k-1].
-    const CryptoByte  y          = em[0]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const CryptoByte* masked_seed = em + 1U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const CryptoByte* masked_db   = em + 1U + oaep_hash_len; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const CryptoByte  y          = em[0];
+    const CryptoByte* masked_seed = em + 1U;
+    const CryptoByte* masked_db   = em + 1U + oaep_hash_len;
 
     // Recover seed = maskedSeed XOR MGF1(maskedDB, hLen).
     std::array<CryptoByte, oaep_hash_len> seed{};
     std::array<CryptoByte, oaep_hash_len> seed_mask{};
     mgf1_sha384(masked_db, db_len, seed_mask.data(), oaep_hash_len);
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
-        seed[i] = masked_seed[i] ^ seed_mask[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        seed[i] = masked_seed[i] ^ seed_mask[i];
     }
 
     // Recover DB = maskedDB XOR MGF1(seed, db_len).
@@ -166,7 +166,7 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     std::array<CryptoByte, 512U> db_mask{};
     mgf1_sha384(seed.data(), oaep_hash_len, db_mask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
-        db[i] = masked_db[i] ^ db_mask[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        db[i] = masked_db[i] ^ db_mask[i];
     }
 
     // Constant-time checks (accumulate error bits).
@@ -176,7 +176,7 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     std::array<CryptoByte, oaep_hash_len> lhash{};
     sha384(label, label_len, lhash.data());
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
-        err |= db[i] ^ lhash[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        err |= db[i] ^ lhash[i];
     }
 
     // Find the 0x01 separator in DB[hLen..db_len-1] (constant-time).
@@ -185,8 +185,8 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     uint8_t found = 0U;
     std::size_t msg_start = db_len;  // index into db[] of first message byte
     for (std::size_t i = oaep_hash_len; i < db_len; ++i) {
-        const uint8_t is_one  = static_cast<uint8_t>((db[i] == 0x01U) & (found == 0U)); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const uint8_t is_zero = static_cast<uint8_t>( db[i] == 0x00U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const uint8_t is_one  = static_cast<uint8_t>((db[i] == 0x01U) & (found == 0U));
+        const uint8_t is_zero = static_cast<uint8_t>( db[i] == 0x00U);
         // If we haven't found 0x01 yet and this byte is not 0x00 and not 0x01: error.
         err |= static_cast<uint8_t>(static_cast<unsigned>(found == 0U) & static_cast<unsigned>(is_zero == 0U) & static_cast<unsigned>(is_one == 0U));
         // Update msg_start in constant-time fashion.
@@ -204,7 +204,7 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     const std::size_t m_len = db_len - msg_start;
     if (m_len > pt_max) { return false; }
 
-    std::memcpy(pt_out, db.data() + msg_start, m_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memcpy(pt_out, db.data() + msg_start, m_len);
     *pt_len = m_len;
     return true;
 }

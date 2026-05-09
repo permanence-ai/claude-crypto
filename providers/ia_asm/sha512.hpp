@@ -22,7 +22,7 @@
 namespace ia_asm::detail {
 
 // SHA-512 initial hash values — fractional parts of sqrt of first 8 primes.
-inline constexpr uint64_t sha512_h0[8] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline constexpr uint64_t sha512_h0[8] = {
     0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL,
     0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
     0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL,
@@ -30,7 +30,7 @@ inline constexpr uint64_t sha512_h0[8] = { // NOLINT(cppcoreguidelines-avoid-c-a
 };
 
 // SHA-384 initial hash values — fractional parts of sqrt of 9th–16th primes.
-inline constexpr uint64_t sha384_h0[8] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline constexpr uint64_t sha384_h0[8] = {
     0xcbbb9d5dc1059ed8ULL, 0x629a292a367cd507ULL,
     0x9159015a3070dd17ULL, 0x152fecd8f70e5939ULL,
     0x67332667ffc00b31ULL, 0x8eb44a8768581511ULL,
@@ -38,7 +38,7 @@ inline constexpr uint64_t sha384_h0[8] = { // NOLINT(cppcoreguidelines-avoid-c-a
 };
 
 // SHA-512 round constants — fractional parts of cbrt of first 80 primes.
-inline constexpr uint64_t sha512_k[80] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline constexpr uint64_t sha512_k[80] = {
     0x428a2f98d728ae22ULL, 0x7137449123ef65cdULL,
     0xb5c0fbcfec4d3b2fULL, 0xe9b5dba58189dbbcULL,
     0x3956c25bf348b538ULL, 0x59f111f1b605d019ULL,
@@ -86,21 +86,21 @@ inline constexpr uint64_t sha512_k[80] = { // NOLINT(cppcoreguidelines-avoid-c-a
 // state[0..7] = {h0,..,h7}, updated in place.
 // Message bytes are big-endian; load+byteswap is done here.
 // Constant-time by construction: no secret-dependent branches or memory accesses.
-inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
+inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcept // NOLINT(readability-function-cognitive-complexity,readability-function-size)
 {
     // Load message words; block is big-endian.
-    uint64_t w[80]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (std::size_t i = 0; i < 16; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        std::memcpy(&w[i], block + (i * 8), 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint64_t w[80];
+    for (std::size_t i = 0; i < 16; ++i) {
+        std::memcpy(&w[i], block + (i * 8), 8);
         w[i] = std::byteswap(w[i]);
     }
 
     // Message schedule: σ0 = ROTR(x,1) ^ ROTR(x,8) ^ SHR(x,7)
     //                   σ1 = ROTR(x,19) ^ ROTR(x,61) ^ SHR(x,6)
-    for (std::size_t i = 16; i < 80; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint64_t s0 = std::rotr(w[i - 15], 1U) ^ std::rotr(w[i - 15], 8U) ^ (w[i - 15] >> 7U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint64_t s1 = std::rotr(w[i -  2], 19U) ^ std::rotr(w[i -  2], 61U) ^ (w[i - 2] >> 6U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        w[i] = w[i - 16] + s0 + w[i - 7] + s1; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (std::size_t i = 16; i < 80; ++i) {
+        const uint64_t s0 = std::rotr(w[i - 15], 1U) ^ std::rotr(w[i - 15], 8U) ^ (w[i - 15] >> 7U);
+        const uint64_t s1 = std::rotr(w[i -  2], 19U) ^ std::rotr(w[i -  2], 61U) ^ (w[i - 2] >> 6U);
+        w[i] = w[i - 16] + s0 + w[i - 7] + s1;
     }
 
     uint64_t a = state[0];
@@ -112,15 +112,15 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
     uint64_t g = state[6];
     uint64_t h = state[7];
 
-    for (std::size_t t = 0; t < 80; ++t) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (std::size_t t = 0; t < 80; ++t) {
         // Σ1 = ROTR(e,14) ^ ROTR(e,18) ^ ROTR(e,41)
-        const uint64_t sigma1 = std::rotr(e, 14) ^ std::rotr(e, 18) ^ std::rotr(e, 41); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint64_t sigma1 = std::rotr(e, 14) ^ std::rotr(e, 18) ^ std::rotr(e, 41);
         // Ch = (e & f) ^ (~e & g)
         const uint64_t ch     = (e & f) ^ (~e & g);
         const uint64_t t1     = h + sigma1 + ch + sha512_k[t] + w[t];
 
         // Σ0 = ROTR(a,28) ^ ROTR(a,34) ^ ROTR(a,39)
-        const uint64_t sigma0 = std::rotr(a, 28) ^ std::rotr(a, 34) ^ std::rotr(a, 39); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint64_t sigma0 = std::rotr(a, 28) ^ std::rotr(a, 34) ^ std::rotr(a, 39);
         // Maj = (a & b) ^ (a & c) ^ (b & c)
         const uint64_t maj    = (a & b) ^ (a & c) ^ (b & c);
         const uint64_t t2     = sigma0 + maj;
@@ -138,71 +138,71 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
 
 // Full SHA-512 over an arbitrary-length message.
 inline void sha512(const CryptoByte* msg, std::size_t msg_len,
-                   CryptoByte out[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                   CryptoByte out[64]) noexcept
 {
-    uint64_t state[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint64_t state[8];
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha512_h0[i]; }
 
     std::size_t offset = 0;
-    while (msg_len - offset >= 128) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        sha512_compress(state, msg + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        offset += 128; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    while (msg_len - offset >= 128) {
+        sha512_compress(state, msg + offset);
+        offset += 128;
     }
 
-    alignas(128) uint8_t pad[256]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    alignas(128) uint8_t pad[256]{};
     const std::size_t tail = msg_len - offset;
-    if (tail > 0) { std::memcpy(pad, msg + offset, tail); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (tail > 0) { std::memcpy(pad, msg + offset, tail); }
     pad[tail] = 0x80U;
 
     // SHA-512 appends 128-bit big-endian bit-length; high 64 bits are always 0.
-    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    if (tail < 112) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        std::memcpy(pad + 120, &bit_len_be, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
+    if (tail < 112) {
+        std::memcpy(pad + 120, &bit_len_be, 8);
         sha512_compress(state, pad);
     } else {
-        std::memcpy(pad + 248, &bit_len_be, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(pad + 248, &bit_len_be, 8);
         sha512_compress(state, pad);
-        sha512_compress(state, pad + 128); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        sha512_compress(state, pad + 128);
     }
 
     for (std::size_t i = 0; i < 8; ++i) {
         const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out + (i * 8), &w, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(out + (i * 8), &w, 8);
     }
 }
 
 // Full SHA-384 over an arbitrary-length message (same compression, different IV, truncated output).
 inline void sha384(const CryptoByte* msg, std::size_t msg_len,
-                   CryptoByte out[48]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                   CryptoByte out[48]) noexcept
 {
-    uint64_t state[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint64_t state[8];
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha384_h0[i]; }
 
     std::size_t offset = 0;
-    while (msg_len - offset >= 128) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        sha512_compress(state, msg + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        offset += 128; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    while (msg_len - offset >= 128) {
+        sha512_compress(state, msg + offset);
+        offset += 128;
     }
 
-    alignas(128) uint8_t pad[256]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    alignas(128) uint8_t pad[256]{};
     const std::size_t tail = msg_len - offset;
-    if (tail > 0) { std::memcpy(pad, msg + offset, tail); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (tail > 0) { std::memcpy(pad, msg + offset, tail); }
     pad[tail] = 0x80U;
 
-    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    if (tail < 112) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        std::memcpy(pad + 120, &bit_len_be, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
+    if (tail < 112) {
+        std::memcpy(pad + 120, &bit_len_be, 8);
         sha512_compress(state, pad);
     } else {
-        std::memcpy(pad + 248, &bit_len_be, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(pad + 248, &bit_len_be, 8);
         sha512_compress(state, pad);
-        sha512_compress(state, pad + 128); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        sha512_compress(state, pad + 128);
     }
 
     // Output only first 48 bytes (6 × 8).
-    for (std::size_t i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (std::size_t i = 0; i < 6; ++i) {
         const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out + (i * 8), &w, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(out + (i * 8), &w, 8);
     }
 }
 

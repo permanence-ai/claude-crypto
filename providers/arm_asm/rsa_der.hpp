@@ -93,7 +93,7 @@ inline bool read_length(const CryptoByte*& p, std::size_t& rem, std::size_t& out
         if (num_bytes == 0 || num_bytes > 4 || rem < num_bytes) { return false; }
         out_len = 0;
         for (std::size_t i = 0; i < num_bytes; ++i) {
-            out_len = (out_len << 8U) | static_cast<std::size_t>(*p); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            out_len = (out_len << 8U) | static_cast<std::size_t>(*p);
             ++p; --rem;
         }
     }
@@ -127,7 +127,7 @@ inline bool read_integer(const CryptoByte*& p, std::size_t& rem,
     if (val_len > 1 && val[0] == 0x00U) { ++val; --val_len; }
     out_ptr = val;
     out_len = val_len;
-    p   += int_len;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    p   += int_len;
     rem -= int_len;
     return true;
 }
@@ -139,7 +139,7 @@ inline bool skip_oid(const CryptoByte*& p, std::size_t& rem) noexcept {
     std::size_t oid_len = 0;
     if (!read_length(p, rem, oid_len)) { return false; }
     if (oid_len > rem) { return false; }
-    p   += oid_len;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    p   += oid_len;
     rem -= oid_len;
     return true;
 }
@@ -152,7 +152,7 @@ inline bool skip_tlv(const CryptoByte*& p, std::size_t& rem) noexcept {
     std::size_t skip_len = 0;
     if (!read_length(p, rem, skip_len)) { return false; }
     if (skip_len > rem) { return false; }
-    p   += skip_len;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    p   += skip_len;
     rem -= skip_len;
     return true;
 }
@@ -232,7 +232,7 @@ inline bool rsa_parse_public_key_der(
     //   0x30 (SEQUENCE) → SubjectPublicKeyInfo (SPKI)
     //   0x02 (INTEGER)  → PKCS#1 RSAPublicKey
     if (rem < 1) { return false; }
-    if (p[0] == 0x02U) { // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (p[0] == 0x02U) {
         // PKCS#1 RSAPublicKey: SEQUENCE { INTEGER n, INTEGER e }
         if (!der::read_integer(p, rem, out.n, out.n_len)) { return false; }
         if (!der::read_integer(p, rem, out.e, out.e_len)) { return false; }
@@ -260,7 +260,7 @@ inline bool rsa_parse_public_key_der(
         if (!der::read_length(tmp_p, tmp_rem, algid_body_len)) { return false; }
         const std::size_t algid_total = static_cast<std::size_t>(tmp_p - p) + algid_body_len;
         if (algid_total > rem) { return false; }
-        p   += algid_total;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        p   += algid_total;
         rem -= algid_total;
     }
 
@@ -294,11 +294,11 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     static constexpr CryptoByte kRsaOid[] = {
         0x06, 0x09,
         0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01
-    }; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    static constexpr CryptoByte kNull[] = { 0x05, 0x00 }; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    };
+    static constexpr CryptoByte kNull[] = { 0x05, 0x00 };
 
     // Helper: encode a DER length into a local buffer, return bytes written.
-    auto encode_len = [](std::size_t len, CryptoByte* buf) -> std::size_t { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    auto encode_len = [](std::size_t len, CryptoByte* buf) -> std::size_t {
         if (len < 0x80U) {
             buf[0] = static_cast<CryptoByte>(len);
             return 1;
@@ -322,8 +322,8 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     const std::size_t e_int_content = e_len + (e_needs_pad ? 1U : 0U);
 
     // INTEGER TLV sizes: tag(1) + len_field + content
-    CryptoByte n_len_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    CryptoByte e_len_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    CryptoByte n_len_buf[3]{};
+    CryptoByte e_len_buf[3]{};
     const std::size_t n_len_bytes = encode_len(n_int_content, n_len_buf);
     const std::size_t e_len_bytes = encode_len(e_int_content, e_len_buf);
     const std::size_t n_tlv = 1U + n_len_bytes + n_int_content;
@@ -331,25 +331,25 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
 
     // Inner RSAPublicKey SEQUENCE body = n_tlv + e_tlv
     const std::size_t rsakey_body = n_tlv + e_tlv;
-    CryptoByte rsakey_len_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    CryptoByte rsakey_len_buf[3]{};
     const std::size_t rsakey_len_bytes = encode_len(rsakey_body, rsakey_len_buf);
     const std::size_t rsakey_seq = 1U + rsakey_len_bytes + rsakey_body;
 
     // BIT STRING: 0x03, len, 0x00 (unused bits), RSAPublicKey SEQUENCE
     const std::size_t bitstr_content = 1U + rsakey_seq;
-    CryptoByte bitstr_len_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    CryptoByte bitstr_len_buf[3]{};
     const std::size_t bitstr_len_bytes = encode_len(bitstr_content, bitstr_len_buf);
     const std::size_t bitstr_tlv = 1U + bitstr_len_bytes + bitstr_content;
 
     // AlgorithmIdentifier SEQUENCE = oid + null
     const std::size_t algid_body = sizeof(kRsaOid) + sizeof(kNull);
-    CryptoByte algid_len_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    CryptoByte algid_len_buf[3]{};
     const std::size_t algid_len_bytes = encode_len(algid_body, algid_len_buf);
     const std::size_t algid_seq = 1U + algid_len_bytes + algid_body;
 
     // Outer SubjectPublicKeyInfo SEQUENCE body = algid + bitstr
     const std::size_t spki_body = algid_seq + bitstr_tlv;
-    CryptoByte spki_len_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    CryptoByte spki_len_buf[3]{};
     const std::size_t spki_len_bytes = encode_len(spki_body, spki_len_buf);
     const std::size_t spki_total = 1U + spki_len_bytes + spki_body;
 
@@ -358,9 +358,9 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     CryptoByte* w = out_buf;
     auto write = [&](const CryptoByte* src, std::size_t n) {
         std::memcpy(w, src, n);
-        w += n; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        w += n;
     };
-    auto write_byte = [&](uint8_t b) { *w++ = b; }; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    auto write_byte = [&](uint8_t b) { *w++ = b; };
 
     // Outer SEQUENCE
     write_byte(0x30U);
@@ -436,25 +436,25 @@ inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,rea
         return 3;
     };
 
-    const bool n_pad = (n_len > 0) && ((n_bytes[0] & 0x80U) != 0U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const bool e_pad = (e_len > 0) && ((e_bytes[0] & 0x80U) != 0U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const bool n_pad = (n_len > 0) && ((n_bytes[0] & 0x80U) != 0U);
+    const bool e_pad = (e_len > 0) && ((e_bytes[0] & 0x80U) != 0U);
     const std::size_t nc = n_len + (n_pad ? 1U : 0U);
     const std::size_t ec = e_len + (e_pad ? 1U : 0U);
 
-    CryptoByte nlen_buf[3]{}, elen_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    CryptoByte nlen_buf[3]{}, elen_buf[3]{};
     const std::size_t nlb = encode_len(nc, nlen_buf);
     const std::size_t elb = encode_len(ec, elen_buf);
     const std::size_t body = 1U + nlb + nc + 1U + elb + ec;
 
-    CryptoByte slen_buf[3]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    CryptoByte slen_buf[3]{};
     const std::size_t slb = encode_len(body, slen_buf);
     const std::size_t total = 1U + slb + body;
 
     if (total > out_max) { return false; }
 
     CryptoByte* w = out_buf;
-    auto wb = [&](uint8_t b) { *w++ = b; }; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    auto wn = [&](const CryptoByte* src, std::size_t n2) { std::memcpy(w, src, n2); w += n2; }; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    auto wb = [&](uint8_t b) { *w++ = b; };
+    auto wn = [&](const CryptoByte* src, std::size_t n2) { std::memcpy(w, src, n2); w += n2; };
 
     wb(0x30U); wn(slen_buf, slb);
     wb(0x02U); wn(nlen_buf, nlb);

@@ -151,18 +151,18 @@ inline int hkdf_expand(const uint8_t* prk, std::size_t prk_len,
             msg_len += hkdf_hash_len;
         }
         if (info_len > 0 && info != nullptr) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
             std::memcpy(msg.data() + msg_len, info, info_len);
             msg_len += info_len;
         }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         msg[msg_len] = counter;
         msg_len += 1;
 
         hmac_sha384(prk, prk_len, msg.data(), msg_len, t.data());
 
         const std::size_t copy_len = std::min(hkdf_hash_len, out_len - written);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         std::memcpy(out + written, t.data(), copy_len);
         written += copy_len;
         ++counter;

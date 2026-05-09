@@ -70,7 +70,7 @@ static constexpr Fe521 p521_Gy = {{
 }};
 
 // Group order n.
-static constexpr uint64_t p521_n[9] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static constexpr uint64_t p521_n[9] = {
     0xbb6fb71e91386409ULL,
     0x3bb5c9b8899c47aeULL,
     0x7fcc0148f709a5d0ULL,
@@ -243,7 +243,7 @@ static inline auto p521_point_add_affine(const P521Point& p, const P521AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P521AffinePoint p521_G_table[15] = { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static constexpr P521AffinePoint p521_G_table[15] = {
     // [1]*G
     {
         .X = {.v = {0xf97e7e31c2e5bd66ULL, 0x3348b3c1856a429bULL, 0xfe1dc127a2ffa8deULL, 0xa14b5e77efe75928ULL, 0xf828af606b4d3dbaULL, 0x9c648139053fb521ULL, 0x9e3ecb662395b442ULL, 0x858e06b70404e9cdULL, 0x00000000000000c6ULL}},
@@ -319,7 +319,7 @@ static constexpr P521AffinePoint p521_G_table[15] = { // NOLINT(cppcoreguideline
         .X = {.v = {0xe9afe337bcb8db55ULL, 0x9b8d96981e3f92bdULL, 0x7875bd1c8fc0331dULL, 0xb91cce27dbd00ffeULL, 0xd697b532df128e11ULL, 0xb8fbcc30b40a0852ULL, 0x41558fc546d4300fULL, 0x6ad89abcb92465f0ULL, 0x000000000000006bULL}},
         .Y = {.v = {0x56343480a1475465ULL, 0x46fd90cc446abdd9ULL, 0x2148e2232c96c992ULL, 0x7e9062c899470a80ULL, 0x4b62106997485ed5ULL, 0xdf0496a9bad20cbaULL, 0x7ce64d2333edbf63ULL, 0x68da271571391d6aULL, 0x00000000000001b4ULL}},
     },
-}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+};
 
 
 // -----------------------------------------------------------------------
@@ -332,7 +332,7 @@ static inline auto p521_point_ct_select(
 {
     const uint64_t mask = 0U - use_a;
     P521Point r{};
-    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int i = 0; i < 9; ++i) {
         r.X.v[i] = (a.X.v[i] & mask) | (b.X.v[i] & ~mask);
         r.Y.v[i] = (a.Y.v[i] & mask) | (b.Y.v[i] & ~mask);
         r.Z.v[i] = (a.Z.v[i] & mask) | (b.Z.v[i] & ~mask);
@@ -343,12 +343,12 @@ static inline auto p521_point_ct_select(
 [[nodiscard]]
 static inline auto p521_G_table_select(unsigned nibble) noexcept -> P521AffinePoint
 {
-    P521AffinePoint r = p521_G_table[0]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    for (unsigned i = 1; i < 15U; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    P521AffinePoint r = p521_G_table[0];
+    for (unsigned i = 1; i < 15U; ++i) {
         const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
-        for (int j = 0; j < 9; ++j) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            r.X.v[j] = (p521_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            r.Y.v[j] = (p521_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        for (int j = 0; j < 9; ++j) {
+            r.X.v[j] = (p521_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask);
+            r.Y.v[j] = (p521_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask);
         }
     }
     return r;
@@ -416,8 +416,8 @@ static inline auto p521_point_add_affine_ct(const P521Point& p, const P521Affine
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p521_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t scalar[66]) noexcept -> P521Point // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline auto p521_scalar_mul_base(
+    const uint8_t scalar[66]) noexcept -> P521Point
 {
     P521Point result = p521_identity;
 
@@ -427,15 +427,15 @@ static inline auto p521_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arr
     // Process the single top bit: scalar[0] bit 0 (the 521st bit, MSB of the scalar).
     {
         result = p521_point_double_ct(result);
-        const auto nibble = static_cast<unsigned>(scalar[0] & 0x01U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const auto nibble = static_cast<unsigned>(scalar[0] & 0x01U);
         // table[0] == 1*G is the only entry; CT-select it without branching on nibble.
-        const P521Point added = p521_point_add_affine_ct(result, p521_G_table[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const P521Point added = p521_point_add_affine_ct(result, p521_G_table[0]);
         result = p521_point_ct_select(added, result, static_cast<uint64_t>(nibble != 0U));
     }
 
     // Process bytes 1..65 as full byte pairs of nibbles.
-    for (int byte_i = 1; byte_i < 66; ++byte_i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (int byte_i = 1; byte_i < 66; ++byte_i) {
+        const uint8_t byte_val = scalar[byte_i];
 
         for (int pass = 0; pass < 2; ++pass) {
             result = p521_point_double_ct(result);
@@ -479,8 +479,8 @@ static inline auto p521_to_affine(const P521Point& p) noexcept -> P521Point {
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p521_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const P521Point& base, const uint8_t scalar[66]) noexcept -> P521Point // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline auto p521_scalar_mul(
+    const P521Point& base, const uint8_t scalar[66]) noexcept -> P521Point
 {
     P521Point result = p521_identity;
     P521Point tmp    = base;
@@ -489,13 +489,13 @@ static inline auto p521_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     // scalar[65] is LSB, scalar[0] is MSB (big-endian).
     // We iterate LSB to MSB: byte 65 down to byte 0, bit 0 to bit 7 per byte,
     // but byte 0 only contributes 1 bit (bit 0, i.e. the 521st bit = bit 520).
-    for (int byte_i = 65; byte_i >= 1; --byte_i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (int byte_i = 65; byte_i >= 1; --byte_i) {
+        const uint8_t byte_val = scalar[byte_i];
         for (int bit = 0; bit < 8; ++bit) {
             const uint64_t k_bit = (static_cast<uint64_t>(byte_val) >> static_cast<unsigned>(bit)) & 1U;
             const P521Point added = p521_point_add(result, tmp);
             const uint64_t mask = 0U - k_bit;
-            for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            for (int i = 0; i < 9; ++i) {
                 result.X.v[i] = (added.X.v[i] & mask) | (result.X.v[i] & ~mask);
                 result.Y.v[i] = (added.Y.v[i] & mask) | (result.Y.v[i] & ~mask);
                 result.Z.v[i] = (added.Z.v[i] & mask) | (result.Z.v[i] & ~mask);
@@ -505,10 +505,10 @@ static inline auto p521_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     }
     // Process the top byte: only 1 bit (bit 0 of scalar[0]).
     {
-        const uint64_t k_bit = static_cast<uint64_t>(scalar[0]) & 1U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint64_t k_bit = static_cast<uint64_t>(scalar[0]) & 1U;
         const P521Point added = p521_point_add(result, tmp);
         const uint64_t mask = 0U - k_bit;
-        for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int i = 0; i < 9; ++i) {
             result.X.v[i] = (added.X.v[i] & mask) | (result.X.v[i] & ~mask);
             result.Y.v[i] = (added.Y.v[i] & mask) | (result.Y.v[i] & ~mask);
             result.Z.v[i] = (added.Z.v[i] & mask) | (result.Z.v[i] & ~mask);
@@ -523,20 +523,20 @@ static inline auto p521_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p521_scalar_from_bytes66( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t b[66]) noexcept -> Fe521 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline auto p521_scalar_from_bytes66(
+    const uint8_t b[66]) noexcept -> Fe521
 {
     // Load as field element, then conditionally subtract n once.
     Fe521 r{};
-    for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (65 - (i * 8)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int i = 0; i < 8; ++i) {
+        const uint8_t* p = b + (65 - (i * 8));
         r.v[i] =
-            (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);           // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) |
+            (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) |
+            (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) |
+            (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);
     }
-    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
     r.v[8] &= 0x1ffULL;
 
     // Conditional subtract n.
@@ -585,21 +585,21 @@ static inline auto p521_scalar_from_bytes66( // NOLINT(cppcoreguidelines-avoid-c
 
 // Load a hash of hlen bytes (< qlen=66) as a scalar: zero-pad on the left to 66 bytes.
 [[nodiscard]]
-static inline auto p521_scalar_from_bytes66_hash( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p521_scalar_from_bytes66_hash(
     const uint8_t* hash_be, std::size_t hlen) noexcept -> Fe521
 {
-    uint8_t padded[66] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const std::size_t qlen = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint8_t padded[66] = {};
+    const std::size_t qlen = 66;
     if (hlen >= qlen) {
         std::memcpy(padded, hash_be, qlen);
     } else {
-        std::memcpy(padded + (qlen - hlen), hash_be, hlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(padded + (qlen - hlen), hash_be, hlen);
     }
     return p521_scalar_from_bytes66(padded);
 }
 
 [[nodiscard]]
-static inline auto p521_scalar_add( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p521_scalar_add(
     const Fe521& a, const Fe521& b) noexcept -> Fe521
 {
     using u128 = unsigned __int128;
@@ -674,10 +674,10 @@ static inline auto p521_scalar_add( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> Fe521
 {
     using u128 = unsigned __int128;
-    constexpr int s = 9; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr int s = 9;
     constexpr uint64_t n_prime = 0x1d2f5ccd79a995c7ULL;
 
-    uint64_t t[s + 2]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint64_t t[s + 2]{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
@@ -705,7 +705,7 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
         t[s + 1] = 0;
     }
 
-    const Fe521 r{{t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe521 r{{t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]}};
     const uint64_t overflow = t[s];
 
     Fe521 sub{};
@@ -774,7 +774,7 @@ static inline auto p521_scalar_mul_mod_n(
 
 [[nodiscard]]
 static inline auto p521_scalar_invert(const Fe521& a) noexcept -> Fe521 {
-    static constexpr uint64_t nm2[9] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static constexpr uint64_t nm2[9] = {
         0xbb6fb71e91386407ULL,
         0x3bb5c9b8899c47aeULL,
         0x7fcc0148f709a5d0ULL,
@@ -786,8 +786,8 @@ static inline auto p521_scalar_invert(const Fe521& a) noexcept -> Fe521 {
         0x00000000000001ffULL,
     };
     Fe521 result{{1ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};
-    for (int word = 8; word >= 0; --word) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const int bits = (word == 8) ? 9 : 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int word = 8; word >= 0; --word) {
+        const int bits = (word == 8) ? 9 : 64;
         for (int bit = bits - 1; bit >= 0; --bit) {
             result = p521_scalar_mul_mod_n(result, result);
             if (((nm2[word] >> static_cast<unsigned>(bit)) & 1U) != 0U) {
@@ -808,21 +808,21 @@ static inline auto p521_scalar_is_zero(const Fe521& a) noexcept -> bool {
 // Returns true and writes the scalar iff 1 <= val < n; rejects val == 0,
 // val >= n, or non-canonical encodings where the top 7 bits of b[0] are set.
 [[nodiscard]]
-static inline auto p521_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t b[66], Fe521& out) noexcept -> bool // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline auto p521_scalar_sig_decode(
+    const uint8_t b[66], Fe521& out) noexcept -> bool
 {
     // P-521 scalar is 521 bits (66 bytes); top 7 bits of b[0] must be zero.
-    if ((b[0] & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if ((b[0] & 0xFEU) != 0U) { return false; }
     Fe521 r{};
-    for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (65 - (i * 8)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int i = 0; i < 8; ++i) {
+        const uint8_t* p = b + (65 - (i * 8));
         r.v[i] =
-            (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);           // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) |
+            (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) |
+            (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) |
+            (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);
     }
-    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
     // No mask needed: high-bit check above guarantees b[0] <= 0x01, so r.v[8] <= 0x1ff.
     if (p521_scalar_is_zero(r)) { return false; }
     using u128 = unsigned __int128;
@@ -854,14 +854,14 @@ static inline auto p521_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 // Key pair generation and public key encoding.
 // -----------------------------------------------------------------------
 
-static inline void p521_compute_public_key( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t private_scalar_be[66], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    uint8_t public_key_uncompressed[133]) noexcept // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline void p521_compute_public_key(
+    const uint8_t private_scalar_be[66],
+    uint8_t public_key_uncompressed[133]) noexcept
 {
     const P521Point pub = p521_to_affine(p521_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe521_to_bytes(pub.X, public_key_uncompressed + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    fe521_to_bytes(pub.Y, public_key_uncompressed + 67);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    fe521_to_bytes(pub.X, public_key_uncompressed + 1);
+    fe521_to_bytes(pub.Y, public_key_uncompressed + 67);
 }
 
 

@@ -70,26 +70,26 @@ inline bool pss_encode(
     // DB = PS || 0x01 || salt.
     // PS = emLen - sLen - hLen - 2 zero bytes.
     const std::size_t ps_len = em_len - oaep_hash_len - oaep_hash_len - 2U;
-    std::memset(out_em, 0, ps_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    out_em[ps_len] = 0x01U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    std::memcpy(out_em + ps_len + 1U, salt, oaep_hash_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memset(out_em, 0, ps_len);
+    out_em[ps_len] = 0x01U;
+    std::memcpy(out_em + ps_len + 1U, salt, oaep_hash_len);
 
     // maskedDB = DB XOR MGF1(H, db_len).
     std::array<CryptoByte, 512U> db_mask{};
     mgf1_sha384(h.data(), oaep_hash_len, db_mask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
-        out_em[i] ^= db_mask[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        out_em[i] ^= db_mask[i];
     }
 
     // Zero the top (8*emLen - emBits) bits of maskedDB[0].
     const std::size_t top_bits = (8U * em_len) - em_bits;
     if (top_bits > 0U) {
-        out_em[0] &= static_cast<CryptoByte>(0xFFU >> top_bits); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        out_em[0] &= static_cast<CryptoByte>(0xFFU >> top_bits);
     }
 
     // Append H and 0xBC.
-    CryptoByte* out_h  = out_em + db_len; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    CryptoByte* out_bc = out_em + db_len + oaep_hash_len; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    CryptoByte* out_h  = out_em + db_len;
+    CryptoByte* out_bc = out_em + db_len + oaep_hash_len;
     std::memcpy(out_h, h.data(), oaep_hash_len);
     *out_bc = 0xBCU;
 
@@ -118,27 +118,27 @@ inline bool pss_verify(
     const std::size_t db_len = em_len - oaep_hash_len - 1U;
 
     // Check trailing 0xBC.
-    if (em[em_len - 1U] != 0xBCU) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (em[em_len - 1U] != 0xBCU) { return false; }
 
-    const CryptoByte* masked_db = em; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const CryptoByte* h         = em + db_len; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const CryptoByte* masked_db = em;
+    const CryptoByte* h         = em + db_len;
 
     // Check top bits of maskedDB[0] are zero.
     const std::size_t top_bits = (8U * em_len) - em_bits;
     const uint8_t top_mask = static_cast<uint8_t>(0xFFU << (8U - top_bits));
-    if ((masked_db[0] & top_mask) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    if ((masked_db[0] & top_mask) != 0U) { return false; }
 
     // DB = maskedDB XOR MGF1(H, db_len).
     std::array<CryptoByte, 512U> db{};
     std::array<CryptoByte, 512U> db_mask{};
     mgf1_sha384(h, oaep_hash_len, db_mask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
-        db[i] = masked_db[i] ^ db_mask[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        db[i] = masked_db[i] ^ db_mask[i];
     }
 
     // Zero the top bits of DB[0].
     if (top_bits > 0U) {
-        db[0] &= static_cast<uint8_t>(0xFFU >> top_bits); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        db[0] &= static_cast<uint8_t>(0xFFU >> top_bits);
     }
 
     // Constant-time checks (accumulate error bits).
@@ -147,14 +147,14 @@ inline bool pss_verify(
     // PS must be all zeros; DB[ps_len] must be 0x01.
     const std::size_t ps_len = em_len - oaep_hash_len - oaep_hash_len - 2U;
     for (std::size_t i = 0; i < ps_len; ++i) {
-        err |= db[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        err |= db[i];
     }
-    err |= static_cast<uint8_t>(db[ps_len] ^ 0x01U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    err |= static_cast<uint8_t>(db[ps_len] ^ 0x01U);
 
     if (err != 0U) { return false; }
 
     // Extract salt = DB[ps_len+1 .. ps_len+hLen].
-    const CryptoByte* salt = db.data() + ps_len + 1U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const CryptoByte* salt = db.data() + ps_len + 1U;
 
     // mHash = Hash(M).
     std::array<CryptoByte, oaep_hash_len> m_hash{};
@@ -171,7 +171,7 @@ inline bool pss_verify(
     // Constant-time compare H' with H.
     uint8_t diff = 0U;
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
-        diff |= h[i] ^ h_prime[i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        diff |= h[i] ^ h_prime[i];
     }
     return diff == 0U;
 }

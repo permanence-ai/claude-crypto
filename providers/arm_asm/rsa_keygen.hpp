@@ -48,7 +48,7 @@ template<std::size_t NW>
 [[nodiscard]]
 inline bool bigint_is_zero(const BigInt<NW>& a) noexcept {
     uint64_t acc = 0;
-    for (std::size_t i = 0; i < NW; ++i) { acc |= a.d[i]; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    for (std::size_t i = 0; i < NW; ++i) { acc |= a.d[i]; }
     return acc == 0U;
 }
 
@@ -56,7 +56,7 @@ inline bool bigint_is_zero(const BigInt<NW>& a) noexcept {
 template<std::size_t NW>
 [[nodiscard]]
 inline bool bigint_is_even(const BigInt<NW>& a) noexcept {
-    return (a.d[0] & 1U) == 0U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    return (a.d[0] & 1U) == 0U;
 }
 
 // Utility: right shift by 1 bit.
@@ -66,8 +66,8 @@ inline BigInt<NW> bigint_shr1(const BigInt<NW>& a) noexcept {
     BigInt<NW> r{};
     uint64_t carry = 0;
     for (std::size_t i = NW; i-- > 0U; ) {
-        r.d[i] = (a.d[i] >> 1U) | (carry << 63U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        carry = a.d[i] & 1U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        r.d[i] = (a.d[i] >> 1U) | (carry << 63U);
+        carry = a.d[i] & 1U;
     }
     return r;
 }
@@ -87,8 +87,8 @@ template<std::size_t NW>
 inline uint64_t bigint_shl1(BigInt<NW>& out, const BigInt<NW>& a) noexcept {
     uint64_t carry = 0;
     for (std::size_t i = 0; i < NW; ++i) {
-        const uint64_t new_carry = a.d[i] >> 63U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        out.d[i] = (a.d[i] << 1U) | carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const uint64_t new_carry = a.d[i] >> 63U;
+        out.d[i] = (a.d[i] << 1U) | carry;
         carry = new_carry;
     }
     return carry;
@@ -104,7 +104,7 @@ template<std::size_t NW>
 inline uint64_t bigint_mod_small(const BigInt<NW>& a, uint64_t d) noexcept {
     __uint128_t rem = 0;
     for (std::size_t i = NW; i-- > 0U; ) {
-        const __uint128_t val = (rem << 64U) | a.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const __uint128_t val = (rem << 64U) | a.d[i];
         rem = val % d;
     }
     return static_cast<uint64_t>(rem);
@@ -163,24 +163,24 @@ inline BigInt<NW> small_e_modinv(const BigInt<NW>& m) noexcept {
     std::array<uint64_t, NW + 1U> num{};
     uint64_t carry = 1U;  // +1
     for (std::size_t i = 0; i < NW; ++i) {
-        const __uint128_t prod = (static_cast<__uint128_t>(k) * m.d[i]) + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        num[i] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const __uint128_t prod = (static_cast<__uint128_t>(k) * m.d[i]) + carry;
+        num[i] = static_cast<uint64_t>(prod);
         carry = static_cast<uint64_t>(prod >> 64U);
     }
-    num[NW] = carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    num[NW] = carry;
 
     // Exact division of num[0..NW] by e, from most-significant limb down.
     BigInt<NW> d{};
     uint64_t rem = 0U;
     {
         // Process the extra high limb (num[NW]).
-        const __uint128_t val = (static_cast<__uint128_t>(rem) << 64U) | num[NW]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const __uint128_t val = (static_cast<__uint128_t>(rem) << 64U) | num[NW];
         rem = static_cast<uint64_t>(val % e);
         // The quotient for this position would go in d[NW], but d < m < 2^(64*NW), so it's 0.
     }
     for (std::size_t i = NW; i-- > 0U; ) {
-        const __uint128_t val = (static_cast<__uint128_t>(rem) << 64U) | num[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        d.d[i] = static_cast<uint64_t>(val / e); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const __uint128_t val = (static_cast<__uint128_t>(rem) << 64U) | num[i];
+        d.d[i] = static_cast<uint64_t>(val / e);
         rem = static_cast<uint64_t>(val % e);
     }
     // rem should be 0 (exact division by construction).
@@ -222,16 +222,16 @@ inline bool miller_rabin_is_prime(const BigInt<NW>& n, unsigned int rounds) noex
         // Find the highest set bit of n to create a mask for a.
         // Count leading zeros of n's top nonzero limb.
         std::size_t top_limb = NW - 1U;
-        while (top_limb > 0U && n.d[top_limb] == 0U) { --top_limb; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const uint64_t top_val = n.d[top_limb]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        while (top_limb > 0U && n.d[top_limb] == 0U) { --top_limb; }
+        const uint64_t top_val = n.d[top_limb];
         // Build a mask with all bits set up to and including the highest bit of top_val.
         std::size_t bit_pos = 63U;
         while (bit_pos > 0U && ((top_val >> bit_pos) & 1U) == 0U) { --bit_pos; }
         const uint64_t top_mask = (bit_pos == 63U) ? UINT64_MAX : ((UINT64_C(1) << (bit_pos + 1U)) - 1U);
 
         // Zero out limbs above top_limb; mask the top limb.
-        for (std::size_t i = top_limb + 1U; i < NW; ++i) { a.d[i] = 0U; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        a.d[top_limb] &= top_mask; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        for (std::size_t i = top_limb + 1U; i < NW; ++i) { a.d[i] = 0U; }
+        a.d[top_limb] &= top_mask;
 
         // Now a is in [0, 2*n). Subtract n at most once to bring into [0, n).
         if (bigint_ct_lt(a, n) == 0U) {
@@ -294,7 +294,7 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
         }
         if (divisible) { continue; }
 
-        if (miller_rabin_is_prime(candidate, 40U)) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (miller_rabin_is_prime(candidate, 40U)) {
             return candidate;
         }
     }
@@ -309,18 +309,18 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
 inline std::size_t der_write_length(std::size_t len, CryptoByte* buf) noexcept {
     CryptoByte* w = buf; // NOLINT(misc-const-correctness)
     if (len < 0x80U) {
-        *w++ = static_cast<CryptoByte>(len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        *w++ = static_cast<CryptoByte>(len);
     } else if (len < 0x100U) {
-        *w++ = 0x81U; *w++ = static_cast<CryptoByte>(len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        *w++ = 0x81U; *w++ = static_cast<CryptoByte>(len);
     } else if (len < 0x10000U) {
-        *w++ = 0x82U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        *w++ = static_cast<CryptoByte>(len >> 8U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        *w++ = static_cast<CryptoByte>(len & 0xFFU); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        *w++ = 0x82U;
+        *w++ = static_cast<CryptoByte>(len >> 8U);
+        *w++ = static_cast<CryptoByte>(len & 0xFFU);
     } else {
-        *w++ = 0x83U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        *w++ = static_cast<CryptoByte>((len >> 16U) & 0xFFU); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        *w++ = static_cast<CryptoByte>((len >>  8U) & 0xFFU); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        *w++ = static_cast<CryptoByte>(len & 0xFFU); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        *w++ = 0x83U;
+        *w++ = static_cast<CryptoByte>((len >> 16U) & 0xFFU);
+        *w++ = static_cast<CryptoByte>((len >>  8U) & 0xFFU);
+        *w++ = static_cast<CryptoByte>(len & 0xFFU);
     }
     return static_cast<std::size_t>(w - buf);
 }
@@ -335,23 +335,23 @@ inline std::size_t der_encode_integer(
     std::array<CryptoByte, NW * 8U> be{};
     bigint_to_bytes(val, be.data());
     // Source bytes occupy the last meaningful_bytes of the full NW*8 output.
-    const CryptoByte* src = be.data() + ((NW * 8U) - meaningful_bytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const CryptoByte* src = be.data() + ((NW * 8U) - meaningful_bytes);
 
     // Strip leading zeros, keep at least one byte.
     std::size_t start = 0;
-    while (start + 1U < meaningful_bytes && src[start] == 0U) { ++start; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    const CryptoByte* v = src + start; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    while (start + 1U < meaningful_bytes && src[start] == 0U) { ++start; }
+    const CryptoByte* v = src + start;
     const std::size_t v_len = meaningful_bytes - start;
 
-    const bool needs_pad = (v[0] & 0x80U) != 0U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    const bool needs_pad = (v[0] & 0x80U) != 0U;
     const std::size_t content = v_len + (needs_pad ? 1U : 0U);
 
     CryptoByte* w = out;
-    *w++ = 0x02U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    w += der_write_length(content, w); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (needs_pad) { *w++ = 0x00U; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    *w++ = 0x02U;
+    w += der_write_length(content, w);
+    if (needs_pad) { *w++ = 0x00U; }
     std::memcpy(w, v, v_len);
-    w += v_len; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    w += v_len;
     return static_cast<std::size_t>(w - out);
 }
 
@@ -388,7 +388,7 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         // Ensure p != q.
         {
             uint64_t acc = 0;
-            for (std::size_t i = 0; i < HW; ++i) { acc |= p.d[i] ^ q.d[i]; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            for (std::size_t i = 0; i < HW; ++i) { acc |= p.d[i] ^ q.d[i]; }
             if (acc == 0U) { continue; }
         }
 
@@ -404,29 +404,29 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         // 4. n = p * q  (schoolbook, HW+HW → NW limbs).
         BigInt<NW> n{};
         for (std::size_t i = 0; i < HW; ++i) {
-            if (p.d[i] == 0U) { continue; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (p.d[i] == 0U) { continue; }
             uint64_t carry = 0;
             for (std::size_t j = 0; j < HW; ++j) {
-                const __uint128_t prod = (static_cast<__uint128_t>(p.d[i]) * q.d[j]) // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                                       + n.d[i + j] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                n.d[i + j] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const __uint128_t prod = (static_cast<__uint128_t>(p.d[i]) * q.d[j])
+                                       + n.d[i + j] + carry;
+                n.d[i + j] = static_cast<uint64_t>(prod);
                 carry = static_cast<uint64_t>(prod >> 64U);
             }
-            n.d[i + HW] += carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            n.d[i + HW] += carry;
         }
 
         // 5. phi = (p-1) * (q-1)  (schoolbook, HW+HW → NW limbs).
         BigInt<NW> phi{};
         for (std::size_t i = 0; i < HW; ++i) {
-            if (p1.d[i] == 0U) { continue; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if (p1.d[i] == 0U) { continue; }
             uint64_t carry = 0;
             for (std::size_t j = 0; j < HW; ++j) {
-                const __uint128_t prod = (static_cast<__uint128_t>(p1.d[i]) * q1.d[j]) // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                                       + phi.d[i + j] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                phi.d[i + j] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+                const __uint128_t prod = (static_cast<__uint128_t>(p1.d[i]) * q1.d[j])
+                                       + phi.d[i + j] + carry;
+                phi.d[i + j] = static_cast<uint64_t>(prod);
                 carry = static_cast<uint64_t>(prod >> 64U);
             }
-            phi.d[i + HW] += carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            phi.d[i + HW] += carry;
         }
 
         // 6. d = e^{-1} mod phi.
@@ -462,30 +462,30 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         body[body_len++] = 0x00U;
 
         // n, e (NW limbs → mod_bytes)
-        body_len += der_encode_integer(n, mod_bytes, body + body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        body_len += der_encode_integer(e_full, 3U, body + body_len);   // e = 0x010001 (3 bytes) // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        body_len += der_encode_integer(n, mod_bytes, body + body_len);
+        body_len += der_encode_integer(e_full, 3U, body + body_len);   // e = 0x010001 (3 bytes)
 
         // d (NW limbs → mod_bytes)
-        body_len += der_encode_integer(d, mod_bytes, body + body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        body_len += der_encode_integer(d, mod_bytes, body + body_len);
 
         // Promote HW → NW for p, q, dp, dq, qinv.
         BigInt<NW> p_nw{}, q_nw{}, dp_nw{}, dq_nw{}, qinv_nw{};
         for (std::size_t i = 0; i < HW; ++i) {
-            p_nw.d[i]    = p.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            q_nw.d[i]    = q.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            dp_nw.d[i]   = dp.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            dq_nw.d[i]   = dq.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            qinv_nw.d[i] = qinv.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            p_nw.d[i]    = p.d[i];
+            q_nw.d[i]    = q.d[i];
+            dp_nw.d[i]   = dp.d[i];
+            dq_nw.d[i]   = dq.d[i];
+            qinv_nw.d[i] = qinv.d[i];
         }
 
-        body_len += der_encode_integer(p_nw,    prime_bytes, body + body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        body_len += der_encode_integer(q_nw,    prime_bytes, body + body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        body_len += der_encode_integer(dp_nw,   prime_bytes, body + body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        body_len += der_encode_integer(dq_nw,   prime_bytes, body + body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        body_len += der_encode_integer(qinv_nw, prime_bytes, body + body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        body_len += der_encode_integer(p_nw,    prime_bytes, body + body_len);
+        body_len += der_encode_integer(q_nw,    prime_bytes, body + body_len);
+        body_len += der_encode_integer(dp_nw,   prime_bytes, body + body_len);
+        body_len += der_encode_integer(dq_nw,   prime_bytes, body + body_len);
+        body_len += der_encode_integer(qinv_nw, prime_bytes, body + body_len);
 
         // Write SEQUENCE header into the reserved hdr_reserve bytes.
-        CryptoByte hdr[5]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        CryptoByte hdr[5]{};
         hdr[0] = 0x30U;
         const std::size_t len_bytes = der_write_length(body_len, hdr + 1U);
         const std::size_t hdr_len = 1U + len_bytes;
@@ -494,7 +494,7 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         // Move body down to close the gap.
         const std::size_t gap = hdr_reserve - hdr_len;
         if (gap > 0U) {
-            std::memmove(out_buf + hdr_len, out_buf + hdr_reserve, body_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            std::memmove(out_buf + hdr_len, out_buf + hdr_reserve, body_len);
         }
         std::memcpy(out_buf, hdr, hdr_len);
         *out_len = hdr_len + body_len;

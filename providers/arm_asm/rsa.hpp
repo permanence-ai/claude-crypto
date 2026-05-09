@@ -65,7 +65,7 @@ struct RsaKeySlot {
 };
 
 inline RsaKeySlot& rsa_key_slot(std::size_t idx) noexcept {
-    static RsaKeySlot slots[rsa_key_store_capacity]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static RsaKeySlot slots[rsa_key_store_capacity]{};
     return slots[idx];
 }
 
@@ -129,9 +129,9 @@ template<typename Fn>
 [[nodiscard]]
 inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept {
     switch (bits) {
-        case 2048U: return std::forward<Fn>(fn).template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 3072U: return std::forward<Fn>(fn).template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 4096U: return std::forward<Fn>(fn).template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 2048U: return std::forward<Fn>(fn).template operator()<32U>();
+        case 3072U: return std::forward<Fn>(fn).template operator()<48U>();
+        case 4096U: return std::forward<Fn>(fn).template operator()<64U>();
         default: return false;
     }
 }
@@ -141,10 +141,10 @@ template<typename Fn>
 [[nodiscard]]
 inline bool rsa_dispatch_all(std::size_t bits, Fn&& fn) noexcept {
     switch (bits) {
-        case 1024U: return std::forward<Fn>(fn).template operator()<16U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 2048U: return std::forward<Fn>(fn).template operator()<32U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 3072U: return std::forward<Fn>(fn).template operator()<48U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        case 4096U: return std::forward<Fn>(fn).template operator()<64U>(); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        case 1024U: return std::forward<Fn>(fn).template operator()<16U>();
+        case 2048U: return std::forward<Fn>(fn).template operator()<32U>();
+        case 3072U: return std::forward<Fn>(fn).template operator()<48U>();
+        case 4096U: return std::forward<Fn>(fn).template operator()<64U>();
         default: return false;
     }
 }
@@ -183,7 +183,7 @@ inline unsigned int rsa_generate_key_pair(
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_oaep_encrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
+inline bool rsa_oaep_encrypt( // NOLINT(readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* pub_der, std::size_t pub_len,
     const CryptoByte* pt, std::size_t pt_len,
@@ -218,7 +218,7 @@ inline bool rsa_oaep_encrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-a
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_oaep_decrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
+inline bool rsa_oaep_decrypt( // NOLINT(readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* priv_der, std::size_t priv_len,
     const CryptoByte* ct, std::size_t ct_len,
@@ -255,7 +255,7 @@ inline bool rsa_oaep_decrypt( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-a
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_pss_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
+inline bool rsa_pss_sign( // NOLINT(readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* priv_der, std::size_t priv_len,
     const CryptoByte* msg, std::size_t msg_len,
@@ -294,7 +294,7 @@ inline bool rsa_pss_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline bool rsa_pss_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
+inline bool rsa_pss_verify( // NOLINT(readability-function-cognitive-complexity,readability-function-size)
     std::size_t bits,
     const CryptoByte* pub_der, std::size_t pub_len,
     const CryptoByte* msg, std::size_t msg_len,

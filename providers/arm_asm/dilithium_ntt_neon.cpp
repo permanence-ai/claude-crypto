@@ -37,7 +37,6 @@ static constexpr int32_t k_mont = -4186625;  // 2^32 mod q (Montgomery constant)
 
 // Zeta table — identical across all three ML-DSA parameter sets.
 // Sourced from pqcrystals-dilithium-standard_ml-dsa-44_ref/ntt.c.
-// NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 static const int32_t k_zetas[256] = {
          0,    25847, -2608894,  -518909,   237124,  -777960,  -876248,   466468,
    1826347,  2353451,  -359251, -2091905,  3119733, -2884855,  3111497,  2680103,
@@ -179,7 +178,6 @@ static inline void inv_butterfly2(int32x2_t& lo, int32x2_t& hi, int32_t zeta) no
 // -------------------------------------------------------------------------
 // Forward NTT
 // -------------------------------------------------------------------------
-// NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 static void dilithium_ntt(int32_t a[]) noexcept {
     unsigned k = 0;
 
@@ -188,11 +186,11 @@ static void dilithium_ntt(int32_t a[]) noexcept {
         for (unsigned start = 0; start < static_cast<unsigned>(k_n); start += 2 * len) {
             const int32_t zeta = k_zetas[++k];
             for (unsigned j = start; j < start + len; j += 4) {
-                int32x4_t lo = vld1q_s32(a + j);       // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                int32x4_t hi = vld1q_s32(a + j + len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                int32x4_t lo = vld1q_s32(a + j);
+                int32x4_t hi = vld1q_s32(a + j + len);
                 butterfly4(lo, hi, zeta);
-                vst1q_s32(a + j,       lo); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                vst1q_s32(a + j + len, hi); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                vst1q_s32(a + j,       lo);
+                vst1q_s32(a + j + len, hi);
             }
         }
     }
@@ -200,26 +198,25 @@ static void dilithium_ntt(int32_t a[]) noexcept {
     // Level len=2: 64 groups, 2 elements each — 2-wide NEON.
     for (unsigned start = 0; start < static_cast<unsigned>(k_n); start += 4) {
         const int32_t zeta = k_zetas[++k];
-        int32x2_t lo = vld1_s32(a + start);     // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        int32x2_t hi = vld1_s32(a + start + 2); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        int32x2_t lo = vld1_s32(a + start);
+        int32x2_t hi = vld1_s32(a + start + 2);
         butterfly2(lo, hi, zeta);
-        vst1_s32(a + start,     lo); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        vst1_s32(a + start + 2, hi); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        vst1_s32(a + start,     lo);
+        vst1_s32(a + start + 2, hi);
     }
 
     // Level len=1: 128 single pairs — scalar.
     for (unsigned j = 0; j < static_cast<unsigned>(k_n); j += 2) {
         const int32_t zeta = k_zetas[++k];
-        const int32_t t    = mont_reduce(static_cast<int64_t>(zeta) * a[j + 1]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        a[j + 1] = a[j] - t; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        a[j]     = a[j] + t; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const int32_t t    = mont_reduce(static_cast<int64_t>(zeta) * a[j + 1]);
+        a[j + 1] = a[j] - t;
+        a[j]     = a[j] + t;
     }
 }
 
 // -------------------------------------------------------------------------
 // Inverse NTT + Montgomery scaling
 // -------------------------------------------------------------------------
-// NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 static void dilithium_invntt(int32_t a[]) noexcept {
     unsigned k = static_cast<unsigned>(k_n);  // counts down from 256
 
@@ -227,18 +224,18 @@ static void dilithium_invntt(int32_t a[]) noexcept {
     for (unsigned start = 0; start < static_cast<unsigned>(k_n); start += 2) {
         const int32_t zeta = -k_zetas[--k];
         const int32_t t    = a[start];
-        a[start]     = t + a[start + 1]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        a[start + 1] = mont_reduce(static_cast<int64_t>(zeta) * (t - a[start + 1])); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        a[start]     = t + a[start + 1];
+        a[start + 1] = mont_reduce(static_cast<int64_t>(zeta) * (t - a[start + 1]));
     }
 
     // Level len=2: 64 groups, 2 elements each — 2-wide NEON.
     for (unsigned start = 0; start < static_cast<unsigned>(k_n); start += 4) {
         const int32_t zeta = -k_zetas[--k];
-        int32x2_t lo = vld1_s32(a + start);     // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        int32x2_t hi = vld1_s32(a + start + 2); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        int32x2_t lo = vld1_s32(a + start);
+        int32x2_t hi = vld1_s32(a + start + 2);
         inv_butterfly2(lo, hi, zeta);
-        vst1_s32(a + start,     lo); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        vst1_s32(a + start + 2, hi); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        vst1_s32(a + start,     lo);
+        vst1_s32(a + start + 2, hi);
     }
 
     // Levels len=4 up to len=128: process 4 elements per NEON iteration.
@@ -246,11 +243,11 @@ static void dilithium_invntt(int32_t a[]) noexcept {
         for (unsigned start = 0; start < static_cast<unsigned>(k_n); start += 2 * len) {
             const int32_t zeta = -k_zetas[--k];
             for (unsigned j = start; j < start + len; j += 4) {
-                int32x4_t lo = vld1q_s32(a + j);       // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                int32x4_t hi = vld1q_s32(a + j + len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                int32x4_t lo = vld1q_s32(a + j);
+                int32x4_t hi = vld1q_s32(a + j + len);
                 inv_butterfly4(lo, hi, zeta);
-                vst1q_s32(a + j,       lo); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                vst1q_s32(a + j + len, hi); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                vst1q_s32(a + j,       lo);
+                vst1q_s32(a + j + len, hi);
             }
         }
     }
@@ -258,9 +255,9 @@ static void dilithium_invntt(int32_t a[]) noexcept {
     // Final Montgomery scaling: a[j] *= mont^2/N = 41978.
     static constexpr int32_t f = 41978;  // mont^2 / 256 mod q
     for (unsigned j = 0; j < static_cast<unsigned>(k_n); j += 4) {
-        int32x4_t v = vld1q_s32(a + j); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        int32x4_t v = vld1q_s32(a + j);
         mont_scale4(v, f);
-        vst1q_s32(a + j, v); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        vst1q_s32(a + j, v);
     }
 }
 
@@ -269,7 +266,6 @@ static void dilithium_invntt(int32_t a[]) noexcept {
 // -------------------------------------------------------------------------
 // Public C symbols — one thin wrapper per parameter set for NTT and invNTT.
 // -------------------------------------------------------------------------
-// NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 extern "C" {
 
 void pqcrystals_ml_dsa_44_ref_ntt(int32_t a[256])        { dilithium_ntt(a);    }

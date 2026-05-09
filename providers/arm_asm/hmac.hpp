@@ -65,9 +65,9 @@ struct Sha256Ctx {
         }
     }
 
-    void finish(uint8_t out[32]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    void finish(uint8_t out[32]) noexcept {
         // Padding: append 0x80 then zeros then 64-bit big-endian bit count.
-        alignas(64) uint8_t pad[128]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        alignas(64) uint8_t pad[128]{};
         std::memcpy(pad, buf.data(), buf_used);
         pad[buf_used] = 0x80U;
         const uint64_t bit_len_be = std::byteswap(total_bytes * 8U);
@@ -96,7 +96,7 @@ struct Sha512Ctx {
     uint64_t    total_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t buf_used{0};    // NOLINT(misc-non-private-member-variables-in-classes)
 
-    void init(const uint64_t h0[8]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    void init(const uint64_t h0[8]) noexcept {
         for (std::size_t i = 0; i < 8; ++i) { state[i] = h0[i]; }
         total_bytes = 0;
         buf_used = 0;
@@ -118,8 +118,8 @@ struct Sha512Ctx {
         }
     }
 
-    void finish(uint8_t out[64], std::size_t out_bytes) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-        alignas(128) uint8_t pad[256]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    void finish(uint8_t out[64], std::size_t out_bytes) noexcept {
+        alignas(128) uint8_t pad[256]{};
         std::memcpy(pad, buf.data(), buf_used);
         pad[buf_used] = 0x80U;
         const uint64_t bit_len_be = std::byteswap(total_bytes * 8U);
@@ -231,7 +231,7 @@ inline void hmac_sha512(const uint8_t* key, std::size_t key_len,
 
 inline void hmac_sha384(const uint8_t* key, std::size_t key_len,
                         const uint8_t* msg, std::size_t msg_len,
-                        uint8_t out[48]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                        uint8_t out[48]) noexcept
 {
     hmac_sha512_impl(sha384_h0, key, key_len, msg, msg_len, out, 48);
 }
@@ -287,23 +287,23 @@ inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes, // NOLINT(re
 
 inline void hmac_sha3_256(const uint8_t* key, std::size_t key_len,
                            const uint8_t* msg, std::size_t msg_len,
-                           uint8_t out[32]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                           uint8_t out[32]) noexcept
 {
     hmac_sha3_impl(sha3_max_rate_bytes, 32, key, key_len, msg, msg_len, out);
 }
 
 inline void hmac_sha3_384(const uint8_t* key, std::size_t key_len,
                            const uint8_t* msg, std::size_t msg_len,
-                           uint8_t out[48]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                           uint8_t out[48]) noexcept
 {
-    hmac_sha3_impl(104, 48, key, key_len, msg, msg_len, out); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    hmac_sha3_impl(104, 48, key, key_len, msg, msg_len, out);
 }
 
 inline void hmac_sha3_512(const uint8_t* key, std::size_t key_len,
                            const uint8_t* msg, std::size_t msg_len,
-                           uint8_t out[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                           uint8_t out[64]) noexcept
 {
-    hmac_sha3_impl(72, 64, key, key_len, msg, msg_len, out); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    hmac_sha3_impl(72, 64, key, key_len, msg, msg_len, out);
 }
 
 }  // namespace arm_asm::detail

@@ -95,20 +95,20 @@ static inline void store_le32(uint8_t* p, uint32_t v) noexcept {
 inline void chacha20_block(const uint8_t key[32], uint32_t counter,
                             const uint8_t nonce[12], uint8_t out[64]) noexcept
 {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
 
     // Load key as 8 little-endian 32-bit words.
-    const uint32_t k0  = load_le32(key +  0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k1  = load_le32(key +  4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k2  = load_le32(key +  8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k3  = load_le32(key + 12); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k4  = load_le32(key + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k5  = load_le32(key + 20); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k6  = load_le32(key + 24); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k7  = load_le32(key + 28); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t n0  = load_le32(nonce + 0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t n1  = load_le32(nonce + 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t n2  = load_le32(nonce + 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k0  = load_le32(key +  0);
+    const uint32_t k1  = load_le32(key +  4);
+    const uint32_t k2  = load_le32(key +  8);
+    const uint32_t k3  = load_le32(key + 12);
+    const uint32_t k4  = load_le32(key + 16);
+    const uint32_t k5  = load_le32(key + 20);
+    const uint32_t k6  = load_le32(key + 24);
+    const uint32_t k7  = load_le32(key + 28);
+    const uint32_t n0  = load_le32(nonce + 0);
+    const uint32_t n1  = load_le32(nonce + 4);
+    const uint32_t n2  = load_le32(nonce + 8);
 
     // Pack initial state into four NEON registers (row-major: each vector is a row).
     // row0 = [c0, c1, c2, c3]
@@ -158,21 +158,21 @@ inline void chacha20_block(const uint8_t key[32], uint32_t counter,
     // Serialise as little-endian 32-bit words.
     // On little-endian hosts (Apple Silicon) vst1q_u32 is already correct.
     if constexpr (std::endian::native == std::endian::little) {
-        vst1q_u32(reinterpret_cast<uint32_t*>(out +  0), r0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-type-reinterpret-cast)
-        vst1q_u32(reinterpret_cast<uint32_t*>(out + 16), r1); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-type-reinterpret-cast)
-        vst1q_u32(reinterpret_cast<uint32_t*>(out + 32), r2); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-type-reinterpret-cast)
-        vst1q_u32(reinterpret_cast<uint32_t*>(out + 48), r3); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out +  0), r0); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out + 16), r1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out + 32), r2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out + 48), r3); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     } else {
         // Big-endian: byte-swap each word.
         uint32_t tmp[4];
         vst1q_u32(tmp, r0);
-        for (int j = 0; j < 4; ++j) { store_le32(out + (static_cast<std::size_t>(j) * 4U), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        for (int j = 0; j < 4; ++j) { store_le32(out + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
         vst1q_u32(tmp, r1);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 16U + (static_cast<std::size_t>(j) * 4U), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int j = 0; j < 4; ++j) { store_le32(out + 16U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
         vst1q_u32(tmp, r2);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 32U + (static_cast<std::size_t>(j) * 4U), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int j = 0; j < 4; ++j) { store_le32(out + 32U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
         vst1q_u32(tmp, r3);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 48U + (static_cast<std::size_t>(j) * 4U), tmp[j]); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int j = 0; j < 4; ++j) { store_le32(out + 48U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
     }
 }
 
@@ -221,21 +221,21 @@ static inline void chacha20_transpose4( // NOLINT(readability-function-size,read
 // already in registers, saving 16 NEON registers vs. an explicit save.
 [[gnu::target("neon")]]
 static inline void chacha20_xor4( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    const uint8_t key[32], uint32_t counter, // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t nonce[12],                  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    const uint8_t key[32], uint32_t counter,
+    const uint8_t nonce[12],
     const uint8_t* in, uint8_t* out) noexcept
 {
-    const uint32_t k0 = load_le32(key +  0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k1 = load_le32(key +  4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k2 = load_le32(key +  8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k3 = load_le32(key + 12); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k4 = load_le32(key + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k5 = load_le32(key + 20); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k6 = load_le32(key + 24); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t k7 = load_le32(key + 28); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t n0 = load_le32(nonce + 0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t n1 = load_le32(nonce + 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const uint32_t n2 = load_le32(nonce + 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint32_t k0 = load_le32(key +  0);
+    const uint32_t k1 = load_le32(key +  4);
+    const uint32_t k2 = load_le32(key +  8);
+    const uint32_t k3 = load_le32(key + 12);
+    const uint32_t k4 = load_le32(key + 16);
+    const uint32_t k5 = load_le32(key + 20);
+    const uint32_t k6 = load_le32(key + 24);
+    const uint32_t k7 = load_le32(key + 28);
+    const uint32_t n0 = load_le32(nonce + 0);
+    const uint32_t n1 = load_le32(nonce + 4);
+    const uint32_t n2 = load_le32(nonce + 8);
 
     // Word-major state: s[i][lane] = word i of block `lane`.
     // Blocks 0..3 share the same key/nonce and differ only in the counter word.
@@ -251,7 +251,7 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size,readabilit
     uint32x4_t s9  = vdupq_n_u32(k5);
     uint32x4_t s10 = vdupq_n_u32(k6);
     uint32x4_t s11 = vdupq_n_u32(k7);
-    uint32x4_t s12 = {counter, counter + 1U, counter + 2U, counter + 3U}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint32x4_t s12 = {counter, counter + 1U, counter + 2U, counter + 3U};
     uint32x4_t s13 = vdupq_n_u32(n0);
     uint32x4_t s14 = vdupq_n_u32(n1);
     uint32x4_t s15 = vdupq_n_u32(n2);
@@ -286,7 +286,7 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size,readabilit
     s9  = vaddq_u32(s9,  vdupq_n_u32(k5));
     s10 = vaddq_u32(s10, vdupq_n_u32(k6));
     s11 = vaddq_u32(s11, vdupq_n_u32(k7));
-    const uint32x4_t ctr_init = {counter, counter + 1U, counter + 2U, counter + 3U}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const uint32x4_t ctr_init = {counter, counter + 1U, counter + 2U, counter + 3U};
     s12 = vaddq_u32(s12, ctr_init);
     s13 = vaddq_u32(s13, vdupq_n_u32(n0));
     s14 = vaddq_u32(s14, vdupq_n_u32(n1));
@@ -321,33 +321,33 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size,readabilit
 
     // XOR 4 blocks with input (each block = g{0..3}k concatenated).
     // Block 0 (bytes 0..63)
-    vst1q_u8(out +   0, veorq_u8(vld1q_u8(in +   0), vreinterpretq_u8_u32(g00))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    vst1q_u8(out +  16, veorq_u8(vld1q_u8(in +  16), vreinterpretq_u8_u32(g10))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    vst1q_u8(out +  32, veorq_u8(vld1q_u8(in +  32), vreinterpretq_u8_u32(g20))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    vst1q_u8(out +  48, veorq_u8(vld1q_u8(in +  48), vreinterpretq_u8_u32(g30))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    vst1q_u8(out +   0, veorq_u8(vld1q_u8(in +   0), vreinterpretq_u8_u32(g00)));
+    vst1q_u8(out +  16, veorq_u8(vld1q_u8(in +  16), vreinterpretq_u8_u32(g10)));
+    vst1q_u8(out +  32, veorq_u8(vld1q_u8(in +  32), vreinterpretq_u8_u32(g20)));
+    vst1q_u8(out +  48, veorq_u8(vld1q_u8(in +  48), vreinterpretq_u8_u32(g30)));
     // Block 1 (bytes 64..127)
-    vst1q_u8(out +  64, veorq_u8(vld1q_u8(in +  64), vreinterpretq_u8_u32(g01))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out +  80, veorq_u8(vld1q_u8(in +  80), vreinterpretq_u8_u32(g11))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out +  96, veorq_u8(vld1q_u8(in +  96), vreinterpretq_u8_u32(g21))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out + 112, veorq_u8(vld1q_u8(in + 112), vreinterpretq_u8_u32(g31))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out +  64, veorq_u8(vld1q_u8(in +  64), vreinterpretq_u8_u32(g01)));
+    vst1q_u8(out +  80, veorq_u8(vld1q_u8(in +  80), vreinterpretq_u8_u32(g11)));
+    vst1q_u8(out +  96, veorq_u8(vld1q_u8(in +  96), vreinterpretq_u8_u32(g21)));
+    vst1q_u8(out + 112, veorq_u8(vld1q_u8(in + 112), vreinterpretq_u8_u32(g31)));
     // Block 2 (bytes 128..191)
-    vst1q_u8(out + 128, veorq_u8(vld1q_u8(in + 128), vreinterpretq_u8_u32(g02))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out + 144, veorq_u8(vld1q_u8(in + 144), vreinterpretq_u8_u32(g12))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out + 160, veorq_u8(vld1q_u8(in + 160), vreinterpretq_u8_u32(g22))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out + 176, veorq_u8(vld1q_u8(in + 176), vreinterpretq_u8_u32(g32))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 128, veorq_u8(vld1q_u8(in + 128), vreinterpretq_u8_u32(g02)));
+    vst1q_u8(out + 144, veorq_u8(vld1q_u8(in + 144), vreinterpretq_u8_u32(g12)));
+    vst1q_u8(out + 160, veorq_u8(vld1q_u8(in + 160), vreinterpretq_u8_u32(g22)));
+    vst1q_u8(out + 176, veorq_u8(vld1q_u8(in + 176), vreinterpretq_u8_u32(g32)));
     // Block 3 (bytes 192..255)
-    vst1q_u8(out + 192, veorq_u8(vld1q_u8(in + 192), vreinterpretq_u8_u32(g03))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out + 208, veorq_u8(vld1q_u8(in + 208), vreinterpretq_u8_u32(g13))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out + 224, veorq_u8(vld1q_u8(in + 224), vreinterpretq_u8_u32(g23))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    vst1q_u8(out + 240, veorq_u8(vld1q_u8(in + 240), vreinterpretq_u8_u32(g33))); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    vst1q_u8(out + 192, veorq_u8(vld1q_u8(in + 192), vreinterpretq_u8_u32(g03)));
+    vst1q_u8(out + 208, veorq_u8(vld1q_u8(in + 208), vreinterpretq_u8_u32(g13)));
+    vst1q_u8(out + 224, veorq_u8(vld1q_u8(in + 224), vreinterpretq_u8_u32(g23)));
+    vst1q_u8(out + 240, veorq_u8(vld1q_u8(in + 240), vreinterpretq_u8_u32(g33)));
 }
 
 
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
 [[gnu::target("neon")]]
-inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start, // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-                            const uint8_t nonce[12],                       // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
+                            const uint8_t nonce[12],
                             const uint8_t* in, uint8_t* out, std::size_t len) noexcept
 {
     FixedSecureBuffer<64> block;
@@ -355,25 +355,25 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start, // NOL
     std::size_t offset = 0;
 
     // 4-block parallel path: 256 bytes at a time.
-    while (len - offset >= 256U) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    while (len - offset >= 256U) {
         chacha20_xor4(key, counter, nonce,
-                      in + offset, out + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        offset  += 256U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                      in + offset, out + offset);
+        offset  += 256U;
         counter += 4U;
     }
 
     // Single-block tail (0..3 full blocks).
-    while (len - offset >= 64U) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    while (len - offset >= 64U) {
         chacha20_block(key, counter, nonce, block.data());
-        const uint8x16_t k0 = vld1q_u8(block.data() +  0); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const uint8x16_t k1 = vld1q_u8(block.data() + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const uint8x16_t k2 = vld1q_u8(block.data() + 32); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const uint8x16_t k3 = vld1q_u8(block.data() + 48); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        vst1q_u8(out + offset +  0, veorq_u8(vld1q_u8(in + offset +  0), k0)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        vst1q_u8(out + offset + 16, veorq_u8(vld1q_u8(in + offset + 16), k1)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        vst1q_u8(out + offset + 32, veorq_u8(vld1q_u8(in + offset + 32), k2)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        vst1q_u8(out + offset + 48, veorq_u8(vld1q_u8(in + offset + 48), k3)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        offset  += 64U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const uint8x16_t k0 = vld1q_u8(block.data() +  0);
+        const uint8x16_t k1 = vld1q_u8(block.data() + 16);
+        const uint8x16_t k2 = vld1q_u8(block.data() + 32);
+        const uint8x16_t k3 = vld1q_u8(block.data() + 48);
+        vst1q_u8(out + offset +  0, veorq_u8(vld1q_u8(in + offset +  0), k0));
+        vst1q_u8(out + offset + 16, veorq_u8(vld1q_u8(in + offset + 16), k1));
+        vst1q_u8(out + offset + 32, veorq_u8(vld1q_u8(in + offset + 32), k2));
+        vst1q_u8(out + offset + 48, veorq_u8(vld1q_u8(in + offset + 48), k3));
+        offset  += 64U;
         ++counter;
     }
 
@@ -381,7 +381,7 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start, // NOL
     if (offset < len) {
         chacha20_block(key, counter, nonce, block.data());
         for (std::size_t i = 0; offset + i < len; ++i) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-bounds-constant-array-index)
+
             out[offset + i] = static_cast<uint8_t>(in[offset + i] ^ block[i]);
         }
     }
@@ -390,12 +390,12 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start, // NOL
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
 [[gnu::target("neon")]]
-inline void chacha20_poly1305_key(const uint8_t key[32], const uint8_t nonce[12], // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-                                   uint8_t otk[32]) noexcept                       // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline void chacha20_poly1305_key(const uint8_t key[32], const uint8_t nonce[12],
+                                   uint8_t otk[32]) noexcept
 {
     FixedSecureBuffer<64> block;
     chacha20_block(key, 0, nonce, block.data());
-    std::memcpy(otk, block.data(), 32); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::memcpy(otk, block.data(), 32);
 }
 
 }  // namespace arm_asm::detail
