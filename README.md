@@ -146,8 +146,8 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
-safe-crypto-cli/          # scli executable — digest, mac, aead, ecdsa, random subcommands; CLI11 v2.6.2 for argument parsing
-safe-crypto-cli-test/     # GoogleTest suite for scli — 64 subprocess-based tests; validates stdout and exit codes
+safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, mac, random subcommands; CLI11 v2.6.2
+safe-crypto-cli-test/     # GoogleTest suite for scli — 103 subprocess-based tests; validates stdout and exit codes
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
@@ -657,6 +657,39 @@ scli ecdsa verify --curve p256 \
   --signature base64:<sig-b64>
 ```
 
+#### `ecdh` — ECDH key agreement
+
+```
+scli ecdh keygen  --curve p256|p384|p521
+                  [--out-private <spec>]    # default: base64 to stdout
+                  [--out-public  <spec>]    # default: base64 to stdout
+
+scli ecdh compute --curve p256|p384|p521
+                  --key         <spec>      # our private key (raw DER bytes)
+                  --peer-public <spec>      # peer's public key (raw DER bytes)
+                  [--output     <spec>]     # shared secret (default: base64 to stdout)
+```
+
+Typical use: both parties run `keygen`, exchange public keys out-of-band, then each runs `compute` with their own private key and the peer's public key — both sides obtain the same shared secret. Output sizes: P-256 → 32 bytes, P-384 → 48 bytes, P-521 → 66 bytes.
+
+```bash
+# Party A generates a key pair
+scli ecdh keygen --curve p256 \
+  --out-private a_priv.der --out-public a_pub.der
+
+# Party B generates a key pair
+scli ecdh keygen --curve p256 \
+  --out-private b_priv.der --out-public b_pub.der
+
+# A computes shared secret using B's public key
+scli ecdh compute --curve p256 \
+  --key a_priv.der --peer-public b_pub.der
+
+# B computes shared secret using A's public key (same result)
+scli ecdh compute --curve p256 \
+  --key b_priv.der --peer-public a_pub.der
+```
+
 #### `random` — Generate cryptographically secure random bytes
 
 ```
@@ -673,11 +706,11 @@ scli random --length 64 --output keyfile.bin
 
 ### CLI tests
 
-A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 64 tests covering all five subcommands run in under two seconds:
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 103 tests covering all six subcommands run in under three seconds:
 
 ```bash
 cmake --build build --target safe_crypto_cli_test
-cd build && ctest -R "AeadTests|DigestTests|EcdsaTests|MacTests|RandomTests"
+cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|MacTests|RandomTests"
 ```
 
 ## Stack

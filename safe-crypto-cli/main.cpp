@@ -5,6 +5,7 @@
 #include "cli_error.hpp"
 #include "cmd_aead.hpp"
 #include "cmd_digest.hpp"
+#include "cmd_ecdh.hpp"
 #include "cmd_ecdsa.hpp"
 #include "cmd_mac.hpp"
 #include "cmd_random.hpp"
@@ -17,6 +18,7 @@ auto main(int argc, char** argv) -> int  // NOLINT(cppcoreguidelines-avoid-c-arr
 
     scli::register_aead(app);
     scli::register_digest(app);
+    scli::register_ecdh(app);
     scli::register_ecdsa(app);
     scli::register_mac(app);
     scli::register_random(app);
