@@ -146,9 +146,11 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
+safe-crypto-cli/          # scli executable — digest, mac, aead, random subcommands; CLI11 v2.6.2 for argument parsing
+safe-crypto-cli-test/     # GoogleTest suite for scli — 52 subprocess-based tests; validates stdout and exit codes
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
-cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
+cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
 ```
 
 ## Build
@@ -533,6 +535,115 @@ On macOS with Apple Silicon, cross-compile with `-DCMAKE_OSX_ARCHITECTURES=x86_6
 - RSA-PSS uses `RSA_PSS_SALTLEN_DIGEST` (salt length = hash length = 48 bytes for SHA-384).
 - Asymmetric keys are stored in a 64-slot `EVP_PKEY*` store (IDs 1–64); symmetric and derive keys are stored as raw bytes in a 64-slot `FixedSecureBuffer<256>` store (IDs 65–128).
 
+## Command-line interface (`scli`)
+
+`safe-crypto-cli/scli` is a command-line tool that exposes the library's cryptographic operations directly from the shell. It is built alongside the library and tests; no separate install step is needed.
+
+```bash
+cmake -G Ninja -B build -S .
+cmake --build build --target scli
+./build/safe-crypto-cli/scli --help
+```
+
+### Input/output conventions
+
+All subcommands share the same input/output model:
+
+| Spec | Meaning |
+|---|---|
+| `base64:<data>` | Literal base64-encoded bytes on the command line |
+| `-` | Read from stdin (input) / write raw binary to stdout (output) |
+| `<path>` | Read from / write to a file (raw binary) |
+| *(omit `--output`)* | Base64-encode and print to stdout |
+
+### Subcommands
+
+#### `digest` — Compute a cryptographic hash
+
+```
+scli digest --algo <alg> --input <spec> [--output <spec>]
+```
+
+`--algo`: `sha256` `sha384` `sha512` `sha3-256` `sha3-384` `sha3-512`
+
+```bash
+# SHA-256 of "hello world" from stdin
+echo -n "hello world" | scli digest --algo sha256 --input -
+
+# SHA-384 of a file, save raw binary to another file
+scli digest --algo sha384 --input message.bin --output hash.bin
+
+# Inline base64 input
+scli digest --algo sha3-256 --input base64:aGVsbG8=
+```
+
+#### `mac` — Generate or verify an HMAC
+
+```
+scli mac --algo <alg> --key <spec> --input <spec> [--output <spec>] [--verify <spec>]
+```
+
+`--algo`: `sha256` `sha384` `sha512`
+
+Without `--verify`, generates and outputs the MAC. With `--verify`, compares the computed MAC to the one supplied — exits 0 on match, 1 on mismatch (no output either way).
+
+```bash
+# Generate HMAC-SHA-256
+scli mac --algo sha256 --key base64:<key-b64> --input message.bin
+
+# Verify (exits 0 if correct, 1 if not)
+scli mac --algo sha256 --key base64:<key-b64> --input message.bin --verify base64:<mac-b64>
+```
+
+#### `aead` — Authenticated encryption / decryption
+
+```
+scli aead --algo <alg> --op encrypt|decrypt --key <spec> --input <spec>
+          [--output <spec>] [--aad <spec>]
+```
+
+`--algo`: `aes256-gcm` `chacha20-poly1305`  
+Key must be exactly 32 bytes. Wire format for both algorithms: `IV (12 bytes) ‖ ciphertext+tag`.
+
+```bash
+# Encrypt
+scli aead --algo aes256-gcm --op encrypt \
+  --key base64:<32-byte-key-b64> \
+  --input plaintext.bin --output ciphertext.bin
+
+# Decrypt
+scli aead --algo aes256-gcm --op decrypt \
+  --key base64:<32-byte-key-b64> \
+  --input ciphertext.bin --output plaintext.bin
+
+# With additional authenticated data
+scli aead --algo chacha20-poly1305 --op encrypt \
+  --key base64:<key-b64> --input message.bin --aad base64:<aad-b64>
+```
+
+#### `random` — Generate cryptographically secure random bytes
+
+```
+scli random --length <N> [--output <spec>]
+```
+
+```bash
+# 32 random bytes to stdout (base64)
+scli random --length 32
+
+# 64 random bytes to a file (raw binary)
+scli random --length 64 --output keyfile.bin
+```
+
+### CLI tests
+
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 52 tests covering all four subcommands run in under a second:
+
+```bash
+cmake --build build --target safe_crypto_cli_test
+cd build && ctest -R "AeadTests|DigestTests|MacTests|RandomTests"
+```
+
 ## Stack
 
 - **Language:** C++26
@@ -540,3 +651,4 @@ On macOS with Apple Silicon, cross-compile with `-DCMAKE_OSX_ARCHITECTURES=x86_6
 - **Crypto backend:** MbedTLS 4.1.0 (PSA Crypto API, via FetchContent)
 - **Test framework:** GoogleTest + GMock (via FetchContent)
 - **Benchmark framework:** Google Benchmark 1.9.1 (via FetchContent)
+- **CLI argument parsing:** CLI11 2.6.2 (via FetchContent)
