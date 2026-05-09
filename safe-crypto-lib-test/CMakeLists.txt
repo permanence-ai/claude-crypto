@@ -46,8 +46,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 )
 
 # arm_asm backend cannot be compiled for x86_64 (NEON headers).
-# Skip it when cross-compiling for IA ASM.
-if(NOT SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "IA_ASM")
+if(NOT (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64"))
     target_link_libraries(${EXE_NAME} PRIVATE
             safe_crypto_lib_arm_asm  # cross_provider_tests needs both backends
     )

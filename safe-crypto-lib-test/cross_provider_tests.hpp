@@ -40,14 +40,12 @@
 #include "sha_variant.hpp"
 #include "secure_buffer.hpp"
 
-#if defined(SAFE_CRYPTO_PROVIDER_ARM_ASM) || defined(SAFE_CRYPTO_PROVIDER_IA_ASM)
-#  ifdef SAFE_CRYPTO_PROVIDER_IA_ASM
-#    include "ia_asm_backend.hpp"
+#if defined(SAFE_CRYPTO_PROVIDER_IA_ASM)
+#  include "ia_asm_backend.hpp"
 using NativeAsmBackend = IaAsmBackend;
-#  else
-#    include "arm_asm_backend.hpp"
+#elif defined(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
+#  include "arm_asm_backend.hpp"
 using NativeAsmBackend = ArmAsmBackend;
-#  endif
 #endif
 #include "psa_mbedtls_backend.hpp"
 
@@ -61,7 +59,7 @@ using NativeAsmBackend = ArmAsmBackend;
 
 #include "test_utils.hpp"
 
-#if defined(SAFE_CRYPTO_PROVIDER_ARM_ASM) || defined(SAFE_CRYPTO_PROVIDER_IA_ASM)
+#if defined(SAFE_CRYPTO_PROVIDER_IA_ASM) || defined(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
 
 
 // ---------------------------------------------------------------------------
@@ -1022,4 +1020,4 @@ TEST_F(CrossProviderRsaTests, RsaPssCrossVerify_4096) {
     run_rsa_pss_cross_verify_test<RsaKeyBits::Bits4096>("RSA-PSS-4096");
 }
 
-#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM || SAFE_CRYPTO_PROVIDER_IA_ASM
+#endif  // SAFE_CRYPTO_PROVIDER_IA_ASM || SAFE_CRYPTO_ARM_ASM_AVAILABLE

@@ -16,7 +16,7 @@
 #include "defs.hpp"
 #include "secure_buffer.hpp"
 
-#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
+#ifdef SAFE_CRYPTO_ARM_ASM_AVAILABLE
 
 #include "aes256_gcm.hpp"
 #include "arm_asm_backend.hpp"
@@ -2971,4 +2971,4 @@ TEST_F(ArmAsmEcdsaSigDecodeTests, P521SHighBitSetRejectsSignature) {
     EXPECT_NE(verify(pub_id, sig), ArmAsmBackend::ok);
 }
 
-#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM
+#endif  // SAFE_CRYPTO_ARM_ASM_AVAILABLE

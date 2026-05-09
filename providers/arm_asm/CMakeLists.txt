@@ -41,6 +41,7 @@ if(NOT (APPLE AND CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64"))
     target_compile_options(${LIB_NAME} INTERFACE
             -march=armv8.2-a+crypto+sha3
     )
+    target_compile_definitions(${LIB_NAME} INTERFACE SAFE_CRYPTO_ARM_ASM_AVAILABLE)
 endif()
 
 if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
