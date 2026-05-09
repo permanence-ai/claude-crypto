@@ -637,7 +637,7 @@ scli random --length 64 --output keyfile.bin
 
 ### CLI tests
 
-A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 52 tests covering all four subcommands run in under a second:
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 30 tests covering all four subcommands run in under a second:
 
 ```bash
 cmake --build build --target safe_crypto_cli_test

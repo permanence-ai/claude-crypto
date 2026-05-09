@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <sys/wait.h>
 
 
 namespace scli_test {

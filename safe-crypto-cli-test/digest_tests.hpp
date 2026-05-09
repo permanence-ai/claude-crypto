@@ -67,4 +67,14 @@ TEST_F(DigestTests, EmptyInputProducesOutput) {
     EXPECT_FALSE(r.stdout_text.empty());
 }
 
+TEST_F(DigestTests, RejectsPaddingBeforeFinalQuantum) {
+    const auto r = run_scli(scli(), "digest --algo sha256 --input base64:AA==AAAA");
+    EXPECT_NE(r.exit_code, 0);
+}
+
+TEST_F(DigestTests, RejectsPaddingInFirstTwoCharacters) {
+    const auto r = run_scli(scli(), "digest --algo sha256 --input base64:A===");
+    EXPECT_NE(r.exit_code, 0);
+}
+
 }  // namespace scli_test

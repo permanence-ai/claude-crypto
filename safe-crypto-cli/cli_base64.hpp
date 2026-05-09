@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -90,7 +91,9 @@ inline auto base64_decode(std::string_view input) -> std::optional<std::vector<u
         const bool pad2 = (c2 == 0x40U);
         const bool pad3 = (c3 == 0x40U);
 
+        if (c0 == 0x40U || c1 == 0x40U) { return std::nullopt; }
         if (pad2 && !pad3) { return std::nullopt; }  // "xx=y" is invalid
+        if ((pad2 || pad3) && (i + 4U != input.size())) { return std::nullopt; }
 
         const uint32_t b = (static_cast<uint32_t>(c0 & 0x3FU) << 18U)
                          | (static_cast<uint32_t>(c1 & 0x3FU) << 12U)
