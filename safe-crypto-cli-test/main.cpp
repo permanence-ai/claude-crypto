@@ -5,6 +5,7 @@
 #include "aead_tests.hpp"
 #include "digest_tests.hpp"
 #include "ecdsa_tests.hpp"
+#include "io_tests.hpp"
 #include "mac_tests.hpp"
 #include "random_tests.hpp"
 
