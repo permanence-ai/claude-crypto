@@ -5,6 +5,7 @@ add_executable(${EXE_NAME}
         aead_tests.hpp
         cli_test_runner.hpp
         digest_tests.hpp
+        ecdsa_tests.hpp
         mac_tests.hpp
         main.cpp
         random_tests.hpp
