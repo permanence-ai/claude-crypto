@@ -5,9 +5,13 @@ add_executable(${EXE_NAME}
         aead_tests.hpp
         cli_test_runner.hpp
         digest_tests.hpp
+        ecdh_tests.hpp
+        ecdsa_tests.hpp
+        io_tests.hpp
         mac_tests.hpp
         main.cpp
         random_tests.hpp
+        rsa_tests.hpp
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE

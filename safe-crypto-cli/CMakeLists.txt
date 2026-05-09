@@ -7,8 +7,11 @@ add_executable(${EXE_NAME}
         cli_io.hpp
         cmd_aead.hpp
         cmd_digest.hpp
+        cmd_ecdh.hpp
+        cmd_ecdsa.hpp
         cmd_mac.hpp
         cmd_random.hpp
+        cmd_rsa.hpp
         main.cpp
 )
 

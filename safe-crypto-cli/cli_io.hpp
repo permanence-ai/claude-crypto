@@ -45,6 +45,7 @@ inline auto read_input(std::string_view spec) -> std::expected<SecureBuffer, std
         if (!file) {
             return std::unexpected("cannot open input file: " + std::string(spec));
         }
+        file >> std::noskipws;
         raw.assign(std::istream_iterator<char>(file), std::istream_iterator<char>());
     }
 
