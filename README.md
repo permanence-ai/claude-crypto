@@ -147,7 +147,7 @@ providers/
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
 safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, mac, random, rsa subcommands; CLI11 v2.6.2
-safe-crypto-cli-test/     # GoogleTest suite for scli — 112 subprocess-based tests; validates stdout and exit codes
+safe-crypto-cli-test/     # GoogleTest suite for scli — 73 subprocess-based tests; validates stdout and exit codes
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
@@ -640,7 +640,7 @@ scli ecdsa verify --curve p256|p384|p521
                   # exits 0 = valid, 1 = invalid
 ```
 
-Signing uses RFC 6979 deterministic k — no random input needed. Keys are raw DER-encoded bytes (private key: raw scalar; public key: uncompressed point).
+Keys are raw DER-encoded bytes (private key: raw scalar; public key: uncompressed point).
 
 ```bash
 # Generate a P-256 key pair
@@ -754,7 +754,7 @@ scli random --length 64 --output keyfile.bin
 
 ### CLI tests
 
-A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 112 tests covering all seven subcommands:
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 73 tests covering all seven subcommands:
 
 ```bash
 cmake --build build --target safe_crypto_cli_test

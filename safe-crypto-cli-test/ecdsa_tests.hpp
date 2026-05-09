@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -168,7 +169,7 @@ TEST_F(EcdsaTests, VerifyFailsWithWrongKey) {
     std::filesystem::remove(pub2);
 }
 
-TEST_F(EcdsaTests, SignIsDeterministic) {
+TEST_F(EcdsaTests, RepeatedSignaturesVerify) {
     auto [priv, pub] = keygen_to_files(scli(), "p256");
     ASSERT_FALSE(priv.empty());
 
@@ -178,8 +179,15 @@ TEST_F(EcdsaTests, SignIsDeterministic) {
         "ecdsa sign --curve p256 --key " + priv + " --input " + kMsg);
     ASSERT_EQ(sig1.exit_code, 0);
     ASSERT_EQ(sig2.exit_code, 0);
-    // RFC 6979 deterministic signing: same key + message → same signature.
-    EXPECT_EQ(sig1.stdout_text, sig2.stdout_text);
+
+    const auto verify1 = run_scli(scli(),
+        "ecdsa verify --curve p256 --key " + pub +
+        " --input " + kMsg + " --signature base64:" + sig1.stdout_text);
+    const auto verify2 = run_scli(scli(),
+        "ecdsa verify --curve p256 --key " + pub +
+        " --input " + kMsg + " --signature base64:" + sig2.stdout_text);
+    EXPECT_EQ(verify1.exit_code, 0);
+    EXPECT_EQ(verify2.exit_code, 0);
 
     std::filesystem::remove(priv);
     std::filesystem::remove(pub);

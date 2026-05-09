@@ -5,6 +5,7 @@
 // Utilities for invoking scli as a subprocess and capturing stdout/exit code.
 
 #include <array>
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>

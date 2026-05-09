@@ -286,8 +286,10 @@ TEST_F(IoTests, Random_FileOutput) {
 TEST_F(IoTests, Random_FileOutput_ContentIsRandom) {
     const std::string p1 = tmp("io_random_a.bin");
     const std::string p2 = tmp("io_random_b.bin");
-    run_scli(scli(), "random --length 32 --output " + p1);
-    run_scli(scli(), "random --length 32 --output " + p2);
+    const auto r1 = run_scli(scli(), "random --length 32 --output " + p1);
+    const auto r2 = run_scli(scli(), "random --length 32 --output " + p2);
+    ASSERT_EQ(r1.exit_code, 0);
+    ASSERT_EQ(r2.exit_code, 0);
     EXPECT_NE(read_file_bytes(p1), read_file_bytes(p2));
 }
 
