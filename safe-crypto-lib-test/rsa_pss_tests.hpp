@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 
-#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
+#ifdef SAFE_CRYPTO_ARM_ASM_AVAILABLE
 
 #include "rsa_pss.hpp"
 #include "rsa_der.hpp"
@@ -244,4 +244,4 @@ TEST_F(PssCrossTests, OurSignPsaVerify) {
     EXPECT_EQ(st, PSA_SUCCESS);
 }
 
-#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM
+#endif  // SAFE_CRYPTO_ARM_ASM_AVAILABLE

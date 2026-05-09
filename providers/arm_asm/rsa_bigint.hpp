@@ -84,7 +84,7 @@ inline BigInt<NW> bigint_from_bytes(const CryptoByte* bytes, std::size_t byte_le
         const std::size_t byte_idx = byte_len - 1U - i;  // byte within the source array
         const std::size_t limb_idx = i / 8U;
         const std::size_t bit_shift = (i % 8U) * 8U;
-        out.d[limb_idx] |= static_cast<uint64_t>(bytes[byte_idx]) << bit_shift; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        out.d[limb_idx] |= static_cast<uint64_t>(bytes[byte_idx]) << bit_shift;
     }
     return out;
 }
@@ -95,7 +95,7 @@ inline void bigint_to_bytes(const BigInt<NW>& a, CryptoByte* bytes) noexcept {
     for (std::size_t i = 0; i < NW * 8U; ++i) {
         const std::size_t limb_idx  = i / 8U;
         const std::size_t bit_shift = (i % 8U) * 8U;
-        bytes[(NW * 8U) - 1U - i] = static_cast<CryptoByte>((a.d[limb_idx] >> bit_shift) & 0xFFU); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        bytes[(NW * 8U) - 1U - i] = static_cast<CryptoByte>((a.d[limb_idx] >> bit_shift) & 0xFFU);
     }
 }
 
@@ -110,8 +110,8 @@ template<std::size_t NW>
 inline uint64_t bigint_ct_lt(const BigInt<NW>& a, const BigInt<NW>& b) noexcept {
     uint64_t borrow = 0;
     for (std::size_t i = 0; i < NW; ++i) {
-        const uint64_t ai = a.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const uint64_t bi = b.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const uint64_t ai = a.d[i];
+        const uint64_t bi = b.d[i];
         const uint64_t diff = ai - bi - borrow;
         // borrow = 1 iff ai < bi + borrow
         borrow = ((ai < bi + borrow) || (borrow == 1U && bi == UINT64_MAX)) ? 1U : 0U;
@@ -126,7 +126,7 @@ template<std::size_t NW>
 inline BigInt<NW> bigint_ct_select(const BigInt<NW>& a, const BigInt<NW>& b, uint64_t mask) noexcept {
     BigInt<NW> out{};
     for (std::size_t i = 0; i < NW; ++i) {
-        out.d[i] = (a.d[i] & mask) | (b.d[i] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        out.d[i] = (a.d[i] & mask) | (b.d[i] & ~mask);
     }
     return out;
 }
@@ -137,7 +137,7 @@ template<std::size_t NW>
 inline bool bigint_eq(const BigInt<NW>& a, const BigInt<NW>& b) noexcept {
     uint64_t diff = 0;
     for (std::size_t i = 0; i < NW; ++i) {
-        diff |= a.d[i] ^ b.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        diff |= a.d[i] ^ b.d[i];
     }
     return diff == 0U;
 }
@@ -152,8 +152,8 @@ template<std::size_t NW>
 inline uint64_t bigint_add(BigInt<NW>& out, const BigInt<NW>& a, const BigInt<NW>& b) noexcept {
     uint64_t carry = 0;
     for (std::size_t i = 0; i < NW; ++i) {
-        const __uint128_t sum = static_cast<__uint128_t>(a.d[i]) + b.d[i] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        out.d[i] = static_cast<uint64_t>(sum); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const __uint128_t sum = static_cast<__uint128_t>(a.d[i]) + b.d[i] + carry;
+        out.d[i] = static_cast<uint64_t>(sum);
         carry    = static_cast<uint64_t>(sum >> 64U);
     }
     return carry;
@@ -164,9 +164,9 @@ template<std::size_t NW>
 inline uint64_t bigint_sub(BigInt<NW>& out, const BigInt<NW>& a, const BigInt<NW>& b) noexcept {
     uint64_t borrow = 0;
     for (std::size_t i = 0; i < NW; ++i) {
-        const __uint128_t ai = a.d[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        const __uint128_t bi = static_cast<__uint128_t>(b.d[i]) + borrow; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        out.d[i] = static_cast<uint64_t>(ai - bi); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const __uint128_t ai = a.d[i];
+        const __uint128_t bi = static_cast<__uint128_t>(b.d[i]) + borrow;
+        out.d[i] = static_cast<uint64_t>(ai - bi);
         borrow   = (ai < bi) ? 1U : 0U;
     }
     return borrow;
@@ -229,33 +229,33 @@ inline BigInt<NW> mont_mul(const BigInt<NW>& a, const BigInt<NW>& b,
         // Phase 1: t += a[i] * b
         uint64_t carry = 0;
         for (std::size_t j = 0; j < NW; ++j) {
-            const __uint128_t prod = (static_cast<__uint128_t>(a.d[i]) * b.d[j]) + t[j] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            t[j] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            const __uint128_t prod = (static_cast<__uint128_t>(a.d[i]) * b.d[j]) + t[j] + carry;
+            t[j] = static_cast<uint64_t>(prod);
             carry = static_cast<uint64_t>(prod >> 64U);
         }
-        t[NW] += carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        t[NW] += carry;
 
         // Phase 2: Montgomery reduction — t += (t[0] * m0inv mod 2^64) * m; t >>= 64
-        const uint64_t q = t[0] * m0inv; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        __uint128_t c = (static_cast<__uint128_t>(q) * m.d[0]) + t[0]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        const uint64_t q = t[0] * m0inv;
+        __uint128_t c = (static_cast<__uint128_t>(q) * m.d[0]) + t[0];
         c >>= 64U;
         for (std::size_t j = 1; j < NW; ++j) {
-            c += (static_cast<__uint128_t>(q) * m.d[j]) + t[j]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            t[j - 1U] = static_cast<uint64_t>(c); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            c += (static_cast<__uint128_t>(q) * m.d[j]) + t[j];
+            t[j - 1U] = static_cast<uint64_t>(c);
             c >>= 64U;
         }
-        c += t[NW]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        t[NW - 1U] = static_cast<uint64_t>(c); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-        t[NW] = static_cast<uint64_t>(c >> 64U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        c += t[NW];
+        t[NW - 1U] = static_cast<uint64_t>(c);
+        t[NW] = static_cast<uint64_t>(c >> 64U);
     }
 
     // Copy lower NW limbs.
     BigInt<NW> result{};
     for (std::size_t i = 0; i < NW; ++i) {
-        result.d[i] = t[i]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        result.d[i] = t[i];
     }
     // Constant-time final reduction: subtract m if t[NW] != 0 or result >= m.
-    const uint64_t overflow = t[NW]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    const uint64_t overflow = t[NW];
     BigInt<NW> reduced{};
     const uint64_t borrow = bigint_sub(reduced, result, m);
     // keep_reduced is all-ones when we should use reduced (i.e. subtract was correct):
@@ -285,8 +285,8 @@ inline BigInt<NW> mont_r2(const BigInt<NW>& m) noexcept {
         // Left shift r by 1 bit.
         uint64_t carry = 0;
         for (std::size_t j = 0; j < NW; ++j) {
-            const uint64_t new_carry = r.d[j] >> 63U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            r.d[j] = (r.d[j] << 1U) | carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            const uint64_t new_carry = r.d[j] >> 63U;
+            r.d[j] = (r.d[j] << 1U) | carry;
             carry = new_carry;
         }
         // If overflow (carry != 0) or r >= m, subtract m.
@@ -330,7 +330,7 @@ inline BigInt<NW> bigint_powmod_ct(
     const BigInt<NW>& base, const BigInt<NW>& exp,
     const BigInt<NW>& m) noexcept
 {
-    const uint64_t m0inv = mont_neg_inv(m.d[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    const uint64_t m0inv = mont_neg_inv(m.d[0]);
     const BigInt<NW> r2  = mont_r2(m);
 
     // Convert base to Montgomery form.
@@ -347,7 +347,7 @@ inline BigInt<NW> bigint_powmod_ct(
             // result = result^2
             result_m = mont_mul(result_m, result_m, m, m0inv);
             // Conditionally multiply by base if bit is set.
-            const uint64_t bit = (exp.d[wi] >> static_cast<unsigned>(bi)) & 1U; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            const uint64_t bit = (exp.d[wi] >> static_cast<unsigned>(bi)) & 1U;
             const uint64_t bit_mask = static_cast<uint64_t>(-static_cast<int64_t>(bit));  // all-ones if bit==1
             const BigInt<NW> prod = mont_mul(result_m, base_m, m, m0inv);
             result_m = bigint_ct_select(prod, result_m, bit_mask);
@@ -388,7 +388,7 @@ inline BigInt<NW> rsa_crt_combine(
     h_unnorm = bigint_reduce_once(h_unnorm, p);
 
     // h = h_unnorm * qinv mod p
-    const uint64_t p0inv = mont_neg_inv(p.d[0]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    const uint64_t p0inv = mont_neg_inv(p.d[0]);
     const BigInt<NW> r2_p = mont_r2(p);
     const BigInt<NW> h_m   = mont_to(h_unnorm, p, p0inv, r2_p);
     const BigInt<NW> qi_m  = mont_to(qinv,     p, p0inv, r2_p);
@@ -400,12 +400,12 @@ inline BigInt<NW> rsa_crt_combine(
     // Both q and h fit in NW/2 significant limbs; the product fits in NW limbs.
     BigInt<NW> qh{};
     for (std::size_t i = 0; i < NW; ++i) {
-        if (q.d[i] == 0U) { continue; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        if (q.d[i] == 0U) { continue; }
         uint64_t carry = 0;
         for (std::size_t j = 0; j < NW && (i + j) < NW; ++j) {
-            const __uint128_t prod = (static_cast<__uint128_t>(q.d[i]) * h.d[j]) // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-                                   + qh.d[i + j] + carry; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            qh.d[i + j] = static_cast<uint64_t>(prod); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            const __uint128_t prod = (static_cast<__uint128_t>(q.d[i]) * h.d[j])
+                                   + qh.d[i + j] + carry;
+            qh.d[i + j] = static_cast<uint64_t>(prod);
             carry = static_cast<uint64_t>(prod >> 64U);
         }
     }

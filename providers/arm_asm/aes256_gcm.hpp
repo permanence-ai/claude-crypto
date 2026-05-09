@@ -42,7 +42,7 @@ constexpr std::size_t aes_gcm_iv_bytes  = 12;
 
 // Increment the low 32 bits of a counter block (big-endian).
 static inline void gcm_inc_counter(uint8_t ctr[16]) noexcept {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
     uint32_t lo{};
     std::memcpy(&lo, ctr + 12, 4);
     lo = std::byteswap(std::byteswap(lo) + 1U);
@@ -79,7 +79,7 @@ static inline void gcm_ctr_crypt(
         std::array<uint8_t, 16> ks_bytes{};
         vst1q_u8(ks_bytes.data(), ks);
         for (std::size_t i = 0; offset + i < len; ++i) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
             out[offset + i] = static_cast<CryptoByte>(in[offset + i] ^ ks_bytes[i]);
         }
     }
@@ -92,7 +92,7 @@ static inline void gcm_length_block(
     uint64_t ct_len,
     uint8_t out[16]) noexcept
 {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
     const uint64_t aad_bits = std::byteswap(aad_len * 8U);
     const uint64_t ct_bits  = std::byteswap(ct_len  * 8U);
     std::memcpy(out,     &aad_bits, 8);
@@ -125,22 +125,22 @@ static inline void gcm_compute_tag( // NOLINT(readability-function-size,readabil
     // AAD (padded to block boundary).
     const std::size_t aad_full_blocks = aad_len / 16;
     for (std::size_t i = 0; i < aad_full_blocks; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         ghash.update(aad + (i * 16));
     }
     if (aad_len % 16 != 0) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         ghash.update_partial(aad + (aad_full_blocks * 16), aad_len % 16);
     }
 
     // Ciphertext (padded to block boundary).
     const std::size_t ct_full_blocks = ct_len / 16;
     for (std::size_t i = 0; i < ct_full_blocks; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         ghash.update(ct + (i * 16));
     }
     if (ct_len % 16 != 0) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         ghash.update_partial(ct + (ct_full_blocks * 16), ct_len % 16);
     }
 
@@ -156,7 +156,7 @@ static inline void gcm_compute_tag( // NOLINT(readability-function-size,readabil
 
     // tag = GHASH XOR E_J0
     for (std::size_t i = 0; i < 16; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+
         tag_out[i] = static_cast<uint8_t>(ghash_out[i] ^ E_J0[i]);
     }
 }
@@ -197,7 +197,7 @@ inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-
     gcm_ctr_crypt(pt, out, pt_len, ctr.data(), sched);
 
     // Compute tag over AAD and ciphertext.
-    gcm_compute_tag(aad, aad_len, out, pt_len, E_J0.data(), sched, out + pt_len); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    gcm_compute_tag(aad, aad_len, out, pt_len, E_J0.data(), sched, out + pt_len);
 }
 
 
@@ -231,12 +231,12 @@ inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-
     std::array<uint8_t, 16> expected_tag{};
     gcm_compute_tag(aad, aad_len, ct, pt_len, E_J0.data(), sched, expected_tag.data());
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
     const uint8_t* received_tag = ct + pt_len;
     unsigned int diff = 0;
     for (std::size_t i = 0; i < aes_gcm_tag_bytes; ++i) {
         diff |= static_cast<unsigned int>(expected_tag[i]) ^
-                static_cast<unsigned int>(received_tag[i]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                static_cast<unsigned int>(received_tag[i]);
     }
 
     if (diff != 0U) {

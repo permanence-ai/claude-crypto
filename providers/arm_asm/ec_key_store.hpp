@@ -51,7 +51,7 @@ struct EcKeySlot {
 };
 
 inline EcKeySlot& ec_key_slot(std::size_t idx) noexcept {
-    static EcKeySlot slots[ec_key_store_capacity]{};  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static EcKeySlot slots[ec_key_store_capacity]{};
     return slots[idx];
 }
 
@@ -62,17 +62,17 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
 
     if (kind == EcKeyKind::Private) {
         if (curve == EcCurveId::P256) {
-            if (key_len != 32U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key_len != 32U) { return false; }
             Fe256 tmp{};
             return p256_scalar_sig_decode(key, tmp);
         }
         if (curve == EcCurveId::P384) {
-            if (key_len != 48U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key_len != 48U) { return false; }
             Fe384 tmp{};
             return p384_scalar_sig_decode(key, tmp);
         }
         if (curve == EcCurveId::P521) {
-            if (key_len != 66U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key_len != 66U) { return false; }
             Fe521 tmp{};
             return p521_scalar_sig_decode(key, tmp);
         }
@@ -81,26 +81,26 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
 
     if (kind == EcKeyKind::Public) {
         if (curve == EcCurveId::P256) {
-            if (key_len != 65U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            if (key[0] != 0x04U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe256 x = fe256_from_bytes(key + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe256 y = fe256_from_bytes(key + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key_len != 65U) { return false; }
+            if (key[0] != 0x04U) { return false; }
+            const Fe256 x = fe256_from_bytes(key + 1);
+            const Fe256 y = fe256_from_bytes(key + 33);
             return p256_validate_public_point(x, y);
         }
         if (curve == EcCurveId::P384) {
-            if (key_len != 97U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            if (key[0] != 0x04U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe384 x = fe384_from_bytes(key + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe384 y = fe384_from_bytes(key + 49); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key_len != 97U) { return false; }
+            if (key[0] != 0x04U) { return false; }
+            const Fe384 x = fe384_from_bytes(key + 1);
+            const Fe384 y = fe384_from_bytes(key + 49);
             return p384_validate_public_point(x, y);
         }
         if (curve == EcCurveId::P521) {
-            if (key_len != 133U) { return false; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            if (key[0] != 0x04U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            if ((key[1]  & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            if ((key[67] & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            const Fe521 x = fe521_from_bytes(key + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe521 y = fe521_from_bytes(key + 67); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (key_len != 133U) { return false; }
+            if (key[0] != 0x04U) { return false; }
+            if ((key[1]  & 0xFEU) != 0U) { return false; }
+            if ((key[67] & 0xFEU) != 0U) { return false; }
+            const Fe521 x = fe521_from_bytes(key + 1);
+            const Fe521 y = fe521_from_bytes(key + 67);
             return p521_validate_public_point(x, y);
         }
         return false;

@@ -37,12 +37,18 @@
 #ifdef SAFE_CRYPTO_PROVIDER_IA_ASM
 #  include "ia_asm_backend.hpp"
 using NativeAsmBackend = IaAsmBackend;
-#else
+#elif defined(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
 #  include "arm_asm_backend.hpp"
 using NativeAsmBackend = ArmAsmBackend;
 #endif
 #include "openssl_backend.hpp"
 #include "psa_mbedtls_backend.hpp"
+
+// When arm_asm is unavailable (e.g. x86_64 debug build), fall back to PSA so
+// the NativeAsmBackend benchmark instantiations still compile.
+#if !defined(SAFE_CRYPTO_PROVIDER_IA_ASM) && !defined(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
+using NativeAsmBackend = RealPsaBackend;
+#endif
 
 
 // Remaining library headers.

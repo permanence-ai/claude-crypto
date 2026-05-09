@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 
-#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
+#ifdef SAFE_CRYPTO_ARM_ASM_AVAILABLE
 
 #include "rsa_der.hpp"
 
@@ -310,4 +310,4 @@ TEST_F(RsaDerDerivePublicKeyTests, ParsePublicKeyBadInputReturnsFalse) {
         bad.data(), bad.size(), pub));
 }
 
-#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM
+#endif  // SAFE_CRYPTO_ARM_ASM_AVAILABLE

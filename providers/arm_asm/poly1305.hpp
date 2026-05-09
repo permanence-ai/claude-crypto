@@ -101,7 +101,7 @@ static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi,
 
 // Clamp r per RFC 8439 §2.5.1 and extract into three 44-bit limbs.
 [[nodiscard]]
-static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept {
     FixedSecureBuffer<16> rc;
     std::memcpy(rc.data(), r_bytes, 16);
     rc[ 3] &= 0x0fU;
@@ -114,7 +114,7 @@ static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOL
 
     uint64_t lo = 0; uint64_t hi = 0;
     std::memcpy(&lo, rc.data(),     8);
-    std::memcpy(&hi, rc.data() + 8, 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memcpy(&hi, rc.data() + 8, 8);
     // r has top 4 bits of each 32-bit chunk cleared → r2 < 2^36
     return Poly1305Limbs{
         .h0 = lo & mask44,
@@ -177,7 +177,7 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
                                     const uint8_t s_bytes[16],
                                     uint8_t tag[16]) noexcept
 {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
 
     // Propagate any remaining carry into the 44/44/42 form.
     uint64_t h0 = h_in.h0;
@@ -303,7 +303,7 @@ static inline void poly1305_process_pair(
 inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
                           std::size_t msg_len, uint8_t tag[16]) noexcept
 {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
     const Poly1305Limbs r   = clamp_r(key);
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
@@ -312,13 +312,13 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
 
     // Primary loop: 4 blocks (64 bytes) at a time.
     while (offset + 64 <= msg_len) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         const auto [lo0, hi0] = load_le128(msg + offset);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         const auto [lo1, hi1] = load_le128(msg + offset + 16);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         const auto [lo2, hi2] = load_le128(msg + offset + 32);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         const auto [lo3, hi3] = load_le128(msg + offset + 48);
         poly1305_process_quad(h, lo0, hi0, lo1, hi1, lo2, hi2, lo3, hi3, pw);
         offset += 64;
@@ -326,9 +326,9 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
 
     // Remaining pair.
     if (offset + 32 <= msg_len) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         const auto [lo1, hi1] = load_le128(msg + offset);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         const auto [lo2, hi2] = load_le128(msg + offset + 16);
         poly1305_process_pair(h, lo1, hi1, lo2, hi2, pw);
         offset += 32;
@@ -336,7 +336,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
 
     // Remaining single full block.
     if (offset + 16 <= msg_len) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         const auto [lo, hi] = load_le128(msg + offset);
         poly1305_add_block(h, lo, hi, 1U);
         poly1305_multiply_precomp(h, pw.p1);
@@ -346,7 +346,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
     // Final partial block (if any).
     if (offset < msg_len) {
         std::array<uint8_t, 16> buf{};
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
         std::memcpy(buf.data(), msg + offset, msg_len - offset);
         buf[msg_len - offset] = 0x01U;  // RFC 8439: append 0x01 pad byte
         const auto [lo, hi] = load_le128(buf.data());
@@ -354,7 +354,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
         poly1305_multiply_precomp(h, pw.p1);
     }
 
-    poly1305_finish(h, key + 16, tag); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    poly1305_finish(h, key + 16, tag);
 }
 
 }  // namespace arm_asm::detail

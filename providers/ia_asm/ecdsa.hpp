@@ -43,18 +43,18 @@ using arm_asm::detail::p384_validate_public_point;
 using arm_asm::detail::p521_validate_public_point;
 
 
-static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
+static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-complexity,readability-function-size)
     const uint8_t* scalar_be, std::size_t qlen,
     const uint8_t* hash_be,   std::size_t hlen,
     const uint64_t* n_limbs,  std::size_t n_limb_count,
     uint8_t* k_out) noexcept
 {
-    FixedSecureBuffer<66> V{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    FixedSecureBuffer<66> V{};
     for (std::size_t i = 0; i < qlen; ++i) { V[i] = 0x01U; }
 
-    FixedSecureBuffer<66> K{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    FixedSecureBuffer<66> K{};
 
-    FixedSecureBuffer<66 + 1 + 66 + 64> msg_buf{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    FixedSecureBuffer<66 + 1 + 66 + 64> msg_buf{};
 
     for (int round = 0; round < 2; ++round) {
         std::size_t off = 0;
@@ -66,14 +66,14 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
             std::memcpy(msg_buf.data() + off, hash_be, qlen);
         } else {
             std::memset(msg_buf.data() + off, 0, qlen - hlen);
-            std::memcpy(msg_buf.data() + off + (qlen - hlen), hash_be, hlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            std::memcpy(msg_buf.data() + off + (qlen - hlen), hash_be, hlen);
         }
         off += qlen;
 
-        if (qlen == 32) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (qlen == 32) {
             hmac_sha256(K.data(), qlen, msg_buf.data(), off, K.data());
             hmac_sha256(K.data(), qlen, V.data(), qlen, V.data());
-        } else if (qlen == 48) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        } else if (qlen == 48) {
             hmac_sha384(K.data(), qlen, msg_buf.data(), off, K.data());
             hmac_sha384(K.data(), qlen, V.data(), qlen, V.data());
         } else {
@@ -82,10 +82,10 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
         }
     }
 
-    for (int attempt = 0; attempt < 100; ++attempt) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        if (qlen == 32) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        if (qlen == 32) {
             hmac_sha256(K.data(), qlen, V.data(), qlen, V.data());
-        } else if (qlen == 48) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        } else if (qlen == 48) {
             hmac_sha384(K.data(), qlen, V.data(), qlen, V.data());
         } else {
             hmac_sha512(K.data(), qlen, V.data(), qlen, V.data());
@@ -104,9 +104,9 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
             for (int j = static_cast<int>(n_limb_count) - 1; j >= 0; --j) {
                 uint64_t k_limb = 0;
                 for (int b = 0; b < 8; ++b) {
-                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * 8U) + static_cast<std::size_t>(b)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * 8U) + static_cast<std::size_t>(b));
                     if (byte_pos < qlen) {
-                        k_limb |= static_cast<uint64_t>(k_out[byte_pos]) << (static_cast<unsigned>(b) * 8U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                        k_limb |= static_cast<uint64_t>(k_out[byte_pos]) << (static_cast<unsigned>(b) * 8U);
                     }
                 }
                 if (k_limb < n_limbs[j]) { k_lt_n = true; break; }
@@ -117,13 +117,13 @@ static inline void rfc6979_generate_k( // NOLINT(cppcoreguidelines-avoid-c-array
 
 update_kv:
         {
-            FixedSecureBuffer<66 + 1> tmp{};  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            FixedSecureBuffer<66 + 1> tmp{};
             std::memcpy(tmp.data(), V.data(), qlen);
             tmp[qlen] = 0x00U;
-            if (qlen == 32) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (qlen == 32) {
                 hmac_sha256(K.data(), qlen, tmp.data(), qlen + 1, K.data());
                 hmac_sha256(K.data(), qlen, V.data(), qlen, V.data());
-            } else if (qlen == 48) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            } else if (qlen == 48) {
                 hmac_sha384(K.data(), qlen, tmp.data(), qlen + 1, K.data());
                 hmac_sha384(K.data(), qlen, V.data(), qlen, V.data());
             } else {
@@ -135,7 +135,7 @@ update_kv:
 }
 
 
-static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline bool p256_ecdsa_sign(
     const uint8_t private_scalar_be[32],
     const uint8_t msg_hash[32],
     uint8_t sig_out[64]) noexcept
@@ -150,7 +150,7 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     using arm_asm::detail::p256_to_affine;
     using arm_asm::detail::p256_point_is_identity;
     using arm_asm::detail::fe256_to_bytes;
-    constexpr std::size_t qlen = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t qlen = 32;
 
     const Fe256 e = p256_scalar_from_bytes32(msg_hash);
     const Fe256 d = p256_scalar_from_bytes32(private_scalar_be);
@@ -158,7 +158,7 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 
     FixedSecureBuffer<qlen> k_buf{};
     rfc6979_generate_k(private_scalar_be, qlen, msg_hash, qlen,
-                       p256_n, 4, k_buf.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                       p256_n, 4, k_buf.data());
 
     const Fe256 k = p256_scalar_from_bytes32(k_buf.data());
     if (p256_scalar_is_zero(k)) { return false; }
@@ -166,7 +166,7 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const P256Point R = p256_to_affine(p256_scalar_mul_base(k_buf.data()));
     if (p256_point_is_identity(R)) { return false; }
 
-    uint8_t rx_bytes[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t rx_bytes[qlen] = {};
     fe256_to_bytes(R.X, rx_bytes);
     const Fe256 r = p256_scalar_from_bytes32(rx_bytes);
     if (p256_scalar_is_zero(r)) { return false; }
@@ -178,14 +178,14 @@ static inline bool p256_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     if (p256_scalar_is_zero(s)) { return false; }
 
     fe256_to_bytes(r, sig_out);
-    fe256_to_bytes(s, sig_out + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    fe256_to_bytes(s, sig_out + qlen);
     return true;
 }
 
-static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t public_key_uncompressed[65], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline bool p256_ecdsa_verify(
+    const uint8_t public_key_uncompressed[65],
     const uint8_t msg_hash[32],
-    const uint8_t sig[64]) noexcept // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const uint8_t sig[64]) noexcept
 {
     using arm_asm::detail::p256_scalar_from_bytes32;
     using arm_asm::detail::p256_scalar_mul;
@@ -198,13 +198,13 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     using arm_asm::detail::fe256_from_bytes;
     using arm_asm::detail::fe256_to_bytes;
     using arm_asm::detail::fe256_equal;
-    constexpr std::size_t qlen = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t qlen = 32;
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
     Fe256 r{}, s{};
-    if (!p256_scalar_sig_decode(sig,        r)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (!p256_scalar_sig_decode(sig + qlen, s)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (!p256_scalar_sig_decode(sig,        r)) { return false; }
+    if (!p256_scalar_sig_decode(sig + qlen, s)) { return false; }
 
     const Fe256 e = p256_scalar_from_bytes32(msg_hash);
     const Fe256 w = p256_scalar_invert(s);
@@ -212,13 +212,13 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     const Fe256 u1 = p256_scalar_mul_mod_n(e, w);
     const Fe256 u2 = p256_scalar_mul_mod_n(r, w);
 
-    uint8_t u1b[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint8_t u2b[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t u1b[qlen] = {};
+    uint8_t u2b[qlen] = {};
     fe256_to_bytes(u1, u1b);
     fe256_to_bytes(u2, u2b);
 
-    const Fe256 Qx = fe256_from_bytes(public_key_uncompressed + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const Fe256 Qy = fe256_from_bytes(public_key_uncompressed + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe256 Qx = fe256_from_bytes(public_key_uncompressed + 1);
+    const Fe256 Qy = fe256_from_bytes(public_key_uncompressed + 33);
     if (!p256_validate_public_point(Qx, Qy)) { return false; }
     const P256Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
 
@@ -228,17 +228,17 @@ static inline bool p256_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (p256_point_is_identity(X)) { return false; }
 
-    uint8_t xx_bytes[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t xx_bytes[qlen] = {};
     fe256_to_bytes(X.X, xx_bytes);
     const Fe256 xr = p256_scalar_from_bytes32(xx_bytes);
     return fe256_equal(xr, r);
 }
 
 
-static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t private_scalar_be[48], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const uint8_t msg_hash[48],          // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    uint8_t sig_out[96]) noexcept        // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline bool p384_ecdsa_sign(
+    const uint8_t private_scalar_be[48],
+    const uint8_t msg_hash[48],
+    uint8_t sig_out[96]) noexcept
 {
     using arm_asm::detail::p384_scalar_from_bytes48;
     using arm_asm::detail::p384_scalar_is_zero;
@@ -250,7 +250,7 @@ static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     using arm_asm::detail::p384_to_affine;
     using arm_asm::detail::p384_point_is_identity;
     using arm_asm::detail::fe384_to_bytes;
-    constexpr std::size_t qlen = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t qlen = 48;
 
     const Fe384 e = p384_scalar_from_bytes48(msg_hash);
     const Fe384 d = p384_scalar_from_bytes48(private_scalar_be);
@@ -258,7 +258,7 @@ static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 
     FixedSecureBuffer<qlen> k_buf{};
     rfc6979_generate_k(private_scalar_be, qlen, msg_hash, qlen,
-                       p384_n, 6, k_buf.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                       p384_n, 6, k_buf.data());
 
     const Fe384 k = p384_scalar_from_bytes48(k_buf.data());
     if (p384_scalar_is_zero(k)) { return false; }
@@ -266,7 +266,7 @@ static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const P384Point R = p384_to_affine(p384_scalar_mul_base(k_buf.data()));
     if (p384_point_is_identity(R)) { return false; }
 
-    uint8_t rx_bytes[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t rx_bytes[qlen] = {};
     fe384_to_bytes(R.X, rx_bytes);
     const Fe384 r = p384_scalar_from_bytes48(rx_bytes);
     if (p384_scalar_is_zero(r)) { return false; }
@@ -278,14 +278,14 @@ static inline bool p384_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     if (p384_scalar_is_zero(s)) { return false; }
 
     fe384_to_bytes(r, sig_out);
-    fe384_to_bytes(s, sig_out + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    fe384_to_bytes(s, sig_out + qlen);
     return true;
 }
 
-static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t public_key_uncompressed[97], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const uint8_t msg_hash[48],                // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const uint8_t sig[96]) noexcept            // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline bool p384_ecdsa_verify(
+    const uint8_t public_key_uncompressed[97],
+    const uint8_t msg_hash[48],
+    const uint8_t sig[96]) noexcept
 {
     using arm_asm::detail::p384_scalar_from_bytes48;
     using arm_asm::detail::p384_scalar_mul;
@@ -298,13 +298,13 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     using arm_asm::detail::fe384_from_bytes;
     using arm_asm::detail::fe384_to_bytes;
     using arm_asm::detail::fe384_equal;
-    constexpr std::size_t qlen = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t qlen = 48;
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
     Fe384 r{}, s{};
-    if (!p384_scalar_sig_decode(sig,        r)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (!p384_scalar_sig_decode(sig + qlen, s)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (!p384_scalar_sig_decode(sig,        r)) { return false; }
+    if (!p384_scalar_sig_decode(sig + qlen, s)) { return false; }
 
     const Fe384 e = p384_scalar_from_bytes48(msg_hash);
     const Fe384 w = p384_scalar_invert(s);
@@ -312,13 +312,13 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     const Fe384 u1 = p384_scalar_mul_mod_n(e, w);
     const Fe384 u2 = p384_scalar_mul_mod_n(r, w);
 
-    uint8_t u1b[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint8_t u2b[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t u1b[qlen] = {};
+    uint8_t u2b[qlen] = {};
     fe384_to_bytes(u1, u1b);
     fe384_to_bytes(u2, u2b);
 
-    const Fe384 Qx = fe384_from_bytes(public_key_uncompressed + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const Fe384 Qy = fe384_from_bytes(public_key_uncompressed + 49); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 Qx = fe384_from_bytes(public_key_uncompressed + 1);
+    const Fe384 Qy = fe384_from_bytes(public_key_uncompressed + 49);
     if (!p384_validate_public_point(Qx, Qy)) { return false; }
     const P384Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
 
@@ -328,17 +328,17 @@ static inline bool p384_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (p384_point_is_identity(X)) { return false; }
 
-    uint8_t xx_bytes[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t xx_bytes[qlen] = {};
     fe384_to_bytes(X.X, xx_bytes);
     const Fe384 xr = p384_scalar_from_bytes48(xx_bytes);
     return fe384_equal(xr, r);
 }
 
 
-static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t private_scalar_be[66], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const uint8_t msg_hash[64],          // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    uint8_t sig_out[132]) noexcept       // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline bool p521_ecdsa_sign(
+    const uint8_t private_scalar_be[66],
+    const uint8_t msg_hash[64],
+    uint8_t sig_out[132]) noexcept
 {
     using arm_asm::detail::p521_scalar_from_bytes66;
     using arm_asm::detail::p521_scalar_from_bytes66_hash;
@@ -351,8 +351,8 @@ static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     using arm_asm::detail::p521_to_affine;
     using arm_asm::detail::p521_point_is_identity;
     using arm_asm::detail::fe521_to_bytes;
-    constexpr std::size_t qlen = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    constexpr std::size_t hlen = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t qlen = 66;
+    constexpr std::size_t hlen = 64;
 
     const Fe521 e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
     const Fe521 d = p521_scalar_from_bytes66(private_scalar_be);
@@ -360,7 +360,7 @@ static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 
     FixedSecureBuffer<qlen> k_buf{};
     rfc6979_generate_k(private_scalar_be, qlen, msg_hash, hlen,
-                       p521_n, 9, k_buf.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                       p521_n, 9, k_buf.data());
 
     const Fe521 k = p521_scalar_from_bytes66(k_buf.data());
     if (p521_scalar_is_zero(k)) { return false; }
@@ -368,7 +368,7 @@ static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     const P521Point R = p521_to_affine(p521_scalar_mul_base(k_buf.data()));
     if (p521_point_is_identity(R)) { return false; }
 
-    uint8_t rx_bytes[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t rx_bytes[qlen] = {};
     fe521_to_bytes(R.X, rx_bytes);
     const Fe521 r = p521_scalar_from_bytes66(rx_bytes);
     if (p521_scalar_is_zero(r)) { return false; }
@@ -380,14 +380,14 @@ static inline bool p521_ecdsa_sign( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
     if (p521_scalar_is_zero(s)) { return false; }
 
     fe521_to_bytes(r, sig_out);
-    fe521_to_bytes(s, sig_out + qlen); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    fe521_to_bytes(s, sig_out + qlen);
     return true;
 }
 
-static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t public_key_uncompressed[133], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const uint8_t msg_hash[64],                 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const uint8_t sig[132]) noexcept            // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline bool p521_ecdsa_verify(
+    const uint8_t public_key_uncompressed[133],
+    const uint8_t msg_hash[64],
+    const uint8_t sig[132]) noexcept
 {
     using arm_asm::detail::p521_scalar_from_bytes66;
     using arm_asm::detail::p521_scalar_from_bytes66_hash;
@@ -401,14 +401,14 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     using arm_asm::detail::fe521_from_bytes;
     using arm_asm::detail::fe521_to_bytes;
     using arm_asm::detail::fe521_equal;
-    constexpr std::size_t qlen = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    constexpr std::size_t hlen = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t qlen = 66;
+    constexpr std::size_t hlen = 64;
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
     Fe521 r{}, s{};
-    if (!p521_scalar_sig_decode(sig,        r)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (!p521_scalar_sig_decode(sig + qlen, s)) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (!p521_scalar_sig_decode(sig,        r)) { return false; }
+    if (!p521_scalar_sig_decode(sig + qlen, s)) { return false; }
 
     const Fe521 e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
     const Fe521 w = p521_scalar_invert(s);
@@ -416,15 +416,15 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
     const Fe521 u1 = p521_scalar_mul_mod_n(e, w);
     const Fe521 u2 = p521_scalar_mul_mod_n(r, w);
 
-    uint8_t u1b[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint8_t u2b[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t u1b[qlen] = {};
+    uint8_t u2b[qlen] = {};
     fe521_to_bytes(u1, u1b);
     fe521_to_bytes(u2, u2b);
 
-    if ((public_key_uncompressed[1]  & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if ((public_key_uncompressed[67] & 0xFEU) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const Fe521 Qx = fe521_from_bytes(public_key_uncompressed + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    const Fe521 Qy = fe521_from_bytes(public_key_uncompressed + 67); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    if ((public_key_uncompressed[1]  & 0xFEU) != 0U) { return false; }
+    if ((public_key_uncompressed[67] & 0xFEU) != 0U) { return false; }
+    const Fe521 Qx = fe521_from_bytes(public_key_uncompressed + 1);
+    const Fe521 Qy = fe521_from_bytes(public_key_uncompressed + 67);
     if (!p521_validate_public_point(Qx, Qy)) { return false; }
     const P521Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
 
@@ -434,7 +434,7 @@ static inline bool p521_ecdsa_verify( // NOLINT(cppcoreguidelines-avoid-c-arrays
 
     if (p521_point_is_identity(X)) { return false; }
 
-    uint8_t xx_bytes[qlen] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint8_t xx_bytes[qlen] = {};
     fe521_to_bytes(X.X, xx_bytes);
     const Fe521 xr = p521_scalar_from_bytes66(xx_bytes);
     return fe521_equal(xr, r);

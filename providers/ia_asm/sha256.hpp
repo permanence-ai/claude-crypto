@@ -38,13 +38,13 @@
 namespace ia_asm::detail {
 
 // SHA-256 initial hash values (fractional parts of sqrt of first 8 primes).
-inline constexpr uint32_t sha256_h0[8] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline constexpr uint32_t sha256_h0[8] = {
     0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
     0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
 };
 
 // SHA-256 round constants (fractional parts of cbrt of first 64 primes).
-inline constexpr uint32_t sha256_k[64] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline constexpr uint32_t sha256_k[64] = {
     0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U,
     0x3956c25bU, 0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U,
     0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U,
@@ -82,10 +82,10 @@ inline constexpr uint32_t sha256_k[64] = { // NOLINT(cppcoreguidelines-avoid-c-a
 //   After the first 16 rounds, each group is updated in-place using
 //   _mm_sha256msg1_epu32 (σ0) and _mm_sha256msg2_epu32 (σ1).
 [[gnu::target("sha,ssse3,sse4.1"), gnu::noinline]]
-void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-size)
+void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(readability-function-size)
 {
     // Big-endian byte-swap mask: reverses 4-byte words within each 16-byte lane.
-    const __m128i bswap_mask = _mm_set_epi8( // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i bswap_mask = _mm_set_epi8(
         12, 13, 14, 15,  8,  9, 10, 11,  4,  5,  6,  7,  0,  1,  2,  3
     );
 
@@ -94,10 +94,10 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
     __m128i state0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(state));     // a b c d
     __m128i state1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(state + 4)); // e f g h
     // Shuffle to { d c b a } and { h g f e }.
-    state0 = _mm_shuffle_epi32(state0, 0xB1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) { b a d c }
-    state1 = _mm_shuffle_epi32(state1, 0x1B); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) { h g f e }
+    state0 = _mm_shuffle_epi32(state0, 0xB1); // { b a d c }
+    state1 = _mm_shuffle_epi32(state1, 0x1B); // { h g f e }
     __m128i tmp    = _mm_alignr_epi8(state0, state1, 8); // { d c b a } ← blend high of state1 low of state0
-    state1         = _mm_blend_epi16(state1, state0, 0xF0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state1         = _mm_blend_epi16(state1, state0, 0xF0);
     state0         = tmp;
 
     const __m128i init0 = state0;
@@ -105,113 +105,113 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
 
     // Load 4 message words per register, byte-swap from big-endian.
     __m128i msg0 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)),      bswap_mask);
-    __m128i msg1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block + 16)), bswap_mask); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    __m128i msg2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block + 32)), bswap_mask); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    __m128i msg3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block + 48)), bswap_mask); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    __m128i msg1 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block + 16)), bswap_mask);
+    __m128i msg2 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block + 32)), bswap_mask);
+    __m128i msg3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block + 48)), bswap_mask);
 
     // Rounds 0–3
     __m128i tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
     msg0 = _mm_sha256msg1_epu32(msg0, msg1);
 
     // Rounds 4–7
-    __m128i tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 4))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    __m128i tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 4)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
     msg1 = _mm_sha256msg1_epu32(msg1, msg2);
 
     // Rounds 8–11
-    __m128i tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 8))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    __m128i tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 8)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
     msg2 = _mm_sha256msg1_epu32(msg2, msg3);
 
     // Rounds 12–15
-    __m128i tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 12))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    __m128i tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 12)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
     msg3 = _mm_sha256msg1_epu32(msg3, msg0);
 
     // Rounds 16–19
-    msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 16))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3);
+    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 16)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
     msg0 = _mm_sha256msg1_epu32(msg0, msg1);
 
     // Rounds 20–23
-    msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 20))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0);
+    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 20)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
     msg1 = _mm_sha256msg1_epu32(msg1, msg2);
 
     // Rounds 24–27
-    msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 24))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1);
+    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 24)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
     msg2 = _mm_sha256msg1_epu32(msg2, msg3);
 
     // Rounds 28–31
-    msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 28))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2);
+    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 28)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
     msg3 = _mm_sha256msg1_epu32(msg3, msg0);
 
     // Rounds 32–35
-    msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 32))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3);
+    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 32)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
     msg0 = _mm_sha256msg1_epu32(msg0, msg1);
 
     // Rounds 36–39
-    msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 36))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0);
+    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 36)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
     msg1 = _mm_sha256msg1_epu32(msg1, msg2);
 
     // Rounds 40–43
-    msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 40))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1);
+    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 40)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
     msg2 = _mm_sha256msg1_epu32(msg2, msg3);
 
     // Rounds 44–47
-    msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 44))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2);
+    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 44)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
     msg3 = _mm_sha256msg1_epu32(msg3, msg0);
 
     // Rounds 48–51
-    msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 48))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3);
+    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 48)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
 
     // Rounds 52–55
-    msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 52))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0);
+    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 52)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
 
     // Rounds 56–59
-    msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 56))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1);
+    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 56)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
 
     // Rounds 60–63
-    msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 60))); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2);
+    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 60)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
-    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
 
     // Davies–Meyer feed-forward: add back the initial state.
     state0 = _mm_add_epi32(state0, init0);
@@ -219,10 +219,10 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
 
     // Convert back from SHA-NI ABEF/CDGH layout to h0..h7 word order.
     // Reference: noloader/SHA-Intrinsics sha256-x86.c
-    tmp    = _mm_shuffle_epi32(state0, 0x1B); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) FEBA
-    state1 = _mm_shuffle_epi32(state1, 0xB1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) DCHG
-    state0 = _mm_blend_epi16(tmp, state1, 0xF0); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) DCBA
-    state1 = _mm_alignr_epi8(state1, tmp, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) HGFE
+    tmp    = _mm_shuffle_epi32(state0, 0x1B); // FEBA
+    state1 = _mm_shuffle_epi32(state1, 0xB1); // DCHG
+    state0 = _mm_blend_epi16(tmp, state1, 0xF0); // DCBA
+    state1 = _mm_alignr_epi8(state1, tmp, 8); // HGFE
 
     _mm_storeu_si128(reinterpret_cast<__m128i*>(state),     state0);
     _mm_storeu_si128(reinterpret_cast<__m128i*>(state + 4), state1);
@@ -231,43 +231,43 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
 #else // IA_ASM_SHA_NI_ENABLED — portable scalar fallback
 
 // Portable scalar SHA-256 compress. Used when SHA-NI is disabled.
-inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,readability-function-cognitive-complexity,readability-function-size)
+inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(readability-function-cognitive-complexity,readability-function-size)
 {
-    auto rotr = [](uint32_t x, int n) noexcept { return (x >> n) | (x << (32 - n)); }; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto rotr = [](uint32_t x, int n) noexcept { return (x >> n) | (x << (32 - n)); };
     auto ch   = [](uint32_t x, uint32_t y, uint32_t z) noexcept { return (x & y) ^ (~x & z); };
     auto maj  = [](uint32_t x, uint32_t y, uint32_t z) noexcept { return (x & y) ^ (x & z) ^ (y & z); };
 
-    uint32_t w[64]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    for (std::size_t i = 0; i < 16; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        w[i] = (static_cast<uint32_t>(block[i * 4])     << 24U) | // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-               (static_cast<uint32_t>(block[(i * 4) + 1]) << 16U) | // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-               (static_cast<uint32_t>(block[(i * 4) + 2]) <<  8U) | // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                static_cast<uint32_t>(block[(i * 4) + 3]);           // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    uint32_t w[64];
+    for (std::size_t i = 0; i < 16; ++i) {
+        w[i] = (static_cast<uint32_t>(block[i * 4])     << 24U) |
+               (static_cast<uint32_t>(block[(i * 4) + 1]) << 16U) |
+               (static_cast<uint32_t>(block[(i * 4) + 2]) <<  8U) |
+                static_cast<uint32_t>(block[(i * 4) + 3]);
     }
-    for (std::size_t i = 16; i < 64; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint32_t s0 = rotr(w[i-15], 7) ^ rotr(w[i-15], 18) ^ (w[i-15] >> 3); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const uint32_t s1 = rotr(w[i-2],  17) ^ rotr(w[i-2], 19) ^ (w[i-2]  >> 10); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        w[i] = (w[i-16] + s0 + w[i-7] + s1) & 0xFFFFFFFFU; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (std::size_t i = 16; i < 64; ++i) {
+        const uint32_t s0 = rotr(w[i-15], 7) ^ rotr(w[i-15], 18) ^ (w[i-15] >> 3);
+        const uint32_t s1 = rotr(w[i-2],  17) ^ rotr(w[i-2], 19) ^ (w[i-2]  >> 10);
+        w[i] = (w[i-16] + s0 + w[i-7] + s1) & 0xFFFFFFFFU;
     }
-    uint32_t a = state[0]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint32_t b = state[1]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint32_t c = state[2]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint32_t d = state[3]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint32_t e = state[4]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint32_t f = state[5]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint32_t g = state[6]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    uint32_t h = state[7]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    for (std::size_t i = 0; i < 64; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint32_t s1  = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint32_t t1  = (h + s1 + ch(e,f,g) + sha256_k[i] + w[i]) & 0xFFFFFFFFU; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint32_t s0  = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint32_t a = state[0];
+    uint32_t b = state[1];
+    uint32_t c = state[2];
+    uint32_t d = state[3];
+    uint32_t e = state[4];
+    uint32_t f = state[5];
+    uint32_t g = state[6];
+    uint32_t h = state[7];
+    for (std::size_t i = 0; i < 64; ++i) {
+        const uint32_t s1  = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const uint32_t t1  = (h + s1 + ch(e,f,g) + sha256_k[i] + w[i]) & 0xFFFFFFFFU;
+        const uint32_t s0  = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
         const uint32_t t2  = (s0 + maj(a,b,c)) & 0xFFFFFFFFU;
         h=g; g=f; f=e; e=(d+t1)&0xFFFFFFFFU; d=c; c=b; b=a; a=(t1+t2)&0xFFFFFFFFU;
     }
-    state[0] = (state[0]+a)&0xFFFFFFFFU; state[1] = (state[1]+b)&0xFFFFFFFFU; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    state[2] = (state[2]+c)&0xFFFFFFFFU; state[3] = (state[3]+d)&0xFFFFFFFFU; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    state[4] = (state[4]+e)&0xFFFFFFFFU; state[5] = (state[5]+f)&0xFFFFFFFFU; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    state[6] = (state[6]+g)&0xFFFFFFFFU; state[7] = (state[7]+h)&0xFFFFFFFFU; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    state[0] = (state[0]+a)&0xFFFFFFFFU; state[1] = (state[1]+b)&0xFFFFFFFFU;
+    state[2] = (state[2]+c)&0xFFFFFFFFU; state[3] = (state[3]+d)&0xFFFFFFFFU;
+    state[4] = (state[4]+e)&0xFFFFFFFFU; state[5] = (state[5]+f)&0xFFFFFFFFU;
+    state[6] = (state[6]+g)&0xFFFFFFFFU; state[7] = (state[7]+h)&0xFFFFFFFFU;
 }
 
 #endif // IA_ASM_SHA_NI_ENABLED
@@ -276,39 +276,39 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 // Full SHA-256 over an arbitrary-length message.
 // Handles padding and big-endian length encoding.
 inline void sha256(const CryptoByte* msg, std::size_t msg_len,
-                   CryptoByte out[32]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                   CryptoByte out[32]) noexcept
 {
-    uint32_t state[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint32_t state[8];
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha256_h0[i]; }
 
     // Process all complete 64-byte blocks.
     std::size_t offset = 0;
-    while (msg_len - offset >= 64) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        sha256_compress(state, msg + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        offset += 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    while (msg_len - offset >= 64) {
+        sha256_compress(state, msg + offset);
+        offset += 64;
     }
 
     // Build the final padded block(s).
-    alignas(64) uint8_t pad[128]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    alignas(64) uint8_t pad[128]{};
     const std::size_t tail = msg_len - offset;
-    if (tail > 0) { std::memcpy(pad, msg + offset, tail); } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (tail > 0) { std::memcpy(pad, msg + offset, tail); }
     pad[tail] = 0x80U;
 
     // Append bit-length as big-endian uint64 in the last 8 bytes.
-    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    if (tail < 56) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        std::memcpy(pad + 56, &bit_len_be, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
+    if (tail < 56) {
+        std::memcpy(pad + 56, &bit_len_be, 8);
         sha256_compress(state, pad);
     } else {
-        std::memcpy(pad + 120, &bit_len_be, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(pad + 120, &bit_len_be, 8);
         sha256_compress(state, pad);
-        sha256_compress(state, pad + 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        sha256_compress(state, pad + 64);
     }
 
     // Serialise state as big-endian bytes.
     for (std::size_t i = 0; i < 8; ++i) {
         const uint32_t w = std::byteswap(state[i]);
-        std::memcpy(out + (i * 4), &w, 4); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(out + (i * 4), &w, 4);
     }
 }
 

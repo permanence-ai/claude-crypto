@@ -62,7 +62,7 @@ struct Sha3Ctx {
             const std::size_t take  = len < space ? len : space;
             std::memcpy(buf.data() + buf_used, data, take);
             buf_used += take;
-            data     += take; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            data     += take;
             len      -= take;
             if (buf_used == rate_bytes) {
                 absorb_block();
@@ -82,18 +82,18 @@ struct Sha3Ctx {
         // Squeeze: output lanes are already in little-endian byte order on LE
         // hardware (x86 is LE), so write directly.
         for (std::size_t i = 0; i < out_bytes; ++i) {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            out[i] = static_cast<uint8_t>(state[i / 8] >> ((i % 8) * 8)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+            out[i] = static_cast<uint8_t>(state[i / 8] >> ((i % 8) * 8));
         }
     }
 
 private:
     void absorb_block() noexcept {
         // XOR the rate lanes into the state (little-endian byte order).
-        const std::size_t lanes = rate_bytes / 8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        const std::size_t lanes = rate_bytes / 8;
         for (std::size_t i = 0; i < lanes; ++i) {
             uint64_t word = 0;
-            std::memcpy(&word, buf.data() + (i * 8), 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            std::memcpy(&word, buf.data() + (i * 8), 8);
             if constexpr (std::endian::native == std::endian::little) {
                 state[i] ^= word;
             } else {
@@ -108,30 +108,30 @@ private:
 
 // SHA3-256: rate=136, out=32
 inline void sha3_256(const CryptoByte* msg, std::size_t msg_len,
-                     CryptoByte out[32]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                     CryptoByte out[32]) noexcept
 {
     Sha3Ctx ctx;
-    ctx.init(136, 32); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ctx.init(136, 32);
     ctx.update(msg, msg_len);
     ctx.finish(out);
 }
 
 // SHA3-384: rate=104, out=48
 inline void sha3_384(const CryptoByte* msg, std::size_t msg_len,
-                     CryptoByte out[48]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                     CryptoByte out[48]) noexcept
 {
     Sha3Ctx ctx;
-    ctx.init(104, 48); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ctx.init(104, 48);
     ctx.update(msg, msg_len);
     ctx.finish(out);
 }
 
 // SHA3-512: rate=72, out=64
 inline void sha3_512(const CryptoByte* msg, std::size_t msg_len,
-                     CryptoByte out[64]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                     CryptoByte out[64]) noexcept
 {
     Sha3Ctx ctx;
-    ctx.init(72, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ctx.init(72, 64);
     ctx.update(msg, msg_len);
     ctx.finish(out);
 }

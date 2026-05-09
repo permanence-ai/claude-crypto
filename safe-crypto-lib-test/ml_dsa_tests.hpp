@@ -18,7 +18,7 @@
 #include "pqc_dsa.hpp"
 #include "test_utils.hpp"
 using MlDsaBackend = OpenSslBackend;
-#elif defined(SAFE_CRYPTO_PQC_LIBOQS) && defined(SAFE_CRYPTO_PROVIDER_ARM_ASM)
+#elif defined(SAFE_CRYPTO_PQC_LIBOQS) && defined(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
 #include "arm_asm_backend.hpp"
 #include "ml_dsa_variant.hpp"
 #include "pqc_dsa.hpp"

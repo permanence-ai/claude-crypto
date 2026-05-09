@@ -65,7 +65,7 @@ struct PqcKeyView {
 };
 
 inline PqcKeySlot& pqc_key_slot(std::size_t idx) noexcept {
-    static PqcKeySlot slots[pqc_key_store_capacity]{};  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static PqcKeySlot slots[pqc_key_store_capacity]{};
     return slots[idx];
 }
 
@@ -115,10 +115,10 @@ inline unsigned int pqc_key_store_import(PqcKeyType type, std::uint8_t variant, 
     auto* buf = new (std::nothrow) CryptoByte[total];  // NOLINT(cppcoreguidelines-owning-memory)
     if (buf == nullptr) { return 0U; }
     if (priv != nullptr && priv_len > 0) {
-        std::memcpy(buf, priv, priv_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(buf, priv, priv_len);
     }
     if (pub != nullptr && pub_len > 0) {
-        std::memcpy(buf + priv_len, pub, pub_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(buf + priv_len, pub, pub_len);
     }
     const std::lock_guard<std::mutex> lock{pqc_store_mutex()};
     for (std::size_t i = 0; i < pqc_key_store_capacity; ++i) {
@@ -169,7 +169,7 @@ inline std::optional<PqcKeyView> pqc_key_store_get_public(unsigned int id) noexc
     if (pub_len == 0) { return std::nullopt; }
     try {
         SecureBuffer copy{pub_len};
-        std::memcpy(copy.data(), s.data + s.priv_len, pub_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::memcpy(copy.data(), s.data + s.priv_len, pub_len);
         return PqcKeyView{.data = std::move(copy), .type = s.type, .variant = s.variant};
     } catch (...) { return std::nullopt; }
 }

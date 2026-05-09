@@ -26,8 +26,8 @@
 namespace ia_asm::detail {
 
 // AES-256: 15 round keys, each 16 bytes.
-constexpr std::size_t aes256_round_key_count = 15; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-constexpr std::size_t aes256_round_key_bytes = 16; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+constexpr std::size_t aes256_round_key_count = 15;
+constexpr std::size_t aes256_round_key_bytes = 16;
 constexpr std::size_t aes256_schedule_bytes  = aes256_round_key_count * aes256_round_key_bytes;
 
 using Aes256Schedule = std::array<uint8_t, aes256_schedule_bytes>;
@@ -38,19 +38,19 @@ using Aes256Schedule = std::array<uint8_t, aes256_schedule_bytes>;
 [[gnu::target("aes,sse4.1")]]
 static inline __m128i aes256_keygen_helper(__m128i key, __m128i keygen_result) noexcept {
     // Broadcast lane 3 (the SubWord(RotWord(w)) result) to all lanes.
-    keygen_result = _mm_shuffle_epi32(keygen_result, 0xFF); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    keygen_result = _mm_shuffle_epi32(keygen_result, 0xFF);
     // XOR-chain: key ^= key<<32 ^= key<<64 ^= key<<96
-    key = _mm_xor_si128(key, _mm_slli_si128(key, 4));  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    key = _mm_xor_si128(key, _mm_slli_si128(key, 8));  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
+    key = _mm_xor_si128(key, _mm_slli_si128(key, 8));
     return _mm_xor_si128(key, keygen_result);
 }
 
 // Helper for the "odd" AES-256 round keys (those derived from SubWord without RotWord).
 [[gnu::target("aes,sse4.1")]]
 static inline __m128i aes256_keygen_helper2(__m128i key, __m128i keygen_result) noexcept {
-    keygen_result = _mm_shuffle_epi32(keygen_result, 0xAA); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers) lane 2
-    key = _mm_xor_si128(key, _mm_slli_si128(key, 4));  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    key = _mm_xor_si128(key, _mm_slli_si128(key, 8));  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    keygen_result = _mm_shuffle_epi32(keygen_result, 0xAA); // lane 2
+    key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
+    key = _mm_xor_si128(key, _mm_slli_si128(key, 8));
     return _mm_xor_si128(key, keygen_result);
 }
 
@@ -58,48 +58,48 @@ static inline __m128i aes256_keygen_helper2(__m128i key, __m128i keygen_result) 
 // Expand a 256-bit key into the AES-256 round-key schedule.
 // key must point to 32 bytes; sched receives 15 × 16 bytes.
 [[gnu::target("aes,sse4.1")]]
-inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) noexcept
 {
     // Load the two 128-bit halves of the 256-bit key.
     __m128i k0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key));
-    __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key + 16)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key + 16));
 
     auto* rk = reinterpret_cast<__m128i*>(sched.data());
 
     _mm_storeu_si128(rk + 0, k0); // round key 0
     _mm_storeu_si128(rk + 1, k1); // round key 1
 
-    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x01)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x01));
     _mm_storeu_si128(rk + 2, k0);
     k1 = aes256_keygen_helper2(k1, _mm_aeskeygenassist_si128(k0, 0x00));
     _mm_storeu_si128(rk + 3, k1);
 
-    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x02)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x02));
     _mm_storeu_si128(rk + 4, k0);
     k1 = aes256_keygen_helper2(k1, _mm_aeskeygenassist_si128(k0, 0x00));
     _mm_storeu_si128(rk + 5, k1);
 
-    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x04)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x04));
     _mm_storeu_si128(rk + 6, k0);
     k1 = aes256_keygen_helper2(k1, _mm_aeskeygenassist_si128(k0, 0x00));
     _mm_storeu_si128(rk + 7, k1);
 
-    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x08)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x08));
     _mm_storeu_si128(rk + 8, k0);
     k1 = aes256_keygen_helper2(k1, _mm_aeskeygenassist_si128(k0, 0x00));
     _mm_storeu_si128(rk + 9, k1);
 
-    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x10));
     _mm_storeu_si128(rk + 10, k0);
     k1 = aes256_keygen_helper2(k1, _mm_aeskeygenassist_si128(k0, 0x00));
     _mm_storeu_si128(rk + 11, k1);
 
-    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x20)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x20));
     _mm_storeu_si128(rk + 12, k0);
     k1 = aes256_keygen_helper2(k1, _mm_aeskeygenassist_si128(k0, 0x00));
     _mm_storeu_si128(rk + 13, k1);
 
-    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x40)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    k0 = aes256_keygen_helper(k0, _mm_aeskeygenassist_si128(k1, 0x40));
     _mm_storeu_si128(rk + 14, k0);
 }
 

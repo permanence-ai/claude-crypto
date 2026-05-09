@@ -60,7 +60,7 @@ static constexpr Fe256 p256_Gy = {{
 }};
 
 // Group order n.
-static constexpr uint64_t p256_n[4] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static constexpr uint64_t p256_n[4] = {
     0xf3b9cac2fc632551ULL,
     0xbce6faada7179e84ULL,
     0xffffffffffffffffULL,
@@ -274,7 +274,7 @@ static inline auto p256_point_add_affine(const P256Point& p, const P256AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P256AffinePoint p256_G_table[15] = { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static constexpr P256AffinePoint p256_G_table[15] = {
     // [1]*G
     {
         .X = {.v = {0xf4a13945d898c296ULL, 0x77037d812deb33a0ULL, 0xf8bce6e563a440f2ULL, 0x6b17d1f2e12c4247ULL}},
@@ -350,7 +350,7 @@ static constexpr P256AffinePoint p256_G_table[15] = { // NOLINT(cppcoreguideline
         .X = {.v = {0x63668c63e59b9d5fULL, 0xae03af92de3a0ef1ULL, 0xadfb378999888265ULL, 0xf0454dc6971abae7ULL}},
         .Y = {.v = {0x47e59cde0d034f36ULL, 0x2a3b21ce75b5fa3fULL, 0x4e6594e51f9643e6ULL, 0xb5b93ee3592e2d1fULL}},
     },
-}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+};
 
 
 // -----------------------------------------------------------------------
@@ -378,12 +378,12 @@ static inline auto p256_point_ct_select(
 [[nodiscard]]
 static inline auto p256_G_table_select(unsigned nibble) noexcept -> P256AffinePoint
 {
-    P256AffinePoint r = p256_G_table[0]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    for (unsigned i = 1; i < 15U; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    P256AffinePoint r = p256_G_table[0];
+    for (unsigned i = 1; i < 15U; ++i) {
         const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
         for (int j = 0; j < 4; ++j) {
-            r.X.v[j] = (p256_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            r.Y.v[j] = (p256_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            r.X.v[j] = (p256_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask);
+            r.Y.v[j] = (p256_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask);
         }
     }
     return r;
@@ -456,13 +456,13 @@ static inline auto p256_point_add_affine_ct(const P256Point& p, const P256Affine
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p256_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p256_scalar_mul_base(
     const uint8_t scalar[32]) noexcept -> P256Point
 {
     P256Point result = p256_identity;
 
-    for (int byte_i = 0; byte_i < 32; ++byte_i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (int byte_i = 0; byte_i < 32; ++byte_i) {
+        const uint8_t byte_val = scalar[byte_i];
 
         // High nibble first.
         for (int pass = 0; pass < 2; ++pass) {
@@ -516,7 +516,7 @@ static inline auto p256_to_affine(const P256Point& p) noexcept -> P256Point {
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p256_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p256_scalar_mul(
     const P256Point& base, const uint8_t scalar[32]) noexcept -> P256Point
 {
     // result accumulates k·base; tmp is base doubled at each step.
@@ -525,7 +525,7 @@ static inline auto p256_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 
     // Process bits LSB → MSB.
     for (int byte_i = 31; byte_i >= 0; --byte_i) {
-        const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t byte_val = scalar[byte_i];
         for (int bit = 0; bit < 8; ++bit) {
             const uint64_t k_bit = (static_cast<uint64_t>(byte_val) >> static_cast<unsigned>(bit)) & 1U;
             // Conditionally add tmp to result.
@@ -552,14 +552,14 @@ static inline auto p256_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 // Reduce a 64-byte (512-bit) big-endian value mod n.
 // Used to reduce HMAC output to a scalar.
 [[nodiscard]]
-static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p256_scalar_from_bytes64(
     const uint8_t b[64]) noexcept -> Fe256
 {
     // Load as 16 × uint32_t big-endian.
-    uint32_t w[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint32_t w[16];
     for (int i = 0; i < 16; ++i) {
         const int j = 15 - i;
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4);
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -574,7 +574,7 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
     // Simple approach: repeated subtraction after two-word shift.
 
     // Represent as 8 uint64_t LE limbs.
-    uint64_t acc[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint64_t acc[8];
     for (int i = 0; i < 8; ++i) {
         acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
@@ -628,12 +628,12 @@ static inline auto p256_scalar_from_bytes64( // NOLINT(cppcoreguidelines-avoid-c
 
 // Reduce a 32-byte big-endian scalar mod n.
 [[nodiscard]]
-static inline auto p256_scalar_from_bytes32( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p256_scalar_from_bytes32(
     const uint8_t b[32]) noexcept -> Fe256
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -666,7 +666,7 @@ static inline auto p256_scalar_from_bytes32( // NOLINT(cppcoreguidelines-avoid-c
 
 // Scalar mod-n add.
 [[nodiscard]]
-static inline auto p256_scalar_add( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p256_scalar_add(
     const Fe256& a, const Fe256& b) noexcept -> Fe256
 {
     using u128 = unsigned __int128;
@@ -714,7 +714,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
     constexpr int s = 4;
     constexpr uint64_t n_prime = 0xccd1c8aaee00bc4fULL;
 
-    uint64_t t[s + 2]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint64_t t[s + 2]{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         // Step 1: t += a[i] * b
         uint64_t carry = 0;
@@ -795,7 +795,7 @@ static inline auto p256_scalar_mul_mod_n(
 static inline auto p256_scalar_invert(const Fe256& a) noexcept -> Fe256 {
     // n-2 big-endian 64-bit limbs:
     // 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC63254F
-    static constexpr uint64_t nm2[4] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static constexpr uint64_t nm2[4] = {
         0xf3b9cac2fc63254fULL,
         0xbce6faada7179e84ULL,
         0xffffffffffffffffULL,
@@ -823,12 +823,12 @@ static inline auto p256_scalar_is_zero(const Fe256& a) noexcept -> bool {
 // Returns true and writes the scalar iff 1 <= val < n; rejects val == 0 or val >= n.
 // Unlike p256_scalar_from_bytes32, this does NOT reduce mod n — it rejects instead.
 [[nodiscard]]
-static inline auto p256_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p256_scalar_sig_decode(
     const uint8_t b[32], Fe256& out) noexcept -> bool
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -862,14 +862,14 @@ static inline auto p256_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 // public_key_uncompressed: 65-byte 0x04||x||y.
 // -----------------------------------------------------------------------
 
-static inline void p256_compute_public_key( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline void p256_compute_public_key(
     const uint8_t private_scalar_be[32],
     uint8_t public_key_uncompressed[65]) noexcept
 {
     const P256Point pub = p256_to_affine(p256_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe256_to_bytes(pub.X, public_key_uncompressed + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    fe256_to_bytes(pub.Y, public_key_uncompressed + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    fe256_to_bytes(pub.X, public_key_uncompressed + 1);
+    fe256_to_bytes(pub.Y, public_key_uncompressed + 33);
 }
 
 

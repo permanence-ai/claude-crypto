@@ -47,8 +47,8 @@ static constexpr Fe521 fe521_p = {{
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto fe521_from_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t b[66]) noexcept -> Fe521 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline auto fe521_from_bytes(
+    const uint8_t b[66]) noexcept -> Fe521
 {
     // 66 bytes = 528 bits; top 7 bits are always zero (521-bit field element).
     // b[0] is the most significant byte (bits 520–513... but only 9 low bits used).
@@ -66,13 +66,13 @@ static inline auto fe521_from_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,
     // ...
     // bits 512..519 = b[1]
     // bits 520..527 = b[0]  (top 7 bits must be zero)
-    for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + (65 - (i * 8)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int i = 0; i < 8; ++i) {
+        const uint8_t* p = b + (65 - (i * 8));
         r.v[i] =
-            (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) | // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);           // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) |
+            (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) |
+            (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) |
+            (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);
     }
     // v[8]: top 9 bits.  b[0] = bits[520:513] (but 521-bit so b[0] ≤ 0x01), b[1] = bits[512:505].
     // v[8] = b[0] << 1 | b[1] >> 7  ... no, byte-level: 521 bits in 66 bytes.
@@ -81,27 +81,27 @@ static inline auto fe521_from_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,
     // but we only have 521 bits, so v[8] = bits [520:512] = 9 bits.
     // bits [520:512]: byte index 65-64 = byte 1 has bits [519:512], byte 0 has bit [520].
     // So v[8] = (b[0] << 8) | b[1] truncated to 9 bits.
-    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
     r.v[8] &= 0x1ffULL;
     return r;
 }
 
-static inline void fe521_to_bytes( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const Fe521& a, uint8_t b[66]) noexcept // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline void fe521_to_bytes(
+    const Fe521& a, uint8_t b[66]) noexcept
 {
     // v[8] holds 9 bits: bits[520:512].  Write as b[0] (bit 520) and b[1] (bits[519:512]).
-    b[0] = static_cast<uint8_t>(a.v[8] >> 8U); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    b[1] = static_cast<uint8_t>(a.v[8]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        uint8_t* p = b + (65 - (i * 8)); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        p[0]  = static_cast<uint8_t>(a.v[i]);                      // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        p[-1] = static_cast<uint8_t>(a.v[i] >> 8U);                // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        p[-2] = static_cast<uint8_t>(a.v[i] >> 16U);               // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        p[-3] = static_cast<uint8_t>(a.v[i] >> 24U);               // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        p[-4] = static_cast<uint8_t>(a.v[i] >> 32U);               // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        p[-5] = static_cast<uint8_t>(a.v[i] >> 40U);               // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        p[-6] = static_cast<uint8_t>(a.v[i] >> 48U);               // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        p[-7] = static_cast<uint8_t>(a.v[i] >> 56U);               // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    b[0] = static_cast<uint8_t>(a.v[8] >> 8U);
+    b[1] = static_cast<uint8_t>(a.v[8]);
+    for (int i = 0; i < 8; ++i) {
+        uint8_t* p = b + (65 - (i * 8));
+        p[0]  = static_cast<uint8_t>(a.v[i]);
+        p[-1] = static_cast<uint8_t>(a.v[i] >> 8U);
+        p[-2] = static_cast<uint8_t>(a.v[i] >> 16U);
+        p[-3] = static_cast<uint8_t>(a.v[i] >> 24U);
+        p[-4] = static_cast<uint8_t>(a.v[i] >> 32U);
+        p[-5] = static_cast<uint8_t>(a.v[i] >> 40U);
+        p[-6] = static_cast<uint8_t>(a.v[i] >> 48U);
+        p[-7] = static_cast<uint8_t>(a.v[i] >> 56U);
     }
 }
 
@@ -268,15 +268,15 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     // propagation. Accumulating all products into u128 accumulators first
     // overflows: the middle column (t[8]) sums up to 9 products each ~2^128,
     // which exceeds u128's max of 2^128-1.
-    uint64_t c[18]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint64_t c[18]{};
+    for (int i = 0; i < 9; ++i) {
         u128 carry = 0;
-        for (int j = 0; j < 9; ++j) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int j = 0; j < 9; ++j) {
             const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry;
             c[i + j] = static_cast<uint64_t>(tt);
             carry = tt >> 64U;
         }
-        for (int k = i + 9; k < 18 && carry != 0U; ++k) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int k = i + 9; k < 18 && carry != 0U; ++k) {
             const u128 tt = static_cast<u128>(c[k]) + carry;
             c[k] = static_cast<uint64_t>(tt);
             carry = tt >> 64U;
@@ -305,14 +305,14 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     constexpr unsigned shift = 9U;
     constexpr unsigned rshift = 64U - shift; // 55
 
-    uint64_t lo[9]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint64_t hi[9]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < 8; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint64_t lo[9];
+    uint64_t hi[9];
+    for (int i = 0; i < 8; ++i) {
         lo[i] = c[i];
-        hi[i] = (c[i + 8] >> shift) | (c[i + 9] << rshift); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        hi[i] = (c[i + 8] >> shift) | (c[i + 9] << rshift);
     }
     lo[8] = c[8] & 0x1ffULL;
-    hi[8] = c[16] >> shift; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    hi[8] = c[16] >> shift;
 
     // r = lo + hi with carry propagation; result is at most 2p so reduce once.
     auto s = static_cast<u128>(lo[0]) + hi[0];
@@ -342,7 +342,7 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     r.v[8] &= 0x1ffULL;
     // Propagate the carry (at most 1 extra carry into v[1]).
     if ((s >> 64U) != 0U) {
-        for (int i = 1; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int i = 1; i < 9; ++i) {
             r.v[i] += 1U;
             if (r.v[i] != 0U) { break; }
         }
@@ -381,7 +381,7 @@ static inline auto fe521_equal(const Fe521& a, const Fe521& b) noexcept -> bool 
 [[nodiscard]]
 static inline auto fe521_invert(const Fe521& a) noexcept -> Fe521 {
     // p-2 limbs (LE): low 64 bits = 0xfffffffffffffffd, rest all-ones.
-    static constexpr uint64_t exp[9] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static constexpr uint64_t exp[9] = {
         0xfffffffffffffffdULL,
         0xffffffffffffffffULL,
         0xffffffffffffffffULL,
@@ -393,8 +393,8 @@ static inline auto fe521_invert(const Fe521& a) noexcept -> Fe521 {
         0x00000000000001ffULL,
     };
     Fe521 result = fe521_one;
-    for (int word = 8; word >= 0; --word) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const int bits = (word == 8) ? 9 : 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int word = 8; word >= 0; --word) {
+        const int bits = (word == 8) ? 9 : 64;
         for (int bit = bits - 1; bit >= 0; --bit) {
             result = fe521_sqr(result);
             if (((exp[word] >> static_cast<unsigned>(bit)) & 1U) != 0U) {

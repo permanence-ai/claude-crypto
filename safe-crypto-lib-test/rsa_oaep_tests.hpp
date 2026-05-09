@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
+#ifdef SAFE_CRYPTO_ARM_ASM_AVAILABLE
 
 #include "rsa_oaep.hpp"
 #include "rsa_der.hpp"
@@ -409,4 +409,4 @@ TEST_F(OaepCrossTests, OurEncryptPsaDecrypt) {
     EXPECT_EQ(std::memcmp(pt_out.data(), pt.data(), pt.size()), 0);
 }
 
-#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM
+#endif  // SAFE_CRYPTO_ARM_ASM_AVAILABLE

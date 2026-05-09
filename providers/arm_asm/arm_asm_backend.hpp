@@ -166,7 +166,7 @@ struct ArmAsmBackend {
                 constexpr std::size_t sk_len = 32;
                 FixedSecureBuffer<sk_len> sk{};
                 // Rejection sample: generate random bytes, check in [1, n-1].
-                for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                for (int attempts = 0; attempts < 100; ++attempts) {
                     generate_random_bytes(sk.data(), sk_len);
                     const Fe256 s = p256_scalar_from_bytes32(sk.data());
                     if (!p256_scalar_is_zero(s)) {
@@ -181,9 +181,9 @@ struct ArmAsmBackend {
                 return err_invalid_arg;
             }
             if (attrs->ec_curve == EcCurveId::P384) {
-                constexpr std::size_t sk_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                constexpr std::size_t sk_len = 48;
                 FixedSecureBuffer<sk_len> sk{};
-                for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                for (int attempts = 0; attempts < 100; ++attempts) {
                     generate_random_bytes(sk.data(), sk_len);
                     const Fe384 s = p384_scalar_from_bytes48(sk.data());
                     if (!p384_scalar_is_zero(s)) {
@@ -197,9 +197,9 @@ struct ArmAsmBackend {
                 return err_invalid_arg;
             }
             if (attrs->ec_curve == EcCurveId::P521) {
-                constexpr std::size_t sk_len = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                constexpr std::size_t sk_len = 66;
                 FixedSecureBuffer<sk_len> sk{};
-                for (int attempts = 0; attempts < 100; ++attempts) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                for (int attempts = 0; attempts < 100; ++attempts) {
                     generate_random_bytes(sk.data(), sk_len);
                     const Fe521 s = p521_scalar_from_bytes66(sk.data());
                     if (!p521_scalar_is_zero(s)) {
@@ -394,21 +394,21 @@ struct ArmAsmBackend {
         }
         if (kind != EcKeyKind::Private) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
-            constexpr std::size_t pk_len = 65; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 65;
             if (size < pk_len) { return err_invalid_arg; }
             p256_compute_public_key(key, out);
             *len = pk_len;
             return ok;
         }
         if (curve == EcCurveId::P384) {
-            constexpr std::size_t pk_len = 97; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 97;
             if (size < pk_len) { return err_invalid_arg; }
             p384_compute_public_key(key, out);
             *len = pk_len;
             return ok;
         }
         if (curve == EcCurveId::P521) {
-            constexpr std::size_t pk_len = 133; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 133;
             if (size < pk_len) { return err_invalid_arg; }
             p521_compute_public_key(key, out);
             *len = pk_len;
@@ -476,7 +476,7 @@ struct ArmAsmBackend {
         // Constant-time comparison.
         unsigned int diff = 0;
         for (std::size_t i = 0; i < expected_len; ++i) {
-            diff |= static_cast<unsigned int>(mac[i]) ^ static_cast<unsigned int>(expected[i]); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+            diff |= static_cast<unsigned int>(mac[i]) ^ static_cast<unsigned int>(expected[i]);
         }
         return diff == 0U ? ok : err_invalid_sig;
     }
@@ -490,7 +490,7 @@ struct ArmAsmBackend {
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
-        if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (key_len != 32) { return err_invalid_arg; }
         if (alg == alg_aes_gcm()) {
             if (nonce_len != arm_asm::detail::aes_gcm_iv_bytes) { return err_invalid_arg; }
             if (pt_len > SIZE_MAX - arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
@@ -519,7 +519,7 @@ struct ArmAsmBackend {
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
         if (!arm_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
-        if (key_len != 32) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (key_len != 32) { return err_invalid_arg; }
         if (alg == alg_aes_gcm()) {
             if (nonce_len != arm_asm::detail::aes_gcm_iv_bytes) { return err_invalid_arg; }
             if (ct_len < arm_asm::detail::aes_gcm_tag_bytes) { return err_invalid_arg; }
@@ -586,34 +586,34 @@ struct ArmAsmBackend {
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Private) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
-            constexpr std::size_t hash_len = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t sig_len_expected = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t hash_len = 32;
+            constexpr std::size_t sig_len_expected = 64;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            uint8_t hash[hash_len] = {};
             sha256(msg, msg_len, hash);
             if (!p256_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
         if (curve == EcCurveId::P384) {
-            constexpr std::size_t hash_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t sig_len_expected = 96; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t hash_len = 48;
+            constexpr std::size_t sig_len_expected = 96;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            uint8_t hash[hash_len] = {};
             sha384(msg, msg_len, hash);
             if (!p384_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
         if (curve == EcCurveId::P521) {
-            constexpr std::size_t hash_len = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t sk_len = 66; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t sig_len_expected = 132; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t hash_len = 64;
+            constexpr std::size_t sk_len = 66;
+            constexpr std::size_t sig_len_expected = 132;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != sk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            uint8_t hash[hash_len] = {};
             sha512(msg, msg_len, hash);
             if (!p521_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
@@ -659,29 +659,29 @@ struct ArmAsmBackend {
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Public) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
-            constexpr std::size_t hash_len = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t expected_sig_len = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t pk_len = 65; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t hash_len = 32;
+            constexpr std::size_t expected_sig_len = 64;
+            constexpr std::size_t pk_len = 65;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            uint8_t hash[hash_len] = {};
             sha256(msg, msg_len, hash);
             return p256_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P384) {
-            constexpr std::size_t hash_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t expected_sig_len = 96; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t pk_len = 97; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t hash_len = 48;
+            constexpr std::size_t expected_sig_len = 96;
+            constexpr std::size_t pk_len = 97;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            uint8_t hash[hash_len] = {};
             sha384(msg, msg_len, hash);
             return p384_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P521) {
-            constexpr std::size_t hash_len = 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t expected_sig_len = 132; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t pk_len = 133; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t hash_len = 64;
+            constexpr std::size_t expected_sig_len = 132;
+            constexpr std::size_t pk_len = 133;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+            uint8_t hash[hash_len] = {};
             sha512(msg, msg_len, hash);
             return p521_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
         }
@@ -702,13 +702,13 @@ struct ArmAsmBackend {
         if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
         if (kind != EcKeyKind::Private) { return err_invalid_arg; }
         if (curve == EcCurveId::P256) {
-            constexpr std::size_t pk_len = 65; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t ss_len = 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 65;
+            constexpr std::size_t ss_len = 32;
             if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
             if (out_size < ss_len) { return err_invalid_arg; }
             if (key_len != ss_len) { return err_invalid_arg; }
-            const Fe256 Qx = fe256_from_bytes(peer + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe256 Qy = fe256_from_bytes(peer + 33); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            const Fe256 Qx = fe256_from_bytes(peer + 1);
+            const Fe256 Qy = fe256_from_bytes(peer + 33);
             if (!p256_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P256Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
             const P256Point S = p256_to_affine(p256_scalar_mul(Q, key));
@@ -718,13 +718,13 @@ struct ArmAsmBackend {
             return ok;
         }
         if (curve == EcCurveId::P384) {
-            constexpr std::size_t pk_len = 97; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t ss_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 97;
+            constexpr std::size_t ss_len = 48;
             if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
             if (out_size < ss_len) { return err_invalid_arg; }
             if (key_len != ss_len) { return err_invalid_arg; }
-            const Fe384 Qx = fe384_from_bytes(peer + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe384 Qy = fe384_from_bytes(peer + 49); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            const Fe384 Qx = fe384_from_bytes(peer + 1);
+            const Fe384 Qy = fe384_from_bytes(peer + 49);
             if (!p384_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P384Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
             const P384Point S = p384_to_affine(p384_scalar_mul(Q, key));
@@ -734,17 +734,17 @@ struct ArmAsmBackend {
             return ok;
         }
         if (curve == EcCurveId::P521) {
-            constexpr std::size_t pk_len = 133; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            constexpr std::size_t ss_len = 66;  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            constexpr std::size_t pk_len = 133;
+            constexpr std::size_t ss_len = 66;
             if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
             if (out_size < ss_len) { return err_invalid_arg; }
             if (key_len != ss_len) { return err_invalid_arg; }
             // Reject non-canonical P-521 encodings: top 7 bits of each coordinate's
             // first byte must be zero (521-bit field → only 1 bit in byte 0).
-            if ((peer[1]  & 0xFEU) != 0U) { return err_invalid_arg; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            if ((peer[67] & 0xFEU) != 0U) { return err_invalid_arg; } // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-            const Fe521 Qx = fe521_from_bytes(peer + 1);   // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-            const Fe521 Qy = fe521_from_bytes(peer + 67);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if ((peer[1]  & 0xFEU) != 0U) { return err_invalid_arg; }
+            if ((peer[67] & 0xFEU) != 0U) { return err_invalid_arg; }
+            const Fe521 Qx = fe521_from_bytes(peer + 1);
+            const Fe521 Qy = fe521_from_bytes(peer + 67);
             if (!p521_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P521Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
             const P521Point S = p521_to_affine(p521_scalar_mul(Q, key));
@@ -921,8 +921,8 @@ struct ArmAsmBackend {
 
     [[nodiscard]]
     static constexpr auto ec_curve_id_for_bits(std::size_t bits) noexcept -> arm_asm::detail::EcCurveId {
-        if (bits == 256U) { return arm_asm::detail::EcCurveId::P256; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        if (bits == 384U) { return arm_asm::detail::EcCurveId::P384; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (bits == 256U) { return arm_asm::detail::EcCurveId::P256; }
+        if (bits == 384U) { return arm_asm::detail::EcCurveId::P384; }
         return arm_asm::detail::EcCurveId::P521;
     }
     [[nodiscard]]

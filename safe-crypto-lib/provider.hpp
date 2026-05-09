@@ -6,7 +6,7 @@
 // CMake propagates the matching compile definition through safe_crypto_lib's
 // interface, so consumers do not need to set it manually.
 
-#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
+#if defined(SAFE_CRYPTO_PROVIDER_ARM_ASM) && defined(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
 #  include "arm_asm_backend.hpp"
 using DefaultProvider = ArmAsmBackend;
 #elifdef SAFE_CRYPTO_PROVIDER_IA_ASM

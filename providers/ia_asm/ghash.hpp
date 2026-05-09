@@ -41,7 +41,7 @@ namespace ia_asm::detail {
 // Load a 16-byte GCM block and byte-reverse it for PCLMULQDQ polynomial order.
 [[gnu::target("pclmul,ssse3")]]
 static inline __m128i ghash_load(const uint8_t* block) noexcept {
-    const __m128i bswap = _mm_set_epi8( // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i bswap = _mm_set_epi8(
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     );
     return _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)), bswap);
@@ -49,7 +49,7 @@ static inline __m128i ghash_load(const uint8_t* block) noexcept {
 
 [[gnu::target("pclmul,ssse3")]]
 static inline void ghash_store(uint8_t* out, __m128i v) noexcept {
-    const __m128i bswap = _mm_set_epi8( // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i bswap = _mm_set_epi8(
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     );
     _mm_storeu_si128(reinterpret_cast<__m128i*>(out), _mm_shuffle_epi8(v, bswap));
@@ -60,14 +60,14 @@ static inline void ghash_store(uint8_t* out, __m128i v) noexcept {
 [[gnu::target("pclmul,ssse3")]]
 static inline void ghash_clmul256(__m128i a, __m128i b,
                                    __m128i& lo, __m128i& hi) noexcept {
-    const __m128i lo_lo = _mm_clmulepi64_si128(a, b, 0x00); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i hi_hi = _mm_clmulepi64_si128(a, b, 0x11); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i lo_lo = _mm_clmulepi64_si128(a, b, 0x00);
+    const __m128i hi_hi = _mm_clmulepi64_si128(a, b, 0x11);
     __m128i       mid   = _mm_xor_si128(
-                              _mm_clmulepi64_si128(a, b, 0x10), // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-                              _mm_clmulepi64_si128(a, b, 0x01)  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+                              _mm_clmulepi64_si128(a, b, 0x10),
+                              _mm_clmulepi64_si128(a, b, 0x01)
                           );
-    const __m128i mid_lo = _mm_slli_si128(mid, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i mid_hi = _mm_srli_si128(mid, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i mid_lo = _mm_slli_si128(mid, 8);
+    const __m128i mid_hi = _mm_srli_si128(mid, 8);
     lo = _mm_xor_si128(lo_lo, mid_lo);
     hi = _mm_xor_si128(hi_hi, mid_hi);
 }
@@ -76,24 +76,24 @@ static inline void ghash_clmul256(__m128i a, __m128i b,
 // CLMUL-WP Algorithm 5 Step 1: shift the 256-bit product one bit left.
 [[gnu::target("pclmul,ssse3")]]
 static inline void ghash_shift(__m128i& lo, __m128i& hi) noexcept {
-    const __m128i lo_hi = _mm_srli_epi64(lo, 63); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i hi_hi = _mm_srli_epi64(hi, 63); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i lo_hi = _mm_srli_epi64(lo, 63);
+    const __m128i hi_hi = _mm_srli_epi64(hi, 63);
     // Carry bit: bit 63 of lo's high 64-bit lane propagates into lo bit of hi.
-    const __m128i carry = _mm_srli_si128(lo_hi, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i lo_hi_shifted = _mm_slli_si128(lo_hi, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    lo = _mm_or_si128(_mm_slli_epi64(lo, 1), lo_hi_shifted); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    hi = _mm_or_si128(_mm_slli_epi64(hi, 1), // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-                      _mm_or_si128(_mm_slli_si128(hi_hi, 8), carry)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i carry = _mm_srli_si128(lo_hi, 8);
+    const __m128i lo_hi_shifted = _mm_slli_si128(lo_hi, 8);
+    lo = _mm_or_si128(_mm_slli_epi64(lo, 1), lo_hi_shifted);
+    hi = _mm_or_si128(_mm_slli_epi64(hi, 1),
+                      _mm_or_si128(_mm_slli_si128(hi_hi, 8), carry));
 }
 
 
 // CLMUL-WP Algorithm 5 Step 2: first reduction pass on the low 128 bits.
 [[gnu::target("pclmul,ssse3")]]
 static inline __m128i ghash_reduce(__m128i xx) noexcept {
-    const __m128i aa = _mm_slli_epi64(xx, 63); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i bb = _mm_slli_epi64(xx, 62); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i cc = _mm_slli_epi64(xx, 57); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i dd = _mm_slli_si128( // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i aa = _mm_slli_epi64(xx, 63);
+    const __m128i bb = _mm_slli_epi64(xx, 62);
+    const __m128i cc = _mm_slli_epi64(xx, 57);
+    const __m128i dd = _mm_slli_si128(
                            _mm_xor_si128(_mm_xor_si128(aa, bb), cc), 8);
     return _mm_xor_si128(dd, xx);
 }
@@ -102,13 +102,13 @@ static inline __m128i ghash_reduce(__m128i xx) noexcept {
 // CLMUL-WP Algorithm 5 Steps 3-4: second reduction pass (mix).
 [[gnu::target("pclmul,ssse3")]]
 static inline __m128i ghash_mix(__m128i dx) noexcept {
-    const __m128i ee = _mm_srli_epi64(dx, 1); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i ff = _mm_srli_epi64(dx, 2); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i gg = _mm_srli_epi64(dx, 7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i eh = _mm_slli_epi64(dx, 63); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i fh = _mm_slli_epi64(dx, 62); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i gh = _mm_slli_epi64(dx, 57); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const __m128i hh = _mm_srli_si128(_mm_xor_si128(_mm_xor_si128(eh, fh), gh), 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const __m128i ee = _mm_srli_epi64(dx, 1);
+    const __m128i ff = _mm_srli_epi64(dx, 2);
+    const __m128i gg = _mm_srli_epi64(dx, 7);
+    const __m128i eh = _mm_slli_epi64(dx, 63);
+    const __m128i fh = _mm_slli_epi64(dx, 62);
+    const __m128i gh = _mm_slli_epi64(dx, 57);
+    const __m128i hh = _mm_srli_si128(_mm_xor_si128(_mm_xor_si128(eh, fh), gh), 8);
     return _mm_xor_si128(_mm_xor_si128(_mm_xor_si128(_mm_xor_si128(ee, ff), gg), hh), dx);
 }
 
@@ -139,7 +139,7 @@ struct GhashCtx {
 
     [[gnu::target("pclmul,ssse3")]]
     void update_partial(const uint8_t* data, std::size_t len) noexcept {
-        std::array<uint8_t, 16> buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        std::array<uint8_t, 16> buf{};
         std::memcpy(buf.data(), data, len);
         update(buf.data());
     }

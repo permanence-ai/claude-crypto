@@ -61,7 +61,7 @@ static constexpr Fe384 p384_Gy = {{
 }};
 
 // Group order n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973
-static constexpr uint64_t p384_n[6] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static constexpr uint64_t p384_n[6] = {
     0xecec196accc52973ULL,
     0x581a0db248b0a77aULL,
     0xc7634d81f4372ddfULL,
@@ -229,7 +229,7 @@ static inline auto p384_point_add_affine(const P384Point& p, const P384AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P384AffinePoint p384_G_table[15] = { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static constexpr P384AffinePoint p384_G_table[15] = {
     // [1]*G
     {
         .X = {.v = {0x3a545e3872760ab7ULL, 0x5502f25dbf55296cULL, 0x59f741e082542a38ULL, 0x6e1d3b628ba79b98ULL, 0x8eb1c71ef320ad74ULL, 0xaa87ca22be8b0537ULL}},
@@ -305,7 +305,7 @@ static constexpr P384AffinePoint p384_G_table[15] = { // NOLINT(cppcoreguideline
         .X = {.v = {0x4b88701a9606860bULL, 0xa849557a10b6383bULL, 0x5b21f9f7da7c4e9cULL, 0x22a94156fff01c20ULL, 0x8cc15c11d8135255ULL, 0xb3d13fc8b32b0105ULL}},
         .Y = {.v = {0x985d588d33f7bd62ULL, 0x838d24f8b284af50ULL, 0x84d1114373dfbfd9ULL, 0xeebac4a11d749af4ULL, 0x1b049b2536164b1bULL, 0x152919e7df9162a6ULL}},
     },
-}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+};
 
 
 // -----------------------------------------------------------------------
@@ -329,12 +329,12 @@ static inline auto p384_point_ct_select(
 [[nodiscard]]
 static inline auto p384_G_table_select(unsigned nibble) noexcept -> P384AffinePoint
 {
-    P384AffinePoint r = p384_G_table[0]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    for (unsigned i = 1; i < 15U; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    P384AffinePoint r = p384_G_table[0];
+    for (unsigned i = 1; i < 15U; ++i) {
         const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
         for (int j = 0; j < 6; ++j) {
-            r.X.v[j] = (p384_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            r.Y.v[j] = (p384_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            r.X.v[j] = (p384_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask);
+            r.Y.v[j] = (p384_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask);
         }
     }
     return r;
@@ -399,13 +399,13 @@ static inline auto p384_point_add_affine_ct(const P384Point& p, const P384Affine
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p384_scalar_mul_base( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t scalar[48]) noexcept -> P384Point // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline auto p384_scalar_mul_base(
+    const uint8_t scalar[48]) noexcept -> P384Point
 {
     P384Point result = p384_identity;
 
-    for (int byte_i = 0; byte_i < 48; ++byte_i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (int byte_i = 0; byte_i < 48; ++byte_i) {
+        const uint8_t byte_val = scalar[byte_i];
 
         for (int pass = 0; pass < 2; ++pass) {
             result = p384_point_double_ct(result);
@@ -449,19 +449,19 @@ static inline auto p384_to_affine(const P384Point& p) noexcept -> P384Point {
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p384_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p384_scalar_mul(
     const P384Point& base, const uint8_t scalar[48]) noexcept -> P384Point
 {
     P384Point result = p384_identity;
     P384Point tmp    = base;
 
-    for (int byte_i = 47; byte_i >= 0; --byte_i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t byte_val = scalar[byte_i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (int byte_i = 47; byte_i >= 0; --byte_i) {
+        const uint8_t byte_val = scalar[byte_i];
         for (int bit = 0; bit < 8; ++bit) {
             const uint64_t k_bit = (static_cast<uint64_t>(byte_val) >> static_cast<unsigned>(bit)) & 1U;
             const P384Point added = p384_point_add(result, tmp);
             const uint64_t mask = 0U - k_bit;
-            for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            for (int i = 0; i < 6; ++i) {
                 result.X.v[i] = (added.X.v[i] & mask) | (result.X.v[i] & ~mask);
                 result.Y.v[i] = (added.Y.v[i] & mask) | (result.Y.v[i] & ~mask);
                 result.Z.v[i] = (added.Z.v[i] & mask) | (result.Z.v[i] & ~mask);
@@ -478,41 +478,41 @@ static inline auto p384_scalar_mul( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p384_scalar_from_bytes96(
     const uint8_t b[96]) noexcept -> Fe384
 {
-    uint32_t w[24]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < 24; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const int j = 23 - i; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    uint32_t w[24];
+    for (int i = 0; i < 24; ++i) {
+        const int j = 23 - i;
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4);
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
                 static_cast<uint32_t>(p[3]);
     }
 
-    uint64_t acc[12]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    for (int i = 0; i < 12; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint64_t acc[12]{};
+    for (int i = 0; i < 12; ++i) {
         acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
 
     using u128 = unsigned __int128;
-    for (int step = 5; step >= 0; --step) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint64_t hi = acc[step + 6]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    for (int step = 5; step >= 0; --step) {
+        const uint64_t hi = acc[step + 6];
         if (hi == 0U) { continue; }
-        acc[step + 6] = 0; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        acc[step + 6] = 0;
         int64_t borrow = 0;
-        for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        for (int i = 0; i < 6; ++i) {
             const auto prod = static_cast<u128>(hi) * p384_n[i];
             const int64_t diff = static_cast<int64_t>(acc[step + i])
                 - static_cast<int64_t>(static_cast<uint64_t>(prod)) + borrow;
             acc[step + i] = static_cast<uint64_t>(diff);
             borrow = -(static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U)) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
         }
-        acc[step + 6] = static_cast<uint64_t>(static_cast<int64_t>(acc[step + 6]) + borrow); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        acc[step + 6] = static_cast<uint64_t>(static_cast<int64_t>(acc[step + 6]) + borrow);
     }
 
-    const Fe384 r{{acc[0], acc[1], acc[2], acc[3], acc[4], acc[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 r{{acc[0], acc[1], acc[2], acc[3], acc[4], acc[5]}};
 
     // Final conditional subtract mod n.
     Fe384 sub{};
@@ -546,12 +546,12 @@ static inline auto p384_scalar_from_bytes96( // NOLINT(cppcoreguidelines-avoid-c
 }
 
 [[nodiscard]]
-static inline auto p384_scalar_from_bytes48( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p384_scalar_from_bytes48(
     const uint8_t b[48]) noexcept -> Fe384
 {
     Fe384 r{};
-    for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (int i = 0; i < 6; ++i) {
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -590,7 +590,7 @@ static inline auto p384_scalar_from_bytes48( // NOLINT(cppcoreguidelines-avoid-c
 }
 
 [[nodiscard]]
-static inline auto p384_scalar_add( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto p384_scalar_add(
     const Fe384& a, const Fe384& b) noexcept -> Fe384
 {
     using u128 = unsigned __int128;
@@ -648,10 +648,10 @@ static inline auto p384_scalar_add( // NOLINT(cppcoreguidelines-avoid-c-arrays,h
 static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> Fe384
 {
     using u128 = unsigned __int128;
-    constexpr int s = 6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr int s = 6;
     constexpr uint64_t n_prime = 0x6ed46089e88fdc45ULL;
 
-    uint64_t t[s + 2]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint64_t t[s + 2]{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
@@ -679,7 +679,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
         t[s + 1] = 0;
     }
 
-    const Fe384 r{{t[0], t[1], t[2], t[3], t[4], t[5]}}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 r{{t[0], t[1], t[2], t[3], t[4], t[5]}};
     const uint64_t overflow = t[s];
 
     Fe384 sub{};
@@ -760,26 +760,26 @@ static inline auto p384_scalar_invert(const Fe384& a) noexcept -> Fe384 {
     //     (1) square p_{k/2} by (k/2) to get [a^(2^{k/2}*(2^{k/2}-1))]
     //     (2) mont_mul result with p_{k/2} = [a^(2^{k/2}-1)]
     //         product = [a^(2^{k/2}*(2^{k/2}-1) + (2^{k/2}-1))] = [a^((2^{k/2}-1)*(2^{k/2}+1))] = [a^(2^k-1)]
-    auto sqn = [](Fe384 x, int n) -> Fe384 { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sqn = [](Fe384 x, int n) -> Fe384 {
         for (int i = 0; i < n; ++i) { x = p384_mont_mul_n(x, x); }
         return x;
     };
     const Fe384 p1  = aM;                                          // [a^(2^1-1)]
-    const Fe384 p2  = p384_mont_mul_n(sqn(p1,  1), p1);           // [a^(2^2-1)]  NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const Fe384 p4  = p384_mont_mul_n(sqn(p2,  2), p2);           // [a^(2^4-1)]  NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const Fe384 p8  = p384_mont_mul_n(sqn(p4,  4), p4);           // [a^(2^8-1)]  NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const Fe384 p16 = p384_mont_mul_n(sqn(p8,  8), p8);           // [a^(2^16-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const Fe384 p32 = p384_mont_mul_n(sqn(p16, 16), p16);         // [a^(2^32-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const Fe384 p64 = p384_mont_mul_n(sqn(p32, 32), p32);         // [a^(2^64-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p2  = p384_mont_mul_n(sqn(p1,  1), p1);           // [a^(2^2-1)]
+    const Fe384 p4  = p384_mont_mul_n(sqn(p2,  2), p2);           // [a^(2^4-1)]
+    const Fe384 p8  = p384_mont_mul_n(sqn(p4,  4), p4);           // [a^(2^8-1)]
+    const Fe384 p16 = p384_mont_mul_n(sqn(p8,  8), p8);           // [a^(2^16-1)]
+    const Fe384 p32 = p384_mont_mul_n(sqn(p16, 16), p16);         // [a^(2^32-1)]
+    const Fe384 p64 = p384_mont_mul_n(sqn(p32, 32), p32);         // [a^(2^64-1)]
 
     // Accumulate top 192 ones (bits 383..192) using precomputed windows.
     // [a^(2^128-1)]: square p64 by 64, multiply by p64.
-    const Fe384 p128 = p384_mont_mul_n(sqn(p64, 64), p64);        // [a^(2^128-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const Fe384 p128 = p384_mont_mul_n(sqn(p64, 64), p64);        // [a^(2^128-1)]
     // [a^(2^192-1)]: square p128 by 64, multiply by p64.
-    Fe384 result = p384_mont_mul_n(sqn(p128, 64), p64);           // [a^(2^192-1)] NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    Fe384 result = p384_mont_mul_n(sqn(p128, 64), p64);           // [a^(2^192-1)]
 
     // Process lower 192 bits of n-2: 0xC7634D81F4372DDF_581A0DB248B0A77A_ECEC196ACCC52971.
-    static constexpr uint64_t nm2_lo[3] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static constexpr uint64_t nm2_lo[3] = {
         0xecec196accc52971ULL,  // word[0]  (LSB)
         0x581a0db248b0a77aULL,  // word[1]
         0xc7634d81f4372ddfULL,  // word[2]  (MSB of lower 192 bits)
@@ -787,7 +787,7 @@ static inline auto p384_scalar_invert(const Fe384& a) noexcept -> Fe384 {
     for (int word = 2; word >= 0; --word) {
         for (int bit = 63; bit >= 0; --bit) {
             result = p384_mont_mul_n(result, result);
-            if (((nm2_lo[word] >> static_cast<unsigned>(bit)) & 1U) != 0U) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+            if (((nm2_lo[word] >> static_cast<unsigned>(bit)) & 1U) != 0U) {
                 result = p384_mont_mul_n(result, aM);
             }
         }
@@ -805,12 +805,12 @@ static inline auto p384_scalar_is_zero(const Fe384& a) noexcept -> bool {
 // Strictly decode a 48-byte big-endian ECDSA signature scalar (r or s).
 // Returns true and writes the scalar iff 1 <= val < n; rejects val == 0 or val >= n.
 [[nodiscard]]
-static inline auto p384_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    const uint8_t b[48], Fe384& out) noexcept -> bool // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline auto p384_scalar_sig_decode(
+    const uint8_t b[48], Fe384& out) noexcept -> bool
 {
     Fe384 r{};
-    for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (int i = 0; i < 6; ++i) {
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -841,14 +841,14 @@ static inline auto p384_scalar_sig_decode( // NOLINT(cppcoreguidelines-avoid-c-a
 // Key pair generation and public key encoding.
 // -----------------------------------------------------------------------
 
-static inline void p384_compute_public_key( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline void p384_compute_public_key(
     const uint8_t private_scalar_be[48],
-    uint8_t public_key_uncompressed[97]) noexcept // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint8_t public_key_uncompressed[97]) noexcept
 {
     const P384Point pub = p384_to_affine(p384_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe384_to_bytes(pub.X, public_key_uncompressed + 1);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    fe384_to_bytes(pub.Y, public_key_uncompressed + 49); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    fe384_to_bytes(pub.X, public_key_uncompressed + 1);
+    fe384_to_bytes(pub.Y, public_key_uncompressed + 49);
 }
 
 

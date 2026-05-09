@@ -52,12 +52,12 @@ static constexpr Fe256 fe256_p = {{
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-static inline auto fe256_from_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto fe256_from_bytes(
     const uint8_t b[32]) noexcept -> Fe256
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -67,11 +67,11 @@ static inline auto fe256_from_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays
     return r;
 }
 
-static inline void fe256_to_bytes(  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline void fe256_to_bytes(
     const Fe256& a, uint8_t b[32]) noexcept
 {
     for (int i = 0; i < 4; ++i) {
-        uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);
@@ -216,11 +216,11 @@ static inline auto fe256_neg(const Fe256& a) noexcept -> Fe256 {
 // -----------------------------------------------------------------------
 
 // Compute the 512-bit product a × b as 16 × uint32_t words (word 0 = LSW).
-static inline void fe256_mul_raw( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline void fe256_mul_raw(
     uint32_t c[16], const Fe256& a, const Fe256& b) noexcept
 {
-    uint32_t a32[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    uint32_t b32[8]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint32_t a32[8];
+    uint32_t b32[8];
     for (int i = 0; i < 4; ++i) {
         a32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(a.v[i]);
         a32[(2U * static_cast<std::size_t>(i)) + 1] = static_cast<uint32_t>(a.v[i] >> 32U);
@@ -228,7 +228,7 @@ static inline void fe256_mul_raw( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
         b32[(2U * static_cast<std::size_t>(i)) + 1] = static_cast<uint32_t>(b.v[i] >> 32U);
     }
     using u128 = unsigned __int128;
-    u128 tmp[16]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    u128 tmp[16]{};
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
             tmp[static_cast<std::size_t>(i + j)] += static_cast<u128>(a32[i]) * b32[j];
@@ -244,11 +244,11 @@ static inline void fe256_mul_raw( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
 
 // Apply Solinas fast reduction: 16 × uint32_t → Fe256 in [0, p-1].
 [[nodiscard]]
-static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+static inline auto fe256_solinas(
     const uint32_t c[16]) noexcept -> Fe256
 {
-    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    int64_t r[9]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+
+    int64_t r[9]{};
     r[0] = static_cast<int64_t>(c[0]) + c[8] + c[9] - c[11] - c[12] - c[13] - c[14];
     r[1] = static_cast<int64_t>(c[1]) + c[9] + c[10] - c[12] - c[13] - c[14] - c[15];
     r[2] = static_cast<int64_t>(c[2]) + c[10] + c[11] - c[13] - c[14] - c[15];
@@ -267,10 +267,10 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
     // Arithmetic right-shift on int64_t is intentional: negative words carry a signed borrow.
     for (int i = 0; i < 7; ++i) {
         r[i + 1] += r[i] >> 32; // NOLINT(hicpp-signed-bitwise)
-        r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
+        r[i] &= 0xffffffffLL; // NOLINT(hicpp-signed-bitwise)
     }
     r[8] = r[7] >> 32; // NOLINT(hicpp-signed-bitwise)
-    r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
+    r[7] &= 0xffffffffLL; // NOLINT(hicpp-signed-bitwise)
 
     // Reduce overflow word twice (always, for constant time).
     // 2^256 ≡ 2^224 − 2^192 − 2^96 + 1 (mod p)
@@ -281,10 +281,10 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
         r[0] += ov; r[3] -= ov; r[6] -= ov; r[7] += ov;
         for (int i = 0; i < 7; ++i) {
             r[i + 1] += r[i] >> 32; // NOLINT(hicpp-signed-bitwise)
-            r[i] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
+            r[i] &= 0xffffffffLL; // NOLINT(hicpp-signed-bitwise)
         }
         r[8] = r[7] >> 32; // NOLINT(hicpp-signed-bitwise)
-        r[7] &= 0xffffffffLL; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,hicpp-signed-bitwise)
+        r[7] &= 0xffffffffLL; // NOLINT(hicpp-signed-bitwise)
     }
 
     // Pack 8 × 32-bit into 4 × 64-bit LE.
@@ -305,7 +305,7 @@ static inline auto fe256_solinas( // NOLINT(cppcoreguidelines-avoid-c-arrays,hic
 
 [[nodiscard]]
 static inline auto fe256_mul(const Fe256& a, const Fe256& b) noexcept -> Fe256 {
-    uint32_t c[16]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    uint32_t c[16];
     fe256_mul_raw(c, a, b);
     return fe256_solinas(c);
 }
@@ -339,7 +339,7 @@ static inline auto fe256_equal(const Fe256& a, const Fe256& b) noexcept -> bool 
 [[nodiscard]]
 static inline auto fe256_invert(const Fe256& a) noexcept -> Fe256 {
     // p−2 = 0xffffffff00000001 00000000ffffffff 0000000000000000 fffffffffffffffd
-    static constexpr uint64_t exp[4] = { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    static constexpr uint64_t exp[4] = {
         0xfffffffffffffffdULL,  // bits  0..63   (p-2 low word)
         0x00000000ffffffffULL,  // bits 64..127
         0x0000000000000000ULL,  // bits 128..191

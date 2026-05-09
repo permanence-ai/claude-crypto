@@ -106,14 +106,14 @@ struct GhashCtx {
 
     // H_block is AES_K(0¹²⁸) — 16 raw bytes; we reflect once here.
     [[gnu::target("aes,neon")]]
-    void init(const uint8_t* H_block) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    void init(const uint8_t* H_block) noexcept {
         acc = vdupq_n_u8(0);
         H   = ghash_reflect(vld1q_u8(H_block));
     }
 
     // Feed one 16-byte block into the GHASH accumulator.
     [[gnu::target("aes,neon")]]
-    void update(const uint8_t* block) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    void update(const uint8_t* block) noexcept {
         const uint8x16_t b = ghash_reflect(vld1q_u8(block));
         const uint8x16_t x = veorq_u8(acc, b);
         acc = ghash_poly_reduce(ghash_poly_mult_128(x, H));
@@ -129,7 +129,7 @@ struct GhashCtx {
 
     // Retrieve the 16-byte GHASH output; un-reflect acc back to GCM byte order.
     [[gnu::target("aes,neon")]]
-    void finish(uint8_t* out) const noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    void finish(uint8_t* out) const noexcept {
         vst1q_u8(out, ghash_reflect(acc));
     }
 };

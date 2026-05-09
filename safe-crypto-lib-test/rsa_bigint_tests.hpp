@@ -20,7 +20,7 @@
 
 #include <gtest/gtest.h>
 
-#ifdef SAFE_CRYPTO_PROVIDER_ARM_ASM
+#ifdef SAFE_CRYPTO_ARM_ASM_AVAILABLE
 
 #include "rsa_bigint.hpp"
 #include "rsa_der.hpp"
@@ -311,4 +311,4 @@ TEST_F(BigIntRsaCrossTests, RsaPublicOpMatchesPsa512) {
         << "RSA round-trip failed: decrypted plaintext does not match original";
 }
 
-#endif  // SAFE_CRYPTO_PROVIDER_ARM_ASM
+#endif  // SAFE_CRYPTO_ARM_ASM_AVAILABLE

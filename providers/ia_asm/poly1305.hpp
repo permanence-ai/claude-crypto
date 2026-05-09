@@ -26,13 +26,13 @@ struct Le128 { uint64_t lo, hi; }; // NOLINT(misc-non-private-member-variables-i
 static inline auto load_le128(const uint8_t* p) noexcept -> Le128 {
     Le128 r{};
     std::memcpy(&r.lo, p,     8);
-    std::memcpy(&r.hi, p + 8, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memcpy(&r.hi, p + 8, 8);
     return r;
 }
 
 static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept {
-    std::memcpy(p,     &lo, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::memcpy(p + 8, &hi, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memcpy(p,     &lo, 8);
+    std::memcpy(p + 8, &hi, 8);
 }
 
 static constexpr uint64_t mask44 = (1ULL << 44U) - 1U;
@@ -52,23 +52,23 @@ static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi, uint64_t to
     Poly1305Limbs m;
     m.h0 = lo & mask44;
     m.h1 = ((lo >> 44U) | (hi << 20U)) & mask44;
-    m.h2 = (hi >> 24U) | (top << 40U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    m.h2 = (hi >> 24U) | (top << 40U);
     return m;
 }
 
 [[nodiscard]]
-static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept { // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    FixedSecureBuffer<16> rc; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::memcpy(rc.data(), r_bytes, 16); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    rc[ 3] &= 0x0fU; rc[ 7] &= 0x0fU; rc[11] &= 0x0fU; rc[15] &= 0x0fU; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    rc[ 4] &= 0xfcU; rc[ 8] &= 0xfcU; rc[12] &= 0xfcU; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept {
+    FixedSecureBuffer<16> rc;
+    std::memcpy(rc.data(), r_bytes, 16);
+    rc[ 3] &= 0x0fU; rc[ 7] &= 0x0fU; rc[11] &= 0x0fU; rc[15] &= 0x0fU;
+    rc[ 4] &= 0xfcU; rc[ 8] &= 0xfcU; rc[12] &= 0xfcU;
     uint64_t lo = 0; uint64_t hi = 0;
-    std::memcpy(&lo, rc.data(),     8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::memcpy(&hi, rc.data() + 8, 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::memcpy(&lo, rc.data(),     8);
+    std::memcpy(&hi, rc.data() + 8, 8);
     return Poly1305Limbs{
         .h0 = lo & mask44,
         .h1 = ((lo >> 44U) | (hi << 20U)) & mask44,
-        .h2 = hi >> 24U, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        .h2 = hi >> 24U,
     };
 }
 
@@ -78,8 +78,8 @@ static inline Poly1305Precomp make_precomp(const Poly1305Limbs& r) noexcept {
         .r0    = r.h0,
         .r1    = r.h1,
         .r2    = r.h2,
-        .r1_20 = r.h1 * 20U, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        .r2_20 = r.h2 * 20U, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        .r1_20 = r.h1 * 20U,
+        .r2_20 = r.h2 * 20U,
     };
 }
 
@@ -96,7 +96,7 @@ static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
     const u128 e2 = d2 + c2;
     h.h2 = static_cast<uint64_t>(e2) & mask42;
     const uint64_t c3 = static_cast<uint64_t>(e2 >> 42U); // NOLINT(hicpp-use-auto,modernize-use-auto)
-    h.h0 += c3 * 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    h.h0 += c3 * 5U;
     const uint64_t c4 = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c4;
 }
 
@@ -106,8 +106,8 @@ static inline void poly1305_add_block(Poly1305Limbs& h, uint64_t lo, uint64_t hi
 }
 
 static inline void poly1305_finish(const Poly1305Limbs& h_in,
-                                    const uint8_t s_bytes[16], // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-                                    uint8_t tag[16]) noexcept  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+                                    const uint8_t s_bytes[16],
+                                    uint8_t tag[16]) noexcept
 {
     uint64_t h0 = h_in.h0;
     uint64_t h1 = h_in.h1;
@@ -115,10 +115,10 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     uint64_t c = 0;
     c = h0 >> 44U; h0 &= mask44; h1 += c;
     c = h1 >> 44U; h1 &= mask44; h2 += c;
-    c = h2 >> 42U; h2 &= mask42; h0 += c * 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    c = h2 >> 42U; h2 &= mask42; h0 += c * 5U;
     c = h0 >> 44U; h0 &= mask44; h1 += c;
 
-    const uint64_t g0 = h0 + 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const uint64_t g0 = h0 + 5U;
     c = g0 >> 44U;
     const uint64_t g1 = h1 + c;
     c = g1 >> 44U;
@@ -130,7 +130,7 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     h2 = (h2 & ~mask) | ((g2 & mask42) & mask);
 
     const uint64_t hlo = h0 | (h1 << 44U);
-    const uint64_t hhi = (h1 >> 20U) | (h2 << 24U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const uint64_t hhi = (h1 >> 20U) | (h2 << 24U);
 
     const auto [slo, shi] = load_le128(s_bytes);
     const uint64_t tlo = hlo + slo;
@@ -178,7 +178,7 @@ static inline void poly1305_process_quad( // NOLINT(readability-function-size,re
     uint64_t c = 0;
     c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
     c = h.h1 >> 44U; h.h1 &= mask44; h.h2 += c;
-    c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U;
     c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
 }
 
@@ -196,49 +196,49 @@ static inline void poly1305_process_pair(
     uint64_t c = 0;
     c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
     c = h.h1 >> 44U; h.h1 &= mask44; h.h2 += c;
-    c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    c = h.h2 >> 42U; h.h2 &= mask42; h.h0 += c * 5U;
     c = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c;
 }
 
 
-inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg, // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-                          std::size_t msg_len, uint8_t tag[16]) noexcept // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
+                          std::size_t msg_len, uint8_t tag[16]) noexcept
 {
     const Poly1305Limbs  r  = clamp_r(key);
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
     std::size_t offset = 0;
 
-    while (offset + 64 <= msg_len) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const auto [lo0, hi0] = load_le128(msg + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const auto [lo1, hi1] = load_le128(msg + offset + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const auto [lo2, hi2] = load_le128(msg + offset + 32); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const auto [lo3, hi3] = load_le128(msg + offset + 48); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    while (offset + 64 <= msg_len) {
+        const auto [lo0, hi0] = load_le128(msg + offset);
+        const auto [lo1, hi1] = load_le128(msg + offset + 16);
+        const auto [lo2, hi2] = load_le128(msg + offset + 32);
+        const auto [lo3, hi3] = load_le128(msg + offset + 48);
         poly1305_process_quad(h, lo0, hi0, lo1, hi1, lo2, hi2, lo3, hi3, pw);
-        offset += 64; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        offset += 64;
     }
-    if (offset + 32 <= msg_len) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const auto [lo1, hi1] = load_le128(msg + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        const auto [lo2, hi2] = load_le128(msg + offset + 16); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    if (offset + 32 <= msg_len) {
+        const auto [lo1, hi1] = load_le128(msg + offset);
+        const auto [lo2, hi2] = load_le128(msg + offset + 16);
         poly1305_process_pair(h, lo1, hi1, lo2, hi2, pw);
-        offset += 32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        offset += 32;
     }
-    if (offset + 16 <= msg_len) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        const auto [lo, hi] = load_le128(msg + offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (offset + 16 <= msg_len) {
+        const auto [lo, hi] = load_le128(msg + offset);
         poly1305_add_block(h, lo, hi, 1U);
         poly1305_multiply_precomp(h, pw.p1);
-        offset += 16; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        offset += 16;
     }
     if (offset < msg_len) {
-        std::array<uint8_t, 16> buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        std::memcpy(buf.data(), msg + offset, msg_len - offset); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        std::array<uint8_t, 16> buf{};
+        std::memcpy(buf.data(), msg + offset, msg_len - offset);
         buf[msg_len - offset] = 0x01U;
         const auto [lo, hi] = load_le128(buf.data());
         poly1305_add_block(h, lo, hi, 0U);
         poly1305_multiply_precomp(h, pw.p1);
     }
 
-    poly1305_finish(h, key + 16, tag); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    poly1305_finish(h, key + 16, tag);
 }
 
 }  // namespace ia_asm::detail

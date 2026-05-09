@@ -46,8 +46,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 )
 
 # arm_asm backend cannot be compiled for x86_64 (NEON headers).
-# Skip it when cross-compiling for IA ASM.
-if(NOT SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "IA_ASM")
+if(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
     target_link_libraries(${EXE_NAME} PRIVATE
             safe_crypto_lib_arm_asm  # cross_provider_tests needs both backends
     )
@@ -57,7 +56,9 @@ endif()
 # pqc_cross_provider_tests.hpp can instantiate ArmAsmBackend with real PQC ops.
 if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
     target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib_liboqs)
-    target_link_libraries(${EXE_NAME} PRIVATE $<TARGET_OBJECTS:safe_crypto_lib_dilithium_ntt>)
+    if(TARGET safe_crypto_lib_dilithium_ntt)
+        target_link_libraries(${EXE_NAME} PRIVATE $<TARGET_OBJECTS:safe_crypto_lib_dilithium_ntt>)
+    endif()
 endif()
 
 include(GoogleTest)
