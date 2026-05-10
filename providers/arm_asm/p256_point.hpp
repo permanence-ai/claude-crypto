@@ -276,7 +276,7 @@ static inline auto p256_point_add_affine(const P256Point& p, const P256AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P256AffinePoint p256_G_table[15] = {
+static constexpr std::array<P256AffinePoint, 15> p256_G_table = {{
     // [1]*G
     {
         .X = {.v = {0xf4a13945d898c296ULL, 0x77037d812deb33a0ULL, 0xf8bce6e563a440f2ULL, 0x6b17d1f2e12c4247ULL}},
@@ -352,7 +352,7 @@ static constexpr P256AffinePoint p256_G_table[15] = {
         .X = {.v = {0x63668c63e59b9d5fULL, 0xae03af92de3a0ef1ULL, 0xadfb378999888265ULL, 0xf0454dc6971abae7ULL}},
         .Y = {.v = {0x47e59cde0d034f36ULL, 0x2a3b21ce75b5fa3fULL, 0x4e6594e51f9643e6ULL, 0xb5b93ee3592e2d1fULL}},
     },
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -716,7 +716,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
     constexpr int s = 4;
     constexpr uint64_t n_prime = 0xccd1c8aaee00bc4fULL;
 
-    uint64_t t[s + 2]{};
+    std::array<uint64_t, s + 2> t{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         // Step 1: t += a[i] * b
         uint64_t carry = 0;

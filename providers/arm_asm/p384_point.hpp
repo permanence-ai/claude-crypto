@@ -231,7 +231,7 @@ static inline auto p384_point_add_affine(const P384Point& p, const P384AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P384AffinePoint p384_G_table[15] = {
+static constexpr std::array<P384AffinePoint, 15> p384_G_table = {{
     // [1]*G
     {
         .X = {.v = {0x3a545e3872760ab7ULL, 0x5502f25dbf55296cULL, 0x59f741e082542a38ULL, 0x6e1d3b628ba79b98ULL, 0x8eb1c71ef320ad74ULL, 0xaa87ca22be8b0537ULL}},
@@ -307,7 +307,7 @@ static constexpr P384AffinePoint p384_G_table[15] = {
         .X = {.v = {0x4b88701a9606860bULL, 0xa849557a10b6383bULL, 0x5b21f9f7da7c4e9cULL, 0x22a94156fff01c20ULL, 0x8cc15c11d8135255ULL, 0xb3d13fc8b32b0105ULL}},
         .Y = {.v = {0x985d588d33f7bd62ULL, 0x838d24f8b284af50ULL, 0x84d1114373dfbfd9ULL, 0xeebac4a11d749af4ULL, 0x1b049b2536164b1bULL, 0x152919e7df9162a6ULL}},
     },
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -653,7 +653,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
     constexpr int s = 6;
     constexpr uint64_t n_prime = 0x6ed46089e88fdc45ULL;
 
-    uint64_t t[s + 2]{};
+    std::array<uint64_t, s + 2> t{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)

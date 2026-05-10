@@ -292,11 +292,11 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept
 {
     // Fixed rsaEncryption OID: 1.2.840.113549.1.1.1
-    static constexpr CryptoByte kRsaOid[] = {
+    static constexpr std::array<CryptoByte, 11> kRsaOid = {
         0x06, 0x09,
         0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01
     };
-    static constexpr CryptoByte kNull[] = { 0x05, 0x00 };
+    static constexpr std::array<CryptoByte, 2> kNull = { 0x05, 0x00 };
 
     // Helper: encode a DER length into a local buffer, return bytes written.
     auto encode_len = [](std::size_t len, CryptoByte* buf) -> std::size_t {
@@ -343,7 +343,7 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     const std::size_t bitstr_tlv = 1U + bitstr_len_bytes + bitstr_content;
 
     // AlgorithmIdentifier SEQUENCE = oid + null
-    const std::size_t algid_body = sizeof(kRsaOid) + sizeof(kNull);
+    const std::size_t algid_body = kRsaOid.size() + kNull.size();
     std::array<CryptoByte, 3> algid_len_buf{};
     const std::size_t algid_len_bytes = encode_len(algid_body, algid_len_buf.data());
     const std::size_t algid_seq = 1U + algid_len_bytes + algid_body;
@@ -370,8 +370,8 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     // AlgorithmIdentifier SEQUENCE
     write_byte(0x30U);
     write(algid_len_buf.data(), algid_len_bytes);
-    write(kRsaOid, sizeof(kRsaOid));
-    write(kNull,   sizeof(kNull));
+    write(kRsaOid.data(), kRsaOid.size());
+    write(kNull.data(),   kNull.size());
 
     // BIT STRING
     write_byte(0x03U);

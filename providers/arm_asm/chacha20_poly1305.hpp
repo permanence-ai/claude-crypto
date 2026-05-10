@@ -51,7 +51,7 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 static inline void poly1305_feed(const uint8_t* otk,
                                   const uint8_t* aad, std::size_t aad_len,
                                   const uint8_t* ct,  std::size_t ct_len,
-                                  uint8_t tag_out[16]) noexcept
+                                  std::span<uint8_t, 16> tag_out) noexcept
 {
 
 
@@ -120,8 +120,7 @@ static inline void poly1305_feed(const uint8_t* otk,
     poly1305_add_block(h, lo, hi, 1U);
     poly1305_multiply_precomp(h, pw.p1);
 
-    poly1305_finish(h, std::span<const uint8_t, 16>{otk + 16, 16},
-                    std::span<uint8_t, 16>{tag_out, 16});
+    poly1305_finish(h, std::span<const uint8_t, 16>{otk + 16, 16}, tag_out);
 }
 
 
@@ -148,7 +147,8 @@ inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,reada
 
     // Compute and append Poly1305 tag over aad ‖ ct.
 
-    poly1305_feed(otk.data(), aad, aad_len, out, pt_len, out + pt_len);
+    poly1305_feed(otk.data(), aad, aad_len, out, pt_len,
+                  std::span<uint8_t, 16>{out + pt_len, 16});
 }
 
 
@@ -174,7 +174,7 @@ inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,reada
 
     // Compute expected tag from the received ciphertext.
     std::array<uint8_t, 16> expected_tag{};
-    poly1305_feed(otk.data(), aad, aad_len, ct, pt_len, expected_tag.data());
+    poly1305_feed(otk.data(), aad, aad_len, ct, pt_len, expected_tag);
 
     // Constant-time compare.
 

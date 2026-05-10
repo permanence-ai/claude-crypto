@@ -11,6 +11,7 @@
 //   - A private key: curve + private scalar (big-endian bytes)
 //   - A public key:  curve + uncompressed point (0x04||x||y)
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -52,7 +53,7 @@ struct EcKeySlot {
 };
 
 inline EcKeySlot& ec_key_slot(std::size_t idx) noexcept {
-    static EcKeySlot slots[ec_key_store_capacity]{};
+    static std::array<EcKeySlot, ec_key_store_capacity> slots{};
     return slots[idx];
 }
 

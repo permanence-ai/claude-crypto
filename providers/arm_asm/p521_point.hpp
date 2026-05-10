@@ -245,7 +245,7 @@ static inline auto p521_point_add_affine(const P521Point& p, const P521AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P521AffinePoint p521_G_table[15] = {
+static constexpr std::array<P521AffinePoint, 15> p521_G_table = {{
     // [1]*G
     {
         .X = {.v = {0xf97e7e31c2e5bd66ULL, 0x3348b3c1856a429bULL, 0xfe1dc127a2ffa8deULL, 0xa14b5e77efe75928ULL, 0xf828af606b4d3dbaULL, 0x9c648139053fb521ULL, 0x9e3ecb662395b442ULL, 0x858e06b70404e9cdULL, 0x00000000000000c6ULL}},
@@ -321,7 +321,7 @@ static constexpr P521AffinePoint p521_G_table[15] = {
         .X = {.v = {0xe9afe337bcb8db55ULL, 0x9b8d96981e3f92bdULL, 0x7875bd1c8fc0331dULL, 0xb91cce27dbd00ffeULL, 0xd697b532df128e11ULL, 0xb8fbcc30b40a0852ULL, 0x41558fc546d4300fULL, 0x6ad89abcb92465f0ULL, 0x000000000000006bULL}},
         .Y = {.v = {0x56343480a1475465ULL, 0x46fd90cc446abdd9ULL, 0x2148e2232c96c992ULL, 0x7e9062c899470a80ULL, 0x4b62106997485ed5ULL, 0xdf0496a9bad20cbaULL, 0x7ce64d2333edbf63ULL, 0x68da271571391d6aULL, 0x00000000000001b4ULL}},
     },
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -679,7 +679,7 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
     constexpr int s = 9;
     constexpr uint64_t n_prime = 0x1d2f5ccd79a995c7ULL;
 
-    uint64_t t[s + 2]{};
+    std::array<uint64_t, s + 2> t{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
