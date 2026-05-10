@@ -20,18 +20,22 @@ namespace scli_test {
 
 struct RunResult {
     std::string stdout_text;
+    std::string stderr_text;
     int         exit_code{};
 };
 
-// Run `scli_path <args>` and return captured stdout + exit code.
-// stdout_text has the trailing newline stripped.
+// Run `scli_path <args>` and return captured stdout, stderr, and exit code.
+// Trailing newlines on stdout_text and stderr_text are stripped.
 [[nodiscard]]
 inline auto run_scli(const std::string& scli_path, const std::string& args) -> RunResult
 {
-    const std::string cmd = scli_path + " " + args + " 2>/dev/null";
+    // Use a temp file for stderr so we can capture it independently.
+    const std::string stderr_path =
+        (std::filesystem::temp_directory_path() / "scli_test_stderr.txt").string();
+    const std::string cmd = scli_path + " " + args + " 2>" + stderr_path;
     // NOLINTNEXTLINE(cert-env33-c,concurrency-mt-unsafe)
     FILE* pipe = ::popen(cmd.c_str(), "r");
-    if (pipe == nullptr) { return {"", 127}; }
+    if (pipe == nullptr) { return {"", "", 127}; }
 
     std::string out;
     std::array<char, 4096> buf{};
@@ -44,7 +48,18 @@ inline auto run_scli(const std::string& scli_path, const std::string& args) -> R
     // Strip single trailing newline if present.
     if (!out.empty() && out.back() == '\n') { out.pop_back(); }
 
-    return {out, code};
+    // Read and clean up the stderr temp file.
+    std::string err;
+    {
+        std::ifstream ef(stderr_path);
+        if (ef) {
+            err.assign(std::istreambuf_iterator<char>(ef), std::istreambuf_iterator<char>());
+        }
+    }
+    std::filesystem::remove(stderr_path);
+    if (!err.empty() && err.back() == '\n') { err.pop_back(); }
+
+    return {out, err, code};
 }
 
 // Write raw bytes to a temp file; returns the path.
