@@ -11,8 +11,11 @@ add_executable(${EXE_NAME}
         kdf_tests.hpp
         mac_tests.hpp
         main.cpp
+        ml_dsa_tests.hpp
+        ml_kem_tests.hpp
         random_tests.hpp
         rsa_tests.hpp
+        slh_dsa_tests.hpp
 )
 
 target_link_libraries(${EXE_NAME} PRIVATE
@@ -25,6 +28,15 @@ target_link_libraries(${EXE_NAME} PRIVATE
 target_compile_definitions(${EXE_NAME} PRIVATE
         SCLI_PATH="$<TARGET_FILE:scli>"
 )
+
+# Propagate provider/PQC feature macros so test guards match the build.
+target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib)
+
+# When the LIBOQS supplement is enabled, link it so SAFE_CRYPTO_PQC_LIBOQS
+# is visible to the test binary regardless of which crypto provider is active.
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib_liboqs)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(${EXE_NAME})
