@@ -23,6 +23,7 @@
 // Key format (PSA raw private key): big-endian 32-byte scalar.
 // Key format (PSA uncompressed public key): 0x04 || big-endian 32-byte x || 32-byte y.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -61,12 +62,12 @@ static constexpr Fe256 p256_Gy = {{
 }};
 
 // Group order n.
-static constexpr uint64_t p256_n[4] = {
+static constexpr std::array<uint64_t, 4> p256_n = {{
     0xf3b9cac2fc632551ULL,
     0xbce6faada7179e84ULL,
     0xffffffffffffffffULL,
     0xffffffff00000000ULL,
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -557,7 +558,7 @@ static inline auto p256_scalar_from_bytes64(
     std::span<const uint8_t, 64> b) noexcept -> Fe256
 {
     // Load as 16 × uint32_t big-endian.
-    uint32_t w[16];
+    std::array<uint32_t, 16> w{};
     for (int i = 0; i < 16; ++i) {
         const int j = 15 - i;
         const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(j)) * 4);
@@ -575,7 +576,7 @@ static inline auto p256_scalar_from_bytes64(
     // Simple approach: repeated subtraction after two-word shift.
 
     // Represent as 8 uint64_t LE limbs.
-    uint64_t acc[8];
+    std::array<uint64_t, 8> acc{};
     for (int i = 0; i < 8; ++i) {
         acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
@@ -796,12 +797,12 @@ static inline auto p256_scalar_mul_mod_n(
 static inline auto p256_scalar_invert(const Fe256& a) noexcept -> Fe256 {
     // n-2 big-endian 64-bit limbs:
     // 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC63254F
-    static constexpr uint64_t nm2[4] = {
+    static constexpr std::array<uint64_t, 4> nm2 = {{
         0xf3b9cac2fc63254fULL,
         0xbce6faada7179e84ULL,
         0xffffffffffffffffULL,
         0xffffffff00000000ULL,
-    };
+    }};
     Fe256 result{{1ULL, 0ULL, 0ULL, 0ULL}};
     for (int word = 3; word >= 0; --word) {
         for (int bit = 63; bit >= 0; --bit) {

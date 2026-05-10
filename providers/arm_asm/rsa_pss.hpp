@@ -57,7 +57,7 @@ inline bool pss_encode(
 
     // mHash = Hash(M).
     std::array<CryptoByte, oaep_hash_len> m_hash{};
-    sha384(msg, msg_len, m_hash.data());
+    sha384(msg, msg_len, m_hash);
 
     // H = Hash(0x00^8 || mHash || salt).
     std::array<CryptoByte, 8U + oaep_hash_len + oaep_hash_len> h_input{};
@@ -65,7 +65,7 @@ inline bool pss_encode(
     std::memcpy(h_input.data() + 8U,                m_hash.data(), oaep_hash_len);
     std::memcpy(h_input.data() + 8U + oaep_hash_len, salt,          oaep_hash_len);
     std::array<CryptoByte, oaep_hash_len> h{};
-    sha384(h_input.data(), h_input.size(), h.data());
+    sha384(h_input.data(), h_input.size(), h);
 
     // DB = PS || 0x01 || salt.
     // PS = emLen - sLen - hLen - 2 zero bytes.
@@ -158,7 +158,7 @@ inline bool pss_verify(
 
     // mHash = Hash(M).
     std::array<CryptoByte, oaep_hash_len> m_hash{};
-    sha384(msg, msg_len, m_hash.data());
+    sha384(msg, msg_len, m_hash);
 
     // H' = Hash(0x00^8 || mHash || salt).
     std::array<CryptoByte, 8U + oaep_hash_len + oaep_hash_len> h_input{};
@@ -166,7 +166,7 @@ inline bool pss_verify(
     std::memcpy(h_input.data() + 8U,                m_hash.data(), oaep_hash_len);
     std::memcpy(h_input.data() + 8U + oaep_hash_len, salt,          oaep_hash_len);
     std::array<CryptoByte, oaep_hash_len> h_prime{};
-    sha384(h_input.data(), h_input.size(), h_prime.data());
+    sha384(h_input.data(), h_input.size(), h_prime);
 
     // Constant-time compare H' with H.
     uint8_t diff = 0U;

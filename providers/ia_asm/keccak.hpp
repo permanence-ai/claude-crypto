@@ -14,7 +14,9 @@
 // State convention: flat array of 25 uint64_t lanes in little-endian byte
 // order, indexed as state[x + 5*y].
 
+#include <array>
 #include <cstdint>
+#include <span>
 
 #include "defs.hpp"
 
@@ -22,7 +24,7 @@
 namespace ia_asm::detail {
 
 // Keccak-f[1600] round constants (ι step).
-inline constexpr uint64_t keccak_rc[24] = {
+inline constexpr std::array<uint64_t, 24> keccak_rc = {{
     0x0000000000000001ULL, 0x0000000000008082ULL,
     0x800000000000808aULL, 0x8000000080008000ULL,
     0x000000000000808bULL, 0x0000000080000001ULL,
@@ -35,7 +37,7 @@ inline constexpr uint64_t keccak_rc[24] = {
     0x000000000000800aULL, 0x800000008000000aULL,
     0x8000000080008081ULL, 0x8000000000008080ULL,
     0x0000000080000001ULL, 0x8000000080008008ULL,
-};
+}};
 
 // Rotate left by N bits; N must be a compile-time constant so the compiler
 // emits a single ROR/ROL instruction.
@@ -52,7 +54,7 @@ static inline uint64_t krotl(uint64_t x) noexcept {
 // ρ+π is fully unrolled with compile-time rotation constants (one ROR each).
 // χ uses scalar bitwise NOT-AND: a ^ (~b & c).
 [[gnu::target("aes,sha")]]
-inline void keccak_f1600(uint64_t state[25]) noexcept
+inline void keccak_f1600(std::span<uint64_t, 25> state) noexcept
 {
     for (const uint64_t rc : keccak_rc) {
 

@@ -19,6 +19,7 @@
 // Key format (PSA raw private key): big-endian 66-byte scalar.
 // Key format (PSA uncompressed public key): 0x04 || big-endian 66-byte x || 66-byte y (133 bytes).
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -71,7 +72,7 @@ static constexpr Fe521 p521_Gy = {{
 }};
 
 // Group order n.
-static constexpr uint64_t p521_n[9] = {
+static constexpr std::array<uint64_t, 9> p521_n = {{
     0xbb6fb71e91386409ULL,
     0x3bb5c9b8899c47aeULL,
     0x7fcc0148f709a5d0ULL,
@@ -81,7 +82,7 @@ static constexpr uint64_t p521_n[9] = {
     0xffffffffffffffffULL,
     0xffffffffffffffffULL,
     0x00000000000001ffULL,
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -589,14 +590,14 @@ static inline auto p521_scalar_from_bytes66(
 static inline auto p521_scalar_from_bytes66_hash(
     const uint8_t* hash_be, std::size_t hlen) noexcept -> Fe521
 {
-    uint8_t padded[66] = {};
+    std::array<uint8_t, 66> padded{};
     const std::size_t qlen = 66;
     if (hlen >= qlen) {
-        std::memcpy(padded, hash_be, qlen);
+        std::memcpy(padded.data(), hash_be, qlen);
     } else {
-        std::memcpy(padded + (qlen - hlen), hash_be, hlen);
+        std::memcpy(padded.data() + (qlen - hlen), hash_be, hlen);
     }
-    return p521_scalar_from_bytes66(std::span<const uint8_t, 66>{padded, 66});
+    return p521_scalar_from_bytes66(std::span<const uint8_t, 66>{padded.data(), 66});
 }
 
 [[nodiscard]]
@@ -775,7 +776,7 @@ static inline auto p521_scalar_mul_mod_n(
 
 [[nodiscard]]
 static inline auto p521_scalar_invert(const Fe521& a) noexcept -> Fe521 {
-    static constexpr uint64_t nm2[9] = {
+    static constexpr std::array<uint64_t, 9> nm2 = {{
         0xbb6fb71e91386407ULL,
         0x3bb5c9b8899c47aeULL,
         0x7fcc0148f709a5d0ULL,
@@ -785,7 +786,7 @@ static inline auto p521_scalar_invert(const Fe521& a) noexcept -> Fe521 {
         0xffffffffffffffffULL,
         0xffffffffffffffffULL,
         0x00000000000001ffULL,
-    };
+    }};
     Fe521 result{{1ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};
     for (int word = 8; word >= 0; --word) {
         const int bits = (word == 8) ? 9 : 64;

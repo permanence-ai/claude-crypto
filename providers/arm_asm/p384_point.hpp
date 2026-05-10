@@ -19,6 +19,7 @@
 // Key format (PSA raw private key): big-endian 48-byte scalar.
 // Key format (PSA uncompressed public key): 0x04 || big-endian 48-byte x || 48-byte y.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -62,14 +63,14 @@ static constexpr Fe384 p384_Gy = {{
 }};
 
 // Group order n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973
-static constexpr uint64_t p384_n[6] = {
+static constexpr std::array<uint64_t, 6> p384_n = {{
     0xecec196accc52973ULL,
     0x581a0db248b0a77aULL,
     0xc7634d81f4372ddfULL,
     0xffffffffffffffffULL,
     0xffffffffffffffffULL,
     0xffffffffffffffffULL,
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -482,7 +483,7 @@ static inline auto p384_scalar_mul(
 static inline auto p384_scalar_from_bytes96(
     std::span<const uint8_t, 96> b) noexcept -> Fe384
 {
-    uint32_t w[24];
+    std::array<uint32_t, 24> w{};
     for (int i = 0; i < 24; ++i) {
         const int j = 23 - i;
         const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(j)) * 4);
@@ -492,7 +493,7 @@ static inline auto p384_scalar_from_bytes96(
                 static_cast<uint32_t>(p[3]);
     }
 
-    uint64_t acc[12]{};
+    std::array<uint64_t, 12> acc{};
     for (int i = 0; i < 12; ++i) {
         acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
@@ -780,11 +781,11 @@ static inline auto p384_scalar_invert(const Fe384& a) noexcept -> Fe384 {
     Fe384 result = p384_mont_mul_n(sqn(p128, 64), p64);           // [a^(2^192-1)]
 
     // Process lower 192 bits of n-2: 0xC7634D81F4372DDF_581A0DB248B0A77A_ECEC196ACCC52971.
-    static constexpr uint64_t nm2_lo[3] = {
+    static constexpr std::array<uint64_t, 3> nm2_lo = {{
         0xecec196accc52971ULL,  // word[0]  (LSB)
         0x581a0db248b0a77aULL,  // word[1]
         0xc7634d81f4372ddfULL,  // word[2]  (MSB of lower 192 bits)
-    };
+    }};
     for (int word = 2; word >= 0; --word) {
         for (int bit = 63; bit >= 0; --bit) {
             result = p384_mont_mul_n(result, result);

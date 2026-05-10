@@ -25,6 +25,7 @@
 //
 // All arithmetic is constant-time with respect to field element inputs.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -252,7 +253,7 @@ static inline auto fe384_neg(const Fe384& a) noexcept -> Fe384 {
 // Overflow word: 2^384 mod p = W^0 - W^1 - W^2 + W^4 (signed, via carry-split).
 [[nodiscard]]
 static inline auto fe384_solinas(
-    const uint32_t c[24]) noexcept -> Fe384
+    std::span<const uint32_t, 24> c) noexcept -> Fe384
 {
     using u128 = unsigned __int128;
 
@@ -335,7 +336,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
 
     // 6×6 row-by-row multiply: 36 u64×u64 multiply-accumulates vs the old 12×12=144 u32 ones.
     // Each row carries out so every c[k] stays in [0, 2^64).
-    uint64_t c[12]{};
+    std::array<uint64_t, 12> c{};
     for (int i = 0; i < 6; ++i) {
         uint64_t carry = 0;
         for (int j = 0; j < 6; ++j) {
@@ -347,7 +348,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
     }
 
     // Expand 12 × 64-bit words to 24 × 32-bit words for the existing Solinas path.
-    uint32_t c32[24];
+    std::array<uint32_t, 24> c32{};
     for (int i = 0; i < 12; ++i) {
         c32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(c[i]);
         c32[(2U * static_cast<std::size_t>(i)) + 1] = static_cast<uint32_t>(c[i] >> 32U);

@@ -953,7 +953,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_256EmptyMessage) {
         "a7ffc6f8bf1ed76651c14756a061d662"
         "f580ff4de43b49fa82d80a4b80f8434a");
     std::array<uint8_t, 32> out{};
-    arm_asm::detail::sha3_256(nullptr, 0, out.data());
+    arm_asm::detail::sha3_256(nullptr, 0, out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -965,7 +965,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_256AbcMessage) {
         "855f086e3e9d525b46bfe24511431532");
     const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
     std::array<uint8_t, 32> out{};
-    arm_asm::detail::sha3_256(msg.data(), msg.size(), out.data());
+    arm_asm::detail::sha3_256(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -979,7 +979,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_256MultiBlockMessage) {
         "5f728f63bf5ee48c77f453c0490398fa"
         "645b8d4c4e56be9a41cfec344d6ca899");
     std::array<uint8_t, 32> out{};
-    arm_asm::detail::sha3_256(msg.data(), msg.size(), out.data());
+    arm_asm::detail::sha3_256(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -991,7 +991,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_384EmptyMessage) {
         "c51a50aaaa94fc61995e71bbee983a2a"
         "c3713831264adb47fb6bd1e058d5f004");
     std::array<uint8_t, 48> out{};
-    arm_asm::detail::sha3_384(nullptr, 0, out.data());
+    arm_asm::detail::sha3_384(nullptr, 0, out);
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1004,7 +1004,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_384AbcMessage) {
         "98d88cea927ac7f539f1edf228376d25");
     const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
     std::array<uint8_t, 48> out{};
-    arm_asm::detail::sha3_384(msg.data(), msg.size(), out.data());
+    arm_asm::detail::sha3_384(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1017,7 +1017,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_512EmptyMessage) {
         "15b2123af1f5f94c11e3e9402c3ac558"
         "f500199d95b6d3e301758586281dcd26");
     std::array<uint8_t, 64> out{};
-    arm_asm::detail::sha3_512(nullptr, 0, out.data());
+    arm_asm::detail::sha3_512(nullptr, 0, out);
     for (std::size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1031,7 +1031,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_512AbcMessage) {
         "57340b4cf408d5a56592f8274eec53f0");
     const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
     std::array<uint8_t, 64> out{};
-    arm_asm::detail::sha3_512(msg.data(), msg.size(), out.data());
+    arm_asm::detail::sha3_512(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1127,7 +1127,7 @@ TEST_F(ArmAsmPoly1305Tests, Rfc8439Tv1ZeroMessageZeroKey) {
     const std::array<uint8_t, 32> key{};
     const std::array<uint8_t, 64> msg{};
     std::array<uint8_t, 16> tag{};
-    arm_asm::detail::poly1305_mac(key.data(), msg.data(), msg.size(), tag.data());
+    arm_asm::detail::poly1305_mac(key, msg.data(), msg.size(), tag);
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(tag[i], 0U) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1152,9 +1152,9 @@ TEST_F(ArmAsmPoly1305Tests, Rfc8439Tv2IetfText) {
 
     std::array<uint8_t, 16> tag{};
     arm_asm::detail::poly1305_mac(
-        key.data(),
+        key,
         reinterpret_cast<const uint8_t*>(msg_raw), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        msg_len, tag.data());
+        msg_len, tag);
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1170,7 +1170,7 @@ TEST_F(ArmAsmPoly1305Tests, Custom96ByteMessage) {
     const auto expected = from_hex<16>("408aafac65bf6f37cb4d6d69d74dc0f5");
 
     std::array<uint8_t, 16> tag{};
-    arm_asm::detail::poly1305_mac(key.data(), msg.data(), msg.size(), tag.data());
+    arm_asm::detail::poly1305_mac(key, msg.data(), msg.size(), tag);
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1186,7 +1186,7 @@ TEST_F(ArmAsmPoly1305Tests, Custom128ByteMessage) {
     const auto expected = from_hex<16>("daa0437b0935d2b67bdc3a28e90078a8");
 
     std::array<uint8_t, 16> tag{};
-    arm_asm::detail::poly1305_mac(key.data(), msg.data(), msg.size(), tag.data());
+    arm_asm::detail::poly1305_mac(key, msg.data(), msg.size(), tag);
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }

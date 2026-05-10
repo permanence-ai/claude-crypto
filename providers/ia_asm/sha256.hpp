@@ -22,11 +22,13 @@
 // Constant-time by construction: no secret-dependent branches or memory
 // accesses; all operations are hardware AES/SHA instructions.
 
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <immintrin.h>
+#include <span>
 
 #include "defs.hpp"
 
@@ -38,13 +40,13 @@
 namespace ia_asm::detail {
 
 // SHA-256 initial hash values (fractional parts of sqrt of first 8 primes).
-inline constexpr uint32_t sha256_h0[8] = {
+inline constexpr std::array<uint32_t, 8> sha256_h0 = {{
     0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
     0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
-};
+}};
 
 // SHA-256 round constants (fractional parts of cbrt of first 64 primes).
-inline constexpr uint32_t sha256_k[64] = {
+inline constexpr std::array<uint32_t, 64> sha256_k = {{
     0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U,
     0x3956c25bU, 0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U,
     0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U,
@@ -61,7 +63,7 @@ inline constexpr uint32_t sha256_k[64] = {
     0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU, 0x682e6ff3U,
     0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U,
     0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U,
-};
+}};
 
 
 #ifdef IA_ASM_SHA_NI_ENABLED
@@ -82,7 +84,7 @@ inline constexpr uint32_t sha256_k[64] = {
 //   After the first 16 rounds, each group is updated in-place using
 //   _mm_sha256msg1_epu32 (σ0) and _mm_sha256msg2_epu32 (σ1).
 [[gnu::target("sha,ssse3,sse4.1"), gnu::noinline]]
-void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(readability-function-size)
+void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-size)
 {
     // Big-endian byte-swap mask: reverses 4-byte words within each 16-byte lane.
     const __m128i bswap_mask = _mm_set_epi8(
@@ -91,8 +93,8 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
 
     // Load initial state.
     // SHA-NI expects { d, c, b, a } and { h, g, f, e }.
-    __m128i state0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(state));     // a b c d
-    __m128i state1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(state + 4)); // e f g h
+    __m128i state0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(state.data()));     // a b c d
+    __m128i state1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(state.data() + 4)); // e f g h
     // Shuffle to { d c b a } and { h g f e }.
     state0 = _mm_shuffle_epi32(state0, 0xB1); // { b a d c }
     state1 = _mm_shuffle_epi32(state1, 0x1B); // { h g f e }
@@ -110,106 +112,106 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
     __m128i msg3 = _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block + 48)), bswap_mask);
 
     // Rounds 0–3
-    __m128i tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k)));
+    __m128i tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data())));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
     msg0 = _mm_sha256msg1_epu32(msg0, msg1);
 
     // Rounds 4–7
-    __m128i tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 4)));
+    __m128i tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 4)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
     msg1 = _mm_sha256msg1_epu32(msg1, msg2);
 
     // Rounds 8–11
-    __m128i tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 8)));
+    __m128i tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 8)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
     msg2 = _mm_sha256msg1_epu32(msg2, msg3);
 
     // Rounds 12–15
-    __m128i tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 12)));
+    __m128i tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 12)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
     msg3 = _mm_sha256msg1_epu32(msg3, msg0);
 
     // Rounds 16–19
     msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3);
-    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 16)));
+    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 16)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
     msg0 = _mm_sha256msg1_epu32(msg0, msg1);
 
     // Rounds 20–23
     msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0);
-    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 20)));
+    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 20)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
     msg1 = _mm_sha256msg1_epu32(msg1, msg2);
 
     // Rounds 24–27
     msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1);
-    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 24)));
+    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 24)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
     msg2 = _mm_sha256msg1_epu32(msg2, msg3);
 
     // Rounds 28–31
     msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2);
-    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 28)));
+    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 28)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
     msg3 = _mm_sha256msg1_epu32(msg3, msg0);
 
     // Rounds 32–35
     msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3);
-    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 32)));
+    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 32)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
     msg0 = _mm_sha256msg1_epu32(msg0, msg1);
 
     // Rounds 36–39
     msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0);
-    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 36)));
+    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 36)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
     msg1 = _mm_sha256msg1_epu32(msg1, msg2);
 
     // Rounds 40–43
     msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1);
-    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 40)));
+    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 40)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
     msg2 = _mm_sha256msg1_epu32(msg2, msg3);
 
     // Rounds 44–47
     msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2);
-    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 44)));
+    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 44)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
     msg3 = _mm_sha256msg1_epu32(msg3, msg0);
 
     // Rounds 48–51
     msg0 = _mm_sha256msg2_epu32(_mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4)), msg3);
-    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 48)));
+    tmp0 = _mm_add_epi32(msg0, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 48)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp0);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp0, 0x0E));
 
     // Rounds 52–55
     msg1 = _mm_sha256msg2_epu32(_mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4)), msg0);
-    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 52)));
+    tmp1 = _mm_add_epi32(msg1, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 52)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp1);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp1, 0x0E));
 
     // Rounds 56–59
     msg2 = _mm_sha256msg2_epu32(_mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4)), msg1);
-    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 56)));
+    tmp2 = _mm_add_epi32(msg2, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 56)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp2);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp2, 0x0E));
 
     // Rounds 60–63
     msg3 = _mm_sha256msg2_epu32(_mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4)), msg2);
-    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k + 60)));
+    tmp3 = _mm_add_epi32(msg3, _mm_loadu_si128(reinterpret_cast<const __m128i*>(sha256_k.data() + 60)));
     state1 = _mm_sha256rnds2_epu32(state1, state0, tmp3);
     state0 = _mm_sha256rnds2_epu32(state0, state1, _mm_shuffle_epi32(tmp3, 0x0E));
 
@@ -224,20 +226,20 @@ void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOL
     state0 = _mm_blend_epi16(tmp, state1, 0xF0); // DCBA
     state1 = _mm_alignr_epi8(state1, tmp, 8); // HGFE
 
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(state),     state0);
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(state + 4), state1);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(state.data()),     state0);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(state.data() + 4), state1);
 }
 
 #else // IA_ASM_SHA_NI_ENABLED — portable scalar fallback
 
 // Portable scalar SHA-256 compress. Used when SHA-NI is disabled.
-inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+inline void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-cognitive-complexity,readability-function-size)
 {
     auto rotr = [](uint32_t x, int n) noexcept { return (x >> n) | (x << (32 - n)); };
     auto ch   = [](uint32_t x, uint32_t y, uint32_t z) noexcept { return (x & y) ^ (~x & z); };
     auto maj  = [](uint32_t x, uint32_t y, uint32_t z) noexcept { return (x & y) ^ (x & z) ^ (y & z); };
 
-    uint32_t w[64];
+    std::array<uint32_t, 64> w{};
     for (std::size_t i = 0; i < 16; ++i) {
         w[i] = (static_cast<uint32_t>(block[i * 4])     << 24U) |
                (static_cast<uint32_t>(block[(i * 4) + 1]) << 16U) |
@@ -276,9 +278,9 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 // Full SHA-256 over an arbitrary-length message.
 // Handles padding and big-endian length encoding.
 inline void sha256(const CryptoByte* msg, std::size_t msg_len,
-                   CryptoByte out[32]) noexcept
+                   std::span<CryptoByte, 32> out) noexcept
 {
-    uint32_t state[8];
+    std::array<uint32_t, 8> state{};
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha256_h0[i]; }
 
     // Process all complete 64-byte blocks.
@@ -289,26 +291,26 @@ inline void sha256(const CryptoByte* msg, std::size_t msg_len,
     }
 
     // Build the final padded block(s).
-    alignas(64) uint8_t pad[128]{};
+    alignas(64) std::array<uint8_t, 128> pad{};
     const std::size_t tail = msg_len - offset;
-    if (tail > 0) { std::memcpy(pad, msg + offset, tail); }
+    if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
     pad[tail] = 0x80U;
 
     // Append bit-length as big-endian uint64 in the last 8 bytes.
     const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
     if (tail < 56) {
-        std::memcpy(pad + 56, &bit_len_be, 8);
-        sha256_compress(state, pad);
+        std::memcpy(pad.data() + 56, &bit_len_be, 8);
+        sha256_compress(state, pad.data());
     } else {
-        std::memcpy(pad + 120, &bit_len_be, 8);
-        sha256_compress(state, pad);
-        sha256_compress(state, pad + 64);
+        std::memcpy(pad.data() + 120, &bit_len_be, 8);
+        sha256_compress(state, pad.data());
+        sha256_compress(state, pad.data() + 64);
     }
 
     // Serialise state as big-endian bytes.
     for (std::size_t i = 0; i < 8; ++i) {
         const uint32_t w = std::byteswap(state[i]);
-        std::memcpy(out + (i * 4), &w, 4);
+        std::memcpy(out.data() + (i * 4), &w, 4);
     }
 }
 

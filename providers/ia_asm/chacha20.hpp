@@ -18,11 +18,13 @@
 //   Word-major layout — 16 __m128i where s[i] holds word i of all 4 blocks in
 //   its lanes.  All four QRs in each round type are independent.
 
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <emmintrin.h>  // SSE2
+#include <span>
 #include <tmmintrin.h>  // SSSE3 (_mm_shuffle_epi8, used for ROT8/ROT16)
 
 #include "defs.hpp"
@@ -77,20 +79,20 @@ static inline void chacha20_qr(__m128i& a, __m128i& b,
 
 // Produce one 64-byte ChaCha20 keystream block into out[64].
 [[gnu::target("sse2")]]
-inline void chacha20_block(const uint8_t key[32], uint32_t counter,
-                            const uint8_t nonce[12], uint8_t out[64]) noexcept
+inline void chacha20_block(std::span<const uint8_t, 32> key, uint32_t counter,
+                            std::span<const uint8_t, 12> nonce, std::span<uint8_t, 64> out) noexcept
 {
-    const uint32_t k0 = load_le32(key +  0);
-    const uint32_t k1 = load_le32(key +  4);
-    const uint32_t k2 = load_le32(key +  8);
-    const uint32_t k3 = load_le32(key + 12);
-    const uint32_t k4 = load_le32(key + 16);
-    const uint32_t k5 = load_le32(key + 20);
-    const uint32_t k6 = load_le32(key + 24);
-    const uint32_t k7 = load_le32(key + 28);
-    const uint32_t n0 = load_le32(nonce + 0);
-    const uint32_t n1 = load_le32(nonce + 4);
-    const uint32_t n2 = load_le32(nonce + 8);
+    const uint32_t k0 = load_le32(key.data() +  0);
+    const uint32_t k1 = load_le32(key.data() +  4);
+    const uint32_t k2 = load_le32(key.data() +  8);
+    const uint32_t k3 = load_le32(key.data() + 12);
+    const uint32_t k4 = load_le32(key.data() + 16);
+    const uint32_t k5 = load_le32(key.data() + 20);
+    const uint32_t k6 = load_le32(key.data() + 24);
+    const uint32_t k7 = load_le32(key.data() + 28);
+    const uint32_t n0 = load_le32(nonce.data() + 0);
+    const uint32_t n1 = load_le32(nonce.data() + 4);
+    const uint32_t n2 = load_le32(nonce.data() + 8);
 
     // Row-major layout: each __m128i holds one row of the 4×4 state matrix.
     __m128i r0 = _mm_set_epi32(static_cast<int>(chacha20_c3), static_cast<int>(chacha20_c2),
@@ -127,31 +129,31 @@ inline void chacha20_block(const uint8_t key[32], uint32_t counter,
     r3 = _mm_add_epi32(r3, orig3);
 
     // Store as little-endian 32-bit words (x86 is little-endian).
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(out +  0), r0); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 16), r1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 32), r2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(out + 48), r3); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(out.data() +  0), r0); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(out.data() + 16), r1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(out.data() + 32), r2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(out.data() + 48), r3); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 
 
 // XOR 256 bytes (4 consecutive ChaCha20 blocks) using word-major SSE2 layout.
 [[gnu::target("sse2")]]
 static inline void chacha20_xor4( // NOLINT(readability-function-size)
-    const uint8_t key[32], uint32_t counter,
-    const uint8_t nonce[12],
+    std::span<const uint8_t, 32> key, uint32_t counter,
+    std::span<const uint8_t, 12> nonce,
     const uint8_t* in, uint8_t* out) noexcept
 {
-    const uint32_t k0 = load_le32(key +  0);
-    const uint32_t k1 = load_le32(key +  4);
-    const uint32_t k2 = load_le32(key +  8);
-    const uint32_t k3 = load_le32(key + 12);
-    const uint32_t k4 = load_le32(key + 16);
-    const uint32_t k5 = load_le32(key + 20);
-    const uint32_t k6 = load_le32(key + 24);
-    const uint32_t k7 = load_le32(key + 28);
-    const uint32_t n0 = load_le32(nonce + 0);
-    const uint32_t n1 = load_le32(nonce + 4);
-    const uint32_t n2 = load_le32(nonce + 8);
+    const uint32_t k0 = load_le32(key.data() +  0);
+    const uint32_t k1 = load_le32(key.data() +  4);
+    const uint32_t k2 = load_le32(key.data() +  8);
+    const uint32_t k3 = load_le32(key.data() + 12);
+    const uint32_t k4 = load_le32(key.data() + 16);
+    const uint32_t k5 = load_le32(key.data() + 20);
+    const uint32_t k6 = load_le32(key.data() + 24);
+    const uint32_t k7 = load_le32(key.data() + 28);
+    const uint32_t n0 = load_le32(nonce.data() + 0);
+    const uint32_t n1 = load_le32(nonce.data() + 4);
+    const uint32_t n2 = load_le32(nonce.data() + 8);
 
     // Word-major: s[i][lane] = word i of block `lane`.
     __m128i s0  = _mm_set1_epi32(static_cast<int>(chacha20_c0));
@@ -242,8 +244,8 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size)
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
 [[gnu::target("sse2")]]
-inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
-                            const uint8_t nonce[12],
+inline void chacha20_crypt(std::span<const uint8_t, 32> key, uint32_t counter_start,
+                            std::span<const uint8_t, 12> nonce,
                             const uint8_t* in, uint8_t* out, std::size_t len) noexcept
 {
     FixedSecureBuffer<64> block;
@@ -258,7 +260,7 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
     }
 
     while (len - offset >= 64U) {
-        chacha20_block(key, counter, nonce, block.data());
+        chacha20_block(key, counter, nonce, std::span<uint8_t, 64>{block.data(), 64});
         const __m128i k0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() +  0)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         const __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() + 16)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         const __m128i k2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() + 32)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -272,7 +274,7 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
     }
 
     if (offset < len) {
-        chacha20_block(key, counter, nonce, block.data());
+        chacha20_block(key, counter, nonce, std::span<uint8_t, 64>{block.data(), 64});
         for (std::size_t i = 0; offset + i < len; ++i) {
 
             out[offset + i] = static_cast<uint8_t>(in[offset + i] ^ block[i]);
@@ -283,12 +285,13 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
 [[gnu::target("sse2")]]
-inline void chacha20_poly1305_key(const uint8_t key[32], const uint8_t nonce[12],
-                                   uint8_t otk[32]) noexcept
+inline void chacha20_poly1305_key(std::span<const uint8_t, 32> key,
+                                   std::span<const uint8_t, 12> nonce,
+                                   std::span<uint8_t, 32> otk) noexcept
 {
     FixedSecureBuffer<64> block;
-    chacha20_block(key, 0, nonce, block.data());
-    std::memcpy(otk, block.data(), 32);
+    chacha20_block(key, 0, nonce, std::span<uint8_t, 64>{block.data(), 64});
+    std::memcpy(otk.data(), block.data(), 32);
 }
 
 }  // namespace ia_asm::detail

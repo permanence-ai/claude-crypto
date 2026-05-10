@@ -601,9 +601,12 @@ struct IaAsmBackend {
             constexpr std::size_t sig_len_expected = 64;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha256(msg, msg_len, hash);
-            if (!ia_asm::detail::p256_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            if (!ia_asm::detail::p256_ecdsa_sign(
+                    std::span<const uint8_t, 32>{key, 32},
+                    std::span<const uint8_t, 32>{hash.data(), 32},
+                    std::span<uint8_t, 64>{sig, 64})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -612,9 +615,12 @@ struct IaAsmBackend {
             constexpr std::size_t sig_len_expected = 96;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha384(msg, msg_len, hash);
-            if (!ia_asm::detail::p384_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            if (!ia_asm::detail::p384_ecdsa_sign(
+                    std::span<const uint8_t, 48>{key, 48},
+                    std::span<const uint8_t, 48>{hash.data(), 48},
+                    std::span<uint8_t, 96>{sig, 96})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -624,9 +630,12 @@ struct IaAsmBackend {
             constexpr std::size_t sig_len_expected = 132;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != sk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha512(msg, msg_len, hash);
-            if (!ia_asm::detail::p521_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            if (!ia_asm::detail::p521_ecdsa_sign(
+                    std::span<const uint8_t, 66>{key, 66},
+                    std::span<const uint8_t, 64>{hash.data(), 64},
+                    std::span<uint8_t, 132>{sig, 132})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -673,27 +682,36 @@ struct IaAsmBackend {
             constexpr std::size_t expected_sig_len = 64;
             constexpr std::size_t pk_len = 65;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha256(msg, msg_len, hash);
-            return ia_asm::detail::p256_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            return ia_asm::detail::p256_ecdsa_verify(
+                std::span<const uint8_t, 65>{key, 65},
+                std::span<const uint8_t, 32>{hash.data(), 32},
+                std::span<const uint8_t, 64>{sig, 64}) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P384) {
             constexpr std::size_t hash_len = 48;
             constexpr std::size_t expected_sig_len = 96;
             constexpr std::size_t pk_len = 97;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha384(msg, msg_len, hash);
-            return ia_asm::detail::p384_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            return ia_asm::detail::p384_ecdsa_verify(
+                std::span<const uint8_t, 97>{key, 97},
+                std::span<const uint8_t, 48>{hash.data(), 48},
+                std::span<const uint8_t, 96>{sig, 96}) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P521) {
             constexpr std::size_t hash_len = 64;
             constexpr std::size_t expected_sig_len = 132;
             constexpr std::size_t pk_len = 133;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha512(msg, msg_len, hash);
-            return ia_asm::detail::p521_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            return ia_asm::detail::p521_ecdsa_verify(
+                std::span<const uint8_t, 133>{key, 133},
+                std::span<const uint8_t, 64>{hash.data(), 64},
+                std::span<const uint8_t, 132>{sig, 132}) ? ok : err_invalid_sig;
         }
         return err_invalid_arg;
     }

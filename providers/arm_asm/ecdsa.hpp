@@ -157,23 +157,23 @@ update_kv:
 
 // Sign: private_scalar_be[32], msg_hash[32] → sig_out[64] (r‖s BE).
 static inline bool p256_ecdsa_sign(
-    const uint8_t private_scalar_be[32],
-    const uint8_t msg_hash[32],
-    uint8_t sig_out[64]) noexcept
+    std::span<const uint8_t, 32> private_scalar_be,
+    std::span<const uint8_t, 32> msg_hash,
+    std::span<uint8_t, 64> sig_out) noexcept
 {
     using Fe = Fe256;
     using Point = P256Point;
     constexpr std::size_t qlen = 32;
 
     // Hash of message: e = H(m) reduced mod n.
-    const Fe e = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{msg_hash, 32});
-    const Fe d = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{private_scalar_be, 32});
+    const Fe e = p256_scalar_from_bytes32(msg_hash);
+    const Fe d = p256_scalar_from_bytes32(private_scalar_be);
     if (p256_scalar_is_zero(d)) { return false; }
 
     // Generate deterministic k via RFC 6979.
     FixedSecureBuffer<qlen> k_buf{};
-    rfc6979_generate_k(private_scalar_be, qlen, msg_hash, qlen,
-                       p256_n, 4, k_buf.data());
+    rfc6979_generate_k(private_scalar_be.data(), qlen, msg_hash.data(), qlen,
+                       p256_n.data(), 4, k_buf.data());
 
     const Fe k = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{k_buf.data(), 32});
     if (p256_scalar_is_zero(k)) { return false; }
@@ -183,9 +183,9 @@ static inline bool p256_ecdsa_sign(
     if (p256_point_is_identity(R)) { return false; }
 
     // r = R.x mod n (R.x is in [0, p-1]; n < p so just subtract n once if needed).
-    uint8_t rx_bytes[qlen] = {};
-    fe256_to_bytes(R.X, std::span<uint8_t, 32>{rx_bytes, 32});
-    const Fe r = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{rx_bytes, 32});
+    std::array<uint8_t, qlen> rx_bytes{};
+    fe256_to_bytes(R.X, std::span<uint8_t, 32>{rx_bytes.data(), 32});
+    const Fe r = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{rx_bytes.data(), 32});
     if (p256_scalar_is_zero(r)) { return false; }
 
     // s = k^{-1} * (e + r*d) mod n.
@@ -196,16 +196,16 @@ static inline bool p256_ecdsa_sign(
     if (p256_scalar_is_zero(s)) { return false; }
 
     // Output r‖s big-endian.
-    fe256_to_bytes(r, std::span<uint8_t, 32>{sig_out, 32});
-    fe256_to_bytes(s, std::span<uint8_t, 32>{sig_out + qlen, 32});
+    fe256_to_bytes(r, std::span<uint8_t, 32>{sig_out.data(), 32});
+    fe256_to_bytes(s, std::span<uint8_t, 32>{sig_out.data() + qlen, 32});
     return true;
 }
 
 // Verify: public_key_uncompressed[65] (0x04||x||y), msg_hash[32], sig[64] (r‖s BE).
 static inline bool p256_ecdsa_verify(
-    const uint8_t public_key_uncompressed[65],
-    const uint8_t msg_hash[32],
-    const uint8_t sig[64]) noexcept
+    std::span<const uint8_t, 65> public_key_uncompressed,
+    std::span<const uint8_t, 32> msg_hash,
+    std::span<const uint8_t, 64> sig) noexcept
 {
     using Fe = Fe256;
     using Point = P256Point;
@@ -214,37 +214,37 @@ static inline bool p256_ecdsa_verify(
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
     Fe r{}, s{};
-    if (!p256_scalar_sig_decode(std::span<const uint8_t, 32>{sig,        32}, r)) { return false; }
-    if (!p256_scalar_sig_decode(std::span<const uint8_t, 32>{sig + qlen, 32}, s)) { return false; }
+    if (!p256_scalar_sig_decode(std::span<const uint8_t, 32>{sig.data(),        32}, r)) { return false; }
+    if (!p256_scalar_sig_decode(std::span<const uint8_t, 32>{sig.data() + qlen, 32}, s)) { return false; }
 
-    const Fe e = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{msg_hash, 32});
+    const Fe e = p256_scalar_from_bytes32(msg_hash);
     const Fe w = p256_scalar_invert(s);
 
     const Fe u1 = p256_scalar_mul_mod_n(e, w);
     const Fe u2 = p256_scalar_mul_mod_n(r, w);
 
     // Encode u1, u2 as scalars.
-    uint8_t u1b[qlen] = {};
-    uint8_t u2b[qlen] = {};
-    fe256_to_bytes(u1, std::span<uint8_t, 32>{u1b, 32});
-    fe256_to_bytes(u2, std::span<uint8_t, 32>{u2b, 32});
+    std::array<uint8_t, qlen> u1b{};
+    std::array<uint8_t, qlen> u2b{};
+    fe256_to_bytes(u1, std::span<uint8_t, 32>{u1b.data(), 32});
+    fe256_to_bytes(u2, std::span<uint8_t, 32>{u2b.data(), 32});
 
     // Compute u1·G + u2·Q.
-    const Fe Qx = fe256_from_bytes(std::span<const uint8_t, 32>{public_key_uncompressed + 1,  32});
-    const Fe Qy = fe256_from_bytes(std::span<const uint8_t, 32>{public_key_uncompressed + 33, 32});
+    const Fe Qx = fe256_from_bytes(std::span<const uint8_t, 32>{public_key_uncompressed.data() + 1,  32});
+    const Fe Qy = fe256_from_bytes(std::span<const uint8_t, 32>{public_key_uncompressed.data() + 33, 32});
     if (!p256_validate_public_point(Qx, Qy)) { return false; }
     const Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
 
     const Point X = p256_to_affine(p256_point_add(
-        p256_scalar_mul_base(std::span<const uint8_t, 32>{u1b, 32}),
-        p256_scalar_mul(Q,   std::span<const uint8_t, 32>{u2b, 32})));
+        p256_scalar_mul_base(std::span<const uint8_t, 32>{u1b.data(), 32}),
+        p256_scalar_mul(Q,   std::span<const uint8_t, 32>{u2b.data(), 32})));
 
     if (p256_point_is_identity(X)) { return false; }
 
     // Compare X.x mod n with r.
-    uint8_t xx_bytes[qlen] = {};
-    fe256_to_bytes(X.X, std::span<uint8_t, 32>{xx_bytes, 32});
-    const Fe xr = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{xx_bytes, 32});
+    std::array<uint8_t, qlen> xx_bytes{};
+    fe256_to_bytes(X.X, std::span<uint8_t, 32>{xx_bytes.data(), 32});
+    const Fe xr = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{xx_bytes.data(), 32});
     return fe256_equal(xr, r);
 }
 
@@ -254,21 +254,21 @@ static inline bool p256_ecdsa_verify(
 // -----------------------------------------------------------------------
 
 static inline bool p384_ecdsa_sign(
-    const uint8_t private_scalar_be[48],
-    const uint8_t msg_hash[48],
-    uint8_t sig_out[96]) noexcept
+    std::span<const uint8_t, 48> private_scalar_be,
+    std::span<const uint8_t, 48> msg_hash,
+    std::span<uint8_t, 96> sig_out) noexcept
 {
     using Fe = Fe384;
     using Point = P384Point;
     constexpr std::size_t qlen = 48;
 
-    const Fe e = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{msg_hash, 48});
-    const Fe d = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{private_scalar_be, 48});
+    const Fe e = p384_scalar_from_bytes48(msg_hash);
+    const Fe d = p384_scalar_from_bytes48(private_scalar_be);
     if (p384_scalar_is_zero(d)) { return false; }
 
     FixedSecureBuffer<qlen> k_buf{};
-    rfc6979_generate_k(private_scalar_be, qlen, msg_hash, qlen,
-                       p384_n, 6, k_buf.data());
+    rfc6979_generate_k(private_scalar_be.data(), qlen, msg_hash.data(), qlen,
+                       p384_n.data(), 6, k_buf.data());
 
     const Fe k = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{k_buf.data(), 48});
     if (p384_scalar_is_zero(k)) { return false; }
@@ -276,9 +276,9 @@ static inline bool p384_ecdsa_sign(
     const Point R = p384_to_affine(p384_scalar_mul_base(std::span<const uint8_t, 48>{k_buf.data(), 48}));
     if (p384_point_is_identity(R)) { return false; }
 
-    uint8_t rx_bytes[qlen] = {};
-    fe384_to_bytes(R.X, std::span<uint8_t, 48>{rx_bytes, 48});
-    const Fe r = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{rx_bytes, 48});
+    std::array<uint8_t, qlen> rx_bytes{};
+    fe384_to_bytes(R.X, std::span<uint8_t, 48>{rx_bytes.data(), 48});
+    const Fe r = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{rx_bytes.data(), 48});
     if (p384_scalar_is_zero(r)) { return false; }
 
     const Fe rd   = p384_scalar_mul_mod_n(r, d);
@@ -287,15 +287,15 @@ static inline bool p384_ecdsa_sign(
     const Fe s    = p384_scalar_mul_mod_n(kinv, eprd);
     if (p384_scalar_is_zero(s)) { return false; }
 
-    fe384_to_bytes(r, std::span<uint8_t, 48>{sig_out, 48});
-    fe384_to_bytes(s, std::span<uint8_t, 48>{sig_out + qlen, 48});
+    fe384_to_bytes(r, std::span<uint8_t, 48>{sig_out.data(), 48});
+    fe384_to_bytes(s, std::span<uint8_t, 48>{sig_out.data() + qlen, 48});
     return true;
 }
 
 static inline bool p384_ecdsa_verify(
-    const uint8_t public_key_uncompressed[97],
-    const uint8_t msg_hash[48],
-    const uint8_t sig[96]) noexcept
+    std::span<const uint8_t, 97> public_key_uncompressed,
+    std::span<const uint8_t, 48> msg_hash,
+    std::span<const uint8_t, 96> sig) noexcept
 {
     using Fe = Fe384;
     using Point = P384Point;
@@ -304,34 +304,34 @@ static inline bool p384_ecdsa_verify(
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
     Fe r{}, s{};
-    if (!p384_scalar_sig_decode(std::span<const uint8_t, 48>{sig,        48}, r)) { return false; }
-    if (!p384_scalar_sig_decode(std::span<const uint8_t, 48>{sig + qlen, 48}, s)) { return false; }
+    if (!p384_scalar_sig_decode(std::span<const uint8_t, 48>{sig.data(),        48}, r)) { return false; }
+    if (!p384_scalar_sig_decode(std::span<const uint8_t, 48>{sig.data() + qlen, 48}, s)) { return false; }
 
-    const Fe e = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{msg_hash, 48});
+    const Fe e = p384_scalar_from_bytes48(msg_hash);
     const Fe w = p384_scalar_invert(s);
 
     const Fe u1 = p384_scalar_mul_mod_n(e, w);
     const Fe u2 = p384_scalar_mul_mod_n(r, w);
 
-    uint8_t u1b[qlen] = {};
-    uint8_t u2b[qlen] = {};
-    fe384_to_bytes(u1, std::span<uint8_t, 48>{u1b, 48});
-    fe384_to_bytes(u2, std::span<uint8_t, 48>{u2b, 48});
+    std::array<uint8_t, qlen> u1b{};
+    std::array<uint8_t, qlen> u2b{};
+    fe384_to_bytes(u1, std::span<uint8_t, 48>{u1b.data(), 48});
+    fe384_to_bytes(u2, std::span<uint8_t, 48>{u2b.data(), 48});
 
-    const Fe Qx = fe384_from_bytes(std::span<const uint8_t, 48>{public_key_uncompressed + 1,  48});
-    const Fe Qy = fe384_from_bytes(std::span<const uint8_t, 48>{public_key_uncompressed + 49, 48});
+    const Fe Qx = fe384_from_bytes(std::span<const uint8_t, 48>{public_key_uncompressed.data() + 1,  48});
+    const Fe Qy = fe384_from_bytes(std::span<const uint8_t, 48>{public_key_uncompressed.data() + 49, 48});
     if (!p384_validate_public_point(Qx, Qy)) { return false; }
     const Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
 
     const Point X = p384_to_affine(p384_point_add(
-        p384_scalar_mul_base(std::span<const uint8_t, 48>{u1b, 48}),
-        p384_scalar_mul(Q,   std::span<const uint8_t, 48>{u2b, 48})));
+        p384_scalar_mul_base(std::span<const uint8_t, 48>{u1b.data(), 48}),
+        p384_scalar_mul(Q,   std::span<const uint8_t, 48>{u2b.data(), 48})));
 
     if (p384_point_is_identity(X)) { return false; }
 
-    uint8_t xx_bytes[qlen] = {};
-    fe384_to_bytes(X.X, std::span<uint8_t, 48>{xx_bytes, 48});
-    const Fe xr = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{xx_bytes, 48});
+    std::array<uint8_t, qlen> xx_bytes{};
+    fe384_to_bytes(X.X, std::span<uint8_t, 48>{xx_bytes.data(), 48});
+    const Fe xr = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{xx_bytes.data(), 48});
     return fe384_equal(xr, r);
 }
 
@@ -341,22 +341,22 @@ static inline bool p384_ecdsa_verify(
 // -----------------------------------------------------------------------
 
 static inline bool p521_ecdsa_sign(
-    const uint8_t private_scalar_be[66],
-    const uint8_t msg_hash[64],
-    uint8_t sig_out[132]) noexcept
+    std::span<const uint8_t, 66> private_scalar_be,
+    std::span<const uint8_t, 64> msg_hash,
+    std::span<uint8_t, 132> sig_out) noexcept
 {
     using Fe = Fe521;
     using Point = P521Point;
     constexpr std::size_t qlen = 66;
     constexpr std::size_t hlen = 64;
 
-    const Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
-    const Fe d = p521_scalar_from_bytes66(std::span<const uint8_t, 66>{private_scalar_be, 66});
+    const Fe e = p521_scalar_from_bytes66_hash(msg_hash.data(), hlen);
+    const Fe d = p521_scalar_from_bytes66(private_scalar_be);
     if (p521_scalar_is_zero(d)) { return false; }
 
     FixedSecureBuffer<qlen> k_buf{};
-    rfc6979_generate_k(private_scalar_be, qlen, msg_hash, hlen,
-                       p521_n, 9, k_buf.data());
+    rfc6979_generate_k(private_scalar_be.data(), qlen, msg_hash.data(), hlen,
+                       p521_n.data(), 9, k_buf.data());
 
     const Fe k = p521_scalar_from_bytes66(std::span<const uint8_t, 66>{k_buf.data(), 66});
     if (p521_scalar_is_zero(k)) { return false; }
@@ -364,9 +364,9 @@ static inline bool p521_ecdsa_sign(
     const Point R = p521_to_affine(p521_scalar_mul_base(std::span<const uint8_t, 66>{k_buf.data(), 66}));
     if (p521_point_is_identity(R)) { return false; }
 
-    uint8_t rx_bytes[qlen] = {};
-    fe521_to_bytes(R.X, std::span<uint8_t, 66>{rx_bytes, 66});
-    const Fe r = p521_scalar_from_bytes66(std::span<const uint8_t, 66>{rx_bytes, 66});
+    std::array<uint8_t, qlen> rx_bytes{};
+    fe521_to_bytes(R.X, std::span<uint8_t, 66>{rx_bytes.data(), 66});
+    const Fe r = p521_scalar_from_bytes66(std::span<const uint8_t, 66>{rx_bytes.data(), 66});
     if (p521_scalar_is_zero(r)) { return false; }
 
     const Fe rd   = p521_scalar_mul_mod_n(r, d);
@@ -375,15 +375,15 @@ static inline bool p521_ecdsa_sign(
     const Fe s    = p521_scalar_mul_mod_n(kinv, eprd);
     if (p521_scalar_is_zero(s)) { return false; }
 
-    fe521_to_bytes(r, std::span<uint8_t, 66>{sig_out, 66});
-    fe521_to_bytes(s, std::span<uint8_t, 66>{sig_out + qlen, 66});
+    fe521_to_bytes(r, std::span<uint8_t, 66>{sig_out.data(), 66});
+    fe521_to_bytes(s, std::span<uint8_t, 66>{sig_out.data() + qlen, 66});
     return true;
 }
 
 static inline bool p521_ecdsa_verify(
-    const uint8_t public_key_uncompressed[133],
-    const uint8_t msg_hash[64],
-    const uint8_t sig[132]) noexcept
+    std::span<const uint8_t, 133> public_key_uncompressed,
+    std::span<const uint8_t, 64> msg_hash,
+    std::span<const uint8_t, 132> sig) noexcept
 {
     using Fe = Fe521;
     using Point = P521Point;
@@ -393,37 +393,37 @@ static inline bool p521_ecdsa_verify(
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
     Fe r{}, s{};
-    if (!p521_scalar_sig_decode(std::span<const uint8_t, 66>{sig,        66}, r)) { return false; }
-    if (!p521_scalar_sig_decode(std::span<const uint8_t, 66>{sig + qlen, 66}, s)) { return false; }
+    if (!p521_scalar_sig_decode(std::span<const uint8_t, 66>{sig.data(),        66}, r)) { return false; }
+    if (!p521_scalar_sig_decode(std::span<const uint8_t, 66>{sig.data() + qlen, 66}, s)) { return false; }
 
-    const Fe e = p521_scalar_from_bytes66_hash(msg_hash, hlen);
+    const Fe e = p521_scalar_from_bytes66_hash(msg_hash.data(), hlen);
     const Fe w = p521_scalar_invert(s);
 
     const Fe u1 = p521_scalar_mul_mod_n(e, w);
     const Fe u2 = p521_scalar_mul_mod_n(r, w);
 
-    uint8_t u1b[qlen] = {};
-    uint8_t u2b[qlen] = {};
-    fe521_to_bytes(u1, std::span<uint8_t, 66>{u1b, 66});
-    fe521_to_bytes(u2, std::span<uint8_t, 66>{u2b, 66});
+    std::array<uint8_t, qlen> u1b{};
+    std::array<uint8_t, qlen> u2b{};
+    fe521_to_bytes(u1, std::span<uint8_t, 66>{u1b.data(), 66});
+    fe521_to_bytes(u2, std::span<uint8_t, 66>{u2b.data(), 66});
 
     // Reject non-canonical P-521 encodings: top 7 bits of each coordinate's first byte must be zero.
     if ((public_key_uncompressed[1]  & 0xFEU) != 0U) { return false; }
     if ((public_key_uncompressed[67] & 0xFEU) != 0U) { return false; }
-    const Fe Qx = fe521_from_bytes(std::span<const uint8_t, 66>{public_key_uncompressed + 1,  66});
-    const Fe Qy = fe521_from_bytes(std::span<const uint8_t, 66>{public_key_uncompressed + 67, 66});
+    const Fe Qx = fe521_from_bytes(std::span<const uint8_t, 66>{public_key_uncompressed.data() + 1,  66});
+    const Fe Qy = fe521_from_bytes(std::span<const uint8_t, 66>{public_key_uncompressed.data() + 67, 66});
     if (!p521_validate_public_point(Qx, Qy)) { return false; }
     const Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
 
     const Point X = p521_to_affine(p521_point_add(
-        p521_scalar_mul_base(std::span<const uint8_t, 66>{u1b, 66}),
-        p521_scalar_mul(Q,   std::span<const uint8_t, 66>{u2b, 66})));
+        p521_scalar_mul_base(std::span<const uint8_t, 66>{u1b.data(), 66}),
+        p521_scalar_mul(Q,   std::span<const uint8_t, 66>{u2b.data(), 66})));
 
     if (p521_point_is_identity(X)) { return false; }
 
-    uint8_t xx_bytes[qlen] = {};
-    fe521_to_bytes(X.X, std::span<uint8_t, 66>{xx_bytes, 66});
-    const Fe xr = p521_scalar_from_bytes66(std::span<const uint8_t, 66>{xx_bytes, 66});
+    std::array<uint8_t, qlen> xx_bytes{};
+    fe521_to_bytes(X.X, std::span<uint8_t, 66>{xx_bytes.data(), 66});
+    const Fe xr = p521_scalar_from_bytes66(std::span<const uint8_t, 66>{xx_bytes.data(), 66});
     return fe521_equal(xr, r);
 }
 

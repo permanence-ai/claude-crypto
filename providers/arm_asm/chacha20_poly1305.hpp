@@ -58,7 +58,7 @@ static inline void poly1305_feed(const uint8_t* otk,
     // We re-implement the MAC computation inline here to avoid building a huge
     // intermediate buffer.  We walk through the fields in order:
     //   aad (padded to 16), ct (padded to 16), length block (16 bytes).
-    const Poly1305Limbs  r  = clamp_r(otk);
+    const Poly1305Limbs  r  = clamp_r(std::span<const uint8_t, 16>{otk, 16});
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
 
@@ -120,7 +120,8 @@ static inline void poly1305_feed(const uint8_t* otk,
     poly1305_add_block(h, lo, hi, 1U);
     poly1305_multiply_precomp(h, pw.p1);
 
-    poly1305_finish(h, otk + 16, tag_out);
+    poly1305_finish(h, std::span<const uint8_t, 16>{otk + 16, 16},
+                    std::span<uint8_t, 16>{tag_out, 16});
 }
 
 
@@ -137,10 +138,13 @@ inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,reada
 {
     // Generate one-time key.
     FixedSecureBuffer<32> otk;
-    chacha20_poly1305_key(key, nonce, otk.data());
+    chacha20_poly1305_key(std::span<const uint8_t, 32>{key, 32},
+                          std::span<const uint8_t, 12>{nonce, 12},
+                          std::span<uint8_t, 32>{otk.data(), 32});
 
     // Encrypt plaintext (counter starts at 1).
-    chacha20_crypt(key, 1U, nonce, pt, out, pt_len);
+    chacha20_crypt(std::span<const uint8_t, 32>{key, 32}, 1U,
+                   std::span<const uint8_t, 12>{nonce, 12}, pt, out, pt_len);
 
     // Compute and append Poly1305 tag over aad ‖ ct.
 
@@ -164,7 +168,9 @@ inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,reada
 
     // Generate one-time key.
     FixedSecureBuffer<32> otk;
-    chacha20_poly1305_key(key, nonce, otk.data());
+    chacha20_poly1305_key(std::span<const uint8_t, 32>{key, 32},
+                          std::span<const uint8_t, 12>{nonce, 12},
+                          std::span<uint8_t, 32>{otk.data(), 32});
 
     // Compute expected tag from the received ciphertext.
     std::array<uint8_t, 16> expected_tag{};
@@ -188,7 +194,8 @@ inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,reada
     }
 
     // Decrypt (counter=1).
-    chacha20_crypt(key, 1U, nonce, ct, out, pt_len);
+    chacha20_crypt(std::span<const uint8_t, 32>{key, 32}, 1U,
+                   std::span<const uint8_t, 12>{nonce, 12}, ct, out, pt_len);
     return true;
 }
 

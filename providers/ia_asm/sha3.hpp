@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 #include "keccak.hpp"
@@ -100,7 +101,7 @@ private:
                 state[i] ^= std::byteswap(word);
             }
         }
-        keccak_f1600(state.data());
+        keccak_f1600(state);
         std::memset(buf.data(), 0, rate_bytes);
     }
 };

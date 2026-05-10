@@ -485,9 +485,9 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         body_len += der_encode_integer(qinv_nw, prime_bytes, body + body_len);
 
         // Write SEQUENCE header into the reserved hdr_reserve bytes.
-        CryptoByte hdr[5]{};
+        std::array<CryptoByte, 5> hdr{};
         hdr[0] = 0x30U;
-        const std::size_t len_bytes = der_write_length(body_len, hdr + 1U);
+        const std::size_t len_bytes = der_write_length(body_len, hdr.data() + 1U);
         const std::size_t hdr_len = 1U + len_bytes;
         if (hdr_len > hdr_reserve) { return false; }  // shouldn't happen
 
@@ -496,7 +496,7 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         if (gap > 0U) {
             std::memmove(out_buf + hdr_len, out_buf + hdr_reserve, body_len);
         }
-        std::memcpy(out_buf, hdr, hdr_len);
+        std::memcpy(out_buf, hdr.data(), hdr_len);
         *out_len = hdr_len + body_len;
         return true;
     }

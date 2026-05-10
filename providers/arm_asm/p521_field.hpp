@@ -14,6 +14,7 @@
 //
 // All arithmetic is constant-time with respect to field element inputs.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -269,7 +270,7 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     // propagation. Accumulating all products into u128 accumulators first
     // overflows: the middle column (t[8]) sums up to 9 products each ~2^128,
     // which exceeds u128's max of 2^128-1.
-    uint64_t c[18]{};
+    std::array<uint64_t, 18> c{};
     for (int i = 0; i < 9; ++i) {
         u128 carry = 0;
         for (int j = 0; j < 9; ++j) {
@@ -306,8 +307,8 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     constexpr unsigned shift = 9U;
     constexpr unsigned rshift = 64U - shift; // 55
 
-    uint64_t lo[9];
-    uint64_t hi[9];
+    std::array<uint64_t, 9> lo{};
+    std::array<uint64_t, 9> hi{};
     for (int i = 0; i < 8; ++i) {
         lo[i] = c[i];
         hi[i] = (c[i + 8] >> shift) | (c[i + 9] << rshift);
@@ -382,7 +383,7 @@ static inline auto fe521_equal(const Fe521& a, const Fe521& b) noexcept -> bool 
 [[nodiscard]]
 static inline auto fe521_invert(const Fe521& a) noexcept -> Fe521 {
     // p-2 limbs (LE): low 64 bits = 0xfffffffffffffffd, rest all-ones.
-    static constexpr uint64_t exp[9] = {
+    static constexpr std::array<uint64_t, 9> exp = {{
         0xfffffffffffffffdULL,
         0xffffffffffffffffULL,
         0xffffffffffffffffULL,
@@ -392,7 +393,7 @@ static inline auto fe521_invert(const Fe521& a) noexcept -> Fe521 {
         0xffffffffffffffffULL,
         0xffffffffffffffffULL,
         0x00000000000001ffULL,
-    };
+    }};
     Fe521 result = fe521_one;
     for (int word = 8; word >= 0; --word) {
         const int bits = (word == 8) ? 9 : 64;

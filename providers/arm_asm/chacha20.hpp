@@ -31,10 +31,12 @@
 //   block-major order and XOR'd with the input 16 bytes at a time.
 
 #include <arm_neon.h>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 #include "secure_buffer.hpp"
@@ -92,23 +94,23 @@ static inline void store_le32(uint8_t* p, uint32_t v) noexcept {
 // Produce one 64-byte ChaCha20 keystream block into out[64].
 // key: 32 bytes, counter: block counter (1-based for message), nonce: 12 bytes.
 [[gnu::target("neon")]]
-inline void chacha20_block(const uint8_t key[32], uint32_t counter,
-                            const uint8_t nonce[12], uint8_t out[64]) noexcept
+inline void chacha20_block(std::span<const uint8_t, 32> key, uint32_t counter,
+                            std::span<const uint8_t, 12> nonce, std::span<uint8_t, 64> out) noexcept
 {
 
 
     // Load key as 8 little-endian 32-bit words.
-    const uint32_t k0  = load_le32(key +  0);
-    const uint32_t k1  = load_le32(key +  4);
-    const uint32_t k2  = load_le32(key +  8);
-    const uint32_t k3  = load_le32(key + 12);
-    const uint32_t k4  = load_le32(key + 16);
-    const uint32_t k5  = load_le32(key + 20);
-    const uint32_t k6  = load_le32(key + 24);
-    const uint32_t k7  = load_le32(key + 28);
-    const uint32_t n0  = load_le32(nonce + 0);
-    const uint32_t n1  = load_le32(nonce + 4);
-    const uint32_t n2  = load_le32(nonce + 8);
+    const uint32_t k0  = load_le32(key.data() +  0);
+    const uint32_t k1  = load_le32(key.data() +  4);
+    const uint32_t k2  = load_le32(key.data() +  8);
+    const uint32_t k3  = load_le32(key.data() + 12);
+    const uint32_t k4  = load_le32(key.data() + 16);
+    const uint32_t k5  = load_le32(key.data() + 20);
+    const uint32_t k6  = load_le32(key.data() + 24);
+    const uint32_t k7  = load_le32(key.data() + 28);
+    const uint32_t n0  = load_le32(nonce.data() + 0);
+    const uint32_t n1  = load_le32(nonce.data() + 4);
+    const uint32_t n2  = load_le32(nonce.data() + 8);
 
     // Pack initial state into four NEON registers (row-major: each vector is a row).
     // row0 = [c0, c1, c2, c3]
@@ -158,21 +160,21 @@ inline void chacha20_block(const uint8_t key[32], uint32_t counter,
     // Serialise as little-endian 32-bit words.
     // On little-endian hosts (Apple Silicon) vst1q_u32 is already correct.
     if constexpr (std::endian::native == std::endian::little) {
-        vst1q_u32(reinterpret_cast<uint32_t*>(out +  0), r0); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        vst1q_u32(reinterpret_cast<uint32_t*>(out + 16), r1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        vst1q_u32(reinterpret_cast<uint32_t*>(out + 32), r2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-        vst1q_u32(reinterpret_cast<uint32_t*>(out + 48), r3); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out.data() +  0), r0); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out.data() + 16), r1); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out.data() + 32), r2); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+        vst1q_u32(reinterpret_cast<uint32_t*>(out.data() + 48), r3); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     } else {
         // Big-endian: byte-swap each word.
-        uint32_t tmp[4];
-        vst1q_u32(tmp, r0);
-        for (int j = 0; j < 4; ++j) { store_le32(out + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
-        vst1q_u32(tmp, r1);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 16U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
-        vst1q_u32(tmp, r2);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 32U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
-        vst1q_u32(tmp, r3);
-        for (int j = 0; j < 4; ++j) { store_le32(out + 48U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
+        std::array<uint32_t, 4> tmp{};
+        vst1q_u32(tmp.data(), r0);
+        for (int j = 0; j < 4; ++j) { store_le32(out.data() + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
+        vst1q_u32(tmp.data(), r1);
+        for (int j = 0; j < 4; ++j) { store_le32(out.data() + 16U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
+        vst1q_u32(tmp.data(), r2);
+        for (int j = 0; j < 4; ++j) { store_le32(out.data() + 32U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
+        vst1q_u32(tmp.data(), r3);
+        for (int j = 0; j < 4; ++j) { store_le32(out.data() + 48U + (static_cast<std::size_t>(j) * 4U), tmp[j]); }
     }
 }
 
@@ -221,21 +223,21 @@ static inline void chacha20_transpose4( // NOLINT(readability-function-size,read
 // already in registers, saving 16 NEON registers vs. an explicit save.
 [[gnu::target("neon")]]
 static inline void chacha20_xor4( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    const uint8_t key[32], uint32_t counter,
-    const uint8_t nonce[12],
+    std::span<const uint8_t, 32> key, uint32_t counter,
+    std::span<const uint8_t, 12> nonce,
     const uint8_t* in, uint8_t* out) noexcept
 {
-    const uint32_t k0 = load_le32(key +  0);
-    const uint32_t k1 = load_le32(key +  4);
-    const uint32_t k2 = load_le32(key +  8);
-    const uint32_t k3 = load_le32(key + 12);
-    const uint32_t k4 = load_le32(key + 16);
-    const uint32_t k5 = load_le32(key + 20);
-    const uint32_t k6 = load_le32(key + 24);
-    const uint32_t k7 = load_le32(key + 28);
-    const uint32_t n0 = load_le32(nonce + 0);
-    const uint32_t n1 = load_le32(nonce + 4);
-    const uint32_t n2 = load_le32(nonce + 8);
+    const uint32_t k0 = load_le32(key.data() +  0);
+    const uint32_t k1 = load_le32(key.data() +  4);
+    const uint32_t k2 = load_le32(key.data() +  8);
+    const uint32_t k3 = load_le32(key.data() + 12);
+    const uint32_t k4 = load_le32(key.data() + 16);
+    const uint32_t k5 = load_le32(key.data() + 20);
+    const uint32_t k6 = load_le32(key.data() + 24);
+    const uint32_t k7 = load_le32(key.data() + 28);
+    const uint32_t n0 = load_le32(nonce.data() + 0);
+    const uint32_t n1 = load_le32(nonce.data() + 4);
+    const uint32_t n2 = load_le32(nonce.data() + 8);
 
     // Word-major state: s[i][lane] = word i of block `lane`.
     // Blocks 0..3 share the same key/nonce and differ only in the counter word.
@@ -346,8 +348,8 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size,readabilit
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
 [[gnu::target("neon")]]
-inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
-                            const uint8_t nonce[12],
+inline void chacha20_crypt(std::span<const uint8_t, 32> key, uint32_t counter_start,
+                            std::span<const uint8_t, 12> nonce,
                             const uint8_t* in, uint8_t* out, std::size_t len) noexcept
 {
     FixedSecureBuffer<64> block;
@@ -364,7 +366,7 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
 
     // Single-block tail (0..3 full blocks).
     while (len - offset >= 64U) {
-        chacha20_block(key, counter, nonce, block.data());
+        chacha20_block(key, counter, nonce, std::span<uint8_t, 64>{block.data(), 64});
         const uint8x16_t k0 = vld1q_u8(block.data() +  0);
         const uint8x16_t k1 = vld1q_u8(block.data() + 16);
         const uint8x16_t k2 = vld1q_u8(block.data() + 32);
@@ -379,7 +381,7 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
 
     // Partial final block.
     if (offset < len) {
-        chacha20_block(key, counter, nonce, block.data());
+        chacha20_block(key, counter, nonce, std::span<uint8_t, 64>{block.data(), 64});
         for (std::size_t i = 0; offset + i < len; ++i) {
 
             out[offset + i] = static_cast<uint8_t>(in[offset + i] ^ block[i]);
@@ -390,12 +392,13 @@ inline void chacha20_crypt(const uint8_t key[32], uint32_t counter_start,
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
 [[gnu::target("neon")]]
-inline void chacha20_poly1305_key(const uint8_t key[32], const uint8_t nonce[12],
-                                   uint8_t otk[32]) noexcept
+inline void chacha20_poly1305_key(std::span<const uint8_t, 32> key,
+                                   std::span<const uint8_t, 12> nonce,
+                                   std::span<uint8_t, 32> otk) noexcept
 {
     FixedSecureBuffer<64> block;
-    chacha20_block(key, 0, nonce, block.data());
-    std::memcpy(otk, block.data(), 32);
+    chacha20_block(key, 0, nonce, std::span<uint8_t, 64>{block.data(), 64});
+    std::memcpy(otk.data(), block.data(), 32);
 }
 
 }  // namespace arm_asm::detail

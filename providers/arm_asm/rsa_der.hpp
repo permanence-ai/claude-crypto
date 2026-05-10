@@ -27,6 +27,7 @@
 // keep the DER INTEGER tag's sign bit clear).  The parser strips that byte
 // before handing the value to the caller.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -322,35 +323,35 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     const std::size_t e_int_content = e_len + (e_needs_pad ? 1U : 0U);
 
     // INTEGER TLV sizes: tag(1) + len_field + content
-    CryptoByte n_len_buf[3]{};
-    CryptoByte e_len_buf[3]{};
-    const std::size_t n_len_bytes = encode_len(n_int_content, n_len_buf);
-    const std::size_t e_len_bytes = encode_len(e_int_content, e_len_buf);
+    std::array<CryptoByte, 3> n_len_buf{};
+    std::array<CryptoByte, 3> e_len_buf{};
+    const std::size_t n_len_bytes = encode_len(n_int_content, n_len_buf.data());
+    const std::size_t e_len_bytes = encode_len(e_int_content, e_len_buf.data());
     const std::size_t n_tlv = 1U + n_len_bytes + n_int_content;
     const std::size_t e_tlv = 1U + e_len_bytes + e_int_content;
 
     // Inner RSAPublicKey SEQUENCE body = n_tlv + e_tlv
     const std::size_t rsakey_body = n_tlv + e_tlv;
-    CryptoByte rsakey_len_buf[3]{};
-    const std::size_t rsakey_len_bytes = encode_len(rsakey_body, rsakey_len_buf);
+    std::array<CryptoByte, 3> rsakey_len_buf{};
+    const std::size_t rsakey_len_bytes = encode_len(rsakey_body, rsakey_len_buf.data());
     const std::size_t rsakey_seq = 1U + rsakey_len_bytes + rsakey_body;
 
     // BIT STRING: 0x03, len, 0x00 (unused bits), RSAPublicKey SEQUENCE
     const std::size_t bitstr_content = 1U + rsakey_seq;
-    CryptoByte bitstr_len_buf[3]{};
-    const std::size_t bitstr_len_bytes = encode_len(bitstr_content, bitstr_len_buf);
+    std::array<CryptoByte, 3> bitstr_len_buf{};
+    const std::size_t bitstr_len_bytes = encode_len(bitstr_content, bitstr_len_buf.data());
     const std::size_t bitstr_tlv = 1U + bitstr_len_bytes + bitstr_content;
 
     // AlgorithmIdentifier SEQUENCE = oid + null
     const std::size_t algid_body = sizeof(kRsaOid) + sizeof(kNull);
-    CryptoByte algid_len_buf[3]{};
-    const std::size_t algid_len_bytes = encode_len(algid_body, algid_len_buf);
+    std::array<CryptoByte, 3> algid_len_buf{};
+    const std::size_t algid_len_bytes = encode_len(algid_body, algid_len_buf.data());
     const std::size_t algid_seq = 1U + algid_len_bytes + algid_body;
 
     // Outer SubjectPublicKeyInfo SEQUENCE body = algid + bitstr
     const std::size_t spki_body = algid_seq + bitstr_tlv;
-    CryptoByte spki_len_buf[3]{};
-    const std::size_t spki_len_bytes = encode_len(spki_body, spki_len_buf);
+    std::array<CryptoByte, 3> spki_len_buf{};
+    const std::size_t spki_len_bytes = encode_len(spki_body, spki_len_buf.data());
     const std::size_t spki_total = 1U + spki_len_bytes + spki_body;
 
     if (spki_total > out_max) { return false; }
@@ -364,32 +365,32 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
 
     // Outer SEQUENCE
     write_byte(0x30U);
-    write(spki_len_buf, spki_len_bytes);
+    write(spki_len_buf.data(), spki_len_bytes);
 
     // AlgorithmIdentifier SEQUENCE
     write_byte(0x30U);
-    write(algid_len_buf, algid_len_bytes);
+    write(algid_len_buf.data(), algid_len_bytes);
     write(kRsaOid, sizeof(kRsaOid));
     write(kNull,   sizeof(kNull));
 
     // BIT STRING
     write_byte(0x03U);
-    write(bitstr_len_buf, bitstr_len_bytes);
+    write(bitstr_len_buf.data(), bitstr_len_bytes);
     write_byte(0x00U);  // unused bits = 0
 
     // RSAPublicKey SEQUENCE
     write_byte(0x30U);
-    write(rsakey_len_buf, rsakey_len_bytes);
+    write(rsakey_len_buf.data(), rsakey_len_bytes);
 
     // INTEGER n
     write_byte(0x02U);
-    write(n_len_buf, n_len_bytes);
+    write(n_len_buf.data(), n_len_bytes);
     if (n_needs_pad) { write_byte(0x00U); }
     write(n_bytes, n_len);
 
     // INTEGER e
     write_byte(0x02U);
-    write(e_len_buf, e_len_bytes);
+    write(e_len_buf.data(), e_len_bytes);
     if (e_needs_pad) { write_byte(0x00U); }
     write(e_bytes, e_len);
 
@@ -441,13 +442,14 @@ inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,rea
     const std::size_t nc = n_len + (n_pad ? 1U : 0U);
     const std::size_t ec = e_len + (e_pad ? 1U : 0U);
 
-    CryptoByte nlen_buf[3]{}, elen_buf[3]{};
-    const std::size_t nlb = encode_len(nc, nlen_buf);
-    const std::size_t elb = encode_len(ec, elen_buf);
+    std::array<CryptoByte, 3> nlen_buf{};
+    std::array<CryptoByte, 3> elen_buf{};
+    const std::size_t nlb = encode_len(nc, nlen_buf.data());
+    const std::size_t elb = encode_len(ec, elen_buf.data());
     const std::size_t body = 1U + nlb + nc + 1U + elb + ec;
 
-    CryptoByte slen_buf[3]{};
-    const std::size_t slb = encode_len(body, slen_buf);
+    std::array<CryptoByte, 3> slen_buf{};
+    const std::size_t slb = encode_len(body, slen_buf.data());
     const std::size_t total = 1U + slb + body;
 
     if (total > out_max) { return false; }
@@ -456,11 +458,11 @@ inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,rea
     auto wb = [&](uint8_t b) { *w++ = b; };
     auto wn = [&](const CryptoByte* src, std::size_t n2) { std::memcpy(w, src, n2); w += n2; };
 
-    wb(0x30U); wn(slen_buf, slb);
-    wb(0x02U); wn(nlen_buf, nlb);
+    wb(0x30U); wn(slen_buf.data(), slb);
+    wb(0x02U); wn(nlen_buf.data(), nlb);
     if (n_pad) { wb(0x00U); }
     wn(n_bytes, n_len);
-    wb(0x02U); wn(elen_buf, elb);
+    wb(0x02U); wn(elen_buf.data(), elb);
     if (e_pad) { wb(0x00U); }
     wn(e_bytes, e_len);
 

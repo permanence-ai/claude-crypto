@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstring>
 #include <span>
@@ -85,37 +86,37 @@ struct ArmAsmBackend {
     {
         if (alg == alg_sha(ShaVariant::Sha256)) {
             if (output_size < sha256_size_bytes) { return err_invalid_arg; }
-            arm_asm::detail::sha256(input, input_len, output);
+            arm_asm::detail::sha256(input, input_len, std::span<CryptoByte, 32>{output, 32});
             *output_len = sha256_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha512)) {
             if (output_size < sha512_size_bytes) { return err_invalid_arg; }
-            arm_asm::detail::sha512(input, input_len, output);
+            arm_asm::detail::sha512(input, input_len, std::span<CryptoByte, 64>{output, 64});
             *output_len = sha512_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha384)) {
             if (output_size < sha384_size_bytes) { return err_invalid_arg; }
-            arm_asm::detail::sha384(input, input_len, output);
+            arm_asm::detail::sha384(input, input_len, std::span<CryptoByte, 48>{output, 48});
             *output_len = sha384_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha3_256)) {
             if (output_size < sha3_256_size_bytes) { return err_invalid_arg; }
-            arm_asm::detail::sha3_256(input, input_len, output);
+            arm_asm::detail::sha3_256(input, input_len, std::span<CryptoByte, 32>{output, 32});
             *output_len = sha3_256_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha3_384)) {
             if (output_size < sha3_384_size_bytes) { return err_invalid_arg; }
-            arm_asm::detail::sha3_384(input, input_len, output);
+            arm_asm::detail::sha3_384(input, input_len, std::span<CryptoByte, 48>{output, 48});
             *output_len = sha3_384_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha3_512)) {
             if (output_size < sha3_512_size_bytes) { return err_invalid_arg; }
-            arm_asm::detail::sha3_512(input, input_len, output);
+            arm_asm::detail::sha3_512(input, input_len, std::span<CryptoByte, 64>{output, 64});
             *output_len = sha3_512_size_bytes;
             return ok;
         }
@@ -594,9 +595,11 @@ struct ArmAsmBackend {
             constexpr std::size_t sig_len_expected = 64;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
-            sha256(msg, msg_len, hash);
-            if (!p256_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            std::array<uint8_t, hash_len> hash{};
+            sha256(msg, msg_len, std::span<CryptoByte, 32>{hash.data(), 32});
+            if (!p256_ecdsa_sign(std::span<const uint8_t, 32>{key, 32},
+                                 std::span<const uint8_t, 32>{hash.data(), 32},
+                                 std::span<uint8_t, 64>{sig, 64})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -605,9 +608,11 @@ struct ArmAsmBackend {
             constexpr std::size_t sig_len_expected = 96;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
-            sha384(msg, msg_len, hash);
-            if (!p384_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            std::array<uint8_t, hash_len> hash{};
+            sha384(msg, msg_len, std::span<CryptoByte, 48>{hash.data(), 48});
+            if (!p384_ecdsa_sign(std::span<const uint8_t, 48>{key, 48},
+                                 std::span<const uint8_t, 48>{hash.data(), 48},
+                                 std::span<uint8_t, 96>{sig, 96})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -617,9 +622,11 @@ struct ArmAsmBackend {
             constexpr std::size_t sig_len_expected = 132;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != sk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
-            sha512(msg, msg_len, hash);
-            if (!p521_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            std::array<uint8_t, hash_len> hash{};
+            sha512(msg, msg_len, std::span<CryptoByte, 64>{hash.data(), 64});
+            if (!p521_ecdsa_sign(std::span<const uint8_t, 66>{key, 66},
+                                 std::span<const uint8_t, 64>{hash.data(), 64},
+                                 std::span<uint8_t, 132>{sig, 132})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -667,27 +674,33 @@ struct ArmAsmBackend {
             constexpr std::size_t expected_sig_len = 64;
             constexpr std::size_t pk_len = 65;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
-            sha256(msg, msg_len, hash);
-            return p256_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            std::array<uint8_t, hash_len> hash{};
+            sha256(msg, msg_len, std::span<CryptoByte, 32>{hash.data(), 32});
+            return p256_ecdsa_verify(std::span<const uint8_t, 65>{key, 65},
+                                     std::span<const uint8_t, 32>{hash.data(), 32},
+                                     std::span<const uint8_t, 64>{sig, 64}) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P384) {
             constexpr std::size_t hash_len = 48;
             constexpr std::size_t expected_sig_len = 96;
             constexpr std::size_t pk_len = 97;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
-            sha384(msg, msg_len, hash);
-            return p384_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            std::array<uint8_t, hash_len> hash{};
+            sha384(msg, msg_len, std::span<CryptoByte, 48>{hash.data(), 48});
+            return p384_ecdsa_verify(std::span<const uint8_t, 97>{key, 97},
+                                     std::span<const uint8_t, 48>{hash.data(), 48},
+                                     std::span<const uint8_t, 96>{sig, 96}) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P521) {
             constexpr std::size_t hash_len = 64;
             constexpr std::size_t expected_sig_len = 132;
             constexpr std::size_t pk_len = 133;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
-            sha512(msg, msg_len, hash);
-            return p521_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            std::array<uint8_t, hash_len> hash{};
+            sha512(msg, msg_len, std::span<CryptoByte, 64>{hash.data(), 64});
+            return p521_ecdsa_verify(std::span<const uint8_t, 133>{key, 133},
+                                     std::span<const uint8_t, 64>{hash.data(), 64},
+                                     std::span<const uint8_t, 132>{sig, 132}) ? ok : err_invalid_sig;
         }
         return err_invalid_arg;
     }

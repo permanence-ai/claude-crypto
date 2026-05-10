@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <immintrin.h>
+#include <span>
 
 #include "aes256.hpp"
 #include "defs.hpp"
@@ -27,11 +28,11 @@ constexpr std::size_t aes_gcm_iv_bytes  = 12;
 
 
 // Increment the low 32 bits of a counter block (big-endian).
-static inline void gcm_inc_counter(uint8_t ctr[16]) noexcept {
+static inline void gcm_inc_counter(std::span<uint8_t, 16> ctr) noexcept {
     uint32_t lo{};
-    std::memcpy(&lo, ctr + 12, 4);
+    std::memcpy(&lo, ctr.data() + 12, 4);
     lo = std::byteswap(std::byteswap(lo) + 1U);
-    std::memcpy(ctr + 12, &lo, 4);
+    std::memcpy(ctr.data() + 12, &lo, 4);
 }
 
 
@@ -42,7 +43,7 @@ static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
     const CryptoByte* in,
     CryptoByte* out,
     std::size_t len,
-    uint8_t ctr[16],
+    std::span<uint8_t, 16> ctr,
     const Aes256Schedule& sched) noexcept
 {
     std::size_t offset = 0;
@@ -50,7 +51,7 @@ static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
     // Full blocks.
     while (len - offset >= 16) {
         gcm_inc_counter(ctr);
-        const __m128i ks = aes256_encrypt_block(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ctr)), sched);
+        const __m128i ks = aes256_encrypt_block(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ctr.data())), sched);
         const __m128i x  = _mm_xor_si128(_mm_loadu_si128(reinterpret_cast<const __m128i*>(in + offset)), ks);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(out + offset), x);
         offset += 16;
@@ -59,7 +60,7 @@ static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
     // Partial final block.
     if (offset < len) {
         gcm_inc_counter(ctr);
-        const __m128i ks = aes256_encrypt_block(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ctr)), sched);
+        const __m128i ks = aes256_encrypt_block(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ctr.data())), sched);
         std::array<uint8_t, 16> ks_bytes{};
         _mm_storeu_si128(reinterpret_cast<__m128i*>(ks_bytes.data()), ks);
         for (std::size_t i = 0; offset + i < len; ++i) {
@@ -74,12 +75,12 @@ static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
 static inline void gcm_length_block(
     uint64_t aad_len,
     uint64_t ct_len,
-    uint8_t out[16]) noexcept
+    std::span<uint8_t, 16> out) noexcept
 {
     const uint64_t aad_bits = std::byteswap(aad_len * 8U);
     const uint64_t ct_bits  = std::byteswap(ct_len  * 8U);
-    std::memcpy(out,     &aad_bits, 8);
-    std::memcpy(out + 8, &ct_bits,  8);
+    std::memcpy(out.data(),     &aad_bits, 8);
+    std::memcpy(out.data() + 8, &ct_bits,  8);
 }
 
 
@@ -90,9 +91,9 @@ static inline void gcm_compute_tag( // NOLINT(readability-function-size)
     std::size_t          aad_len,
     const CryptoByte*    ct,
     std::size_t          ct_len,
-    const uint8_t        E_J0[16],
+    std::span<const uint8_t, 16> E_J0,
     const Aes256Schedule& sched,
-    uint8_t              tag_out[16]) noexcept
+    std::span<uint8_t, 16> tag_out) noexcept
 {
     // H = AES_K(0¹²⁸)
     std::array<uint8_t, 16> H_block{};
@@ -124,7 +125,7 @@ static inline void gcm_compute_tag( // NOLINT(readability-function-size)
     std::array<uint8_t, 16> len_block{};
     gcm_length_block(static_cast<uint64_t>(aad_len),
                      static_cast<uint64_t>(ct_len),
-                     len_block.data());
+                     len_block);
     ghash.update(len_block.data());
 
     std::array<uint8_t, 16> ghash_out{};
@@ -148,7 +149,7 @@ inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-
     CryptoByte*       out) noexcept
 {
     Aes256Schedule sched;
-    aes256_key_expand(key, sched);
+    aes256_key_expand(std::span<const CryptoByte, 32>{key, 32}, sched);
 
     std::array<uint8_t, 16> J0{};
     std::memcpy(J0.data(), iv, aes_gcm_iv_bytes);
@@ -160,9 +161,9 @@ inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-
 
     std::array<uint8_t, 16> ctr{};
     std::memcpy(ctr.data(), J0.data(), 16);
-    gcm_ctr_crypt(pt, out, pt_len, ctr.data(), sched);
+    gcm_ctr_crypt(pt, out, pt_len, ctr, sched);
 
-    gcm_compute_tag(aad, aad_len, out, pt_len, E_J0.data(), sched, out + pt_len);
+    gcm_compute_tag(aad, aad_len, out, pt_len, E_J0, sched, std::span<uint8_t, 16>{out + pt_len, 16});
 }
 
 
@@ -183,7 +184,7 @@ inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-
     const std::size_t pt_len = ct_len - aes_gcm_tag_bytes;
 
     Aes256Schedule sched;
-    aes256_key_expand(key, sched);
+    aes256_key_expand(std::span<const CryptoByte, 32>{key, 32}, sched);
 
     std::array<uint8_t, 16> J0{};
     std::memcpy(J0.data(), iv, aes_gcm_iv_bytes);
@@ -194,7 +195,7 @@ inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-
                      aes256_encrypt_block(_mm_loadu_si128(reinterpret_cast<const __m128i*>(J0.data())), sched));
 
     std::array<uint8_t, 16> expected_tag{};
-    gcm_compute_tag(aad, aad_len, ct, pt_len, E_J0.data(), sched, expected_tag.data());
+    gcm_compute_tag(aad, aad_len, ct, pt_len, E_J0, sched, expected_tag);
 
     const uint8_t* received_tag = ct + pt_len;
     unsigned int diff = 0;
@@ -211,7 +212,7 @@ inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-
 
     std::array<uint8_t, 16> ctr{};
     std::memcpy(ctr.data(), J0.data(), 16);
-    gcm_ctr_crypt(ct, out, pt_len, ctr.data(), sched);
+    gcm_ctr_crypt(ct, out, pt_len, ctr, sched);
     return true;
 }
 
