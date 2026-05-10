@@ -31,9 +31,9 @@ protected:
 
     static IaAsmBackend::KeyId generate_ecdh_key(arm_asm::detail::EcCurveId curve) {
         std::size_t bits = 0;
-        if (curve == arm_asm::detail::EcCurveId::P256) { bits = 256; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        else if (curve == arm_asm::detail::EcCurveId::P384) { bits = 384; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        else { bits = 521; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (curve == arm_asm::detail::EcCurveId::P256) { bits = p256_bits; }
+        else if (curve == arm_asm::detail::EcCurveId::P384) { bits = p384_bits; }
+        else { bits = p521_bits; }
         auto attrs = IaAsmBackend::make_ecdh_generate_attrs(bits);
         IaAsmBackend::KeyId id = IaAsmBackend::null_key_id();
         if (IaAsmBackend::generate_key(&attrs, &id) != IaAsmBackend::ok) { return IaAsmBackend::null_key_id(); }
@@ -54,7 +54,7 @@ protected:
 TEST_F(IaAsmEcdhValidationTests, P256ValidPeerSucceeds) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    auto peer = export_public(id, 65); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto peer = export_public(id, p256_public_key_bytes);
     ASSERT_EQ(peer.size(), 65U);
     std::array<uint8_t, 32> out{};
     std::size_t out_len = 0;
@@ -67,7 +67,7 @@ TEST_F(IaAsmEcdhValidationTests, P256ValidPeerSucceeds) {
 TEST_F(IaAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    std::array<uint8_t, 65> peer{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p256_public_key_bytes> peer{};
     peer[0] = 0x04U;
     std::array<uint8_t, 32> out{};
     std::size_t out_len = 0;
@@ -80,9 +80,9 @@ TEST_F(IaAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
 TEST_F(IaAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    auto peer = export_public(id, 65); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto peer = export_public(id, p256_public_key_bytes);
     ASSERT_EQ(peer.size(), 65U);
-    peer[64] ^= 0x01U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    peer[p256_public_key_bytes - 1U] ^= 0x01U;
     std::array<uint8_t, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
@@ -96,9 +96,9 @@ TEST_F(IaAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
 TEST_F(IaAsmEcdhValidationTests, P384ValidPeerSucceeds) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P384);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    auto peer = export_public(id, 97); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto peer = export_public(id, p384_public_key_bytes);
     ASSERT_EQ(peer.size(), 97U);
-    std::array<uint8_t, 48> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p384_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
                                                peer.data(), peer.size(),
@@ -109,9 +109,9 @@ TEST_F(IaAsmEcdhValidationTests, P384ValidPeerSucceeds) {
 TEST_F(IaAsmEcdhValidationTests, P384AllZeroPeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P384);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    std::array<uint8_t, 97> peer{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p384_public_key_bytes> peer{};
     peer[0] = 0x04U;
-    std::array<uint8_t, 48> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p384_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
                                                peer.data(), peer.size(),
@@ -122,10 +122,10 @@ TEST_F(IaAsmEcdhValidationTests, P384AllZeroPeerReturnsInvalidArg) {
 TEST_F(IaAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P384);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    auto peer = export_public(id, 97); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto peer = export_public(id, p384_public_key_bytes);
     ASSERT_EQ(peer.size(), 97U);
-    peer[96] ^= 0x01U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::array<uint8_t, 48> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    peer[p384_public_key_bytes - 1U] ^= 0x01U;
+    std::array<uint8_t, p384_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
                                                peer.data(), peer.size(),
@@ -138,9 +138,9 @@ TEST_F(IaAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
 TEST_F(IaAsmEcdhValidationTests, P521ValidPeerSucceeds) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    auto peer = export_public(id, 133); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto peer = export_public(id, p521_public_key_bytes);
     ASSERT_EQ(peer.size(), 133U);
-    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
                                                peer.data(), peer.size(),
@@ -151,9 +151,9 @@ TEST_F(IaAsmEcdhValidationTests, P521ValidPeerSucceeds) {
 TEST_F(IaAsmEcdhValidationTests, P521AllZeroPeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    std::array<uint8_t, 133> peer{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p521_public_key_bytes> peer{};
     peer[0] = 0x04U;
-    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
                                                peer.data(), peer.size(),
@@ -164,10 +164,10 @@ TEST_F(IaAsmEcdhValidationTests, P521AllZeroPeerReturnsInvalidArg) {
 TEST_F(IaAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    auto peer = export_public(id, 133); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto peer = export_public(id, p521_public_key_bytes);
     ASSERT_EQ(peer.size(), 133U);
-    peer[132] ^= 0x01U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    peer[p521_public_key_bytes - 1U] ^= 0x01U;
+    std::array<uint8_t, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
                                                peer.data(), peer.size(),
@@ -178,10 +178,10 @@ TEST_F(IaAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
 TEST_F(IaAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
     ASSERT_NE(id, IaAsmBackend::null_key_id());
-    auto peer = export_public(id, 133); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto peer = export_public(id, p521_public_key_bytes);
     ASSERT_EQ(peer.size(), 133U);
     peer[1] |= 0x80U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    std::array<uint8_t, 66> out{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
                                                peer.data(), peer.size(),
@@ -212,17 +212,17 @@ protected:
             return {IaAsmBackend::null_key_id(), IaAsmBackend::null_key_id()};
         }
         std::size_t pk_len = 0;
-        if (bits == 256) { pk_len = 65; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        else if (bits == 384) { pk_len = 97; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        else { pk_len = 133; } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        if (bits == p256_bits) { pk_len = p256_public_key_bytes; }
+        else if (bits == p384_bits) { pk_len = p384_public_key_bytes; }
+        else { pk_len = p521_public_key_bytes; }
         std::vector<uint8_t> pub_buf(pk_len);
         std::size_t exported = 0;
         if (IaAsmBackend::export_public_key(priv_id, pub_buf.data(), pk_len, &exported) != IaAsmBackend::ok) {
             return {priv_id, IaAsmBackend::null_key_id()};
         }
-        const auto curve = (bits == 256) ? arm_asm::detail::EcCurveId::P256 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-                         : (bits == 384) ? arm_asm::detail::EcCurveId::P384 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-                                         : arm_asm::detail::EcCurveId::P521;
+        const auto curve = (bits == p256_bits) ? arm_asm::detail::EcCurveId::P256
+                         : (bits == p384_bits) ? arm_asm::detail::EcCurveId::P384
+                                               : arm_asm::detail::EcCurveId::P521;
         const auto pub_id = arm_asm::detail::ec_key_store_import(
             curve, arm_asm::detail::EcKeyKind::Public, pub_buf.data(), exported);
         return {priv_id, static_cast<IaAsmBackend::KeyId>(pub_id)};
@@ -253,36 +253,36 @@ protected:
 // ---- P-256 ----
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P256ValidSignatureVerifies) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p256_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
     ASSERT_NE(pub_id,  IaAsmBackend::null_key_id());
-    const auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
     EXPECT_EQ(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P256ZeroRRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p256_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
     std::fill(sig.begin(), sig.begin() + 32, 0x00U);
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P256ZeroSRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p256_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
     std::fill(sig.begin() + 32, sig.end(), 0x00U);
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P256REqualsNRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p256_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
     static constexpr std::array<uint8_t, 32> kP256N = {{
         0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x00,0x00, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -295,23 +295,23 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P256REqualsNRejectsSignature) {
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P256AllOnesRRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p256_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
     std::fill(sig.begin(), sig.begin() + 32, 0xFFU);
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P256OffCurvePublicKeyRejectsVerify) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(256); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p256_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
     // Export the public key, flip last byte of y to make it off-curve, re-import.
     // EC key validation now rejects off-curve points at import time.
-    std::array<uint8_t, 65> pk_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, p256_public_key_bytes> pk_buf{};
     std::size_t pk_len = 0;
     ASSERT_EQ(IaAsmBackend::export_public_key(pub_id, pk_buf.data(), pk_buf.size(), &pk_len), IaAsmBackend::ok);
-    pk_buf[64] ^= 0x01U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    pk_buf[p256_public_key_bytes - 1U] ^= 0x01U;
     const auto bad_pub = static_cast<IaAsmBackend::KeyId>(
         arm_asm::detail::ec_key_store_import(
             arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Public,
@@ -322,29 +322,29 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P256OffCurvePublicKeyRejectsVerify) {
 // ---- P-384 ----
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P384ValidSignatureVerifies) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p384_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
     ASSERT_NE(pub_id,  IaAsmBackend::null_key_id());
-    const auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto sig = sign(priv_id, p384_sig_bytes);
     ASSERT_FALSE(sig.empty());
     EXPECT_EQ(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P384ZeroRRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p384_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p384_sig_bytes);
     ASSERT_FALSE(sig.empty());
-    std::fill(sig.begin(), sig.begin() + 48, 0x00U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::fill(sig.begin(), sig.begin() + p384_scalar_bytes, 0x00U);
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P384REqualsNRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p384_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p384_sig_bytes);
     ASSERT_FALSE(sig.empty());
-    static constexpr std::array<uint8_t, 48> kP384N = {{ // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    static constexpr std::array<uint8_t, p384_scalar_bytes> kP384N = {{
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -357,40 +357,40 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P384REqualsNRejectsSignature) {
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P384AllOnesRRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(384); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p384_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 96); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p384_sig_bytes);
     ASSERT_FALSE(sig.empty());
-    std::fill(sig.begin(), sig.begin() + 48, 0xFFU); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::fill(sig.begin(), sig.begin() + p384_scalar_bytes, 0xFFU);
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 // ---- P-521 ----
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P521ValidSignatureVerifies) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p521_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
     ASSERT_NE(pub_id,  IaAsmBackend::null_key_id());
-    const auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto sig = sign(priv_id, p521_sig_bytes);
     ASSERT_FALSE(sig.empty());
     EXPECT_EQ(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P521ZeroRRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p521_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p521_sig_bytes);
     ASSERT_FALSE(sig.empty());
-    std::fill(sig.begin(), sig.begin() + 66, 0x00U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::fill(sig.begin(), sig.begin() + p521_scalar_bytes, 0x00U);
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P521REqualsNRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p521_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p521_sig_bytes);
     ASSERT_FALSE(sig.empty());
-    static constexpr std::array<uint8_t, 66> kP521N = {{ // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    static constexpr std::array<uint8_t, p521_scalar_bytes> kP521N = {{
         0x01,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -406,20 +406,20 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P521REqualsNRejectsSignature) {
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P521RHighBitSetRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p521_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p521_sig_bytes);
     ASSERT_FALSE(sig.empty());
     sig[0] |= 0x80U;
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 
 TEST_F(IaAsmEcdsaSigDecodeTests, P521SHighBitSetRejectsSignature) {
-    const auto [priv_id, pub_id] = generate_ecdsa_pair(521); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const auto [priv_id, pub_id] = generate_ecdsa_pair(p521_bits);
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
-    auto sig = sign(priv_id, 132); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto sig = sign(priv_id, p521_sig_bytes);
     ASSERT_FALSE(sig.empty());
-    sig[66] |= 0x80U; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    sig[p521_scalar_bytes] |= 0x80U;
     EXPECT_NE(verify(pub_id, sig), IaAsmBackend::ok);
 }
 

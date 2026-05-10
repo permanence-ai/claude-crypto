@@ -65,33 +65,33 @@ TEST_F(MillerRabinTests, RejectsTinyComposites) {
     arm_asm::detail::BigInt<1> n{};
 
     n.d[0] = 9U;   // 3^2
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 
     n.d[0] = 15U;  // 3*5
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 
     n.d[0] = 77U;  // 7*11
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 
     n.d[0] = 561U; // first Carmichael number
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 }
 
 TEST_F(MillerRabinTests, AcceptsKnownPrimes) {
     arm_asm::detail::BigInt<1> n{};
 
     n.d[0] = 7U;
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 
     n.d[0] = 97U;
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 
     n.d[0] = 65537U;  // e itself is prime
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 
     // A large 64-bit prime.
     n.d[0] = 0xFFFFFFFFFFFFFFC5ULL;  // 2^64 - 59 (prime)
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, 10)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
 }
 
 
@@ -109,9 +109,9 @@ protected:
 TEST_F(RsaKeygenTests, GenerateAndParseKeyDer1024) {
     // Generate a 1024-bit key (NW=16).
     constexpr std::size_t NW = 16U;
-    constexpr std::size_t modulus_bits = 1024U;
+    constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<uint8_t, 1024> der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));
@@ -135,9 +135,9 @@ TEST_F(RsaKeygenTests, RoundTripEncryptDecrypt1024) {
     // Generate a 1024-bit key pair and exercise encrypt+decrypt.
     constexpr std::size_t NW = 16U;
     constexpr std::size_t k  = 128U;  // key bytes
-    constexpr std::size_t modulus_bits = 1024U;
+    constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<uint8_t, 1024> der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));
@@ -176,9 +176,9 @@ TEST_F(RsaKeygenTests, OaepRoundTrip1024) {
     // Generate key, OAEP-encode, RSA-encrypt, RSA-decrypt, OAEP-decode.
     constexpr std::size_t NW = 16U;
     constexpr std::size_t k  = 128U;
-    constexpr std::size_t modulus_bits = 1024U;
+    constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<uint8_t, 1024> der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));
@@ -222,9 +222,9 @@ TEST_F(RsaKeygenTests, PsaCanImportOurGeneratedKey) {
     // Generate a key, PSA imports it, verifies it works for OAEP.
     constexpr std::size_t NW = 16U;
     constexpr std::size_t k  = 128U;
-    constexpr std::size_t modulus_bits = 1024U;
+    constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<uint8_t, 1024> der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));

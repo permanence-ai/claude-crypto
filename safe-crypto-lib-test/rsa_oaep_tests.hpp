@@ -271,7 +271,7 @@ protected:
         // Generate a 1024-bit key pair via PSA.
         psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-        psa_set_key_bits(&attrs, 1024); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        psa_set_key_bits(&attrs, rsa_1024_bits);
         psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT | PSA_KEY_USAGE_EXPORT);
         psa_set_key_algorithm(&attrs, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384));
 
