@@ -100,7 +100,7 @@ private:
                 state[i] ^= std::byteswap(word);
             }
         }
-        keccak_f1600(state.data());
+        keccak_f1600(state);
         std::memset(buf.data(), 0, rate_bytes);
     }
 };
@@ -108,32 +108,32 @@ private:
 
 // SHA3-256: rate=136, out=32
 inline void sha3_256(const CryptoByte* msg, std::size_t msg_len,
-                     CryptoByte out[32]) noexcept
+                     std::span<CryptoByte, 32> out) noexcept
 {
     Sha3Ctx ctx;
     ctx.init(136, 32);
     ctx.update(msg, msg_len);
-    ctx.finish(out);
+    ctx.finish(out.data());
 }
 
 // SHA3-384: rate=104, out=48
 inline void sha3_384(const CryptoByte* msg, std::size_t msg_len,
-                     CryptoByte out[48]) noexcept
+                     std::span<CryptoByte, 48> out) noexcept
 {
     Sha3Ctx ctx;
     ctx.init(104, 48);
     ctx.update(msg, msg_len);
-    ctx.finish(out);
+    ctx.finish(out.data());
 }
 
 // SHA3-512: rate=72, out=64
 inline void sha3_512(const CryptoByte* msg, std::size_t msg_len,
-                     CryptoByte out[64]) noexcept
+                     std::span<CryptoByte, 64> out) noexcept
 {
     Sha3Ctx ctx;
     ctx.init(72, 64);
     ctx.update(msg, msg_len);
-    ctx.finish(out);
+    ctx.finish(out.data());
 }
 
 }  // namespace arm_asm::detail

@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <cstring>
 #include <immintrin.h>
+#include <span>
 
 #include "defs.hpp"
 
@@ -58,11 +59,11 @@ static inline __m128i aes256_keygen_helper2(__m128i key, __m128i keygen_result) 
 // Expand a 256-bit key into the AES-256 round-key schedule.
 // key must point to 32 bytes; sched receives 15 × 16 bytes.
 [[gnu::target("aes,sse4.1")]]
-inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) noexcept
+inline void aes256_key_expand(std::span<const CryptoByte, 32> key, Aes256Schedule& sched) noexcept
 {
     // Load the two 128-bit halves of the 256-bit key.
-    __m128i k0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key));
-    __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key + 16));
+    __m128i k0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key.data()));
+    __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key.data() + 16));
 
     auto* rk = reinterpret_cast<__m128i*>(sched.data());
 

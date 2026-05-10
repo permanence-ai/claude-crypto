@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "chacha20.hpp"
 #include "defs.hpp"
@@ -39,9 +40,9 @@ static inline void poly1305_feed( // NOLINT(readability-function-size)
     const uint8_t* otk,
     const uint8_t* aad, std::size_t aad_len,
     const uint8_t* ct,  std::size_t ct_len,
-    uint8_t tag_out[16]) noexcept
+    std::span<uint8_t, 16> tag_out) noexcept
 {
-    const Poly1305Limbs  r  = clamp_r(otk);
+    const Poly1305Limbs  r  = clamp_r(std::span<const uint8_t, 16>{otk, 16});
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
 
@@ -86,7 +87,7 @@ static inline void poly1305_feed( // NOLINT(readability-function-size)
     poly1305_add_block(h, lo, hi, 1U);
     poly1305_multiply_precomp(h, pw.p1);
 
-    poly1305_finish(h, otk + 16, tag_out);
+    poly1305_finish(h, std::span<const uint8_t, 16>{otk + 16, 16}, tag_out);
 }
 
 
@@ -99,9 +100,13 @@ inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,reada
     CryptoByte*       out) noexcept
 {
     FixedSecureBuffer<32> otk;
-    chacha20_poly1305_key(key, nonce, otk.data());
-    chacha20_crypt(key, 1U, nonce, pt, out, pt_len);
-    poly1305_feed(otk.data(), aad, aad_len, out, pt_len, out + pt_len);
+    chacha20_poly1305_key(std::span<const uint8_t, 32>{key, 32},
+                          std::span<const uint8_t, 12>{nonce, 12},
+                          std::span<uint8_t, 32>{otk.data(), 32});
+    chacha20_crypt(std::span<const uint8_t, 32>{key, 32}, 1U,
+                   std::span<const uint8_t, 12>{nonce, 12}, pt, out, pt_len);
+    poly1305_feed(otk.data(), aad, aad_len, out, pt_len,
+                  std::span<uint8_t, 16>{out + pt_len, 16});
 }
 
 
@@ -117,10 +122,12 @@ inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,reada
     const std::size_t pt_len = ct_len - chacha20_poly1305_tag_bytes;
 
     FixedSecureBuffer<32> otk;
-    chacha20_poly1305_key(key, nonce, otk.data());
+    chacha20_poly1305_key(std::span<const uint8_t, 32>{key, 32},
+                          std::span<const uint8_t, 12>{nonce, 12},
+                          std::span<uint8_t, 32>{otk.data(), 32});
 
     std::array<uint8_t, 16> expected_tag{};
-    poly1305_feed(otk.data(), aad, aad_len, ct, pt_len, expected_tag.data());
+    poly1305_feed(otk.data(), aad, aad_len, ct, pt_len, expected_tag);
 
     const uint8_t* received_tag = ct + pt_len;
     unsigned int diff = 0;
@@ -135,7 +142,8 @@ inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,reada
         return false;
     }
 
-    chacha20_crypt(key, 1U, nonce, ct, out, pt_len);
+    chacha20_crypt(std::span<const uint8_t, 32>{key, 32}, 1U,
+                   std::span<const uint8_t, 12>{nonce, 12}, ct, out, pt_len);
     return true;
 }
 

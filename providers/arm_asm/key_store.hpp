@@ -9,6 +9,7 @@
 // This is intentionally simple: it covers HMAC and AES key storage.
 // Thread-safety: not implemented; the current test suite is single-threaded.
 
+#include <array>
 #include <cstddef>
 #include <cstring>
 
@@ -30,7 +31,7 @@ struct KeySlot {
 
 // Global key store — one instance per process.
 inline KeySlot& key_slot(std::size_t idx) noexcept {
-    static KeySlot slots[key_store_capacity]{};
+    static std::array<KeySlot, key_store_capacity> slots{};
     return slots[idx];
 }
 

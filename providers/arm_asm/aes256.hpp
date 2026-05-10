@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 
@@ -61,19 +62,19 @@ static inline uint32_t aes_rot_word(uint32_t w) noexcept {
 // Expand a 256-bit key into the AES-256 round-key schedule.
 // key must point to 32 bytes; out receives 15 × 16 bytes (aes256_schedule_bytes).
 [[gnu::target("aes,neon")]]
-inline void aes256_key_expand(const CryptoByte key[32], Aes256Schedule& sched) noexcept
+inline void aes256_key_expand(std::span<const CryptoByte, 32> key, Aes256Schedule& sched) noexcept
 {
 
-    static constexpr uint8_t rcon[7] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40 };
+    static constexpr std::array<uint8_t, 7> rcon = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40 };
 
     // The schedule is built as an array of 32-bit words, 60 words total.
     // Round key i occupies words [4i .. 4i+3].  We need 15 round keys → 60 words.
 
-    uint32_t w[60]{};
+    std::array<uint32_t, 60> w{};
 
     // W[0..7] = key bytes directly.
     for (std::size_t i = 0; i < 8; ++i) {
-        std::memcpy(&w[i], key + (i * 4), 4);
+        std::memcpy(&w[i], key.data() + (i * 4), 4);
     }
 
     for (std::size_t i = 8; i < 60; ++i) {

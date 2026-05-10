@@ -8,10 +8,12 @@
 // The -march=armv8.2-a+crypto flag in the provider CMakeLists sets this.
 
 #include <arm_neon.h>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 
@@ -19,13 +21,13 @@
 namespace arm_asm::detail {
 
 // SHA-256 initial hash values (fractional parts of sqrt of first 8 primes).
-inline constexpr uint32_t sha256_h0[8] = {
+inline constexpr std::array<uint32_t, 8> sha256_h0 = {
     0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
     0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
 };
 
 // SHA-256 round constants (fractional parts of cbrt of first 64 primes).
-inline constexpr uint32_t sha256_k[64] = {
+inline constexpr std::array<uint32_t, 64> sha256_k = {
     0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U,
     0x3956c25bU, 0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U,
     0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U,
@@ -57,10 +59,10 @@ inline constexpr uint32_t sha256_k[64] = {
 //     4. su1(wa_prev, wc, wd)  → completes the schedule 1 group behind
 //   Groups 12-15 (rounds 48-63) skip su0; group 12 completes the last su1.
 [[gnu::target("sha2,neon")]]
-inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+inline void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
-    uint32x4_t abcd = vld1q_u32(state);
-    uint32x4_t efgh = vld1q_u32(state + 4);
+    uint32x4_t abcd = vld1q_u32(state.data());
+    uint32x4_t efgh = vld1q_u32(state.data() + 4);
     const uint32x4_t abcd0 = abcd;
     const uint32x4_t efgh0 = efgh;
 
@@ -74,7 +76,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     uint32x4_t save;
 
     // Group 0 (rounds 0-3): hash W[0..3]; su0 → partial W[16..19] in w0.
-    tmp = vaddq_u32(w0, vld1q_u32(sha256_k));
+    tmp = vaddq_u32(w0, vld1q_u32(sha256_k.data()));
     save = abcd;
     w0 = vsha256su0q_u32(w0, w1);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -82,7 +84,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 
     // Group 1 (rounds 4-7): hash W[4..7]; su0 → partial W[20..23] in w1;
     //                        su1 → complete W[16..19] in w0.
-    tmp = vaddq_u32(w1, vld1q_u32(sha256_k + 4));
+    tmp = vaddq_u32(w1, vld1q_u32(sha256_k.data() + 4));
     save = abcd;
     w1 = vsha256su0q_u32(w1, w2);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -91,7 +93,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 
     // Group 2 (rounds 8-11): hash W[8..11]; su0 → partial W[24..27];
     //                         su1 → complete W[20..23].
-    tmp = vaddq_u32(w2, vld1q_u32(sha256_k + 8));
+    tmp = vaddq_u32(w2, vld1q_u32(sha256_k.data() + 8));
     save = abcd;
     w2 = vsha256su0q_u32(w2, w3);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -100,7 +102,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 
     // Group 3 (rounds 12-15): hash W[12..15]; su0 → partial W[28..31];
     //                          su1 → complete W[24..27].
-    tmp = vaddq_u32(w3, vld1q_u32(sha256_k + 12));
+    tmp = vaddq_u32(w3, vld1q_u32(sha256_k.data() + 12));
     save = abcd;
     w3 = vsha256su0q_u32(w3, w0);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -109,7 +111,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
 
     // Group 4 (rounds 16-19): hash W[16..19]; su0 → partial W[32..35];
     //                          su1 → complete W[28..31].
-    tmp = vaddq_u32(w0, vld1q_u32(sha256_k + 16));
+    tmp = vaddq_u32(w0, vld1q_u32(sha256_k.data() + 16));
     save = abcd;
     w0 = vsha256su0q_u32(w0, w1);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -117,7 +119,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w3 = vsha256su1q_u32(w3, w1, w2);
 
     // Group 5 (rounds 20-23)
-    tmp = vaddq_u32(w1, vld1q_u32(sha256_k + 20));
+    tmp = vaddq_u32(w1, vld1q_u32(sha256_k.data() + 20));
     save = abcd;
     w1 = vsha256su0q_u32(w1, w2);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -125,7 +127,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w0 = vsha256su1q_u32(w0, w2, w3);
 
     // Group 6 (rounds 24-27)
-    tmp = vaddq_u32(w2, vld1q_u32(sha256_k + 24));
+    tmp = vaddq_u32(w2, vld1q_u32(sha256_k.data() + 24));
     save = abcd;
     w2 = vsha256su0q_u32(w2, w3);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -133,7 +135,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w1 = vsha256su1q_u32(w1, w3, w0);
 
     // Group 7 (rounds 28-31)
-    tmp = vaddq_u32(w3, vld1q_u32(sha256_k + 28));
+    tmp = vaddq_u32(w3, vld1q_u32(sha256_k.data() + 28));
     save = abcd;
     w3 = vsha256su0q_u32(w3, w0);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -141,7 +143,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w2 = vsha256su1q_u32(w2, w0, w1);
 
     // Group 8 (rounds 32-35)
-    tmp = vaddq_u32(w0, vld1q_u32(sha256_k + 32));
+    tmp = vaddq_u32(w0, vld1q_u32(sha256_k.data() + 32));
     save = abcd;
     w0 = vsha256su0q_u32(w0, w1);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -149,7 +151,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w3 = vsha256su1q_u32(w3, w1, w2);
 
     // Group 9 (rounds 36-39)
-    tmp = vaddq_u32(w1, vld1q_u32(sha256_k + 36));
+    tmp = vaddq_u32(w1, vld1q_u32(sha256_k.data() + 36));
     save = abcd;
     w1 = vsha256su0q_u32(w1, w2);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -157,7 +159,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w0 = vsha256su1q_u32(w0, w2, w3);
 
     // Group 10 (rounds 40-43)
-    tmp = vaddq_u32(w2, vld1q_u32(sha256_k + 40));
+    tmp = vaddq_u32(w2, vld1q_u32(sha256_k.data() + 40));
     save = abcd;
     w2 = vsha256su0q_u32(w2, w3);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -165,7 +167,7 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w1 = vsha256su1q_u32(w1, w3, w0);
 
     // Group 11 (rounds 44-47)
-    tmp = vaddq_u32(w3, vld1q_u32(sha256_k + 44));
+    tmp = vaddq_u32(w3, vld1q_u32(sha256_k.data() + 44));
     save = abcd;
     w3 = vsha256su0q_u32(w3, w0);
     abcd = vsha256hq_u32(abcd, efgh, tmp);
@@ -173,41 +175,41 @@ inline void sha256_compress(uint32_t state[8], const uint8_t block[64]) noexcept
     w2 = vsha256su1q_u32(w2, w0, w1);
 
     // Group 12 (rounds 48-51): no su0; su1 → complete W[60..63].
-    tmp = vaddq_u32(w0, vld1q_u32(sha256_k + 48));
+    tmp = vaddq_u32(w0, vld1q_u32(sha256_k.data() + 48));
     save = abcd;
     abcd = vsha256hq_u32(abcd, efgh, tmp);
     efgh = vsha256h2q_u32(efgh, save, tmp);
     w3 = vsha256su1q_u32(w3, w1, w2);
 
     // Group 13 (rounds 52-55): no schedule.
-    tmp = vaddq_u32(w1, vld1q_u32(sha256_k + 52));
+    tmp = vaddq_u32(w1, vld1q_u32(sha256_k.data() + 52));
     save = abcd;
     abcd = vsha256hq_u32(abcd, efgh, tmp);
     efgh = vsha256h2q_u32(efgh, save, tmp);
 
     // Group 14 (rounds 56-59)
-    tmp = vaddq_u32(w2, vld1q_u32(sha256_k + 56));
+    tmp = vaddq_u32(w2, vld1q_u32(sha256_k.data() + 56));
     save = abcd;
     abcd = vsha256hq_u32(abcd, efgh, tmp);
     efgh = vsha256h2q_u32(efgh, save, tmp);
 
     // Group 15 (rounds 60-63)
-    tmp = vaddq_u32(w3, vld1q_u32(sha256_k + 60));
+    tmp = vaddq_u32(w3, vld1q_u32(sha256_k.data() + 60));
     save = abcd;
     abcd = vsha256hq_u32(abcd, efgh, tmp);
     efgh = vsha256h2q_u32(efgh, save, tmp);
 
-    vst1q_u32(state,     vaddq_u32(abcd, abcd0));
-    vst1q_u32(state + 4, vaddq_u32(efgh, efgh0));
+    vst1q_u32(state.data(),     vaddq_u32(abcd, abcd0));
+    vst1q_u32(state.data() + 4, vaddq_u32(efgh, efgh0));
 }
 
 
 // Full SHA-256 over an arbitrary-length message.
 // Handles padding and big-endian length encoding.
 inline void sha256(const CryptoByte* msg, std::size_t msg_len,
-                   CryptoByte out[32]) noexcept
+                   std::span<CryptoByte, 32> out) noexcept
 {
-    uint32_t state[8];
+    std::array<uint32_t, 8> state{};
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha256_h0[i]; }
 
     // Process all complete 64-byte blocks.
@@ -218,26 +220,26 @@ inline void sha256(const CryptoByte* msg, std::size_t msg_len,
     }
 
     // Build the final padded block(s).
-    alignas(64) uint8_t pad[128]{};
+    alignas(64) std::array<uint8_t, 128> pad{};
     const std::size_t tail = msg_len - offset;
-    if (tail > 0) { std::memcpy(pad, msg + offset, tail); }
+    if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
     pad[tail] = 0x80U;
 
     // Append bit-length as big-endian uint64 in the last 8 bytes.
     const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
     if (tail < 56) {
-        std::memcpy(pad + 56, &bit_len_be, 8);
-        sha256_compress(state, pad);
+        std::memcpy(pad.data() + 56, &bit_len_be, 8);
+        sha256_compress(state, pad.data());
     } else {
-        std::memcpy(pad + 120, &bit_len_be, 8);
-        sha256_compress(state, pad);
-        sha256_compress(state, pad + 64);
+        std::memcpy(pad.data() + 120, &bit_len_be, 8);
+        sha256_compress(state, pad.data());
+        sha256_compress(state, pad.data() + 64);
     }
 
     // Serialise state as big-endian bytes.
     for (std::size_t i = 0; i < 8; ++i) {
         const uint32_t w = std::byteswap(state[i]);
-        std::memcpy(out + (i * 4), &w, 4);
+        std::memcpy(out.data() + (i * 4), &w, 4);
     }
 }
 

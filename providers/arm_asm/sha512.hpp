@@ -26,10 +26,12 @@
 //   Rounds 8,9:  same as 0,1 ...
 
 #include <arm_neon.h>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 
@@ -37,7 +39,7 @@
 namespace arm_asm::detail {
 
 // SHA-512 initial hash values — fractional parts of sqrt of first 8 primes.
-inline constexpr uint64_t sha512_h0[8] = {
+inline constexpr std::array<uint64_t, 8> sha512_h0 = {
     0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL,
     0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
     0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL,
@@ -45,7 +47,7 @@ inline constexpr uint64_t sha512_h0[8] = {
 };
 
 // SHA-384 initial hash values — fractional parts of sqrt of 9th–16th primes.
-inline constexpr uint64_t sha384_h0[8] = {
+inline constexpr std::array<uint64_t, 8> sha384_h0 = {
     0xcbbb9d5dc1059ed8ULL, 0x629a292a367cd507ULL,
     0x9159015a3070dd17ULL, 0x152fecd8f70e5939ULL,
     0x67332667ffc00b31ULL, 0x8eb44a8768581511ULL,
@@ -53,7 +55,7 @@ inline constexpr uint64_t sha384_h0[8] = {
 };
 
 // SHA-512 round constants — fractional parts of cbrt of first 80 primes.
-inline constexpr uint64_t sha512_k[80] = {
+inline constexpr std::array<uint64_t, 80> sha512_k = {
     0x428a2f98d728ae22ULL, 0x7137449123ef65cdULL,
     0xb5c0fbcfec4d3b2fULL, 0xe9b5dba58189dbbcULL,
     0x3956c25bf348b538ULL, 0x59f111f1b605d019ULL,
@@ -116,12 +118,12 @@ inline constexpr uint64_t sha512_k[80] = {
 //   <cd_complement> += intermed
 // where <ef>,<gh>,<cd>,<ab> rotate through {ef,gh,cd,ab} each step.
 [[gnu::target("sha3,neon")]]
-inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+inline void sha512_compress(std::span<uint64_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
-    uint64x2_t ab = vld1q_u64(state);
-    uint64x2_t cd = vld1q_u64(state + 2);
-    uint64x2_t ef = vld1q_u64(state + 4);
-    uint64x2_t gh = vld1q_u64(state + 6);
+    uint64x2_t ab = vld1q_u64(state.data());
+    uint64x2_t cd = vld1q_u64(state.data() + 2);
+    uint64x2_t ef = vld1q_u64(state.data() + 4);
+    uint64x2_t gh = vld1q_u64(state.data() + 6);
     const uint64x2_t ab0 = ab;
     const uint64x2_t cd0 = cd;
     const uint64x2_t ef0 = ef;
@@ -142,56 +144,56 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
     uint64x2_t intermed{};
 
     // Rounds 0,1
-    initial_sum = vaddq_u64(s0, vld1q_u64(sha512_k));
+    initial_sum = vaddq_u64(s0, vld1q_u64(sha512_k.data()));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), gh);
     intermed = vsha512hq_u64(sum, vextq_u64(ef, gh, 1), vextq_u64(cd, ef, 1));
     gh = vsha512h2q_u64(intermed, cd, ab);
     cd = vaddq_u64(cd, intermed);
 
     // Rounds 2,3
-    initial_sum = vaddq_u64(s1, vld1q_u64(sha512_k + 2));
+    initial_sum = vaddq_u64(s1, vld1q_u64(sha512_k.data() + 2));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ef);
     intermed = vsha512hq_u64(sum, vextq_u64(cd, ef, 1), vextq_u64(ab, cd, 1));
     ef = vsha512h2q_u64(intermed, ab, gh);
     ab = vaddq_u64(ab, intermed);
 
     // Rounds 4,5
-    initial_sum = vaddq_u64(s2, vld1q_u64(sha512_k + 4));
+    initial_sum = vaddq_u64(s2, vld1q_u64(sha512_k.data() + 4));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), cd);
     intermed = vsha512hq_u64(sum, vextq_u64(ab, cd, 1), vextq_u64(gh, ab, 1));
     cd = vsha512h2q_u64(intermed, gh, ef);
     gh = vaddq_u64(gh, intermed);
 
     // Rounds 6,7
-    initial_sum = vaddq_u64(s3, vld1q_u64(sha512_k + 6));
+    initial_sum = vaddq_u64(s3, vld1q_u64(sha512_k.data() + 6));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ab);
     intermed = vsha512hq_u64(sum, vextq_u64(gh, ab, 1), vextq_u64(ef, gh, 1));
     ab = vsha512h2q_u64(intermed, ef, cd);
     ef = vaddq_u64(ef, intermed);
 
     // Rounds 8,9
-    initial_sum = vaddq_u64(s4, vld1q_u64(sha512_k + 8));
+    initial_sum = vaddq_u64(s4, vld1q_u64(sha512_k.data() + 8));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), gh);
     intermed = vsha512hq_u64(sum, vextq_u64(ef, gh, 1), vextq_u64(cd, ef, 1));
     gh = vsha512h2q_u64(intermed, cd, ab);
     cd = vaddq_u64(cd, intermed);
 
     // Rounds 10,11
-    initial_sum = vaddq_u64(s5, vld1q_u64(sha512_k + 10));
+    initial_sum = vaddq_u64(s5, vld1q_u64(sha512_k.data() + 10));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ef);
     intermed = vsha512hq_u64(sum, vextq_u64(cd, ef, 1), vextq_u64(ab, cd, 1));
     ef = vsha512h2q_u64(intermed, ab, gh);
     ab = vaddq_u64(ab, intermed);
 
     // Rounds 12,13
-    initial_sum = vaddq_u64(s6, vld1q_u64(sha512_k + 12));
+    initial_sum = vaddq_u64(s6, vld1q_u64(sha512_k.data() + 12));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), cd);
     intermed = vsha512hq_u64(sum, vextq_u64(ab, cd, 1), vextq_u64(gh, ab, 1));
     cd = vsha512h2q_u64(intermed, gh, ef);
     gh = vaddq_u64(gh, intermed);
 
     // Rounds 14,15
-    initial_sum = vaddq_u64(s7, vld1q_u64(sha512_k + 14));
+    initial_sum = vaddq_u64(s7, vld1q_u64(sha512_k.data() + 14));
     sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ab);
     intermed = vsha512hq_u64(sum, vextq_u64(gh, ab, 1), vextq_u64(ef, gh, 1));
     ab = vsha512h2q_u64(intermed, ef, cd);
@@ -201,75 +203,75 @@ inline void sha512_compress(uint64_t state[8], const uint8_t block[128]) noexcep
     for (std::size_t t = 16; t < 80; t += 16) {
         // Schedule: su0(sN, sN+1) then su1(sN, sN+7, vextq_u64(sN+4, sN+5, 1))
         s0 = vsha512su1q_u64(vsha512su0q_u64(s0, s1), s7, vextq_u64(s4, s5, 1));
-        initial_sum = vaddq_u64(s0, vld1q_u64(sha512_k + t));
+        initial_sum = vaddq_u64(s0, vld1q_u64(sha512_k.data() + t));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), gh);
         intermed = vsha512hq_u64(sum, vextq_u64(ef, gh, 1), vextq_u64(cd, ef, 1));
         gh = vsha512h2q_u64(intermed, cd, ab);
         cd = vaddq_u64(cd, intermed);
 
         s1 = vsha512su1q_u64(vsha512su0q_u64(s1, s2), s0, vextq_u64(s5, s6, 1));
-        initial_sum = vaddq_u64(s1, vld1q_u64(sha512_k + t + 2));
+        initial_sum = vaddq_u64(s1, vld1q_u64(sha512_k.data() + t + 2));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ef);
         intermed = vsha512hq_u64(sum, vextq_u64(cd, ef, 1), vextq_u64(ab, cd, 1));
         ef = vsha512h2q_u64(intermed, ab, gh);
         ab = vaddq_u64(ab, intermed);
 
         s2 = vsha512su1q_u64(vsha512su0q_u64(s2, s3), s1, vextq_u64(s6, s7, 1));
-        initial_sum = vaddq_u64(s2, vld1q_u64(sha512_k + t + 4));
+        initial_sum = vaddq_u64(s2, vld1q_u64(sha512_k.data() + t + 4));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), cd);
         intermed = vsha512hq_u64(sum, vextq_u64(ab, cd, 1), vextq_u64(gh, ab, 1));
         cd = vsha512h2q_u64(intermed, gh, ef);
         gh = vaddq_u64(gh, intermed);
 
         s3 = vsha512su1q_u64(vsha512su0q_u64(s3, s4), s2, vextq_u64(s7, s0, 1));
-        initial_sum = vaddq_u64(s3, vld1q_u64(sha512_k + t + 6));
+        initial_sum = vaddq_u64(s3, vld1q_u64(sha512_k.data() + t + 6));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ab);
         intermed = vsha512hq_u64(sum, vextq_u64(gh, ab, 1), vextq_u64(ef, gh, 1));
         ab = vsha512h2q_u64(intermed, ef, cd);
         ef = vaddq_u64(ef, intermed);
 
         s4 = vsha512su1q_u64(vsha512su0q_u64(s4, s5), s3, vextq_u64(s0, s1, 1));
-        initial_sum = vaddq_u64(s4, vld1q_u64(sha512_k + t + 8));
+        initial_sum = vaddq_u64(s4, vld1q_u64(sha512_k.data() + t + 8));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), gh);
         intermed = vsha512hq_u64(sum, vextq_u64(ef, gh, 1), vextq_u64(cd, ef, 1));
         gh = vsha512h2q_u64(intermed, cd, ab);
         cd = vaddq_u64(cd, intermed);
 
         s5 = vsha512su1q_u64(vsha512su0q_u64(s5, s6), s4, vextq_u64(s1, s2, 1));
-        initial_sum = vaddq_u64(s5, vld1q_u64(sha512_k + t + 10));
+        initial_sum = vaddq_u64(s5, vld1q_u64(sha512_k.data() + t + 10));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ef);
         intermed = vsha512hq_u64(sum, vextq_u64(cd, ef, 1), vextq_u64(ab, cd, 1));
         ef = vsha512h2q_u64(intermed, ab, gh);
         ab = vaddq_u64(ab, intermed);
 
         s6 = vsha512su1q_u64(vsha512su0q_u64(s6, s7), s5, vextq_u64(s2, s3, 1));
-        initial_sum = vaddq_u64(s6, vld1q_u64(sha512_k + t + 12));
+        initial_sum = vaddq_u64(s6, vld1q_u64(sha512_k.data() + t + 12));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), cd);
         intermed = vsha512hq_u64(sum, vextq_u64(ab, cd, 1), vextq_u64(gh, ab, 1));
         cd = vsha512h2q_u64(intermed, gh, ef);
         gh = vaddq_u64(gh, intermed);
 
         s7 = vsha512su1q_u64(vsha512su0q_u64(s7, s0), s6, vextq_u64(s3, s4, 1));
-        initial_sum = vaddq_u64(s7, vld1q_u64(sha512_k + t + 14));
+        initial_sum = vaddq_u64(s7, vld1q_u64(sha512_k.data() + t + 14));
         sum = vaddq_u64(vextq_u64(initial_sum, initial_sum, 1), ab);
         intermed = vsha512hq_u64(sum, vextq_u64(gh, ab, 1), vextq_u64(ef, gh, 1));
         ab = vsha512h2q_u64(intermed, ef, cd);
         ef = vaddq_u64(ef, intermed);
     }
 
-    vst1q_u64(state,     vaddq_u64(ab, ab0));
-    vst1q_u64(state + 2, vaddq_u64(cd, cd0));
-    vst1q_u64(state + 4, vaddq_u64(ef, ef0));
-    vst1q_u64(state + 6, vaddq_u64(gh, gh0));
+    vst1q_u64(state.data(),     vaddq_u64(ab, ab0));
+    vst1q_u64(state.data() + 2, vaddq_u64(cd, cd0));
+    vst1q_u64(state.data() + 4, vaddq_u64(ef, ef0));
+    vst1q_u64(state.data() + 6, vaddq_u64(gh, gh0));
 }
 
 
 // Full SHA-512 over an arbitrary-length message.
 // out must point to at least 64 bytes.
 inline void sha512(const CryptoByte* msg, std::size_t msg_len,
-                   CryptoByte out[64]) noexcept
+                   std::span<CryptoByte, 64> out) noexcept
 {
-    uint64_t state[8];
+    std::array<uint64_t, 8> state{};
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha512_h0[i]; }
 
     std::size_t offset = 0;
@@ -279,34 +281,34 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len,
     }
 
     // Build padded final block(s): 128-byte blocks, 128-bit BE length in last 16 bytes.
-    alignas(128) uint8_t pad[256]{};
+    alignas(128) std::array<uint8_t, 256> pad{};
     const std::size_t tail = msg_len - offset;
-    if (tail > 0) { std::memcpy(pad, msg + offset, tail); }
+    if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
     pad[tail] = 0x80U;
 
     // Low 64 bits of the 128-bit big-endian bit-count (high 64 bits are always 0 here).
     const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
     if (tail < 112) {
-        std::memcpy(pad + 120, &bit_len_be, 8);  // bytes 112-119 = 0 (high), 120-127 = low
-        sha512_compress(state, pad);
+        std::memcpy(pad.data() + 120, &bit_len_be, 8);  // bytes 112-119 = 0 (high), 120-127 = low
+        sha512_compress(state, pad.data());
     } else {
-        std::memcpy(pad + 248, &bit_len_be, 8);
-        sha512_compress(state, pad);
-        sha512_compress(state, pad + 128);
+        std::memcpy(pad.data() + 248, &bit_len_be, 8);
+        sha512_compress(state, pad.data());
+        sha512_compress(state, pad.data() + 128);
     }
 
     for (std::size_t i = 0; i < 8; ++i) {
         const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out + (i * 8), &w, 8);
+        std::memcpy(out.data() + (i * 8), &w, 8);
     }
 }
 
 
 // SHA-384: same compression as SHA-512 but different initial state and 48-byte output.
 inline void sha384(const CryptoByte* msg, std::size_t msg_len,
-                   CryptoByte out[48]) noexcept
+                   std::span<CryptoByte, 48> out) noexcept
 {
-    uint64_t state[8];
+    std::array<uint64_t, 8> state{};
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha384_h0[i]; }
 
     std::size_t offset = 0;
@@ -315,25 +317,25 @@ inline void sha384(const CryptoByte* msg, std::size_t msg_len,
         offset += 128;
     }
 
-    alignas(128) uint8_t pad[256]{};
+    alignas(128) std::array<uint8_t, 256> pad{};
     const std::size_t tail = msg_len - offset;
-    if (tail > 0) { std::memcpy(pad, msg + offset, tail); }
+    if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
     pad[tail] = 0x80U;
 
     const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
     if (tail < 112) {
-        std::memcpy(pad + 120, &bit_len_be, 8);
-        sha512_compress(state, pad);
+        std::memcpy(pad.data() + 120, &bit_len_be, 8);
+        sha512_compress(state, pad.data());
     } else {
-        std::memcpy(pad + 248, &bit_len_be, 8);
-        sha512_compress(state, pad);
-        sha512_compress(state, pad + 128);
+        std::memcpy(pad.data() + 248, &bit_len_be, 8);
+        sha512_compress(state, pad.data());
+        sha512_compress(state, pad.data() + 128);
     }
 
     // SHA-384 output is the first 6 words (48 bytes).
     for (std::size_t i = 0; i < 6; ++i) {
         const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out + (i * 8), &w, 8);
+        std::memcpy(out.data() + (i * 8), &w, 8);
     }
 }
 

@@ -19,9 +19,11 @@
 // Key format (PSA raw private key): big-endian 48-byte scalar.
 // Key format (PSA uncompressed public key): 0x04 || big-endian 48-byte x || 48-byte y.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "p384_field.hpp"
 
@@ -61,14 +63,14 @@ static constexpr Fe384 p384_Gy = {{
 }};
 
 // Group order n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973
-static constexpr uint64_t p384_n[6] = {
+static constexpr std::array<uint64_t, 6> p384_n = {{
     0xecec196accc52973ULL,
     0x581a0db248b0a77aULL,
     0xc7634d81f4372ddfULL,
     0xffffffffffffffffULL,
     0xffffffffffffffffULL,
     0xffffffffffffffffULL,
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -229,7 +231,7 @@ static inline auto p384_point_add_affine(const P384Point& p, const P384AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P384AffinePoint p384_G_table[15] = {
+static constexpr std::array<P384AffinePoint, 15> p384_G_table = {{
     // [1]*G
     {
         .X = {.v = {0x3a545e3872760ab7ULL, 0x5502f25dbf55296cULL, 0x59f741e082542a38ULL, 0x6e1d3b628ba79b98ULL, 0x8eb1c71ef320ad74ULL, 0xaa87ca22be8b0537ULL}},
@@ -305,7 +307,7 @@ static constexpr P384AffinePoint p384_G_table[15] = {
         .X = {.v = {0x4b88701a9606860bULL, 0xa849557a10b6383bULL, 0x5b21f9f7da7c4e9cULL, 0x22a94156fff01c20ULL, 0x8cc15c11d8135255ULL, 0xb3d13fc8b32b0105ULL}},
         .Y = {.v = {0x985d588d33f7bd62ULL, 0x838d24f8b284af50ULL, 0x84d1114373dfbfd9ULL, 0xeebac4a11d749af4ULL, 0x1b049b2536164b1bULL, 0x152919e7df9162a6ULL}},
     },
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -400,7 +402,7 @@ static inline auto p384_point_add_affine_ct(const P384Point& p, const P384Affine
 
 [[nodiscard]]
 static inline auto p384_scalar_mul_base(
-    const uint8_t scalar[48]) noexcept -> P384Point
+    std::span<const uint8_t, 48> scalar) noexcept -> P384Point
 {
     P384Point result = p384_identity;
 
@@ -450,7 +452,7 @@ static inline auto p384_to_affine(const P384Point& p) noexcept -> P384Point {
 
 [[nodiscard]]
 static inline auto p384_scalar_mul(
-    const P384Point& base, const uint8_t scalar[48]) noexcept -> P384Point
+    const P384Point& base, std::span<const uint8_t, 48> scalar) noexcept -> P384Point
 {
     P384Point result = p384_identity;
     P384Point tmp    = base;
@@ -479,19 +481,19 @@ static inline auto p384_scalar_mul(
 
 [[nodiscard]]
 static inline auto p384_scalar_from_bytes96(
-    const uint8_t b[96]) noexcept -> Fe384
+    std::span<const uint8_t, 96> b) noexcept -> Fe384
 {
-    uint32_t w[24];
+    std::array<uint32_t, 24> w{};
     for (int i = 0; i < 24; ++i) {
         const int j = 23 - i;
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(j)) * 4);
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
                 static_cast<uint32_t>(p[3]);
     }
 
-    uint64_t acc[12]{};
+    std::array<uint64_t, 12> acc{};
     for (int i = 0; i < 12; ++i) {
         acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
@@ -547,11 +549,11 @@ static inline auto p384_scalar_from_bytes96(
 
 [[nodiscard]]
 static inline auto p384_scalar_from_bytes48(
-    const uint8_t b[48]) noexcept -> Fe384
+    std::span<const uint8_t, 48> b) noexcept -> Fe384
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -651,7 +653,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
     constexpr int s = 6;
     constexpr uint64_t n_prime = 0x6ed46089e88fdc45ULL;
 
-    uint64_t t[s + 2]{};
+    std::array<uint64_t, s + 2> t{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
@@ -779,11 +781,11 @@ static inline auto p384_scalar_invert(const Fe384& a) noexcept -> Fe384 {
     Fe384 result = p384_mont_mul_n(sqn(p128, 64), p64);           // [a^(2^192-1)]
 
     // Process lower 192 bits of n-2: 0xC7634D81F4372DDF_581A0DB248B0A77A_ECEC196ACCC52971.
-    static constexpr uint64_t nm2_lo[3] = {
+    static constexpr std::array<uint64_t, 3> nm2_lo = {{
         0xecec196accc52971ULL,  // word[0]  (LSB)
         0x581a0db248b0a77aULL,  // word[1]
         0xc7634d81f4372ddfULL,  // word[2]  (MSB of lower 192 bits)
-    };
+    }};
     for (int word = 2; word >= 0; --word) {
         for (int bit = 63; bit >= 0; --bit) {
             result = p384_mont_mul_n(result, result);
@@ -806,11 +808,11 @@ static inline auto p384_scalar_is_zero(const Fe384& a) noexcept -> bool {
 // Returns true and writes the scalar iff 1 <= val < n; rejects val == 0 or val >= n.
 [[nodiscard]]
 static inline auto p384_scalar_sig_decode(
-    const uint8_t b[48], Fe384& out) noexcept -> bool
+    std::span<const uint8_t, 48> b, Fe384& out) noexcept -> bool
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -842,13 +844,13 @@ static inline auto p384_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p384_compute_public_key(
-    const uint8_t private_scalar_be[48],
-    uint8_t public_key_uncompressed[97]) noexcept
+    std::span<const uint8_t, 48> private_scalar_be,
+    std::span<uint8_t, 97> public_key_uncompressed) noexcept
 {
     const P384Point pub = p384_to_affine(p384_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe384_to_bytes(pub.X, public_key_uncompressed + 1);
-    fe384_to_bytes(pub.Y, public_key_uncompressed + 49);
+    fe384_to_bytes(pub.X, std::span<uint8_t, 48>{public_key_uncompressed.data() + 1, 48});
+    fe384_to_bytes(pub.Y, std::span<uint8_t, 48>{public_key_uncompressed.data() + 49, 48});
 }
 
 

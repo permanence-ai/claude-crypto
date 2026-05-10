@@ -19,6 +19,7 @@
 // a caller-owned SecureBuffer before the lock is released, so liboqs never
 // holds a pointer into store-managed heap memory.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -65,7 +66,7 @@ struct PqcKeyView {
 };
 
 inline PqcKeySlot& pqc_key_slot(std::size_t idx) noexcept {
-    static PqcKeySlot slots[pqc_key_store_capacity]{};
+    static std::array<PqcKeySlot, pqc_key_store_capacity> slots{};
     return slots[idx];
 }
 

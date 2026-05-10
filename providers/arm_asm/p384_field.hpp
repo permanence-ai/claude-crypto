@@ -25,16 +25,18 @@
 //
 // All arithmetic is constant-time with respect to field element inputs.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 
 namespace arm_asm::detail {
 
 
 struct Fe384 {
-    uint64_t v[6]; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint64_t, 6> v; // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
 static constexpr Fe384 fe384_zero = {{0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};
@@ -56,11 +58,11 @@ static constexpr Fe384 fe384_p = {{
 
 [[nodiscard]]
 static inline auto fe384_from_bytes(
-    const uint8_t b[48]) noexcept -> Fe384
+    std::span<const uint8_t, 48> b) noexcept -> Fe384
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -71,10 +73,10 @@ static inline auto fe384_from_bytes(
 }
 
 static inline void fe384_to_bytes(
-    const Fe384& a, uint8_t b[48]) noexcept
+    const Fe384& a, std::span<uint8_t, 48> b) noexcept
 {
     for (int i = 0; i < 6; ++i) {
-        uint8_t* p = b + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
+        uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);
@@ -251,7 +253,7 @@ static inline auto fe384_neg(const Fe384& a) noexcept -> Fe384 {
 // Overflow word: 2^384 mod p = W^0 - W^1 - W^2 + W^4 (signed, via carry-split).
 [[nodiscard]]
 static inline auto fe384_solinas(
-    const uint32_t c[24]) noexcept -> Fe384
+    std::span<const uint32_t, 24> c) noexcept -> Fe384
 {
     using u128 = unsigned __int128;
 
@@ -262,7 +264,7 @@ static inline auto fe384_solinas(
 
     // Unsigned per-word accumulation (W^k mod p384 words derived from field polynomial).
     // W^22[0]=0xFFFFFFFF, W^23[0]=0xFFFFFFFF contribute (W-1)*c[k] to word 0.
-    u128 r[13]{};
+    std::array<u128, 13> r{};
     constexpr u128 Wm1 = 0xffffffffULL;  // W-1
     constexpr u128 Wm2 = 0xfffffffeULL;  // W-2
     constexpr u128 Wm3 = 0xfffffffdULL;  // W-3
@@ -293,7 +295,7 @@ static inline auto fe384_solinas(
     // Applying carry-split on the W-1 terms yields: r[0]+=ov; r[1]-=ov; r[3]+=ov; r[4]+=ov.
     // After initial carry propagation r[12] ≤ 2^33, so 2 passes suffice.
     // Use signed __int128 for the overflow passes so negation works correctly.
-    int64_t s[13]{};
+    std::array<int64_t, 13> s{};
     for (int i = 0; i <= 12; ++i) {
         s[i] = static_cast<int64_t>(r[i]);
     }
@@ -334,7 +336,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
 
     // 6×6 row-by-row multiply: 36 u64×u64 multiply-accumulates vs the old 12×12=144 u32 ones.
     // Each row carries out so every c[k] stays in [0, 2^64).
-    uint64_t c[12]{};
+    std::array<uint64_t, 12> c{};
     for (int i = 0; i < 6; ++i) {
         uint64_t carry = 0;
         for (int j = 0; j < 6; ++j) {
@@ -346,7 +348,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
     }
 
     // Expand 12 × 64-bit words to 24 × 32-bit words for the existing Solinas path.
-    uint32_t c32[24];
+    std::array<uint32_t, 24> c32{};
     for (int i = 0; i < 12; ++i) {
         c32[2U * static_cast<std::size_t>(i)]     = static_cast<uint32_t>(c[i]);
         c32[(2U * static_cast<std::size_t>(i)) + 1] = static_cast<uint32_t>(c[i] >> 32U);

@@ -22,6 +22,7 @@
 //   Separate from the symmetric key store; 8 slots.
 //   RsaKeyId = rsa_key_id_base + slot (rsa_key_id_base = 0xC000)
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -65,7 +66,7 @@ struct RsaKeySlot {
 };
 
 inline RsaKeySlot& rsa_key_slot(std::size_t idx) noexcept {
-    static RsaKeySlot slots[rsa_key_store_capacity]{};
+    static std::array<RsaKeySlot, rsa_key_store_capacity> slots{};
     return slots[idx];
 }
 

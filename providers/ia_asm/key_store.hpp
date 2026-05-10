@@ -6,6 +6,7 @@
 // Stores raw symmetric key bytes indexed by a KeyId slot number.
 // KeyId 0 is the null key; valid IDs are 1..key_store_capacity.
 
+#include <array>
 #include <cstddef>
 #include <cstring>
 
@@ -25,7 +26,7 @@ struct KeySlot {
 };
 
 inline KeySlot& key_slot(std::size_t idx) noexcept {
-    static KeySlot slots[key_store_capacity]{};
+    static std::array<KeySlot, key_store_capacity> slots{};
     return slots[idx];
 }
 

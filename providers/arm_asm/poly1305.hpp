@@ -43,6 +43,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 #include "secure_buffer.hpp"
@@ -101,9 +102,9 @@ static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi,
 
 // Clamp r per RFC 8439 §2.5.1 and extract into three 44-bit limbs.
 [[nodiscard]]
-static inline Poly1305Limbs clamp_r(const uint8_t r_bytes[16]) noexcept {
+static inline Poly1305Limbs clamp_r(std::span<const uint8_t, 16> r_bytes) noexcept {
     FixedSecureBuffer<16> rc;
-    std::memcpy(rc.data(), r_bytes, 16);
+    std::memcpy(rc.data(), r_bytes.data(), 16);
     rc[ 3] &= 0x0fU;
     rc[ 7] &= 0x0fU;
     rc[11] &= 0x0fU;
@@ -174,8 +175,8 @@ static inline void poly1305_add_block(Poly1305Limbs& h,
 
 // Final reduction: ensure h < 2^130-5, then compute (h + s) mod 2^128.
 static inline void poly1305_finish(const Poly1305Limbs& h_in,
-                                    const uint8_t s_bytes[16],
-                                    uint8_t tag[16]) noexcept
+                                    std::span<const uint8_t, 16> s_bytes,
+                                    std::span<uint8_t, 16> tag) noexcept
 {
 
 
@@ -207,10 +208,10 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in,
     const uint64_t hhi = (h1 >> 20U) | (h2 << 24U);
 
     // Add s (mod 2^128).
-    const auto [slo, shi] = load_le128(s_bytes);
+    const auto [slo, shi] = load_le128(s_bytes.data());
     const uint64_t tlo = hlo + slo;
     const uint64_t thi = hhi + shi + (tlo < hlo ? 1U : 0U);
-    store_le128(tag, tlo, thi);
+    store_le128(tag.data(), tlo, thi);
 }
 
 // -----------------------------------------------------------------------
@@ -300,11 +301,11 @@ static inline void poly1305_process_pair(
 // Compute a Poly1305 tag over msg[] using the 32-byte one-time key.
 // key[0..15] = r, key[16..31] = s.
 [[gnu::target("neon")]]
-inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
-                          std::size_t msg_len, uint8_t tag[16]) noexcept
+inline void poly1305_mac(std::span<const uint8_t, 32> key, const uint8_t* msg,
+                          std::size_t msg_len, std::span<uint8_t, 16> tag) noexcept
 {
 
-    const Poly1305Limbs r   = clamp_r(key);
+    const Poly1305Limbs r   = clamp_r(std::span<const uint8_t, 16>{key.data(), 16});
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
 
@@ -354,7 +355,7 @@ inline void poly1305_mac(const uint8_t key[32], const uint8_t* msg,
         poly1305_multiply_precomp(h, pw.p1);
     }
 
-    poly1305_finish(h, key + 16, tag);
+    poly1305_finish(h, std::span<const uint8_t, 16>{key.data() + 16, 16}, tag);
 }
 
 }  // namespace arm_asm::detail

@@ -20,10 +20,11 @@
 //   - out_em must be exactly k bytes (k = modulus_bytes).
 //   - seed must be hLen random bytes.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <array>
+#include <span>
 
 #include "defs.hpp"
 #include "sha512.hpp"
@@ -61,7 +62,7 @@ inline void mgf1_sha384(
         buf[seed_len + 3U] = static_cast<CryptoByte>( counter         & 0xFFU);
 
         std::array<CryptoByte, oaep_hash_len> hash{};
-        sha384(buf.data(), seed_len + 4U, hash.data());
+        sha384(buf.data(), seed_len + 4U, hash);
 
         const std::size_t take = (out_len - written < oaep_hash_len)
                                   ? (out_len - written) : oaep_hash_len;
@@ -100,7 +101,7 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
     std::memcpy(out_seed, seed, oaep_hash_len);
 
     // lHash at start of DB.
-    sha384(label, label_len, out_db);
+    sha384(label, label_len, std::span<CryptoByte, oaep_hash_len>{out_db, oaep_hash_len});
 
     // PS (zero bytes) — already zero since we zero-fill below.
     // Ensure PS region is zeroed.
@@ -174,7 +175,7 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
 
     // lHash' = SHA-384(label); compare with DB[0..hLen-1].
     std::array<CryptoByte, oaep_hash_len> lhash{};
-    sha384(label, label_len, lhash.data());
+    sha384(label, label_len, lhash);
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
         err |= db[i] ^ lhash[i];
     }

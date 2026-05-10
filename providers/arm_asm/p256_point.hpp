@@ -23,9 +23,11 @@
 // Key format (PSA raw private key): big-endian 32-byte scalar.
 // Key format (PSA uncompressed public key): 0x04 || big-endian 32-byte x || 32-byte y.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "p256_field.hpp"
 
@@ -60,12 +62,12 @@ static constexpr Fe256 p256_Gy = {{
 }};
 
 // Group order n.
-static constexpr uint64_t p256_n[4] = {
+static constexpr std::array<uint64_t, 4> p256_n = {{
     0xf3b9cac2fc632551ULL,
     0xbce6faada7179e84ULL,
     0xffffffffffffffffULL,
     0xffffffff00000000ULL,
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -274,7 +276,7 @@ static inline auto p256_point_add_affine(const P256Point& p, const P256AffinePoi
 // Precomputed [1..15]*G table for 4-bit fixed-base window.
 // -----------------------------------------------------------------------
 
-static constexpr P256AffinePoint p256_G_table[15] = {
+static constexpr std::array<P256AffinePoint, 15> p256_G_table = {{
     // [1]*G
     {
         .X = {.v = {0xf4a13945d898c296ULL, 0x77037d812deb33a0ULL, 0xf8bce6e563a440f2ULL, 0x6b17d1f2e12c4247ULL}},
@@ -350,7 +352,7 @@ static constexpr P256AffinePoint p256_G_table[15] = {
         .X = {.v = {0x63668c63e59b9d5fULL, 0xae03af92de3a0ef1ULL, 0xadfb378999888265ULL, 0xf0454dc6971abae7ULL}},
         .Y = {.v = {0x47e59cde0d034f36ULL, 0x2a3b21ce75b5fa3fULL, 0x4e6594e51f9643e6ULL, 0xb5b93ee3592e2d1fULL}},
     },
-};
+}};
 
 
 // -----------------------------------------------------------------------
@@ -457,7 +459,7 @@ static inline auto p256_point_add_affine_ct(const P256Point& p, const P256Affine
 
 [[nodiscard]]
 static inline auto p256_scalar_mul_base(
-    const uint8_t scalar[32]) noexcept -> P256Point
+    std::span<const uint8_t, 32> scalar) noexcept -> P256Point
 {
     P256Point result = p256_identity;
 
@@ -517,7 +519,7 @@ static inline auto p256_to_affine(const P256Point& p) noexcept -> P256Point {
 
 [[nodiscard]]
 static inline auto p256_scalar_mul(
-    const P256Point& base, const uint8_t scalar[32]) noexcept -> P256Point
+    const P256Point& base, std::span<const uint8_t, 32> scalar) noexcept -> P256Point
 {
     // result accumulates k·base; tmp is base doubled at each step.
     P256Point result = p256_identity;
@@ -553,13 +555,13 @@ static inline auto p256_scalar_mul(
 // Used to reduce HMAC output to a scalar.
 [[nodiscard]]
 static inline auto p256_scalar_from_bytes64(
-    const uint8_t b[64]) noexcept -> Fe256
+    std::span<const uint8_t, 64> b) noexcept -> Fe256
 {
     // Load as 16 × uint32_t big-endian.
-    uint32_t w[16];
+    std::array<uint32_t, 16> w{};
     for (int i = 0; i < 16; ++i) {
         const int j = 15 - i;
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(j)) * 4);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(j)) * 4);
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -574,7 +576,7 @@ static inline auto p256_scalar_from_bytes64(
     // Simple approach: repeated subtraction after two-word shift.
 
     // Represent as 8 uint64_t LE limbs.
-    uint64_t acc[8];
+    std::array<uint64_t, 8> acc{};
     for (int i = 0; i < 8; ++i) {
         acc[i] = static_cast<uint64_t>(w[2U * static_cast<std::size_t>(i)]) | (static_cast<uint64_t>(w[(2U * static_cast<std::size_t>(i)) + 1]) << 32U);
     }
@@ -629,11 +631,11 @@ static inline auto p256_scalar_from_bytes64(
 // Reduce a 32-byte big-endian scalar mod n.
 [[nodiscard]]
 static inline auto p256_scalar_from_bytes32(
-    const uint8_t b[32]) noexcept -> Fe256
+    std::span<const uint8_t, 32> b) noexcept -> Fe256
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -714,7 +716,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
     constexpr int s = 4;
     constexpr uint64_t n_prime = 0xccd1c8aaee00bc4fULL;
 
-    uint64_t t[s + 2]{};
+    std::array<uint64_t, s + 2> t{};
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         // Step 1: t += a[i] * b
         uint64_t carry = 0;
@@ -795,12 +797,12 @@ static inline auto p256_scalar_mul_mod_n(
 static inline auto p256_scalar_invert(const Fe256& a) noexcept -> Fe256 {
     // n-2 big-endian 64-bit limbs:
     // 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC63254F
-    static constexpr uint64_t nm2[4] = {
+    static constexpr std::array<uint64_t, 4> nm2 = {{
         0xf3b9cac2fc63254fULL,
         0xbce6faada7179e84ULL,
         0xffffffffffffffffULL,
         0xffffffff00000000ULL,
-    };
+    }};
     Fe256 result{{1ULL, 0ULL, 0ULL, 0ULL}};
     for (int word = 3; word >= 0; --word) {
         for (int bit = 63; bit >= 0; --bit) {
@@ -824,11 +826,11 @@ static inline auto p256_scalar_is_zero(const Fe256& a) noexcept -> bool {
 // Unlike p256_scalar_from_bytes32, this does NOT reduce mod n — it rejects instead.
 [[nodiscard]]
 static inline auto p256_scalar_sig_decode(
-    const uint8_t b[32], Fe256& out) noexcept -> bool
+    std::span<const uint8_t, 32> b, Fe256& out) noexcept -> bool
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -863,13 +865,13 @@ static inline auto p256_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p256_compute_public_key(
-    const uint8_t private_scalar_be[32],
-    uint8_t public_key_uncompressed[65]) noexcept
+    std::span<const uint8_t, 32> private_scalar_be,
+    std::span<uint8_t, 65> public_key_uncompressed) noexcept
 {
     const P256Point pub = p256_to_affine(p256_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe256_to_bytes(pub.X, public_key_uncompressed + 1);
-    fe256_to_bytes(pub.Y, public_key_uncompressed + 33);
+    fe256_to_bytes(pub.X, std::span<uint8_t, 32>{public_key_uncompressed.data() + 1, 32});
+    fe256_to_bytes(pub.Y, std::span<uint8_t, 32>{public_key_uncompressed.data() + 33, 32});
 }
 
 

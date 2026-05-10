@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <span>
 
 // IA ASM primitives: SHA, HMAC, HKDF, AEAD.
 #include "aes256_gcm.hpp"
@@ -107,19 +108,19 @@ struct IaAsmBackend {
         }
         if (alg == alg_sha(ShaVariant::Sha3_256)) {
             if (output_size < sha3_256_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha3_256(input, input_len, output);
+            ia_asm::detail::sha3_256(input, input_len, std::span<uint8_t, 32>{output, 32});
             *output_len = sha3_256_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha3_384)) {
             if (output_size < sha3_384_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha3_384(input, input_len, output);
+            ia_asm::detail::sha3_384(input, input_len, std::span<uint8_t, 48>{output, 48});
             *output_len = sha3_384_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha3_512)) {
             if (output_size < sha3_512_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha3_512(input, input_len, output);
+            ia_asm::detail::sha3_512(input, input_len, std::span<uint8_t, 64>{output, 64});
             *output_len = sha3_512_size_bytes;
             return ok;
         }
@@ -173,9 +174,9 @@ struct IaAsmBackend {
                 FixedSecureBuffer<sk_len> sk{};
                 for (int attempts = 0; attempts < 100; ++attempts) {
                     generate_random_bytes(sk.data(), sk_len);
-                    const Fe256 s = p256_scalar_from_bytes32(sk.data());
+                    const Fe256 s = p256_scalar_from_bytes32(std::span<const uint8_t, 32>{sk.data(), 32});
                     if (!p256_scalar_is_zero(s)) {
-                        fe256_to_bytes(s, sk.data());
+                        fe256_to_bytes(s, std::span<uint8_t, 32>{sk.data(), 32});
                         const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len);
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
@@ -189,9 +190,9 @@ struct IaAsmBackend {
                 FixedSecureBuffer<sk_len> sk{};
                 for (int attempts = 0; attempts < 100; ++attempts) {
                     generate_random_bytes(sk.data(), sk_len);
-                    const Fe384 s = p384_scalar_from_bytes48(sk.data());
+                    const Fe384 s = p384_scalar_from_bytes48(std::span<const uint8_t, 48>{sk.data(), 48});
                     if (!p384_scalar_is_zero(s)) {
-                        fe384_to_bytes(s, sk.data());
+                        fe384_to_bytes(s, std::span<uint8_t, 48>{sk.data(), 48});
                         const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len);
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
@@ -205,9 +206,9 @@ struct IaAsmBackend {
                 FixedSecureBuffer<sk_len> sk{};
                 for (int attempts = 0; attempts < 100; ++attempts) {
                     generate_random_bytes(sk.data(), sk_len);
-                    const Fe521 s = p521_scalar_from_bytes66(sk.data());
+                    const Fe521 s = p521_scalar_from_bytes66(std::span<const uint8_t, 66>{sk.data(), 66});
                     if (!p521_scalar_is_zero(s)) {
-                        fe521_to_bytes(s, sk.data());
+                        fe521_to_bytes(s, std::span<uint8_t, 66>{sk.data(), 66});
                         const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len);
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
@@ -400,21 +401,24 @@ struct IaAsmBackend {
         if (curve == EcCurveId::P256) {
             constexpr std::size_t pk_len = 65;
             if (size < pk_len) { return err_invalid_arg; }
-            p256_compute_public_key(key, out);
+            p256_compute_public_key(std::span<const uint8_t, 32>{key, 32},
+                                    std::span<uint8_t, 65>{out, 65});
             *len = pk_len;
             return ok;
         }
         if (curve == EcCurveId::P384) {
             constexpr std::size_t pk_len = 97;
             if (size < pk_len) { return err_invalid_arg; }
-            p384_compute_public_key(key, out);
+            p384_compute_public_key(std::span<const uint8_t, 48>{key, 48},
+                                    std::span<uint8_t, 97>{out, 97});
             *len = pk_len;
             return ok;
         }
         if (curve == EcCurveId::P521) {
             constexpr std::size_t pk_len = 133;
             if (size < pk_len) { return err_invalid_arg; }
-            p521_compute_public_key(key, out);
+            p521_compute_public_key(std::span<const uint8_t, 66>{key, 66},
+                                    std::span<uint8_t, 133>{out, 133});
             *len = pk_len;
             return ok;
         }
@@ -431,37 +435,37 @@ struct IaAsmBackend {
         if (!ia_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
         if (alg == alg_hmac(ShaVariant::Sha256)) {
             if (out_size < sha256_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::hmac_sha256(key, key_len, msg, msg_len, out);
+            ia_asm::detail::hmac_sha256(key, key_len, msg, msg_len, std::span<uint8_t, 32>{out, 32});
             *out_len = sha256_size_bytes;
             return ok;
         }
         if (alg == alg_hmac(ShaVariant::Sha512)) {
             if (out_size < sha512_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::hmac_sha512(key, key_len, msg, msg_len, out);
+            ia_asm::detail::hmac_sha512(key, key_len, msg, msg_len, std::span<uint8_t, 64>{out, 64});
             *out_len = sha512_size_bytes;
             return ok;
         }
         if (alg == alg_hmac(ShaVariant::Sha384)) {
             if (out_size < sha384_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::hmac_sha384(key, key_len, msg, msg_len, out);
+            ia_asm::detail::hmac_sha384(key, key_len, msg, msg_len, std::span<uint8_t, 48>{out, 48});
             *out_len = sha384_size_bytes;
             return ok;
         }
         if (alg == alg_hmac(ShaVariant::Sha3_256)) {
             if (out_size < sha3_256_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::hmac_sha3_256(key, key_len, msg, msg_len, out);
+            ia_asm::detail::hmac_sha3_256(key, key_len, msg, msg_len, std::span<uint8_t, 32>{out, 32});
             *out_len = sha3_256_size_bytes;
             return ok;
         }
         if (alg == alg_hmac(ShaVariant::Sha3_384)) {
             if (out_size < sha3_384_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::hmac_sha3_384(key, key_len, msg, msg_len, out);
+            ia_asm::detail::hmac_sha3_384(key, key_len, msg, msg_len, std::span<uint8_t, 48>{out, 48});
             *out_len = sha3_384_size_bytes;
             return ok;
         }
         if (alg == alg_hmac(ShaVariant::Sha3_512)) {
             if (out_size < sha3_512_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::hmac_sha3_512(key, key_len, msg, msg_len, out);
+            ia_asm::detail::hmac_sha3_512(key, key_len, msg, msg_len, std::span<uint8_t, 64>{out, 64});
             *out_len = sha3_512_size_bytes;
             return ok;
         }
@@ -597,9 +601,12 @@ struct IaAsmBackend {
             constexpr std::size_t sig_len_expected = 64;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha256(msg, msg_len, hash);
-            if (!ia_asm::detail::p256_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            if (!ia_asm::detail::p256_ecdsa_sign(
+                    std::span<const uint8_t, 32>{key, 32},
+                    std::span<const uint8_t, 32>{hash.data(), 32},
+                    std::span<uint8_t, 64>{sig, 64})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -608,9 +615,12 @@ struct IaAsmBackend {
             constexpr std::size_t sig_len_expected = 96;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != hash_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha384(msg, msg_len, hash);
-            if (!ia_asm::detail::p384_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            if (!ia_asm::detail::p384_ecdsa_sign(
+                    std::span<const uint8_t, 48>{key, 48},
+                    std::span<const uint8_t, 48>{hash.data(), 48},
+                    std::span<uint8_t, 96>{sig, 96})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -620,9 +630,12 @@ struct IaAsmBackend {
             constexpr std::size_t sig_len_expected = 132;
             if (sig_size < sig_len_expected) { return err_invalid_arg; }
             if (key_len != sk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha512(msg, msg_len, hash);
-            if (!ia_asm::detail::p521_ecdsa_sign(key, hash, sig)) { return err_invalid_arg; }
+            if (!ia_asm::detail::p521_ecdsa_sign(
+                    std::span<const uint8_t, 66>{key, 66},
+                    std::span<const uint8_t, 64>{hash.data(), 64},
+                    std::span<uint8_t, 132>{sig, 132})) { return err_invalid_arg; }
             *sig_len = sig_len_expected;
             return ok;
         }
@@ -669,27 +682,36 @@ struct IaAsmBackend {
             constexpr std::size_t expected_sig_len = 64;
             constexpr std::size_t pk_len = 65;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha256(msg, msg_len, hash);
-            return ia_asm::detail::p256_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            return ia_asm::detail::p256_ecdsa_verify(
+                std::span<const uint8_t, 65>{key, 65},
+                std::span<const uint8_t, 32>{hash.data(), 32},
+                std::span<const uint8_t, 64>{sig, 64}) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P384) {
             constexpr std::size_t hash_len = 48;
             constexpr std::size_t expected_sig_len = 96;
             constexpr std::size_t pk_len = 97;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha384(msg, msg_len, hash);
-            return ia_asm::detail::p384_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            return ia_asm::detail::p384_ecdsa_verify(
+                std::span<const uint8_t, 97>{key, 97},
+                std::span<const uint8_t, 48>{hash.data(), 48},
+                std::span<const uint8_t, 96>{sig, 96}) ? ok : err_invalid_sig;
         }
         if (curve == EcCurveId::P521) {
             constexpr std::size_t hash_len = 64;
             constexpr std::size_t expected_sig_len = 132;
             constexpr std::size_t pk_len = 133;
             if (sig_len != expected_sig_len || key_len != pk_len) { return err_invalid_arg; }
-            uint8_t hash[hash_len] = {};
+            std::array<uint8_t, hash_len> hash{};
             ia_asm::detail::sha512(msg, msg_len, hash);
-            return ia_asm::detail::p521_ecdsa_verify(key, hash, sig) ? ok : err_invalid_sig;
+            return ia_asm::detail::p521_ecdsa_verify(
+                std::span<const uint8_t, 133>{key, 133},
+                std::span<const uint8_t, 64>{hash.data(), 64},
+                std::span<const uint8_t, 132>{sig, 132}) ? ok : err_invalid_sig;
         }
         return err_invalid_arg;
     }
@@ -714,13 +736,13 @@ struct IaAsmBackend {
             if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
             if (out_size < ss_len) { return err_invalid_arg; }
             if (key_len != ss_len) { return err_invalid_arg; }
-            const Fe256 Qx = fe256_from_bytes(peer + 1);
-            const Fe256 Qy = fe256_from_bytes(peer + 33);
+            const Fe256 Qx = fe256_from_bytes(std::span<const uint8_t, 32>{peer + 1,  32});
+            const Fe256 Qy = fe256_from_bytes(std::span<const uint8_t, 32>{peer + 33, 32});
             if (!p256_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P256Point Q{.X = Qx, .Y = Qy, .Z = fe256_one};
-            const P256Point S = p256_to_affine(p256_scalar_mul(Q, key));
+            const P256Point S = p256_to_affine(p256_scalar_mul(Q, std::span<const uint8_t, 32>{key, 32}));
             if (p256_point_is_identity(S)) { return err_invalid_arg; }
-            fe256_to_bytes(S.X, out);
+            fe256_to_bytes(S.X, std::span<uint8_t, 32>{out, 32});
             *out_len = ss_len;
             return ok;
         }
@@ -730,13 +752,13 @@ struct IaAsmBackend {
             if (peer_len != pk_len || peer[0] != 0x04U) { return err_invalid_arg; }
             if (out_size < ss_len) { return err_invalid_arg; }
             if (key_len != ss_len) { return err_invalid_arg; }
-            const Fe384 Qx = fe384_from_bytes(peer + 1);
-            const Fe384 Qy = fe384_from_bytes(peer + 49);
+            const Fe384 Qx = fe384_from_bytes(std::span<const uint8_t, 48>{peer + 1,  48});
+            const Fe384 Qy = fe384_from_bytes(std::span<const uint8_t, 48>{peer + 49, 48});
             if (!p384_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P384Point Q{.X = Qx, .Y = Qy, .Z = fe384_one};
-            const P384Point S = p384_to_affine(p384_scalar_mul(Q, key));
+            const P384Point S = p384_to_affine(p384_scalar_mul(Q, std::span<const uint8_t, 48>{key, 48}));
             if (p384_point_is_identity(S)) { return err_invalid_arg; }
-            fe384_to_bytes(S.X, out);
+            fe384_to_bytes(S.X, std::span<uint8_t, 48>{out, 48});
             *out_len = ss_len;
             return ok;
         }
@@ -748,13 +770,13 @@ struct IaAsmBackend {
             if (key_len != ss_len) { return err_invalid_arg; }
             if ((peer[1]  & 0xFEU) != 0U) { return err_invalid_arg; }
             if ((peer[67] & 0xFEU) != 0U) { return err_invalid_arg; }
-            const Fe521 Qx = fe521_from_bytes(peer + 1);
-            const Fe521 Qy = fe521_from_bytes(peer + 67);
+            const Fe521 Qx = fe521_from_bytes(std::span<const uint8_t, 66>{peer + 1,  66});
+            const Fe521 Qy = fe521_from_bytes(std::span<const uint8_t, 66>{peer + 67, 66});
             if (!p521_validate_public_point(Qx, Qy)) { return err_invalid_arg; }
             const P521Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
-            const P521Point S = p521_to_affine(p521_scalar_mul(Q, key));
+            const P521Point S = p521_to_affine(p521_scalar_mul(Q, std::span<const uint8_t, 66>{key, 66}));
             if (p521_point_is_identity(S)) { return err_invalid_arg; }
-            fe521_to_bytes(S.X, out);
+            fe521_to_bytes(S.X, std::span<uint8_t, 66>{out, 66});
             *out_len = ss_len;
             return ok;
         }
