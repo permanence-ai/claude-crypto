@@ -790,7 +790,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282DecryptWithAad) {
     const auto tag = from_hex<16>("1ae10b594f09e26a7e902ecbd0600691");
     std::array<uint8_t, 114 + 16> ct_tag{};
     std::memcpy(ct_tag.data(), ct.data(), 114); // NOLINT(cppcoreguidelines-avoid-magic-numbers)
-    std::memcpy(ct_tag.data() + 114, tag.data(), aes_gcm_tag_bytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers)
+    std::memcpy(ct_tag.data() + 114, tag.data(), chacha20_poly1305_tag_bytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers)
 
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
