@@ -228,4 +228,12 @@ TEST_F(KdfTests, ExpandZeroLengthExitsNonZero) {
     EXPECT_NE(r.exit_code, 0);
 }
 
+TEST_F(KdfTests, ExpandPrkWrongLengthExitsNonZeroWithHelpfulMessage) {
+    // 64 zero bytes (not 48) — PRK must be exactly 48 bytes for HKDF-SHA384.
+    const auto r = run_scli(scli(),
+        "kdf expand --length 32 --prk base64:" + std::string(kZero64B64));
+    EXPECT_NE(r.exit_code, 0);
+    EXPECT_NE(r.stderr_text.find("48"), std::string::npos);
+}
+
 }  // namespace scli_test

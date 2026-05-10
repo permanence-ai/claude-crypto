@@ -106,6 +106,13 @@ inline void register_kdf(CLI::App& app)
         auto prk_buf = read_input(exp_prk->as<std::string>());
         if (!prk_buf.has_value()) { die(prk_buf.error()); }
 
+        // HKDF-SHA384 requires the PRK to be exactly the hash output length (48 bytes).
+        constexpr std::size_t kSha384OutputBytes = 48U;
+        if (prk_buf->size() != kSha384OutputBytes) {
+            die("HKDF-Expand PRK must be 48 bytes for SHA-384 (got " +
+                std::to_string(prk_buf->size()) + " bytes)");
+        }
+
         std::optional<SecureBuffer> info_opt;
         if (exp_info->count() > 0U) {
             auto buf = read_input(exp_info->as<std::string>());
