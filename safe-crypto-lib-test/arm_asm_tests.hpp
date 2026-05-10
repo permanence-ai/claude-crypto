@@ -612,7 +612,7 @@ TEST_F(ArmAsmPointUtilTests, P256ScalarFromBytes64NPlus1ReturnsOne) {
     const auto input = from_hex<64>(
         "0000000000000000000000000000000000000000000000000000000000000000"
         "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632552");
-    const Fe256 result = p256_scalar_from_bytes64(input.data());
+    const Fe256 result = p256_scalar_from_bytes64(input);
     EXPECT_EQ(result.v[0], 1U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     for (int i = 1; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         EXPECT_EQ(result.v[i], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -626,7 +626,7 @@ TEST_F(ArmAsmPointUtilTests, P256ScalarFromBytes64NPlus42Returns42) {
     const auto input = from_hex<64>(
         "0000000000000000000000000000000000000000000000000000000000000000"
         "ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63257b");
-    const Fe256 result = p256_scalar_from_bytes64(input.data());
+    const Fe256 result = p256_scalar_from_bytes64(input);
     EXPECT_EQ(result.v[0], 42U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     for (int i = 1; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         EXPECT_EQ(result.v[i], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -643,7 +643,7 @@ TEST_F(ArmAsmPointUtilTests, P384ScalarFromBytes96NPlus1ReturnsOne) {
         "000000000000000000000000000000000000000000000000"
         "ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf"
         "581a0db248b0a77aecec196accc52974");
-    const Fe384 result = p384_scalar_from_bytes96(input.data());
+    const Fe384 result = p384_scalar_from_bytes96(input);
     EXPECT_EQ(result.v[0], 1U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     for (int i = 1; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         EXPECT_EQ(result.v[i], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
