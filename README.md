@@ -146,8 +146,8 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
-safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, mac, random, rsa subcommands; CLI11 v2.6.2
-safe-crypto-cli-test/     # GoogleTest suite for scli — 73 subprocess-based tests; validates stdout and exit codes
+safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, kdf, mac, random, rsa subcommands; CLI11 v2.6.2
+safe-crypto-cli-test/     # GoogleTest suite for scli — 140 subprocess-based tests; validates stdout and exit codes
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
@@ -738,6 +738,33 @@ scli rsa pss-verify --bits 3072 --key pub.der  --input message.bin \
   --signature base64:<sig-b64>
 ```
 
+#### `kdf` — HKDF key derivation (SHA-384)
+
+```
+scli kdf derive --length <N> [--ikm <spec>] [--salt <spec>] [--info <spec>]
+                [--output <spec>] [--out-ikm <file>]
+
+scli kdf expand --length <N> --prk <spec> [--info <spec>] [--output <spec>]
+```
+
+- `derive` runs HKDF Extract+Expand. `--ikm` must be at least `2 * length` bytes. If omitted, random IKM is generated and written to `--out-ikm` for reproducibility.
+- `expand` runs HKDF-Expand only; `--prk` is the pseudorandom key.
+
+```bash
+# Derive a 32-byte key from random IKM, saving the IKM for later reproduction
+scli kdf derive --length 32 --out-ikm ikm.bin
+
+# Reproduce the same key from the saved IKM
+scli kdf derive --length 32 --ikm ikm.bin
+
+# Derive with salt and context info
+scli kdf derive --length 32 --ikm base64:<ikm-b64> \
+  --salt base64:<salt-b64> --info base64:<info-b64>
+
+# Expand from a PRK, output raw binary
+scli kdf expand --length 32 --prk prk.bin --output derived.bin
+```
+
 #### `random` — Generate cryptographically secure random bytes
 
 ```
@@ -754,11 +781,11 @@ scli random --length 64 --output keyfile.bin
 
 ### CLI tests
 
-A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 73 tests covering all seven subcommands:
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 140 tests covering all eight subcommands:
 
 ```bash
 cmake --build build --target safe_crypto_cli_test
-cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|MacTests|RandomTests|RsaTests"
+cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|KdfTests|MacTests|RandomTests|RsaTests"
 ```
 
 > **Note:** RSA tests are slow in debug builds (~4 min) due to Miller-Rabin primality testing. Use a release build for speed: `cmake -DCMAKE_BUILD_TYPE=Release`.

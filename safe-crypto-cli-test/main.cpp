@@ -7,6 +7,7 @@
 #include "ecdh_tests.hpp"
 #include "ecdsa_tests.hpp"
 #include "io_tests.hpp"
+#include "kdf_tests.hpp"
 #include "mac_tests.hpp"
 #include "random_tests.hpp"
 #include "rsa_tests.hpp"

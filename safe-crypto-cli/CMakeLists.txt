@@ -9,6 +9,7 @@ add_executable(${EXE_NAME}
         cmd_digest.hpp
         cmd_ecdh.hpp
         cmd_ecdsa.hpp
+        cmd_kdf.hpp
         cmd_mac.hpp
         cmd_random.hpp
         cmd_rsa.hpp
