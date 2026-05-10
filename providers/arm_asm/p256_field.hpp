@@ -35,7 +35,7 @@ namespace arm_asm::detail {
 
 
 struct Fe256 {
-    uint64_t v[4]; // NOLINT(misc-non-private-member-variables-in-classes)
+    uint64_t v[4]; // NOLINT(misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 };
 
 static constexpr Fe256 fe256_zero = {{0ULL, 0ULL, 0ULL, 0ULL}};
@@ -250,7 +250,7 @@ static inline auto fe256_solinas(
     std::span<const uint32_t, 16> c) noexcept -> Fe256
 {
 
-    int64_t r[9]{};
+    std::array<int64_t, 9> r{};
     r[0] = static_cast<int64_t>(c[0]) + c[8] + c[9] - c[11] - c[12] - c[13] - c[14];
     r[1] = static_cast<int64_t>(c[1]) + c[9] + c[10] - c[12] - c[13] - c[14] - c[15];
     r[2] = static_cast<int64_t>(c[2]) + c[10] + c[11] - c[13] - c[14] - c[15];

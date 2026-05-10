@@ -36,7 +36,7 @@ namespace arm_asm::detail {
 
 
 struct Fe384 {
-    uint64_t v[6]; // NOLINT(misc-non-private-member-variables-in-classes)
+    uint64_t v[6]; // NOLINT(misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 };
 
 static constexpr Fe384 fe384_zero = {{0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};
@@ -264,7 +264,7 @@ static inline auto fe384_solinas(
 
     // Unsigned per-word accumulation (W^k mod p384 words derived from field polynomial).
     // W^22[0]=0xFFFFFFFF, W^23[0]=0xFFFFFFFF contribute (W-1)*c[k] to word 0.
-    u128 r[13]{};
+    std::array<u128, 13> r{};
     constexpr u128 Wm1 = 0xffffffffULL;  // W-1
     constexpr u128 Wm2 = 0xfffffffeULL;  // W-2
     constexpr u128 Wm3 = 0xfffffffdULL;  // W-3
@@ -295,7 +295,7 @@ static inline auto fe384_solinas(
     // Applying carry-split on the W-1 terms yields: r[0]+=ov; r[1]-=ov; r[3]+=ov; r[4]+=ov.
     // After initial carry propagation r[12] ≤ 2^33, so 2 passes suffice.
     // Use signed __int128 for the overflow passes so negation works correctly.
-    int64_t s[13]{};
+    std::array<int64_t, 13> s{};
     for (int i = 0; i <= 12; ++i) {
         s[i] = static_cast<int64_t>(r[i]);
     }

@@ -9,6 +9,7 @@
 //
 // Everything lives in arm_asm::detail to match the namespace the backend uses.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -51,7 +52,7 @@ struct RsaKeySlot {
 };
 
 inline RsaKeySlot& rsa_key_slot(std::size_t idx) noexcept {
-    static RsaKeySlot slots[rsa_key_store_capacity]{};
+    static std::array<RsaKeySlot, rsa_key_store_capacity> slots{};
     return slots[idx];
 }
 
