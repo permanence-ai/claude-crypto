@@ -32,5 +32,11 @@ target_compile_definitions(${EXE_NAME} PRIVATE
 # Propagate provider/PQC feature macros so test guards match the build.
 target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib)
 
+# When the LIBOQS supplement is enabled, link it so SAFE_CRYPTO_PQC_LIBOQS
+# is visible to the test binary regardless of which crypto provider is active.
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib_liboqs)
+endif()
+
 include(GoogleTest)
 gtest_discover_tests(${EXE_NAME})
