@@ -8,6 +8,7 @@ add_executable(${EXE_NAME}
         ecdh_tests.hpp
         ecdsa_tests.hpp
         io_tests.hpp
+        kdf_tests.hpp
         mac_tests.hpp
         main.cpp
         random_tests.hpp
