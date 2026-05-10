@@ -146,7 +146,7 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
-safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, kdf, mac, random, rsa subcommands; CLI11 v2.6.2
+safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, kdf, mac, ml-dsa, ml-kem, random, rsa, slh-dsa subcommands; CLI11 v2.6.2
 safe-crypto-cli-test/     # GoogleTest suite for scli — 89 subprocess-based tests; validates stdout and exit codes
 safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
@@ -765,6 +765,83 @@ scli kdf derive --length 32 --ikm base64:<ikm-b64> \
 scli kdf expand --length 32 --prk prk.bin --output derived.bin
 ```
 
+#### `ml-kem` — ML-KEM (FIPS 203) key encapsulation [requires `-DSAFE_CRYPTO_PQC=LIBOQS`]
+
+```
+scli ml-kem keygen      --variant 512|768|1024
+                        --out-private <spec>   # private (decapsulation) key
+                        --out-public  <spec>   # public  (encapsulation) key
+
+scli ml-kem encapsulate --variant 512|768|1024
+                        --key            <spec>  # recipient public key
+                        --out-ciphertext <spec>  # KEM ciphertext
+                        --out-secret     <spec>  # shared secret (32 bytes)
+
+scli ml-kem decapsulate --variant 512|768|1024
+                        --key        <spec>      # private key
+                        --ciphertext <spec>
+                        --output     <spec>      # shared secret (32 bytes)
+```
+
+```bash
+scli ml-kem keygen --variant 512 --out-private priv.bin --out-public pub.bin
+scli ml-kem encapsulate --variant 512 --key pub.bin \
+  --out-ciphertext ct.bin --out-secret ss_sender.bin
+scli ml-kem decapsulate --variant 512 --key priv.bin \
+  --ciphertext ct.bin --output ss_recipient.bin
+# ss_sender.bin and ss_recipient.bin are identical
+```
+
+#### `ml-dsa` — ML-DSA (FIPS 204) signatures [requires `-DSAFE_CRYPTO_PQC=LIBOQS`]
+
+```
+scli ml-dsa keygen  --variant 44|65|87
+                    --out-private <spec>
+                    --out-public  <spec>
+
+scli ml-dsa sign    --variant 44|65|87
+                    --key     <spec>    # private key
+                    --input   <spec>    # message
+                    --output  <spec>    # signature
+
+scli ml-dsa verify  --variant 44|65|87
+                    --key       <spec>  # public key
+                    --input     <spec>  # message
+                    --signature <spec>
+                    # exits 0 = valid, 1 = invalid
+```
+
+```bash
+scli ml-dsa keygen --variant 44 --out-private priv.bin --out-public pub.bin
+scli ml-dsa sign   --variant 44 --key priv.bin --input message.bin --output sig.bin
+scli ml-dsa verify --variant 44 --key pub.bin  --input message.bin --signature sig.bin
+```
+
+#### `slh-dsa` — SLH-DSA (FIPS 205) signatures [requires `-DSAFE_CRYPTO_ACTIVE_PROVIDER=OPENSSL`]
+
+```
+scli slh-dsa keygen  --variant sha2-128s|sha2-128f|sha2-192s|sha2-192f|sha2-256s|sha2-256f
+                     --out-private <spec>
+                     --out-public  <spec>
+
+scli slh-dsa sign    --variant <variant>
+                     --key     <spec>    # private key
+                     --input   <spec>    # message
+                     --output  <spec>    # signature
+
+scli slh-dsa verify  --variant <variant>
+                     --key       <spec>  # public key
+                     --input     <spec>  # message
+                     --signature <spec>
+                     # exits 0 = valid, 1 = invalid
+```
+
+```bash
+scli slh-dsa keygen --variant sha2-128f --out-private priv.bin --out-public pub.bin
+scli slh-dsa sign   --variant sha2-128f --key priv.bin --input message.bin --output sig.bin
+scli slh-dsa verify --variant sha2-128f --key pub.bin  --input message.bin --signature sig.bin
+```
+
 #### `random` — Generate cryptographically secure random bytes
 
 ```
@@ -781,11 +858,11 @@ scli random --length 64 --output keyfile.bin
 
 ### CLI tests
 
-A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 89 tests covering all eight subcommands:
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 140 tests on the default build, plus 17 ML-KEM/ML-DSA tests (LIBOQS build) and 8 SLH-DSA tests (OpenSSL build):
 
 ```bash
 cmake --build build --target safe_crypto_cli_test
-cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|KdfTests|MacTests|RandomTests|RsaTests"
+cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|KdfTests|MacTests|MlDsaTests|MlKemTests|RandomTests|RsaTests|SlhDsaTests"
 ```
 
 > **Note:** RSA tests are slow in debug builds (~4 min) due to Miller-Rabin primality testing. Use a release build for speed: `cmake -DCMAKE_BUILD_TYPE=Release`.

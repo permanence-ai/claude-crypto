@@ -11,8 +11,11 @@ add_executable(${EXE_NAME}
         cmd_ecdsa.hpp
         cmd_kdf.hpp
         cmd_mac.hpp
+        cmd_ml_dsa.hpp
+        cmd_ml_kem.hpp
         cmd_random.hpp
         cmd_rsa.hpp
+        cmd_slh_dsa.hpp
         main.cpp
 )
 
@@ -25,3 +28,9 @@ target_link_libraries(${EXE_NAME} PRIVATE
         safe_crypto_lib
         CLI11::CLI11
 )
+
+# When the LIBOQS supplement is enabled, link it so SAFE_CRYPTO_PQC_LIBOQS
+# is visible to scli regardless of which crypto provider is active.
+if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
+    target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib_liboqs)
+endif()
