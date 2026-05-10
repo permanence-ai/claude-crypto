@@ -24,7 +24,7 @@ For a release build, substitute `cmake-build-release` for `cmake-build-debug` an
 ## Crypto Implementation Rules
 - All crypto implementation must be constant time.
 - All secrets used in crypto must be scrubbed.
-- Miller-Rabin primality test rounds must follow FIPS 186-4 Table C.2 (use `miller_rabin_rounds_for(prime_bits)` from `defs.hpp`); never hardcode a fixed round count.
+- Miller-Rabin primality test rounds must use `miller_rabin_rounds_for(prime_bits)` from `defs.hpp` so supported RSA prime sizes follow the FIPS 186-4/186-5 round-count table; never hardcode a fixed round count.
 
 ## Stack
 

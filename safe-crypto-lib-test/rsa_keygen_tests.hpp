@@ -94,6 +94,16 @@ TEST_F(MillerRabinTests, AcceptsKnownPrimes) {
     EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 }
 
+TEST_F(MillerRabinTests, UsesFipsRoundCountsForSupportedRsaPrimeSizes) {
+    EXPECT_EQ(miller_rabin_rounds_for(rsa_1024_bits / 2U), 5U);
+    EXPECT_EQ(miller_rabin_rounds_for(rsa_2048_bits / 2U), 5U);
+    EXPECT_EQ(miller_rabin_rounds_for(rsa_3072_bits / 2U), 4U);
+    EXPECT_EQ(miller_rabin_rounds_for(4096U / 2U), 4U);
+
+    // Keep larger-than-supported primes on the strongest supported count instead of reducing rounds.
+    EXPECT_EQ(miller_rabin_rounds_for(4096U), 4U);
+}
+
 
 // ---------------------------------------------------------------------------
 // Key generation tests
