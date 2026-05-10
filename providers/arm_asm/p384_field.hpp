@@ -36,7 +36,7 @@ namespace arm_asm::detail {
 
 
 struct Fe384 {
-    uint64_t v[6]; // NOLINT(misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    std::array<uint64_t, 6> v; // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
 static constexpr Fe384 fe384_zero = {{0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};

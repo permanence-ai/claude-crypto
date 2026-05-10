@@ -25,7 +25,7 @@ namespace arm_asm::detail {
 
 
 struct Fe521 {
-    uint64_t v[9]; // NOLINT(misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    std::array<uint64_t, 9> v; // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
 static constexpr Fe521 fe521_zero = {{0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL, 0ULL}};

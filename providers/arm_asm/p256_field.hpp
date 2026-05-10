@@ -35,7 +35,7 @@ namespace arm_asm::detail {
 
 
 struct Fe256 {
-    uint64_t v[4]; // NOLINT(misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    std::array<uint64_t, 4> v; // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
 static constexpr Fe256 fe256_zero = {{0ULL, 0ULL, 0ULL, 0ULL}};
