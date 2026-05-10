@@ -65,33 +65,33 @@ TEST_F(MillerRabinTests, RejectsTinyComposites) {
     arm_asm::detail::BigInt<1> n{};
 
     n.d[0] = 9U;   // 3^2
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 
     n.d[0] = 15U;  // 3*5
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 
     n.d[0] = 77U;  // 7*11
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 
     n.d[0] = 561U; // first Carmichael number
-    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_FALSE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 }
 
 TEST_F(MillerRabinTests, AcceptsKnownPrimes) {
     arm_asm::detail::BigInt<1> n{};
 
     n.d[0] = 7U;
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 
     n.d[0] = 97U;
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 
     n.d[0] = 65537U;  // e itself is prime
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 
     // A large 64-bit prime.
     n.d[0] = 0xFFFFFFFFFFFFFFC5ULL;  // 2^64 - 59 (prime)
-    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds));
+    EXPECT_TRUE(arm_asm::detail::miller_rabin_is_prime(n, miller_rabin_rounds_for(64)));
 }
 
 

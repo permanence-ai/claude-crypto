@@ -59,8 +59,19 @@ constexpr std::size_t rsa_1024_bits = 1024;
 constexpr std::size_t rsa_2048_bits = 2048;
 constexpr std::size_t rsa_3072_bits = 3072;
 
-// Miller-Rabin primality test rounds (standard security level)
-constexpr std::size_t miller_rabin_rounds = 10;
+// Miller-Rabin primality test rounds per FIPS 186-4 Table C.2.
+// Returns the minimum rounds needed for a 2^-128 error bound given the prime's bit length.
+// Used for RSA prime generation; larger primes need fewer rounds.
+[[nodiscard]]
+constexpr unsigned int miller_rabin_rounds_for(std::size_t prime_bits) noexcept {
+    if (prime_bits >= 3747U) { return 3U; }
+    if (prime_bits >= 1345U) { return 4U; }
+    if (prime_bits >=  476U) { return 5U; }
+    if (prime_bits >=  400U) { return 6U; }
+    if (prime_bits >=  347U) { return 7U; }
+    if (prime_bits >=  308U) { return 8U; }
+    return 27U;  // < 308 bits (small primes in tests)
+}
 
 // Benchmark payload sizes
 constexpr std::size_t bench_size_small  =     64;
