@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 #include "secure_buffer.hpp"
@@ -142,7 +143,7 @@ struct Sha512Ctx {
 // ---------------------------------------------------------------------------
 inline void hmac_sha256(const uint8_t* key, std::size_t key_len,
                         const uint8_t* msg, std::size_t msg_len,
-                        uint8_t out[32]) noexcept
+                        std::span<uint8_t, 32> out) noexcept
 {
     FixedSecureBuffer<64> kprime;
     if (key_len > 64) {
@@ -168,7 +169,7 @@ inline void hmac_sha256(const uint8_t* key, std::size_t key_len,
     ctx.init();
     ctx.update(okey.data(), 64);
     ctx.update(inner.data(), 32);
-    ctx.finish(out);
+    ctx.finish(out.data());
 }
 
 
@@ -213,16 +214,16 @@ inline void hmac_sha512_impl(const uint64_t h0[8], // NOLINT(readability-functio
 
 inline void hmac_sha512(const uint8_t* key, std::size_t key_len,
                         const uint8_t* msg, std::size_t msg_len,
-                        uint8_t out[64]) noexcept
+                        std::span<uint8_t, 64> out) noexcept
 {
-    hmac_sha512_impl(sha512_h0, key, key_len, msg, msg_len, out, 64);
+    hmac_sha512_impl(sha512_h0, key, key_len, msg, msg_len, out.data(), 64);
 }
 
 inline void hmac_sha384(const uint8_t* key, std::size_t key_len,
                         const uint8_t* msg, std::size_t msg_len,
-                        uint8_t out[48]) noexcept
+                        std::span<uint8_t, 48> out) noexcept
 {
-    hmac_sha512_impl(sha384_h0, key, key_len, msg, msg_len, out, 48);
+    hmac_sha512_impl(sha384_h0, key, key_len, msg, msg_len, out.data(), 48);
 }
 
 
@@ -266,23 +267,23 @@ inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes, // NOLINT(re
 
 inline void hmac_sha3_256(const uint8_t* key, std::size_t key_len,
                            const uint8_t* msg, std::size_t msg_len,
-                           uint8_t out[32]) noexcept
+                           std::span<uint8_t, 32> out) noexcept
 {
-    hmac_sha3_impl(sha3_max_rate_bytes, 32, key, key_len, msg, msg_len, out);
+    hmac_sha3_impl(sha3_max_rate_bytes, 32, key, key_len, msg, msg_len, out.data());
 }
 
 inline void hmac_sha3_384(const uint8_t* key, std::size_t key_len,
                            const uint8_t* msg, std::size_t msg_len,
-                           uint8_t out[48]) noexcept
+                           std::span<uint8_t, 48> out) noexcept
 {
-    hmac_sha3_impl(104, 48, key, key_len, msg, msg_len, out);
+    hmac_sha3_impl(104, 48, key, key_len, msg, msg_len, out.data());
 }
 
 inline void hmac_sha3_512(const uint8_t* key, std::size_t key_len,
                            const uint8_t* msg, std::size_t msg_len,
-                           uint8_t out[64]) noexcept
+                           std::span<uint8_t, 64> out) noexcept
 {
-    hmac_sha3_impl(72, 64, key, key_len, msg, msg_len, out);
+    hmac_sha3_impl(72, 64, key, key_len, msg, msg_len, out.data());
 }
 
 }  // namespace ia_asm::detail

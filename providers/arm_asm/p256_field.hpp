@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 
 namespace arm_asm::detail {
@@ -53,11 +54,11 @@ static constexpr Fe256 fe256_p = {{
 
 [[nodiscard]]
 static inline auto fe256_from_bytes(
-    const uint8_t b[32]) noexcept -> Fe256
+    std::span<const uint8_t, 32> b) noexcept -> Fe256
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
-        const uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
+        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         r.v[i] =
             (static_cast<uint64_t>(p[0]) << 56U) | (static_cast<uint64_t>(p[1]) << 48U) |
             (static_cast<uint64_t>(p[2]) << 40U) | (static_cast<uint64_t>(p[3]) << 32U) |
@@ -68,10 +69,10 @@ static inline auto fe256_from_bytes(
 }
 
 static inline void fe256_to_bytes(
-    const Fe256& a, uint8_t b[32]) noexcept
+    const Fe256& a, std::span<uint8_t, 32> b) noexcept
 {
     for (int i = 0; i < 4; ++i) {
-        uint8_t* p = b + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
+        uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);
         p[0] = static_cast<uint8_t>(a.v[i] >> 56U);
         p[1] = static_cast<uint8_t>(a.v[i] >> 48U);
         p[2] = static_cast<uint8_t>(a.v[i] >> 40U);

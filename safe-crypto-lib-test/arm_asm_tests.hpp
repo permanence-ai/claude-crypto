@@ -1047,7 +1047,7 @@ TEST_F(ArmAsmSha3Tests, HmacSha3_256AbcMessage) {
         "632f618ac17ba24355d9ee1fd187cf75"
         "bb5b68e6948804bf6674bf5ee7f1c345");
     std::array<uint8_t, 32> out{};
-    arm_asm::detail::hmac_sha3_256(key.data(), key.size(), msg.data(), msg.size(), out.data());
+    arm_asm::detail::hmac_sha3_256(key.data(), key.size(), msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1062,7 +1062,7 @@ TEST_F(ArmAsmSha3Tests, HmacSha3_384AbcMessage) {
         "ad32d7f782f6518dac939d717719aa74"
         "442f6f4b596f469aab912b1f0ff2e70c");
     std::array<uint8_t, 48> out{};
-    arm_asm::detail::hmac_sha3_384(key.data(), key.size(), msg.data(), msg.size(), out.data());
+    arm_asm::detail::hmac_sha3_384(key.data(), key.size(), msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -1078,7 +1078,7 @@ TEST_F(ArmAsmSha3Tests, HmacSha3_512AbcMessage) {
         "7a3c626e7edb8e493b42c8e5a696d5e6"
         "6ba7ad2000eb6cff76cb1ec030130e81");
     std::array<uint8_t, 64> out{};
-    arm_asm::detail::hmac_sha3_512(key.data(), key.size(), msg.data(), msg.size(), out.data());
+    arm_asm::detail::hmac_sha3_512(key.data(), key.size(), msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }

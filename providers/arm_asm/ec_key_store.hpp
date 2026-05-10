@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "defs.hpp"
 #include "p256_point.hpp"
@@ -64,17 +65,17 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
         if (curve == EcCurveId::P256) {
             if (key_len != 32U) { return false; }
             Fe256 tmp{};
-            return p256_scalar_sig_decode(key, tmp);
+            return p256_scalar_sig_decode(std::span<const uint8_t, 32>{key, 32}, tmp);
         }
         if (curve == EcCurveId::P384) {
             if (key_len != 48U) { return false; }
             Fe384 tmp{};
-            return p384_scalar_sig_decode(key, tmp);
+            return p384_scalar_sig_decode(std::span<const uint8_t, 48>{key, 48}, tmp);
         }
         if (curve == EcCurveId::P521) {
             if (key_len != 66U) { return false; }
             Fe521 tmp{};
-            return p521_scalar_sig_decode(key, tmp);
+            return p521_scalar_sig_decode(std::span<const uint8_t, 66>{key, 66}, tmp);
         }
         return false;
     }
@@ -83,15 +84,15 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
         if (curve == EcCurveId::P256) {
             if (key_len != 65U) { return false; }
             if (key[0] != 0x04U) { return false; }
-            const Fe256 x = fe256_from_bytes(key + 1);
-            const Fe256 y = fe256_from_bytes(key + 33);
+            const Fe256 x = fe256_from_bytes(std::span<const uint8_t, 32>{key + 1,  32});
+            const Fe256 y = fe256_from_bytes(std::span<const uint8_t, 32>{key + 33, 32});
             return p256_validate_public_point(x, y);
         }
         if (curve == EcCurveId::P384) {
             if (key_len != 97U) { return false; }
             if (key[0] != 0x04U) { return false; }
-            const Fe384 x = fe384_from_bytes(key + 1);
-            const Fe384 y = fe384_from_bytes(key + 49);
+            const Fe384 x = fe384_from_bytes(std::span<const uint8_t, 48>{key + 1,  48});
+            const Fe384 y = fe384_from_bytes(std::span<const uint8_t, 48>{key + 49, 48});
             return p384_validate_public_point(x, y);
         }
         if (curve == EcCurveId::P521) {
@@ -99,8 +100,8 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
             if (key[0] != 0x04U) { return false; }
             if ((key[1]  & 0xFEU) != 0U) { return false; }
             if ((key[67] & 0xFEU) != 0U) { return false; }
-            const Fe521 x = fe521_from_bytes(key + 1);
-            const Fe521 y = fe521_from_bytes(key + 67);
+            const Fe521 x = fe521_from_bytes(std::span<const uint8_t, 66>{key + 1,  66});
+            const Fe521 y = fe521_from_bytes(std::span<const uint8_t, 66>{key + 67, 66});
             return p521_validate_public_point(x, y);
         }
         return false;

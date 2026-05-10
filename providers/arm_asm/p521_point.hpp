@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "p521_field.hpp"
 
@@ -417,7 +418,7 @@ static inline auto p521_point_add_affine_ct(const P521Point& p, const P521Affine
 
 [[nodiscard]]
 static inline auto p521_scalar_mul_base(
-    const uint8_t scalar[66]) noexcept -> P521Point
+    std::span<const uint8_t, 66> scalar) noexcept -> P521Point
 {
     P521Point result = p521_identity;
 
@@ -480,7 +481,7 @@ static inline auto p521_to_affine(const P521Point& p) noexcept -> P521Point {
 
 [[nodiscard]]
 static inline auto p521_scalar_mul(
-    const P521Point& base, const uint8_t scalar[66]) noexcept -> P521Point
+    const P521Point& base, std::span<const uint8_t, 66> scalar) noexcept -> P521Point
 {
     P521Point result = p521_identity;
     P521Point tmp    = base;
@@ -505,7 +506,7 @@ static inline auto p521_scalar_mul(
     }
     // Process the top byte: only 1 bit (bit 0 of scalar[0]).
     {
-        const uint64_t k_bit = static_cast<uint64_t>(scalar[0]) & 1U;
+        const uint64_t k_bit = static_cast<uint64_t>(scalar.data()[0]) & 1U;
         const P521Point added = p521_point_add(result, tmp);
         const uint64_t mask = 0U - k_bit;
         for (int i = 0; i < 9; ++i) {
@@ -524,19 +525,19 @@ static inline auto p521_scalar_mul(
 
 [[nodiscard]]
 static inline auto p521_scalar_from_bytes66(
-    const uint8_t b[66]) noexcept -> Fe521
+    std::span<const uint8_t, 66> b) noexcept -> Fe521
 {
     // Load as field element, then conditionally subtract n once.
     Fe521 r{};
     for (int i = 0; i < 8; ++i) {
-        const uint8_t* p = b + (65 - (i * 8));
+        const uint8_t* p = b.data() + (65 - (i * 8));
         r.v[i] =
             (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) |
             (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) |
             (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) |
             (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);
     }
-    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
+    r.v[8] = (static_cast<uint64_t>(b.data()[0]) << 8U) | static_cast<uint64_t>(b.data()[1]);
     r.v[8] &= 0x1ffULL;
 
     // Conditional subtract n.
@@ -595,7 +596,7 @@ static inline auto p521_scalar_from_bytes66_hash(
     } else {
         std::memcpy(padded + (qlen - hlen), hash_be, hlen);
     }
-    return p521_scalar_from_bytes66(padded);
+    return p521_scalar_from_bytes66(std::span<const uint8_t, 66>{padded, 66});
 }
 
 [[nodiscard]]
@@ -809,20 +810,20 @@ static inline auto p521_scalar_is_zero(const Fe521& a) noexcept -> bool {
 // val >= n, or non-canonical encodings where the top 7 bits of b[0] are set.
 [[nodiscard]]
 static inline auto p521_scalar_sig_decode(
-    const uint8_t b[66], Fe521& out) noexcept -> bool
+    std::span<const uint8_t, 66> b, Fe521& out) noexcept -> bool
 {
     // P-521 scalar is 521 bits (66 bytes); top 7 bits of b[0] must be zero.
-    if ((b[0] & 0xFEU) != 0U) { return false; }
+    if ((b.data()[0] & 0xFEU) != 0U) { return false; }
     Fe521 r{};
     for (int i = 0; i < 8; ++i) {
-        const uint8_t* p = b + (65 - (i * 8));
+        const uint8_t* p = b.data() + (65 - (i * 8));
         r.v[i] =
             (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) |
             (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) |
             (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) |
             (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);
     }
-    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
+    r.v[8] = (static_cast<uint64_t>(b.data()[0]) << 8U) | static_cast<uint64_t>(b.data()[1]);
     // No mask needed: high-bit check above guarantees b[0] <= 0x01, so r.v[8] <= 0x1ff.
     if (p521_scalar_is_zero(r)) { return false; }
     using u128 = unsigned __int128;
@@ -855,13 +856,13 @@ static inline auto p521_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p521_compute_public_key(
-    const uint8_t private_scalar_be[66],
-    uint8_t public_key_uncompressed[133]) noexcept
+    std::span<const uint8_t, 66> private_scalar_be,
+    std::span<uint8_t, 133> public_key_uncompressed) noexcept
 {
     const P521Point pub = p521_to_affine(p521_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe521_to_bytes(pub.X, public_key_uncompressed + 1);
-    fe521_to_bytes(pub.Y, public_key_uncompressed + 67);
+    fe521_to_bytes(pub.X, std::span<uint8_t, 66>{public_key_uncompressed.data() + 1, 66});
+    fe521_to_bytes(pub.Y, std::span<uint8_t, 66>{public_key_uncompressed.data() + 67, 66});
 }
 
 

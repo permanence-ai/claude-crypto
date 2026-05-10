@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 
 namespace arm_asm::detail {
@@ -48,7 +49,7 @@ static constexpr Fe521 fe521_p = {{
 
 [[nodiscard]]
 static inline auto fe521_from_bytes(
-    const uint8_t b[66]) noexcept -> Fe521
+    std::span<const uint8_t, 66> b) noexcept -> Fe521
 {
     // 66 bytes = 528 bits; top 7 bits are always zero (521-bit field element).
     // b[0] is the most significant byte (bits 520–513... but only 9 low bits used).
@@ -67,7 +68,7 @@ static inline auto fe521_from_bytes(
     // bits 512..519 = b[1]
     // bits 520..527 = b[0]  (top 7 bits must be zero)
     for (int i = 0; i < 8; ++i) {
-        const uint8_t* p = b + (65 - (i * 8));
+        const uint8_t* p = b.data() + (65 - (i * 8));
         r.v[i] =
             (static_cast<uint64_t>(p[-7]) << 56U) | (static_cast<uint64_t>(p[-6]) << 48U) |
             (static_cast<uint64_t>(p[-5]) << 40U) | (static_cast<uint64_t>(p[-4]) << 32U) |
@@ -81,19 +82,19 @@ static inline auto fe521_from_bytes(
     // but we only have 521 bits, so v[8] = bits [520:512] = 9 bits.
     // bits [520:512]: byte index 65-64 = byte 1 has bits [519:512], byte 0 has bit [520].
     // So v[8] = (b[0] << 8) | b[1] truncated to 9 bits.
-    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
+    r.v[8] = (static_cast<uint64_t>(b.data()[0]) << 8U) | static_cast<uint64_t>(b.data()[1]);
     r.v[8] &= 0x1ffULL;
     return r;
 }
 
 static inline void fe521_to_bytes(
-    const Fe521& a, uint8_t b[66]) noexcept
+    const Fe521& a, std::span<uint8_t, 66> b) noexcept
 {
     // v[8] holds 9 bits: bits[520:512].  Write as b[0] (bit 520) and b[1] (bits[519:512]).
-    b[0] = static_cast<uint8_t>(a.v[8] >> 8U);
-    b[1] = static_cast<uint8_t>(a.v[8]);
+    b.data()[0] = static_cast<uint8_t>(a.v[8] >> 8U);
+    b.data()[1] = static_cast<uint8_t>(a.v[8]);
     for (int i = 0; i < 8; ++i) {
-        uint8_t* p = b + (65 - (i * 8));
+        uint8_t* p = b.data() + (65 - (i * 8));
         p[0]  = static_cast<uint8_t>(a.v[i]);
         p[-1] = static_cast<uint8_t>(a.v[i] >> 8U);
         p[-2] = static_cast<uint8_t>(a.v[i] >> 16U);
