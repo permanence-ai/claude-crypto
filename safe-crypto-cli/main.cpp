@@ -9,8 +9,11 @@
 #include "cmd_ecdsa.hpp"
 #include "cmd_kdf.hpp"
 #include "cmd_mac.hpp"
+#include "cmd_ml_dsa.hpp"
+#include "cmd_ml_kem.hpp"
 #include "cmd_random.hpp"
 #include "cmd_rsa.hpp"
+#include "cmd_slh_dsa.hpp"
 
 
 auto main(int argc, char** argv) -> int  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
@@ -24,8 +27,11 @@ auto main(int argc, char** argv) -> int  // NOLINT(cppcoreguidelines-avoid-c-arr
     scli::register_ecdsa(app);
     scli::register_kdf(app);
     scli::register_mac(app);
+    scli::register_ml_dsa(app);
+    scli::register_ml_kem(app);
     scli::register_random(app);
     scli::register_rsa(app);
+    scli::register_slh_dsa(app);
 
     CLI11_PARSE(app, argc, argv);
     return 0;
