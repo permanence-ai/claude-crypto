@@ -5,7 +5,7 @@
 // RSA key pair generation without third-party library dependencies.
 //
 // Algorithm overview:
-//   1. Generate a random prime p of prime_bits bits (Miller-Rabin, 40 rounds).
+//   1. Generate a random prime p of prime_bits bits (Miller-Rabin, FIPS 186-4 rounds).
 //   2. Generate a random prime q of prime_bits bits, distinct from p.
 //   3. Verify gcd(e, p-1) == 1 and gcd(e, q-1) == 1.
 //   4. n = p * q.
@@ -294,7 +294,7 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
         }
         if (divisible) { continue; }
 
-        if (miller_rabin_is_prime(candidate, 40U)) {
+        if (miller_rabin_is_prime(candidate, miller_rabin_rounds_for(prime_bits))) {
             return candidate;
         }
     }
