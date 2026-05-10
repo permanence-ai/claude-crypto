@@ -78,7 +78,7 @@ inline void register_aead(CLI::App& app)
                 std::copy(result->ciphertext.data(),
                           result->ciphertext.data() + result->ciphertext.size(),
                           wire.data() + aes_gcm_iv_size_bytes);
-                const auto out = write_output(output_val, std::span<const uint8_t>(wire.data(), wire.size()));
+                const auto out = write_output(output_val, std::span<const CryptoByte>(wire.data(), wire.size()));
                 if (!out.has_value()) { die(out.error()); }
             } else {
                 // Decrypt: parse IV || ciphertext.
@@ -93,7 +93,7 @@ inline void register_aead(CLI::App& app)
                           ct.ciphertext.data());
                 const auto result = aes256_gcm_decrypt(typed_key, ct, aad_buf);
                 if (!result.has_value()) { die(result.error()); }
-                const auto out = write_output(output_val, std::span<const uint8_t>(result->data(), result->size()));
+                const auto out = write_output(output_val, std::span<const CryptoByte>(result->data(), result->size()));
                 if (!out.has_value()) { die(out.error()); }
             }
 
@@ -113,7 +113,7 @@ inline void register_aead(CLI::App& app)
                 std::copy(result->ciphertext.data(),
                           result->ciphertext.data() + result->ciphertext.size(),
                           wire.data() + chacha20_poly1305_iv_size_bytes);
-                const auto out = write_output(output_val, std::span<const uint8_t>(wire.data(), wire.size()));
+                const auto out = write_output(output_val, std::span<const CryptoByte>(wire.data(), wire.size()));
                 if (!out.has_value()) { die(out.error()); }
             } else {
                 if (in_buf->size() <= chacha20_poly1305_iv_size_bytes) {
@@ -127,7 +127,7 @@ inline void register_aead(CLI::App& app)
                           ct.ciphertext.data());
                 const auto result = chacha20_poly1305_decrypt(typed_key, ct, aad_buf);
                 if (!result.has_value()) { die(result.error()); }
-                const auto out = write_output(output_val, std::span<const uint8_t>(result->data(), result->size()));
+                const auto out = write_output(output_val, std::span<const CryptoByte>(result->data(), result->size()));
                 if (!out.has_value()) { die(out.error()); }
             }
 

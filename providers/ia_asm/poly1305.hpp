@@ -58,7 +58,7 @@ static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi, uint64_t to
 }
 
 [[nodiscard]]
-static inline Poly1305Limbs clamp_r(std::span<const uint8_t, 16> r_bytes) noexcept {
+static inline Poly1305Limbs clamp_r(std::span<const CryptoByte, poly1305_tag_bytes> r_bytes) noexcept {
     FixedSecureBuffer<16> rc;
     std::memcpy(rc.data(), r_bytes.data(), 16);
     rc[ 3] &= 0x0fU; rc[ 7] &= 0x0fU; rc[11] &= 0x0fU; rc[15] &= 0x0fU;
@@ -107,8 +107,8 @@ static inline void poly1305_add_block(Poly1305Limbs& h, uint64_t lo, uint64_t hi
 }
 
 static inline void poly1305_finish(const Poly1305Limbs& h_in,
-                                    std::span<const uint8_t, 16> s_bytes,
-                                    std::span<uint8_t, 16> tag) noexcept
+                                    std::span<const CryptoByte, poly1305_tag_bytes> s_bytes,
+                                    std::span<CryptoByte, poly1305_tag_bytes> tag) noexcept
 {
     uint64_t h0 = h_in.h0;
     uint64_t h1 = h_in.h1;
@@ -202,10 +202,10 @@ static inline void poly1305_process_pair(
 }
 
 
-inline void poly1305_mac(std::span<const uint8_t, 32> key, const uint8_t* msg,
-                          std::size_t msg_len, std::span<uint8_t, 16> tag) noexcept
+inline void poly1305_mac(std::span<const CryptoByte, poly1305_key_bytes> key, const CryptoByte* msg,
+                          std::size_t msg_len, std::span<CryptoByte, poly1305_tag_bytes> tag) noexcept
 {
-    const Poly1305Limbs  r  = clamp_r(std::span<const uint8_t, 16>{key.data(), 16});
+    const Poly1305Limbs  r  = clamp_r(std::span<const CryptoByte, poly1305_tag_bytes>{key.data(), poly1305_tag_bytes});
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
     std::size_t offset = 0;
@@ -231,7 +231,7 @@ inline void poly1305_mac(std::span<const uint8_t, 32> key, const uint8_t* msg,
         offset += 16;
     }
     if (offset < msg_len) {
-        std::array<uint8_t, 16> buf{};
+        std::array<CryptoByte, poly1305_tag_bytes> buf{};
         std::memcpy(buf.data(), msg + offset, msg_len - offset);
         buf[msg_len - offset] = 0x01U;
         const auto [lo, hi] = load_le128(buf.data());
@@ -239,7 +239,7 @@ inline void poly1305_mac(std::span<const uint8_t, 32> key, const uint8_t* msg,
         poly1305_multiply_precomp(h, pw.p1);
     }
 
-    poly1305_finish(h, std::span<const uint8_t, 16>{key.data() + 16, 16}, tag);
+    poly1305_finish(h, std::span<const CryptoByte, poly1305_tag_bytes>{key.data() + poly1305_tag_bytes, poly1305_tag_bytes}, tag);
 }
 
 }  // namespace ia_asm::detail

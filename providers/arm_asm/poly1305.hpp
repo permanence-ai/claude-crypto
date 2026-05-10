@@ -102,7 +102,7 @@ static inline Poly1305Limbs block_to_limbs(uint64_t lo, uint64_t hi,
 
 // Clamp r per RFC 8439 §2.5.1 and extract into three 44-bit limbs.
 [[nodiscard]]
-static inline Poly1305Limbs clamp_r(std::span<const uint8_t, 16> r_bytes) noexcept {
+static inline Poly1305Limbs clamp_r(std::span<const CryptoByte, poly1305_tag_bytes> r_bytes) noexcept {
     FixedSecureBuffer<16> rc;
     std::memcpy(rc.data(), r_bytes.data(), 16);
     rc[ 3] &= 0x0fU;
@@ -175,8 +175,8 @@ static inline void poly1305_add_block(Poly1305Limbs& h,
 
 // Final reduction: ensure h < 2^130-5, then compute (h + s) mod 2^128.
 static inline void poly1305_finish(const Poly1305Limbs& h_in,
-                                    std::span<const uint8_t, 16> s_bytes,
-                                    std::span<uint8_t, 16> tag) noexcept
+                                    std::span<const CryptoByte, poly1305_tag_bytes> s_bytes,
+                                    std::span<CryptoByte, poly1305_tag_bytes> tag) noexcept
 {
 
 
@@ -301,11 +301,11 @@ static inline void poly1305_process_pair(
 // Compute a Poly1305 tag over msg[] using the 32-byte one-time key.
 // key[0..15] = r, key[16..31] = s.
 [[gnu::target("neon")]]
-inline void poly1305_mac(std::span<const uint8_t, 32> key, const uint8_t* msg,
-                          std::size_t msg_len, std::span<uint8_t, 16> tag) noexcept
+inline void poly1305_mac(std::span<const CryptoByte, poly1305_key_bytes> key, const CryptoByte* msg,
+                          std::size_t msg_len, std::span<CryptoByte, poly1305_tag_bytes> tag) noexcept
 {
 
-    const Poly1305Limbs r   = clamp_r(std::span<const uint8_t, 16>{key.data(), 16});
+    const Poly1305Limbs r   = clamp_r(std::span<const CryptoByte, poly1305_tag_bytes>{key.data(), poly1305_tag_bytes});
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
 
@@ -346,7 +346,7 @@ inline void poly1305_mac(std::span<const uint8_t, 32> key, const uint8_t* msg,
 
     // Final partial block (if any).
     if (offset < msg_len) {
-        std::array<uint8_t, 16> buf{};
+        std::array<CryptoByte, poly1305_tag_bytes> buf{};
 
         std::memcpy(buf.data(), msg + offset, msg_len - offset);
         buf[msg_len - offset] = 0x01U;  // RFC 8439: append 0x01 pad byte
@@ -355,7 +355,7 @@ inline void poly1305_mac(std::span<const uint8_t, 32> key, const uint8_t* msg,
         poly1305_multiply_precomp(h, pw.p1);
     }
 
-    poly1305_finish(h, std::span<const uint8_t, 16>{key.data() + 16, 16}, tag);
+    poly1305_finish(h, std::span<const CryptoByte, poly1305_tag_bytes>{key.data() + poly1305_tag_bytes, poly1305_tag_bytes}, tag);
 }
 
 }  // namespace arm_asm::detail

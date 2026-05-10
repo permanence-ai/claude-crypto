@@ -62,7 +62,7 @@ static inline uint32_t aes_rot_word(uint32_t w) noexcept {
 // Expand a 256-bit key into the AES-256 round-key schedule.
 // key must point to 32 bytes; out receives 15 × 16 bytes (aes256_schedule_bytes).
 [[gnu::target("aes,neon")]]
-inline void aes256_key_expand(std::span<const CryptoByte, 32> key, Aes256Schedule& sched) noexcept
+inline void aes256_key_expand(std::span<const CryptoByte, aes256_key_size_bytes> key, Aes256Schedule& sched) noexcept
 {
 
     static constexpr std::array<uint8_t, 7> rcon = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40 };

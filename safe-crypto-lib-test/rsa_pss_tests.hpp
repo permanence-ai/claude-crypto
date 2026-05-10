@@ -34,10 +34,10 @@ static bool pss_round_trip(const uint8_t* msg, std::size_t msg_len,
                             std::size_t modulus_bits)
 {
     const std::size_t em_len = (modulus_bits - 1U + 7U) / 8U;
-    std::array<uint8_t, arm_asm::detail::oaep_hash_len> salt{};
+    std::array<CryptoByte, arm_asm::detail::oaep_hash_len> salt{};
     arm_asm::detail::generate_random_bytes(salt.data(), salt.size());
 
-    std::vector<uint8_t> em(em_len, 0U);
+    std::vector<CryptoByte> em(em_len, 0U);
     if (!arm_asm::detail::pss_encode(msg, msg_len, salt.data(), modulus_bits, em.data())) {
         return false;
     }
@@ -49,34 +49,34 @@ TEST_F(PssRoundTripTests, EmptyMessage) {
 }
 
 TEST_F(PssRoundTripTests, SmallMessage) {
-    const std::array<uint8_t, 8> msg = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    const std::array<CryptoByte, 8> msg = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
     EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), rsa_1024_bits));
 }
 
 TEST_F(PssRoundTripTests, LargeMessage) {
-    std::array<uint8_t, 256> msg{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<CryptoByte, 256> msg{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     for (std::size_t i = 0; i < msg.size(); ++i) { msg[i] = static_cast<uint8_t>(i); }
     EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), rsa_1024_bits));
 }
 
 TEST_F(PssRoundTripTests, DifferentSaltsProduceDifferentEM) {
-    const std::array<uint8_t, 4> msg = {0xDE, 0xAD, 0xBE, 0xEF};
+    const std::array<CryptoByte, 4> msg = {0xDE, 0xAD, 0xBE, 0xEF};
     constexpr std::size_t modulus_bits = 1024;
     const std::size_t em_len = (modulus_bits - 1U + 7U) / 8U;
 
-    std::array<uint8_t, arm_asm::detail::oaep_hash_len> salt1{};
-    std::array<uint8_t, arm_asm::detail::oaep_hash_len> salt2{};
+    std::array<CryptoByte, arm_asm::detail::oaep_hash_len> salt1{};
+    std::array<CryptoByte, arm_asm::detail::oaep_hash_len> salt2{};
     arm_asm::detail::generate_random_bytes(salt1.data(), salt1.size());
     arm_asm::detail::generate_random_bytes(salt2.data(), salt2.size());
 
-    std::vector<uint8_t> em1(em_len), em2(em_len);
+    std::vector<CryptoByte> em1(em_len), em2(em_len);
     ASSERT_TRUE(arm_asm::detail::pss_encode(msg.data(), msg.size(), salt1.data(), modulus_bits, em1.data()));
     ASSERT_TRUE(arm_asm::detail::pss_encode(msg.data(), msg.size(), salt2.data(), modulus_bits, em2.data()));
     EXPECT_NE(std::memcmp(em1.data(), em2.data(), em_len), 0);
 }
 
 TEST_F(PssRoundTripTests, Large3072BitKey) {
-    const std::array<uint8_t, 16> msg = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const std::array<CryptoByte, 16> msg = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), rsa_3072_bits));
 }
 
@@ -87,27 +87,27 @@ TEST_F(PssRoundTripTests, Large3072BitKey) {
 
 class PssVerifyErrorTests : public ::testing::Test {};
 
-static std::vector<uint8_t> make_valid_pss_em(
+static std::vector<CryptoByte> make_valid_pss_em(
     const uint8_t* msg, std::size_t msg_len, std::size_t modulus_bits)
 {
     const std::size_t em_len = (modulus_bits - 1U + 7U) / 8U;
-    std::array<uint8_t, arm_asm::detail::oaep_hash_len> salt{};
+    std::array<CryptoByte, arm_asm::detail::oaep_hash_len> salt{};
     arm_asm::detail::generate_random_bytes(salt.data(), salt.size());
-    std::vector<uint8_t> em(em_len, 0U);
+    std::vector<CryptoByte> em(em_len, 0U);
     const bool ok = arm_asm::detail::pss_encode(msg, msg_len, salt.data(), modulus_bits, em.data());
     (void)ok;
     return em;
 }
 
 TEST_F(PssVerifyErrorTests, CorruptedTrailingByte) {
-    const std::array<uint8_t, 4> msg = {0x01, 0x02, 0x03, 0x04};
+    const std::array<CryptoByte, 4> msg = {0x01, 0x02, 0x03, 0x04};
     auto em = make_valid_pss_em(msg.data(), msg.size(), rsa_1024_bits);
     em.back() = 0x00U;  // must be 0xBC
     EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), rsa_1024_bits));
 }
 
 TEST_F(PssVerifyErrorTests, CorruptedH) {
-    const std::array<uint8_t, 4> msg = {0x01, 0x02, 0x03, 0x04};
+    const std::array<CryptoByte, 4> msg = {0x01, 0x02, 0x03, 0x04};
     auto em = make_valid_pss_em(msg.data(), msg.size(), rsa_1024_bits);
     // H occupies em[em_len - hLen - 1 .. em_len - 2].
     const std::size_t h_start = em.size() - arm_asm::detail::oaep_hash_len - 1U;
@@ -116,15 +116,15 @@ TEST_F(PssVerifyErrorTests, CorruptedH) {
 }
 
 TEST_F(PssVerifyErrorTests, CorruptedMaskedDB) {
-    const std::array<uint8_t, 4> msg = {0x01, 0x02, 0x03, 0x04};
+    const std::array<CryptoByte, 4> msg = {0x01, 0x02, 0x03, 0x04};
     auto em = make_valid_pss_em(msg.data(), msg.size(), rsa_1024_bits);
     em[em.size() / 2U] ^= 0xA5U;  // flip a byte in maskedDB
     EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), rsa_1024_bits));
 }
 
 TEST_F(PssVerifyErrorTests, WrongMessage) {
-    const std::array<uint8_t, 4> msg1 = {0x01, 0x02, 0x03, 0x04};
-    const std::array<uint8_t, 4> msg2 = {0x01, 0x02, 0x03, 0x05};  // one byte different
+    const std::array<CryptoByte, 4> msg1 = {0x01, 0x02, 0x03, 0x04};
+    const std::array<CryptoByte, 4> msg2 = {0x01, 0x02, 0x03, 0x05};  // one byte different
     auto em = make_valid_pss_em(msg1.data(), msg1.size(), rsa_1024_bits);
     EXPECT_FALSE(arm_asm::detail::pss_verify(msg2.data(), msg2.size(), em.data(), rsa_1024_bits));
 }
@@ -165,18 +165,18 @@ protected:
     static constexpr std::size_t k_bytes = k_bits / 8U;
     static constexpr std::size_t nw      = k_bytes / 8U;
 
-    std::array<uint8_t, 768> priv_der_buf_{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<CryptoByte, 768> priv_der_buf_{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t priv_len_ = 0;
-    std::array<uint8_t, 550> pub_der_buf_{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<CryptoByte, 550> pub_der_buf_{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t pub_len_ = 0;
     arm_asm::detail::RsaPrivateKeyComponents priv_{};
 };
 
 TEST_F(PssCrossTests, PsaSignOurVerify) {
-    const std::array<uint8_t, 10> msg = {0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const std::array<CryptoByte, 10> msg = {0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // PSA sign_message hashes internally and produces the full signature.
-    std::array<uint8_t, k_bytes> sig{};
+    std::array<CryptoByte, k_bytes> sig{};
     std::size_t sig_len = 0;
 
     // Import private key into PSA for signing.
@@ -195,7 +195,7 @@ TEST_F(PssCrossTests, PsaSignOurVerify) {
     ASSERT_EQ(sig_len, k_bytes);
 
     // RSA public-key operation: em = sig^e mod n.
-    std::array<uint8_t, k_bytes> em{};
+    std::array<CryptoByte, k_bytes> em{};
     arm_asm::detail::rsa_public_op<nw>(
         sig.data(), k_bytes,
         priv_.n, priv_.n_len,
@@ -206,19 +206,19 @@ TEST_F(PssCrossTests, PsaSignOurVerify) {
 }
 
 TEST_F(PssCrossTests, OurSignPsaVerify) {
-    const std::array<uint8_t, 10> msg = {0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    const std::array<CryptoByte, 10> msg = {0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // PSS encode.
     const std::size_t em_len = (k_bits - 1U + 7U) / 8U;
-    std::array<uint8_t, arm_asm::detail::oaep_hash_len> salt{};
+    std::array<CryptoByte, arm_asm::detail::oaep_hash_len> salt{};
     arm_asm::detail::generate_random_bytes(salt.data(), salt.size());
 
-    std::array<uint8_t, k_bytes> em{};
+    std::array<CryptoByte, k_bytes> em{};
     ASSERT_TRUE(arm_asm::detail::pss_encode(msg.data(), msg.size(), salt.data(), k_bits, em.data()));
     ASSERT_EQ(em_len, k_bytes);
 
     // RSA private-key operation: sig = em^d mod n (using CRT).
-    std::array<uint8_t, k_bytes> sig{};
+    std::array<CryptoByte, k_bytes> sig{};
     arm_asm::detail::rsa_private_op<nw>(
         em.data(), k_bytes,
         priv_.p,    priv_.p_len,

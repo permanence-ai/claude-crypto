@@ -10,11 +10,13 @@
 #include <string_view>
 #include <vector>
 
+#include "defs.hpp"
+
 
 namespace scli {
 
 [[nodiscard]]
-inline auto base64_encode(std::span<const uint8_t> data) -> std::string
+inline auto base64_encode(std::span<const CryptoByte> data) -> std::string
 {
     static constexpr std::string_view table =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -54,7 +56,7 @@ inline auto base64_encode(std::span<const uint8_t> data) -> std::string
 
 
 [[nodiscard]]
-inline auto base64_decode(std::string_view input) -> std::optional<std::vector<uint8_t>>
+inline auto base64_decode(std::string_view input) -> std::optional<std::vector<CryptoByte>>
 {
     // Build decode table: 0xFF = invalid, 0x40 = padding.
     static constexpr auto make_decode_table = []() {
@@ -77,7 +79,7 @@ inline auto base64_decode(std::string_view input) -> std::optional<std::vector<u
 
     if (input.size() % 4U != 0U) { return std::nullopt; }
 
-    std::vector<uint8_t> out;
+    std::vector<CryptoByte> out;
     out.reserve((input.size() / 4U) * 3U);
 
     for (std::size_t i = 0; i < input.size(); i += 4U) {

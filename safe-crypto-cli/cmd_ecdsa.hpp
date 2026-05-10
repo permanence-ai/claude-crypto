@@ -45,10 +45,10 @@ inline void register_ecdsa(CLI::App& app)
         const std::string priv_spec = keygen_out_priv->count() > 0U ? keygen_out_priv->as<std::string>() : "";
         const std::string pub_spec  = keygen_out_pub->count()  > 0U ? keygen_out_pub->as<std::string>()  : "";
 
-        const auto out_priv = write_output(priv_spec, std::span<const uint8_t>(kp->private_key_der.data(), kp->private_key_der.size()));
+        const auto out_priv = write_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
         if (!out_priv.has_value()) { die(out_priv.error()); }
 
-        const auto out_pub = write_output(pub_spec, std::span<const uint8_t>(kp->public_key_der.data(), kp->public_key_der.size()));
+        const auto out_pub = write_output(pub_spec, std::span<const CryptoByte>(kp->public_key_der.data(), kp->public_key_der.size()));
         if (!out_pub.has_value()) { die(out_pub.error()); }
 
         (void)keygen;
@@ -89,7 +89,7 @@ inline void register_ecdsa(CLI::App& app)
         if (!sig.has_value()) { die(sig.error()); }
 
         const std::string output_val = sign_output->count() > 0U ? sign_output->as<std::string>() : "";
-        const auto out = write_output(output_val, std::span<const uint8_t>(sig->data(), sig->size()));
+        const auto out = write_output(output_val, std::span<const CryptoByte>(sig->data(), sig->size()));
         if (!out.has_value()) { die(out.error()); }
 
         (void)sign_sub;

@@ -50,7 +50,7 @@ static constexpr Fe521 fe521_p = {{
 
 [[nodiscard]]
 static inline auto fe521_from_bytes(
-    std::span<const uint8_t, 66> b) noexcept -> Fe521
+    std::span<const CryptoByte, p521_scalar_bytes> b) noexcept -> Fe521
 {
     // 66 bytes = 528 bits; top 7 bits are always zero (521-bit field element).
     // b[0] is the most significant byte (bits 520–513... but only 9 low bits used).
@@ -89,7 +89,7 @@ static inline auto fe521_from_bytes(
 }
 
 static inline void fe521_to_bytes(
-    const Fe521& a, std::span<uint8_t, 66> b) noexcept
+    const Fe521& a, std::span<CryptoByte, p521_scalar_bytes> b) noexcept
 {
     // v[8] holds 9 bits: bits[520:512].  Write as b[0] (bit 520) and b[1] (bits[519:512]).
     b.data()[0] = static_cast<uint8_t>(a.v[8] >> 8U);

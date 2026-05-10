@@ -69,7 +69,7 @@ inline void register_mac(CLI::App& app)
                 const std::string output_val = output->count() > 0U ? output->as<std::string>() : "";
                 const auto result = hmac_generate<V>(*key_buf, *msg_buf);
                 if (!result.has_value()) { die(result.error()); }
-                const auto out = write_output(output_val, std::span<const uint8_t>(result->data(), result->size()));
+                const auto out = write_output(output_val, std::span<const CryptoByte>(result->data(), result->size()));
                 if (!out.has_value()) { die(out.error()); }
             }
         };
