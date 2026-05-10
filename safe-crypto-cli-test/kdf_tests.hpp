@@ -35,10 +35,13 @@ protected:
         return path;
     }
 
-    // 64 zero bytes base64-encoded — used as IKM/PRK in known-answer tests
-    // (IKM must be >= 2 * output_length; 64 bytes covers output up to 32).
+    // 64 zero bytes base64-encoded — used as IKM in known-answer tests.
+    // IKM must be >= 2 * output_length; 64 bytes covers output up to 32.
     static constexpr const char* kZero64B64 =
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    // 48 zero bytes base64-encoded — used as SHA-384-length PRK for HKDF-Expand.
+    static constexpr const char* kZero48B64 =
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
     // Known outputs from scli for zero inputs (SHA-384, PSA/MbedTLS backend).
     // Derive: 32-byte output, zero 64-byte IKM, no salt, no info.
@@ -47,10 +50,10 @@ protected:
     // Derive: 32-byte output, zero 64-byte IKM, salt="salt", info="info".
     static constexpr const char* kDeriveZeroWithSaltInfo =
         "oo2cHefZaY/QhKs3c81TOA1cZ0SBC9i3eoCeeB/gj9Q=";
-    // Expand: 32-byte output, zero 64-byte PRK, no info.
+    // Expand: 32-byte output, zero 48-byte PRK, no info.
     static constexpr const char* kExpandZeroNoInfo =
         "h0BYosBJgslT5KW7T6MPthImz1svpWAXQel2dSoC3bg=";
-    // Expand: 32-byte output, zero 64-byte PRK, info="info".
+    // Expand: 32-byte output, zero 48-byte PRK, info="info".
     static constexpr const char* kExpandZeroWithInfo =
         "YnL0ox8WmpZYqwlanOIp8VA0LrFf4fr3r5zSS5jUz9w=";
 
@@ -171,21 +174,21 @@ TEST_F(KdfTests, DeriveIkmTooShortExitsNonZero) {
 
 TEST_F(KdfTests, ExpandProducesCorrectLength) {
     const auto r = run_scli(scli(),
-        "kdf expand --length 32 --prk base64:" + std::string(kZero64B64));
+        "kdf expand --length 32 --prk base64:" + std::string(kZero48B64));
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_EQ(r.stdout_text.size(), 44U);
 }
 
 TEST_F(KdfTests, ExpandKnownAnswer_NoInfo) {
     const auto r = run_scli(scli(),
-        "kdf expand --length 32 --prk base64:" + std::string(kZero64B64));
+        "kdf expand --length 32 --prk base64:" + std::string(kZero48B64));
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_EQ(r.stdout_text, kExpandZeroNoInfo);
 }
 
 TEST_F(KdfTests, ExpandKnownAnswer_WithInfo) {
     const auto r = run_scli(scli(),
-        "kdf expand --length 32 --prk base64:" + std::string(kZero64B64) +
+        "kdf expand --length 32 --prk base64:" + std::string(kZero48B64) +
         " --info base64:aW5mbw==");  // "info"
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_EQ(r.stdout_text, kExpandZeroWithInfo);
@@ -193,9 +196,9 @@ TEST_F(KdfTests, ExpandKnownAnswer_WithInfo) {
 
 TEST_F(KdfTests, ExpandInfoChangesOutput) {
     const auto without = run_scli(scli(),
-        "kdf expand --length 32 --prk base64:" + std::string(kZero64B64));
+        "kdf expand --length 32 --prk base64:" + std::string(kZero48B64));
     const auto with_info = run_scli(scli(),
-        "kdf expand --length 32 --prk base64:" + std::string(kZero64B64) +
+        "kdf expand --length 32 --prk base64:" + std::string(kZero48B64) +
         " --info base64:aW5mbw==");
     ASSERT_EQ(without.exit_code, 0);
     ASSERT_EQ(with_info.exit_code, 0);
@@ -205,14 +208,14 @@ TEST_F(KdfTests, ExpandInfoChangesOutput) {
 TEST_F(KdfTests, ExpandOutputToFile) {
     const std::string out_path = tmp("kdf_expand_out.bin");
     const auto r = run_scli(scli(),
-        "kdf expand --length 48 --prk base64:" + std::string(kZero64B64) +
+        "kdf expand --length 48 --prk base64:" + std::string(kZero48B64) +
         " --output " + out_path);
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_EQ(std::filesystem::file_size(out_path), 48U);
 }
 
 TEST_F(KdfTests, ExpandPrkFromFile) {
-    const std::string prk_path = tmp_b64("kdf_prk.bin", kZero64B64);
+    const std::string prk_path = tmp_b64("kdf_prk.bin", kZero48B64);
     const auto r = run_scli(scli(),
         "kdf expand --length 32 --prk " + prk_path);
     EXPECT_EQ(r.exit_code, 0);
@@ -221,7 +224,7 @@ TEST_F(KdfTests, ExpandPrkFromFile) {
 
 TEST_F(KdfTests, ExpandZeroLengthExitsNonZero) {
     const auto r = run_scli(scli(),
-        "kdf expand --length 0 --prk base64:" + std::string(kZero64B64));
+        "kdf expand --length 0 --prk base64:" + std::string(kZero48B64));
     EXPECT_NE(r.exit_code, 0);
 }
 
