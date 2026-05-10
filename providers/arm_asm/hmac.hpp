@@ -40,7 +40,7 @@ constexpr uint8_t hmac_opad_byte = 0x5cU;
 struct Sha256Ctx {
     // NOLINT(misc-non-private-member-variables-in-classes) — plain aggregate; all members intentionally public.
     std::array<uint32_t, 8> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::array<uint8_t, 64> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<CryptoByte, sha256_block_bytes> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
     uint64_t    total_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t buf_used{0};    // NOLINT(misc-non-private-member-variables-in-classes)
 
@@ -93,7 +93,7 @@ struct Sha256Ctx {
 // ---------------------------------------------------------------------------
 struct Sha512Ctx {
     std::array<uint64_t, 8>   state{}; // NOLINT(misc-non-private-member-variables-in-classes)
-    std::array<uint8_t,  128> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<CryptoByte, sha512_block_bytes> buf{};   // NOLINT(misc-non-private-member-variables-in-classes)
     uint64_t    total_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t buf_used{0};    // NOLINT(misc-non-private-member-variables-in-classes)
 
