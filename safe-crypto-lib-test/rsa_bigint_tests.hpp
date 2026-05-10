@@ -258,7 +258,7 @@ TEST_F(BigIntRsaCrossTests, RsaPublicOpMatchesPsa512) {
     // Generate a 1024-bit RSA key via PSA (minimum supported size in mbedtls).
     psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
     psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-    psa_set_key_bits(&attrs, 1024); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    psa_set_key_bits(&attrs, rsa_1024_bits);
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT | PSA_KEY_USAGE_EXPORT);
     psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PKCS1V15_CRYPT);
 
@@ -279,7 +279,7 @@ TEST_F(BigIntRsaCrossTests, RsaPublicOpMatchesPsa512) {
         priv_der_buf.data(), priv_der_len, priv));
 
     // A 1024-bit key: n is 128 bytes → 16 limbs.
-    constexpr std::size_t NW = 16;  // 1024 bits / 64 bits per limb // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t NW = 16;  // 1024 bits / 64 bits per limb
     const std::size_t n_bytes_size = NW * 8U;  // 128 bytes
 
     // Choose a synthetic plaintext that fits in the modulus.

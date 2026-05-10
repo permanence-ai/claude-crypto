@@ -116,50 +116,50 @@ void BM_Sha(benchmark::State& state) {
 
 // SHA-256
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha256, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA256/PSA");
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha256, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA256/NATIVE");
 
 // SHA-384
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha384, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA384/PSA");
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha384, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA384/NATIVE");
 
 // SHA-512
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha512, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA512/PSA");
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha512, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA512/NATIVE");
 
 // SHA3-256
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_256, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_256/PSA");
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_256, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_256/NATIVE");
 
 // SHA3-384
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_384, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_384/PSA");
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_384, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_384/NATIVE");
 
 // SHA3-512
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_512/PSA");
 BENCHMARK_TEMPLATE(BM_Sha, ShaVariant::Sha3_512, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("SHA3_512/NATIVE");
 
 
@@ -181,50 +181,50 @@ void BM_Hmac(benchmark::State& state) {
 
 // HMAC-SHA-256
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha256, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA256/PSA");
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha256, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA256/NATIVE");
 
 // HMAC-SHA-384
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha384, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA384/PSA");
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha384, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA384/NATIVE");
 
 // HMAC-SHA-512
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha512, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA512/PSA");
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha512, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA512/NATIVE");
 
 // HMAC-SHA3-256
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_256, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_256/PSA");
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_256, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_256/NATIVE");
 
 // HMAC-SHA3-384
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_384, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_384/PSA");
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_384, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_384/NATIVE");
 
 // HMAC-SHA3-512
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_512/PSA");
 BENCHMARK_TEMPLATE(BM_Hmac, ShaVariant::Sha3_512, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("HMAC_SHA3_512/NATIVE");
 
 
@@ -259,17 +259,17 @@ void BM_AesGcmDecrypt(benchmark::State& state) {
 }
 
 BENCHMARK_TEMPLATE(BM_AesGcmEncrypt, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Enc/PSA");
 BENCHMARK_TEMPLATE(BM_AesGcmEncrypt, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Enc/NATIVE");
 
 BENCHMARK_TEMPLATE(BM_AesGcmDecrypt, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Dec/PSA");
 BENCHMARK_TEMPLATE(BM_AesGcmDecrypt, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("AES256GCM_Dec/NATIVE");
 
 
@@ -303,17 +303,17 @@ void BM_ChaCha20Poly1305Decrypt(benchmark::State& state) {
 }
 
 BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Encrypt, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Enc/PSA");
 BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Encrypt, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Enc/NATIVE");
 
 BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Decrypt, RealPsaBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Dec/PSA");
 BENCHMARK_TEMPLATE(BM_ChaCha20Poly1305Decrypt, NativeAsmBackend)
-    ->Arg(64)->Arg(1024)->Arg(16384)->Arg(262144) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ->Arg(bench_size_small)->Arg(bench_size_medium)->Arg(bench_size_large)->Arg(bench_size_xlarge)
     ->Unit(benchmark::kMicrosecond)->Name("ChaCha20Poly1305_Dec/NATIVE");
 
 

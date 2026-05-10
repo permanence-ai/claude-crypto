@@ -45,18 +45,18 @@ static bool pss_round_trip(const uint8_t* msg, std::size_t msg_len,
 }
 
 TEST_F(PssRoundTripTests, EmptyMessage) {
-    EXPECT_TRUE(pss_round_trip(nullptr, 0, 1024)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(pss_round_trip(nullptr, 0, rsa_1024_bits));
 }
 
 TEST_F(PssRoundTripTests, SmallMessage) {
     const std::array<uint8_t, 8> msg = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), 1024)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), rsa_1024_bits));
 }
 
 TEST_F(PssRoundTripTests, LargeMessage) {
     std::array<uint8_t, 256> msg{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     for (std::size_t i = 0; i < msg.size(); ++i) { msg[i] = static_cast<uint8_t>(i); }
-    EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), 1024)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), rsa_1024_bits));
 }
 
 TEST_F(PssRoundTripTests, DifferentSaltsProduceDifferentEM) {
@@ -77,7 +77,7 @@ TEST_F(PssRoundTripTests, DifferentSaltsProduceDifferentEM) {
 
 TEST_F(PssRoundTripTests, Large3072BitKey) {
     const std::array<uint8_t, 16> msg = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), 3072)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_TRUE(pss_round_trip(msg.data(), msg.size(), rsa_3072_bits));
 }
 
 
@@ -101,32 +101,32 @@ static std::vector<uint8_t> make_valid_pss_em(
 
 TEST_F(PssVerifyErrorTests, CorruptedTrailingByte) {
     const std::array<uint8_t, 4> msg = {0x01, 0x02, 0x03, 0x04};
-    auto em = make_valid_pss_em(msg.data(), msg.size(), 1024); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto em = make_valid_pss_em(msg.data(), msg.size(), rsa_1024_bits);
     em.back() = 0x00U;  // must be 0xBC
-    EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), 1024)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), rsa_1024_bits));
 }
 
 TEST_F(PssVerifyErrorTests, CorruptedH) {
     const std::array<uint8_t, 4> msg = {0x01, 0x02, 0x03, 0x04};
-    auto em = make_valid_pss_em(msg.data(), msg.size(), 1024); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto em = make_valid_pss_em(msg.data(), msg.size(), rsa_1024_bits);
     // H occupies em[em_len - hLen - 1 .. em_len - 2].
     const std::size_t h_start = em.size() - arm_asm::detail::oaep_hash_len - 1U;
     em[h_start] ^= 0xFFU;
-    EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), 1024)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), rsa_1024_bits));
 }
 
 TEST_F(PssVerifyErrorTests, CorruptedMaskedDB) {
     const std::array<uint8_t, 4> msg = {0x01, 0x02, 0x03, 0x04};
-    auto em = make_valid_pss_em(msg.data(), msg.size(), 1024); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto em = make_valid_pss_em(msg.data(), msg.size(), rsa_1024_bits);
     em[em.size() / 2U] ^= 0xA5U;  // flip a byte in maskedDB
-    EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), 1024)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    EXPECT_FALSE(arm_asm::detail::pss_verify(msg.data(), msg.size(), em.data(), rsa_1024_bits));
 }
 
 TEST_F(PssVerifyErrorTests, WrongMessage) {
     const std::array<uint8_t, 4> msg1 = {0x01, 0x02, 0x03, 0x04};
     const std::array<uint8_t, 4> msg2 = {0x01, 0x02, 0x03, 0x05};  // one byte different
-    auto em = make_valid_pss_em(msg1.data(), msg1.size(), 1024); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    EXPECT_FALSE(arm_asm::detail::pss_verify(msg2.data(), msg2.size(), em.data(), 1024)); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    auto em = make_valid_pss_em(msg1.data(), msg1.size(), rsa_1024_bits);
+    EXPECT_FALSE(arm_asm::detail::pss_verify(msg2.data(), msg2.size(), em.data(), rsa_1024_bits));
 }
 
 
@@ -141,7 +141,7 @@ protected:
 
         psa_key_attributes_t attrs = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&attrs, PSA_KEY_TYPE_RSA_KEY_PAIR);
-        psa_set_key_bits(&attrs, 1024); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        psa_set_key_bits(&attrs, rsa_1024_bits);
         psa_set_key_usage_flags(&attrs,
             PSA_KEY_USAGE_SIGN_MESSAGE | PSA_KEY_USAGE_VERIFY_MESSAGE | PSA_KEY_USAGE_EXPORT);
         psa_set_key_algorithm(&attrs, PSA_ALG_RSA_PSS(PSA_ALG_SHA_384));

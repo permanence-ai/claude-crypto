@@ -217,7 +217,7 @@ TEST_F(CrossProviderAesGcmTests, EncryptParity) {
     RealPsaBackend::KeyId psa_id = RealPsaBackend::null_key_id();
     ASSERT_EQ(RealPsaBackend::import_key(&psa_attrs, key.data(), key.size(), &psa_id),
               RealPsaBackend::ok);
-    std::array<uint8_t, 64 + 16> psa_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 64 + aes_gcm_tag_bytes> psa_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t psa_ct_len = 0;
     ASSERT_EQ(RealPsaBackend::aead_encrypt(
         psa_id, RealPsaBackend::alg_aes_gcm(),
@@ -232,7 +232,7 @@ TEST_F(CrossProviderAesGcmTests, EncryptParity) {
     NativeAsmBackend::KeyId arm_id = NativeAsmBackend::null_key_id();
     ASSERT_EQ(NativeAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
               NativeAsmBackend::ok);
-    std::array<uint8_t, 64 + 16> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 64 + aes_gcm_tag_bytes> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_ct_len = 0;
     ASSERT_EQ(NativeAsmBackend::aead_encrypt(
         arm_id, NativeAsmBackend::alg_aes_gcm(),
@@ -256,7 +256,7 @@ TEST_F(CrossProviderAesGcmTests, DecryptParity) {
     RealPsaBackend::KeyId psa_enc_id = RealPsaBackend::null_key_id();
     ASSERT_EQ(RealPsaBackend::import_key(&psa_enc_attrs, key.data(), key.size(), &psa_enc_id),
               RealPsaBackend::ok);
-    std::array<uint8_t, 48 + 16> ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 48 + aes_gcm_tag_bytes> ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t ct_len = 0;
     ASSERT_EQ(RealPsaBackend::aead_encrypt(
         psa_enc_id, RealPsaBackend::alg_aes_gcm(),
@@ -314,7 +314,7 @@ TEST_F(CrossProviderChaCha20Tests, EncryptParity) {
     RealPsaBackend::KeyId psa_id = RealPsaBackend::null_key_id();
     ASSERT_EQ(RealPsaBackend::import_key(&psa_attrs, key.data(), key.size(), &psa_id),
               RealPsaBackend::ok);
-    std::array<uint8_t, 64 + 16> psa_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 64 + chacha20_poly1305_tag_bytes> psa_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t psa_ct_len = 0;
     ASSERT_EQ(RealPsaBackend::aead_encrypt(
         psa_id, RealPsaBackend::alg_chacha20_poly1305(),
@@ -328,7 +328,7 @@ TEST_F(CrossProviderChaCha20Tests, EncryptParity) {
     NativeAsmBackend::KeyId arm_id = NativeAsmBackend::null_key_id();
     ASSERT_EQ(NativeAsmBackend::import_key(&arm_attrs, key.data(), key.size(), &arm_id),
               NativeAsmBackend::ok);
-    std::array<uint8_t, 64 + 16> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 64 + chacha20_poly1305_tag_bytes> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_ct_len = 0;
     ASSERT_EQ(NativeAsmBackend::aead_encrypt(
         arm_id, NativeAsmBackend::alg_chacha20_poly1305(),
@@ -352,7 +352,7 @@ TEST_F(CrossProviderChaCha20Tests, DecryptParity) {
     RealPsaBackend::KeyId psa_enc_id = RealPsaBackend::null_key_id();
     ASSERT_EQ(RealPsaBackend::import_key(&psa_enc_attrs, key.data(), key.size(), &psa_enc_id),
               RealPsaBackend::ok);
-    std::array<uint8_t, 80 + 16> ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 80 + chacha20_poly1305_tag_bytes> ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t ct_len = 0;
     ASSERT_EQ(RealPsaBackend::aead_encrypt(
         psa_enc_id, RealPsaBackend::alg_chacha20_poly1305(),
@@ -482,7 +482,7 @@ TEST_F(CrossProviderHkdfTests, HkdfSha384Parity) {
     const auto ikm_arr  = make_test_bytes<96>(0x10U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const auto salt_arr = make_test_bytes<13>(0x20U);
     const auto info_arr = make_test_bytes<10>(0x30U);
-    constexpr std::size_t output_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t output_len = sha384_digest_bytes;
 
     // Helper lambda: run HKDF through one provider, return 48-byte output.
     auto run_hkdf = [&]<typename Provider>() -> std::array<uint8_t, output_len> {
@@ -531,7 +531,7 @@ TEST_F(CrossProviderHkdfTests, HkdfExpandParity) {
     // Run HKDF-Expand (no salt/extract step) through both providers with the same PRK and info.
     const auto prk_arr  = make_test_bytes<48>(0x40U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const auto info_arr = make_test_bytes<12>(0x50U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    constexpr std::size_t output_len = 48; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    constexpr std::size_t output_len = sha384_digest_bytes;
 
     auto run_hkdf_expand = [&]<typename Provider>() -> std::array<uint8_t, output_len> {
         auto attrs = Provider::make_hkdf_expand_derive_attrs(prk_arr.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -584,7 +584,7 @@ TEST_F(CrossProviderAesGcmTests, CrossDecryptArmCtWithPsa) {
     NativeAsmBackend::KeyId arm_enc_id = NativeAsmBackend::null_key_id();
     ASSERT_EQ(NativeAsmBackend::import_key(&arm_enc_attrs, key.data(), key.size(), &arm_enc_id),
               NativeAsmBackend::ok);
-    std::array<uint8_t, 48 + 16> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<uint8_t, 48 + aes_gcm_tag_bytes> arm_ct{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t arm_ct_len = 0;
     ASSERT_EQ(NativeAsmBackend::aead_encrypt(
         arm_enc_id, NativeAsmBackend::alg_aes_gcm(),
@@ -695,9 +695,9 @@ static void run_ecdh_parity_test(const char* label) {
     expect_equal_outputs(arm_ss, psa_ss, label);
 }
 
-TEST_F(CrossProviderEcdhTests, EcdhParity_P256) { run_ecdh_parity_test<256>("ECDH-P256"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-TEST_F(CrossProviderEcdhTests, EcdhParity_P384) { run_ecdh_parity_test<384>("ECDH-P384"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-TEST_F(CrossProviderEcdhTests, EcdhParity_P521) { run_ecdh_parity_test<521>("ECDH-P521"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+TEST_F(CrossProviderEcdhTests, EcdhParity_P256) { run_ecdh_parity_test<p256_bits>("ECDH-P256"); }
+TEST_F(CrossProviderEcdhTests, EcdhParity_P384) { run_ecdh_parity_test<p384_bits>("ECDH-P384"); }
+TEST_F(CrossProviderEcdhTests, EcdhParity_P521) { run_ecdh_parity_test<p521_bits>("ECDH-P521"); }
 
 
 // ---------------------------------------------------------------------------
@@ -812,7 +812,7 @@ static void run_ecdsa_cross_verify_test(const char* label) {
 }
 
 // Only P384: both providers use SHA-384 for ECDSA on this curve.
-TEST_F(CrossProviderEcdsaTests, EcdsaCrossVerify_P384) { run_ecdsa_cross_verify_test<384>("ECDSA-P384"); }  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+TEST_F(CrossProviderEcdsaTests, EcdsaCrossVerify_P384) { run_ecdsa_cross_verify_test<p384_bits>("ECDSA-P384"); }
 
 
 // ---------------------------------------------------------------------------
