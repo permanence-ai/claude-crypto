@@ -74,9 +74,9 @@ inline void register_ecdsa(CLI::App& app)
         else if (curve_val == "p521") { curve = EcCurve::P521; }
         else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
-        const auto key_buf = read_input(sign_key->as<std::string>());
+        const auto key_buf = read_input_bounded(sign_key->as<std::string>(), cli_key_max_bytes);
         if (!key_buf.has_value()) { die(key_buf.error()); }
-        const auto msg_buf = read_input(sign_input->as<std::string>());
+        const auto msg_buf = read_input_bounded(sign_input->as<std::string>(), cli_message_max_bytes);
         if (!msg_buf.has_value()) { die(msg_buf.error()); }
 
         EccKeyPair kp{
@@ -115,11 +115,11 @@ inline void register_ecdsa(CLI::App& app)
         else if (curve_val == "p521") { curve = EcCurve::P521; }
         else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
-        const auto key_buf = read_input(verify_key->as<std::string>());
+        const auto key_buf = read_input_bounded(verify_key->as<std::string>(), cli_key_max_bytes);
         if (!key_buf.has_value()) { die(key_buf.error()); }
-        const auto msg_buf = read_input(verify_input->as<std::string>());
+        const auto msg_buf = read_input_bounded(verify_input->as<std::string>(), cli_message_max_bytes);
         if (!msg_buf.has_value()) { die(msg_buf.error()); }
-        const auto sig_buf = read_input(verify_sig->as<std::string>());
+        const auto sig_buf = read_input_bounded(verify_sig->as<std::string>(), cli_signature_max_bytes);
         if (!sig_buf.has_value()) { die(sig_buf.error()); }
 
         EcPublicKey pub_key{.public_key_der = SecureBuffer(key_buf->size())};

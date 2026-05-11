@@ -38,16 +38,16 @@ inline void register_mac(CLI::App& app)
         const std::string key_val   = key->as<std::string>();
         const std::string input_val = input->as<std::string>();
 
-        const auto key_buf = read_input(key_val);
+        const auto key_buf = read_input_bounded(key_val, cli_key_max_bytes);
         if (!key_buf.has_value()) { die(key_buf.error()); }
-        const auto msg_buf = read_input(input_val);
+        const auto msg_buf = read_input_bounded(input_val, cli_message_max_bytes);
         if (!msg_buf.has_value()) { die(msg_buf.error()); }
 
         const bool verify_mode = (verify->count() > 0U);
 
         const auto run = [&]<ShaVariant V>() {
             if (verify_mode) {
-                const auto mac_buf = read_input(verify->as<std::string>());
+                const auto mac_buf = read_input_bounded(verify->as<std::string>(), cli_signature_max_bytes);
                 if (!mac_buf.has_value()) { die(mac_buf.error()); }
 
                 if (mac_buf->size() != sha_output_size(V)) {

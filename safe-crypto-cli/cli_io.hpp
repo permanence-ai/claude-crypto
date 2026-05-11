@@ -24,7 +24,78 @@
 
 namespace scli {
 
-// Read input specified by `spec`:
+// Input size caps for early rejection before the crypto library validates.
+// These are generous upper bounds — well above any real key, signature, or
+// reasonable message size for this CLI tool.
+constexpr std::size_t cli_key_max_bytes       =  64U * 1024U;             // 64 KiB
+constexpr std::size_t cli_signature_max_bytes =  64U * 1024U;             // 64 KiB
+constexpr std::size_t cli_message_max_bytes   =  64U * 1024U * 1024U;     // 64 MiB
+
+
+// Read input specified by `spec`, rejecting inputs larger than `max_bytes`:
+//   "base64:<data>"  — decode inline base64 from the command line
+//   "-"              — read all of stdin as raw binary
+//   <path>           — read file as raw binary
+[[nodiscard]]
+inline auto read_input_bounded(std::string_view spec, std::size_t max_bytes)
+    -> std::expected<SecureBuffer, std::string>
+{
+    if (spec.starts_with("base64:")) {
+        const std::string_view b64 = spec.substr(7U);
+        // Each 4 base64 chars decode to at most 3 bytes.
+        const std::size_t decoded_bound = (b64.size() / 4U) * 3U;
+        if (decoded_bound > max_bytes) {
+            return std::unexpected("input exceeds maximum allowed size of " +
+                                   std::to_string(max_bytes) + " bytes");
+        }
+        const auto decoded = base64_decode(b64);
+        if (!decoded.has_value()) {
+            return std::unexpected(std::string("invalid base64 in input"));
+        }
+        if (decoded->size() > max_bytes) {
+            return std::unexpected("input exceeds maximum allowed size of " +
+                                   std::to_string(max_bytes) + " bytes");
+        }
+        SecureBuffer buf(decoded->size());
+        std::copy(decoded->begin(), decoded->end(), buf.data());
+        return buf;
+    }
+
+    std::vector<char> raw;
+    raw.reserve(max_bytes + 1U);
+
+    auto read_stream = [&](std::istream& in) -> std::expected<void, std::string> {
+        char ch{};
+        while (in.get(ch)) {
+            raw.push_back(ch);
+            if (raw.size() > max_bytes) {
+                return std::unexpected("input exceeds maximum allowed size of " +
+                                       std::to_string(max_bytes) + " bytes");
+            }
+        }
+        return {};
+    };
+
+    if (spec == "-") {
+        const auto r = read_stream(std::cin);
+        if (!r.has_value()) { return std::unexpected(r.error()); }
+    } else {
+        std::ifstream file(std::string(spec), std::ios::binary);
+        if (!file) {
+            return std::unexpected("cannot open input file: " + std::string(spec));
+        }
+        const auto r = read_stream(file);
+        if (!r.has_value()) { return std::unexpected(r.error()); }
+    }
+
+    SecureBuffer buf(raw.size());
+    std::copy(raw.begin(), raw.end(), buf.data());
+    return buf;
+}
+
+
+// Read input specified by `spec` (unbounded — use only where the operation
+// naturally bounds the size, e.g., the library will reject oversized inputs).
 //   "base64:<data>"  — decode inline base64 from the command line
 //   "-"              — read all of stdin as raw binary
 //   <path>           — read file as raw binary

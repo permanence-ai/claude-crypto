@@ -77,6 +77,10 @@ inline auto base64_decode(std::string_view input) -> std::optional<std::vector<C
         input.remove_suffix(1);
     }
 
+    // Reject inputs that would cause excessively large allocations.
+    constexpr std::size_t k_max_base64_input = 128U * 1024U * 1024U;
+    if (input.size() > k_max_base64_input) { return std::nullopt; }
+
     if (input.size() % 4U != 0U) { return std::nullopt; }
 
     std::vector<CryptoByte> out;

@@ -437,4 +437,54 @@ TEST_F(IoTests, Ecdsa_Base64Key_FileInput_FileOutput_RoundTrip) {
     EXPECT_EQ(verify.exit_code, 0);
 }
 
+// ─── bounded input ────────────────────────────────────────────────────────────
+
+// Helper: write `count` bytes (all zeros) to a temp file.
+static auto write_zero_file(const std::string& path, std::size_t count) -> void {
+    std::ofstream f(path, std::ios::binary);
+    std::vector<char> zeros(count, '\0');
+    f.write(zeros.data(), static_cast<std::streamsize>(count));
+}
+
+// Keys are capped at 64 KiB (65536 bytes).  A 65537-byte "key" file must be rejected.
+TEST_F(IoTests, BoundedInput_OversizedKeyFile_DigestMacRejectsWithNonZero) {
+    const std::string big_key = tmp("io_bounded_key.bin");
+    write_zero_file(big_key, 65537U);
+
+    // mac --key with a 65537-byte file must fail.
+    const auto r = run_scli(scli(),
+        "mac --algo sha256"
+        " --key " + big_key +
+        " --input base64:" + std::string(kHelloB64));
+    EXPECT_NE(r.exit_code, 0);
+}
+
+// Messages are capped at 64 MiB (67108864 bytes).  A 64 MiB + 1 byte message must be rejected.
+// NOTE: This test creates a 64 MiB + 1 byte file, which is large but within reason for a unit
+// test.  If the test environment is constrained, remove this test or reduce the size.
+TEST_F(IoTests, BoundedInput_OversizedMessageFile_DigestRejectsWithNonZero) {
+    const std::string big_msg = tmp("io_bounded_msg.bin");
+    write_zero_file(big_msg, 64U * 1024U * 1024U + 1U);
+
+    const auto r = run_scli(scli(),
+        "digest --algo sha256 --input " + big_msg);
+    EXPECT_NE(r.exit_code, 0);
+}
+
+// A base64 string encoding more than 64 KiB must be rejected for key inputs.
+TEST_F(IoTests, BoundedInput_OversizedBase64Key_MacRejectsWithNonZero) {
+    // 65537 bytes of zeros → base64 string is well over 64 KiB encoded.
+    // Use a simple "A" repeated string that exceeds the 4/3 ratio threshold.
+    // ceil(65537 / 3) * 4 = 87384 base64 chars.  We use 87384 'A's (valid base64, decodes to ~65537 bytes).
+    // Pad to a multiple of 4.
+    const std::size_t encoded_len = ((65537U + 2U) / 3U) * 4U;
+    std::string big_b64(encoded_len, 'A');
+
+    const auto r = run_scli(scli(),
+        "mac --algo sha256"
+        " --key base64:" + big_b64 +
+        " --input base64:" + std::string(kHelloB64));
+    EXPECT_NE(r.exit_code, 0);
+}
+
 }  // namespace scli_test

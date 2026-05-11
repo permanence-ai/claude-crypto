@@ -26,12 +26,12 @@ inline auto parse_rsa_bits(const std::string& bits_str) -> RsaKeyBits
     die("unknown --bits '" + bits_str + "'; valid: 3072 4096");
 }
 
-// Build an optional<SecureBuffer> from a CLI option (empty → nullopt).
+// Build an optional<SecureBuffer> from a CLI option (empty → nullopt), bounded.
 [[nodiscard]]
-inline auto read_optional_input(CLI::Option* opt) -> std::optional<SecureBuffer>
+inline auto read_optional_input(CLI::Option* opt, std::size_t max_bytes) -> std::optional<SecureBuffer>
 {
     if (opt->count() == 0U) { return std::nullopt; }
-    auto buf = read_input(opt->as<std::string>());
+    auto buf = read_input_bounded(opt->as<std::string>(), max_bytes);
     if (!buf.has_value()) { die(buf.error()); }
     return std::move(*buf);
 }
@@ -87,11 +87,11 @@ inline void register_rsa(CLI::App& app)
     enc_label->type_name("SPEC");
 
     enc->callback([enc, enc_bits, enc_key, enc_input, enc_output, enc_label]() {
-        auto pub_buf = read_input(enc_key->as<std::string>());
+        auto pub_buf = read_input_bounded(enc_key->as<std::string>(), cli_key_max_bytes);
         if (!pub_buf.has_value()) { die(pub_buf.error()); }
-        auto pt_buf = read_input(enc_input->as<std::string>());
+        auto pt_buf = read_input_bounded(enc_input->as<std::string>(), cli_message_max_bytes);
         if (!pt_buf.has_value()) { die(pt_buf.error()); }
-        auto label_opt = read_optional_input(enc_label);
+        auto label_opt = read_optional_input(enc_label, cli_message_max_bytes);
         const std::string out_spec = enc_output->count() > 0U ? enc_output->as<std::string>() : "";
 
         const auto run = [&]<RsaKeyBits KB>() {
@@ -126,11 +126,11 @@ inline void register_rsa(CLI::App& app)
     dec_label->type_name("SPEC");
 
     dec->callback([dec, dec_bits, dec_key, dec_input, dec_output, dec_label]() {
-        auto priv_buf = read_input(dec_key->as<std::string>());
+        auto priv_buf = read_input_bounded(dec_key->as<std::string>(), cli_key_max_bytes);
         if (!priv_buf.has_value()) { die(priv_buf.error()); }
-        auto ct_buf = read_input(dec_input->as<std::string>());
+        auto ct_buf = read_input_bounded(dec_input->as<std::string>(), cli_message_max_bytes);
         if (!ct_buf.has_value()) { die(ct_buf.error()); }
-        auto label_opt = read_optional_input(dec_label);
+        auto label_opt = read_optional_input(dec_label, cli_message_max_bytes);
         const std::string out_spec = dec_output->count() > 0U ? dec_output->as<std::string>() : "";
 
         const auto run = [&]<RsaKeyBits KB>() {
@@ -166,9 +166,9 @@ inline void register_rsa(CLI::App& app)
     sign_output->type_name("SPEC");
 
     sign->callback([sign, sign_bits, sign_key, sign_input, sign_output]() {
-        auto priv_buf = read_input(sign_key->as<std::string>());
+        auto priv_buf = read_input_bounded(sign_key->as<std::string>(), cli_key_max_bytes);
         if (!priv_buf.has_value()) { die(priv_buf.error()); }
-        auto msg_buf = read_input(sign_input->as<std::string>());
+        auto msg_buf = read_input_bounded(sign_input->as<std::string>(), cli_message_max_bytes);
         if (!msg_buf.has_value()) { die(msg_buf.error()); }
         const std::string out_spec = sign_output->count() > 0U ? sign_output->as<std::string>() : "";
 
@@ -205,11 +205,11 @@ inline void register_rsa(CLI::App& app)
     verify_sig->type_name("SPEC");
 
     verify->callback([verify, verify_bits, verify_key, verify_input, verify_sig]() {
-        auto pub_buf = read_input(verify_key->as<std::string>());
+        auto pub_buf = read_input_bounded(verify_key->as<std::string>(), cli_key_max_bytes);
         if (!pub_buf.has_value()) { die(pub_buf.error()); }
-        auto msg_buf = read_input(verify_input->as<std::string>());
+        auto msg_buf = read_input_bounded(verify_input->as<std::string>(), cli_message_max_bytes);
         if (!msg_buf.has_value()) { die(msg_buf.error()); }
-        auto sig_buf = read_input(verify_sig->as<std::string>());
+        auto sig_buf = read_input_bounded(verify_sig->as<std::string>(), cli_signature_max_bytes);
         if (!sig_buf.has_value()) { die(sig_buf.error()); }
 
         const auto run = [&]<RsaKeyBits KB>() {

@@ -79,7 +79,7 @@ inline void register_ml_kem(CLI::App& app)
         const std::string ct_spec      = encap_out_ct->count()     ? encap_out_ct->as<std::string>()     : "base64";
         const std::string secret_spec  = encap_out_secret->count() ? encap_out_secret->as<std::string>() : "base64";
 
-        auto key_buf = read_input(key_spec);
+        auto key_buf = read_input_bounded(key_spec, cli_key_max_bytes);
         if (!key_buf) { die("failed to read public key: " + key_buf.error()); }
 
         auto run = [&]<MlKemVariant V>() {
@@ -120,9 +120,9 @@ inline void register_ml_kem(CLI::App& app)
         const std::string ct_spec     = decap_ct->as<std::string>();
         const std::string out_spec    = decap_output->count() ? decap_output->as<std::string>() : "base64";
 
-        auto key_buf = read_input(key_spec);
+        auto key_buf = read_input_bounded(key_spec, cli_key_max_bytes);
         if (!key_buf) { die("failed to read private key: " + key_buf.error()); }
-        auto ct_buf = read_input(ct_spec);
+        auto ct_buf = read_input_bounded(ct_spec, cli_key_max_bytes);
         if (!ct_buf) { die("failed to read ciphertext: " + ct_buf.error()); }
 
         auto run = [&]<MlKemVariant V>() {

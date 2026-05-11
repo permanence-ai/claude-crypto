@@ -32,7 +32,7 @@ inline void register_digest(CLI::App& app)
         const std::string input_val  = input->as<std::string>();
         const std::string output_val = output->count() > 0U ? output->as<std::string>() : "";
 
-        const auto data = read_input(input_val);
+        const auto data = read_input_bounded(input_val, cli_message_max_bytes);
         if (!data.has_value()) { die(data.error()); }
 
         // Dispatch to the correct SHA variant and write output.

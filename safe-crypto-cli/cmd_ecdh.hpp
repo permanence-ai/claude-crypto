@@ -74,9 +74,9 @@ inline void register_ecdh(CLI::App& app)
         else if (curve_val == "p521") { curve = EcCurve::P521; }
         else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
-        const auto key_buf  = read_input(compute_key->as<std::string>());
+        const auto key_buf  = read_input_bounded(compute_key->as<std::string>(), cli_key_max_bytes);
         if (!key_buf.has_value())  { die(key_buf.error()); }
-        const auto peer_buf = read_input(compute_peer->as<std::string>());
+        const auto peer_buf = read_input_bounded(compute_peer->as<std::string>(), cli_key_max_bytes);
         if (!peer_buf.has_value()) { die(peer_buf.error()); }
 
         EccKeyPair our_kp{

@@ -558,6 +558,16 @@ All subcommands share the same input/output model:
 
 **Secret vs. public file outputs.** Options that write secret material (private keys, shared secrets, generated IKM, and derived keys) use a hardened writer: the output file is created with mode `0600` (owner read/write only), will not follow symlinks, and will fail if the path already exists. Options that write public material (public keys, ciphertexts, signatures, digests) use the standard writer, which respects the process umask and will overwrite existing files.
 
+**Bounded input.** All input paths (file, stdin, `base64:`) are read into memory with operation-specific size caps to prevent accidental or adversarial exhaustion of process memory:
+
+| Input role | Maximum size |
+|---|---|
+| Key / PRK / IKM / salt / info | 64 KiB |
+| Signature / MAC | 64 KiB |
+| Message / plaintext / ciphertext / AAD | 64 MiB |
+
+Inputs that exceed the cap are rejected immediately with a non-zero exit code before any cryptographic work is performed.
+
 ### Subcommands
 
 #### `digest` — Compute a cryptographic hash
