@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include <iostream>
+
 #include <CLI/CLI.hpp>
 
 #include "cli_error.hpp"
@@ -32,6 +34,11 @@ auto main(int argc, char** argv) -> int  // NOLINT(cppcoreguidelines-avoid-c-arr
     scli::register_random(app);
     scli::register_rsa(app);
     scli::register_slh_dsa(app);
+
+    if (argc == 1) {
+        std::cout << app.help();
+        return 0;
+    }
 
     CLI11_PARSE(app, argc, argv);
     return 0;

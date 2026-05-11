@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <climits>
 #include <cstddef>
 #include <span>
 
@@ -100,6 +101,59 @@ TEST_F(KdfTests, ExpandKeyWithInfoProducesExpectedSize) {
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->size(), OUTPUT_LENGTH);
+}
+
+
+TEST_F(KdfTests, DeriveKeyLargeOutputWithAdequateIkmSucceeds) {
+    // Use output_length = 128 so that the required IKM is exactly 256 bytes —
+    // the smallest raw-key cap across all providers (OpenSSL: 256 bytes).
+    // This confirms our output-length guard does not false-reject legal inputs.
+    constexpr std::size_t kOutputLen = 128;
+    auto ikm = make_random_secure_buffer(kOutputLen * 2);
+
+    const auto result = derive_key(kOutputLen,
+                                   std::optional<SecureBuffer>(std::move(ikm)));
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->size(), kOutputLen);
+}
+
+
+TEST_F(KdfTests, DeriveKeyAboveMaxOutputLengthFails) {
+    const auto result = derive_key(hkdf_sha384_max_output_bytes + 1);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+
+TEST_F(KdfTests, DeriveKeyOverflowSizeFails) {
+    const auto result = derive_key(SIZE_MAX);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+
+TEST_F(KdfTests, ExpandKeyAboveMaxOutputLengthFails) {
+    constexpr std::size_t PRK_SIZE = 48;
+    const auto prk = make_random_secure_buffer(PRK_SIZE);
+
+    const auto result = expand_key(hkdf_sha384_max_output_bytes + 1, prk);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+
+TEST_F(KdfTests, ExpandKeyOverflowSizeFails) {
+    constexpr std::size_t PRK_SIZE = 48;
+    const auto prk = make_random_secure_buffer(PRK_SIZE);
+
+    const auto result = expand_key(SIZE_MAX, prk);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
 }
 
 

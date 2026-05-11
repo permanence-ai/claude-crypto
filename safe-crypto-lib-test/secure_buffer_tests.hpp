@@ -63,6 +63,52 @@ TEST_F(SecureBufferTests, FixedIndexOperatorConstReadsCorrectElement) {
     EXPECT_EQ(cbuf[1], byte_b);
 }
 
+TEST_F(SecureBufferTests, AtAccessorReadsCorrectElement) {
+    constexpr CryptoByte byte_a = 0x12;
+    constexpr CryptoByte byte_b = 0x34;
+    SecureBuffer buf(3);
+    buf.at(0) = byte_a;
+    buf.at(2) = byte_b;
+
+    EXPECT_EQ(buf.at(0), byte_a);
+    EXPECT_EQ(buf.at(2), byte_b);
+}
+
+TEST_F(SecureBufferTests, AtAccessorConstReadsCorrectElement) {
+    constexpr CryptoByte byte_a = 0x56;
+    constexpr CryptoByte byte_b = 0x78;
+    SecureBuffer buf(3);
+    buf[0] = byte_a;
+    buf[2] = byte_b;
+
+    const SecureBuffer& cbuf = buf;
+    EXPECT_EQ(cbuf.at(0), byte_a);
+    EXPECT_EQ(cbuf.at(2), byte_b);
+}
+
+TEST_F(SecureBufferTests, FixedAtAccessorReadsCorrectElement) {
+    constexpr CryptoByte byte_a = 0x9A;
+    constexpr CryptoByte byte_b = 0xBC;
+    FixedSecureBuffer<4> buf;
+    buf.at(0) = byte_a;
+    buf.at(3) = byte_b;
+
+    EXPECT_EQ(buf.at(0), byte_a);
+    EXPECT_EQ(buf.at(3), byte_b);
+}
+
+TEST_F(SecureBufferTests, FixedAtAccessorConstReadsCorrectElement) {
+    constexpr CryptoByte byte_a = 0xDE;
+    constexpr CryptoByte byte_b = 0xF0;
+    FixedSecureBuffer<2> buf;
+    buf[0] = byte_a;
+    buf[1] = byte_b;
+
+    const FixedSecureBuffer<2>& cbuf = buf;
+    EXPECT_EQ(cbuf.at(0), byte_a);
+    EXPECT_EQ(cbuf.at(1), byte_b);
+}
+
 
 TEST_F(SecureBufferTests, IterateMutableSecureBuffer) {
     SecureBuffer buf(3);

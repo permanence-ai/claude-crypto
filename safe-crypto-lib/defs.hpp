@@ -81,6 +81,9 @@ constexpr unsigned int miller_rabin_rounds_for(std::size_t prime_bits) noexcept 
     return 27U;  // < 308 bits (small primes in tests)
 }
 
+// HKDF-SHA-384 maximum output length: 255 * HashLen (RFC 5869 §2.3, HashLen=48)
+constexpr std::size_t hkdf_sha384_max_output_bytes = 255U * sha384_digest_bytes;
+
 // Benchmark payload sizes
 constexpr std::size_t bench_size_small  =     64;
 constexpr std::size_t bench_size_medium =   1024;
