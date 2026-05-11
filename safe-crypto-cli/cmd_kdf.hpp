@@ -41,6 +41,10 @@ inline void register_kdf(CLI::App& app)
     derive->callback([derive, drv_length, drv_ikm, drv_salt, drv_info, drv_output, drv_out_ikm]() {
         const std::size_t out_len = drv_length->as<std::size_t>();
         if (out_len == 0) { die("--length must be greater than zero"); }
+        if (out_len > hkdf_sha384_max_output_bytes) {
+            die("--length exceeds HKDF-SHA-384 maximum (" +
+                std::to_string(hkdf_sha384_max_output_bytes) + " bytes)");
+        }
 
         // Build optional IKM.
         std::optional<SecureBuffer> ikm_opt;
@@ -102,6 +106,10 @@ inline void register_kdf(CLI::App& app)
     expand->callback([expand, exp_length, exp_prk, exp_info, exp_output]() {
         const std::size_t out_len = exp_length->as<std::size_t>();
         if (out_len == 0) { die("--length must be greater than zero"); }
+        if (out_len > hkdf_sha384_max_output_bytes) {
+            die("--length exceeds HKDF-SHA-384 maximum (" +
+                std::to_string(hkdf_sha384_max_output_bytes) + " bytes)");
+        }
 
         auto prk_buf = read_input(exp_prk->as<std::string>());
         if (!prk_buf.has_value()) { die(prk_buf.error()); }

@@ -236,4 +236,16 @@ TEST_F(KdfTests, ExpandPrkWrongLengthExitsNonZeroWithHelpfulMessage) {
     EXPECT_NE(r.stderr_text.find("48"), std::string::npos);
 }
 
+TEST_F(KdfTests, DeriveAboveMaxOutputLengthExitsNonZero) {
+    const auto r = run_scli(scli(),
+        "kdf derive --length 12241 --ikm base64:" + std::string(kZero64B64));
+    EXPECT_NE(r.exit_code, 0);
+}
+
+TEST_F(KdfTests, ExpandAboveMaxOutputLengthExitsNonZero) {
+    const auto r = run_scli(scli(),
+        "kdf expand --length 12241 --prk base64:" + std::string(kZero48B64));
+    EXPECT_NE(r.exit_code, 0);
+}
+
 }  // namespace scli_test

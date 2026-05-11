@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <expected>
 #include <optional>
+#include <string>
 
 #include "asymmetric.hpp"
 #include "contracts.hpp"
@@ -25,6 +26,13 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     SAFE_CRYPTO_PRE(output_length > 0)
     -> std::expected<SecureBuffer, CryptoError>
 {
+    if (output_length > hkdf_sha384_max_output_bytes) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "output_length exceeds HKDF-SHA-384 maximum (" +
+            std::to_string(hkdf_sha384_max_output_bytes) + " bytes)"));
+    }
+
     if (ikm.has_value() && ikm->size() < output_length * 2) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InvalidArgument,
@@ -124,6 +132,13 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     SAFE_CRYPTO_PRE(output_length > 0)
     -> std::expected<SecureBuffer, CryptoError>
 {
+    if (output_length > hkdf_sha384_max_output_bytes) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "output_length exceeds HKDF-SHA-384 maximum (" +
+            std::to_string(hkdf_sha384_max_output_bytes) + " bytes)"));
+    }
+
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
