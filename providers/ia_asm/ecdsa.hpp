@@ -55,7 +55,9 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
 
     FixedSecureBuffer<66> K{};
 
-    FixedSecureBuffer<66 + 1 + 66 + 64> msg_buf{};
+    // bits2octets always writes qlen bytes (zero-padded when hlen < qlen).
+    // Max: qlen(66) + 1 + qlen(66) + qlen(66) = 199
+    FixedSecureBuffer<66 + 1 + 66 + 66> msg_buf{};
 
     for (int round = 0; round < 2; ++round) {
         std::size_t off = 0;
