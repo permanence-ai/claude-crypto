@@ -88,7 +88,7 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
     -> std::expected<SigmaSessionKeys, CryptoError>
 {
     constexpr std::size_t total_output = sigma_mac_key_size_bytes + sigma_session_key_size_bytes;
-    constexpr std::array<CryptoByte, 5> info = {'s','i','g','m','a'};
+    constexpr ByteArray<5> info = {'s','i','g','m','a'};
 
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
