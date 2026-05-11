@@ -504,6 +504,35 @@ TEST_F(IoTests, BoundedInput_ExactCapBase64Key_NotRejectedBySizeGuard) {
 }
 
 
+// ─── pipe-drain stress tests ──────────────────────────────────────────────────
+// These tests verify that run_scli drains stdout and stderr concurrently so
+// neither pipe fills and deadlocks when the child writes more than one pipe
+// buffer (~65 KiB on macOS/Linux) of output.
+
+// Write 128 KiB of random bytes to stdout (raw binary via --output -).
+// The output exceeds the typical pipe buffer; sequential draining would deadlock.
+TEST_F(IoTests, PipeDrain_LargeStdoutDoesNotDeadlock) {
+    constexpr std::size_t kLen = 128U * 1024U;  // 2× typical pipe buffer
+    const auto r = run_scli(scli(), {"random", "--length", std::to_string(kLen), "--output", "-"});
+    EXPECT_EQ(r.exit_code, 0);
+    EXPECT_EQ(r.stdout_text.size(), kLen);
+}
+
+// Pass a key file larger than 64 KiB; the CLI writes a long error to stderr.
+// The stdout is empty, confirming stderr-only output is captured correctly.
+TEST_F(IoTests, PipeDrain_LargeStderrDoesNotDeadlock) {
+    // Build a base64 string that decodes to 128 KiB — well above cli_key_max_bytes.
+    // Each 'A' group of 4 decodes to 3 zero bytes; 128*1024/3 = 43691 groups → 131073 bytes.
+    const std::string big_b64(43692U * 4U, 'A');  // decodes to ~131072 bytes
+    const auto r = run_scli(scli(),
+        {"mac", "--algo", "sha256",
+         "--key", "base64:" + big_b64,
+         "--input", "base64:" + std::string(kHelloB64)});
+    EXPECT_NE(r.exit_code, 0);
+    EXPECT_NE(r.stderr_text.find("exceeds"), std::string::npos);
+}
+
+
 // ─── space-in-path regression ─────────────────────────────────────────────────
 
 TEST_F(IoTests, SpaceInPath_DigestSucceeds) {

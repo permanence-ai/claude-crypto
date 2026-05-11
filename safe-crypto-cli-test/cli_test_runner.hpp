@@ -13,6 +13,7 @@
 #include <iterator>
 #include <string>
 #include <sys/wait.h>
+#include <poll.h>
 #include <unistd.h>
 #include <vector>
 
@@ -27,27 +28,17 @@ struct RunResult {
     int         exit_code{};
 };
 
-// Read all bytes from a file descriptor into a string.
-[[nodiscard]]
-static inline auto read_fd(int fd) -> std::string
-{
-    std::string result;
-    std::array<char, 4096> buf{};
-    ssize_t n = 0;
-    while ((n = ::read(fd, buf.data(), buf.size())) > 0) {
-        result.append(buf.data(), static_cast<std::string::size_type>(n));
-    }
-    return result;
-}
-
 // Run scli_path with the given argv tokens and return captured stdout, stderr, and exit code.
+// Stdout and stderr are drained concurrently via poll() to prevent pipe-buffer deadlocks:
+// if the child fills the stderr pipe while the parent is blocked reading stdout EOF (or vice
+// versa), both sides would hang without concurrent draining.
 // Trailing newlines on stdout_text and stderr_text are stripped.
 [[nodiscard]]
 inline auto run_scli(const std::string& scli_path, std::vector<std::string> args) -> RunResult
 {
     // Build argv: scli_path as argv[0], then each element of args, then nullptr.
     std::vector<const char*> argv_ptrs;
-    argv_ptrs.reserve(args.size() + 2);
+    argv_ptrs.reserve(args.size() + 2U);
     argv_ptrs.push_back(scli_path.c_str());
     for (const auto& a : args) { argv_ptrs.push_back(a.c_str()); }
     argv_ptrs.push_back(nullptr);
@@ -75,14 +66,50 @@ inline auto run_scli(const std::string& scli_path, std::vector<std::string> args
         ::_exit(127);
     }
 
-    // Parent: close write ends and read from read ends.
+    // Parent: close write ends; drain both read ends concurrently via poll().
     ::close(stdout_pipe[1]);
     ::close(stderr_pipe[1]);
 
-    std::string out = read_fd(stdout_pipe[0]);
-    std::string err = read_fd(stderr_pipe[0]);
-    ::close(stdout_pipe[0]);
-    ::close(stderr_pipe[0]);
+    std::string out;
+    std::string err;
+    std::array<char, 4096> buf{};
+
+    // fds[0] = stdout pipe, fds[1] = stderr pipe.
+    std::array<struct pollfd, 2> fds{};
+    fds[0].fd     = stdout_pipe[0];
+    fds[0].events = POLLIN;
+    fds[1].fd     = stderr_pipe[0];
+    fds[1].events = POLLIN;
+
+    int open_count = 2;
+    while (open_count > 0) {
+        const int ready = ::poll(fds.data(), static_cast<nfds_t>(fds.size()), -1);
+        if (ready <= 0) { break; }
+
+        for (auto& pfd : fds) {
+            if (pfd.fd < 0) { continue; }
+            if ((pfd.revents & POLLIN) != 0) {
+                const ::ssize_t n = ::read(pfd.fd, buf.data(), buf.size());
+                if (n > 0) {
+                    (pfd.fd == stdout_pipe[0] ? out : err)
+                        .append(buf.data(), static_cast<std::string::size_type>(n));
+                }
+            }
+            if ((pfd.revents & (POLLHUP | POLLERR)) != 0) {
+                // Drain any remaining bytes after HUP before closing.
+                ::ssize_t n = 0;
+                while ((n = ::read(pfd.fd, buf.data(), buf.size())) > 0) {
+                    (pfd.fd == stdout_pipe[0] ? out : err)
+                        .append(buf.data(), static_cast<std::string::size_type>(n));
+                }
+                ::close(pfd.fd);
+                pfd.fd = -1;
+                --open_count;
+            }
+        }
+    }
+    if (fds[0].fd >= 0) { ::close(fds[0].fd); }
+    if (fds[1].fd >= 0) { ::close(fds[1].fd); }
 
     int status = 0;
     ::waitpid(pid, &status, 0);
