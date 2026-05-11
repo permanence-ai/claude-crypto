@@ -296,6 +296,106 @@ jobs:
             build-cov/coverage-html/
 
   # ---------------------------------------------------------------------------
+  # ThreadSanitizer — ARM_ASM provider, full test suite.
+  # Catches data races in pqc_key_store.hpp mutex paths and any other shared-
+  # state code.  Mutually exclusive with ASan so this is a separate build type.
+  # ---------------------------------------------------------------------------
+  sanitize-tsan:
+    name: TSan / ARM_ASM-NONE
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3
+          pip3 install --break-system-packages jsonschema jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build-tsan/_deps
+          key: fetchcontent-tsan-ARM_ASM-NONE-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: fetchcontent-tsan-ARM_ASM-NONE-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build-tsan \
+            -DCMAKE_BUILD_TYPE=SanitizeTSan \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Verify sanitizer flags present
+        run: grep -q "\-fsanitize=thread" build-tsan/compile_commands.json
+
+      - name: Build
+        run: cmake --build build-tsan
+
+      - name: Test
+        run: ctest --test-dir build-tsan --output-on-failure
+
+  # ---------------------------------------------------------------------------
+  # LeakSanitizer — ARM_ASM provider, requires homebrew clang (system clang on
+  # macOS arm64 does not support standalone -fsanitize=leak).
+  # ---------------------------------------------------------------------------
+  sanitize-lsan:
+    name: LSan / ARM_ASM-NONE
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-llvm-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3 llvm
+          pip3 install --break-system-packages jsonschema jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build-lsan/_deps
+          key: fetchcontent-lsan-ARM_ASM-NONE-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: fetchcontent-lsan-ARM_ASM-NONE-
+
+      - name: Configure
+        run: |
+          SDK=$(xcrun --show-sdk-path)
+          cmake -G Ninja -B build-lsan \
+            -DCMAKE_BUILD_TYPE=SanitizeLSan \
+            -DCMAKE_CXX_COMPILER="$(brew --prefix llvm)/bin/clang++" \
+            -DCMAKE_C_COMPILER="$(brew --prefix llvm)/bin/clang" \
+            -DCMAKE_CXX_FLAGS="-isysroot ${SDK}" \
+            -DCMAKE_C_FLAGS="-isysroot ${SDK}" \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Verify sanitizer flags present
+        run: grep -q "\-fsanitize=leak" build-lsan/compile_commands.json
+
+      - name: Build
+        run: cmake --build build-lsan
+
+      - name: Test
+        run: ctest --test-dir build-lsan --output-on-failure
+
+  # ---------------------------------------------------------------------------
   # Summary — runs after all other jobs (pass or fail) and writes a Markdown
   # report to the GitHub Actions job summary page.
   # ---------------------------------------------------------------------------
@@ -303,7 +403,7 @@ jobs:
     name: Summary
     runs-on: ubuntu-latest
     if: always()
-    needs: [build-test, build-test-ia-asm, lint, coverage]
+    needs: [build-test, build-test-ia-asm, lint, coverage, sanitize-tsan, sanitize-lsan]
 
     steps:
       - name: Write job summary
@@ -312,6 +412,8 @@ jobs:
           IA_ASM_RESULT:        ${{ needs.build-test-ia-asm.result }}
           LINT_RESULT:          ${{ needs.lint.result }}
           COVERAGE_RESULT:      ${{ needs.coverage.result }}
+          TSAN_RESULT:          ${{ needs.sanitize-tsan.result }}
+          LSAN_RESULT:          ${{ needs.sanitize-lsan.result }}
           RUN_URL:              ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TRIGGER:              ${{ github.event_name }}
           REF:                  ${{ github.ref_name }}
@@ -328,7 +430,7 @@ jobs:
           }
 
           overall="success"
-          for r in "$BUILD_TEST_RESULT" "$IA_ASM_RESULT" "$COVERAGE_RESULT"; do
+          for r in "$BUILD_TEST_RESULT" "$IA_ASM_RESULT" "$COVERAGE_RESULT" "$TSAN_RESULT" "$LSAN_RESULT"; do
             [ "$r" = "success" ] || overall="failure"
           done
           [ "$overall" = "success" ] && overall_icon="✅ Passed" || overall_icon="❌ Failed"
@@ -342,6 +444,8 @@ jobs:
           | $(status_icon "$IA_ASM_RESULT") | build-test-ia-asm (Linux x86-64) | ${IA_ASM_RESULT} |
           | $(status_icon "$LINT_RESULT") | lint (clang-tidy, non-blocking) | ${LINT_RESULT} |
           | $(status_icon "$COVERAGE_RESULT") | coverage (PSA / ARM / OpenSSL) | ${COVERAGE_RESULT} |
+          | $(status_icon "$TSAN_RESULT") | sanitize-tsan (ThreadSanitizer) | ${TSAN_RESULT} |
+          | $(status_icon "$LSAN_RESULT") | sanitize-lsan (LeakSanitizer) | ${LSAN_RESULT} |
 
           **Trigger:** \`${TRIGGER}\` · **Ref:** \`${REF}\` · **Commit:** \`${SHA:0:8}\`
 
