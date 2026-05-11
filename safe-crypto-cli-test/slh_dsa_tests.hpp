@@ -45,7 +45,7 @@ TEST_F(SlhDsaTests, KeygenSha2128sProducesKeys) {
     const std::string priv_path = tmp("slhdsa_128s_priv.bin");
     const std::string pub_path  = tmp("slhdsa_128s_pub.bin");
     const auto r = run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128s --out-private " + priv_path + " --out-public " + pub_path);
+        {"slh-dsa", "keygen", "--variant", "sha2-128s", "--out-private", priv_path, "--out-public", pub_path});
     ASSERT_EQ(r.exit_code, 0);
     EXPECT_EQ(std::filesystem::file_size(priv_path), 64U);
     EXPECT_EQ(std::filesystem::file_size(pub_path),  32U);
@@ -55,7 +55,7 @@ TEST_F(SlhDsaTests, KeygenSha2128fProducesKeys) {
     const std::string priv_path = tmp("slhdsa_128f_priv.bin");
     const std::string pub_path  = tmp("slhdsa_128f_pub.bin");
     const auto r = run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128f --out-private " + priv_path + " --out-public " + pub_path);
+        {"slh-dsa", "keygen", "--variant", "sha2-128f", "--out-private", priv_path, "--out-public", pub_path});
     ASSERT_EQ(r.exit_code, 0);
     EXPECT_EQ(std::filesystem::file_size(priv_path), 64U);
     EXPECT_EQ(std::filesystem::file_size(pub_path),  32U);
@@ -63,7 +63,7 @@ TEST_F(SlhDsaTests, KeygenSha2128fProducesKeys) {
 
 TEST_F(SlhDsaTests, KeygenUnknownVariantExitsNonZero) {
     const auto r = run_scli(scli(),
-        "slh-dsa keygen --variant sha2-999s --out-private /dev/null --out-public /dev/null");
+        {"slh-dsa", "keygen", "--variant", "sha2-999s", "--out-private", "/dev/null", "--out-public", "/dev/null"});
     EXPECT_NE(r.exit_code, 0);
 }
 
@@ -77,19 +77,19 @@ TEST_F(SlhDsaTests, RoundTripSha2128f) {
     const std::string sig_path  = tmp("rt128f_sig.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128f --out-private " + priv_path + " --out-public " + pub_path
+        {"slh-dsa", "keygen", "--variant", "sha2-128f", "--out-private", priv_path, "--out-public", pub_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa sign --variant sha2-128f --key " + priv_path +
-        " --input " + std::string(kMsg) + " --output " + sig_path
+        {"slh-dsa", "sign", "--variant", "sha2-128f", "--key", priv_path,
+         "--input", std::string(kMsg), "--output", sig_path}
     ).exit_code, 0);
 
     EXPECT_EQ(std::filesystem::file_size(sig_path), 17088U);
 
     EXPECT_EQ(run_scli(scli(),
-        "slh-dsa verify --variant sha2-128f --key " + pub_path +
-        " --input " + std::string(kMsg) + " --signature " + sig_path
+        {"slh-dsa", "verify", "--variant", "sha2-128f", "--key", pub_path,
+         "--input", std::string(kMsg), "--signature", sig_path}
     ).exit_code, 0);
 }
 
@@ -99,19 +99,19 @@ TEST_F(SlhDsaTests, RoundTripSha2128s) {
     const std::string sig_path  = tmp("rt128s_sig.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128s --out-private " + priv_path + " --out-public " + pub_path
+        {"slh-dsa", "keygen", "--variant", "sha2-128s", "--out-private", priv_path, "--out-public", pub_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa sign --variant sha2-128s --key " + priv_path +
-        " --input " + std::string(kMsg) + " --output " + sig_path
+        {"slh-dsa", "sign", "--variant", "sha2-128s", "--key", priv_path,
+         "--input", std::string(kMsg), "--output", sig_path}
     ).exit_code, 0);
 
     EXPECT_EQ(std::filesystem::file_size(sig_path), 7856U);
 
     EXPECT_EQ(run_scli(scli(),
-        "slh-dsa verify --variant sha2-128s --key " + pub_path +
-        " --input " + std::string(kMsg) + " --signature " + sig_path
+        {"slh-dsa", "verify", "--variant", "sha2-128s", "--key", pub_path,
+         "--input", std::string(kMsg), "--signature", sig_path}
     ).exit_code, 0);
 }
 
@@ -121,16 +121,16 @@ TEST_F(SlhDsaTests, VerifyWrongMessageExitsNonZero) {
     const std::string sig_path  = tmp("wm_sig.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128f --out-private " + priv_path + " --out-public " + pub_path
+        {"slh-dsa", "keygen", "--variant", "sha2-128f", "--out-private", priv_path, "--out-public", pub_path}
     ).exit_code, 0);
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa sign --variant sha2-128f --key " + priv_path +
-        " --input " + std::string(kMsg) + " --output " + sig_path
+        {"slh-dsa", "sign", "--variant", "sha2-128f", "--key", priv_path,
+         "--input", std::string(kMsg), "--output", sig_path}
     ).exit_code, 0);
 
     EXPECT_NE(run_scli(scli(),
-        "slh-dsa verify --variant sha2-128f --key " + pub_path +
-        " --input " + std::string(kOtherMsg) + " --signature " + sig_path
+        {"slh-dsa", "verify", "--variant", "sha2-128f", "--key", pub_path,
+         "--input", std::string(kOtherMsg), "--signature", sig_path}
     ).exit_code, 0);
 }
 
@@ -142,19 +142,19 @@ TEST_F(SlhDsaTests, VerifyWrongKeyExitsNonZero) {
     const std::string sig_path   = tmp("wk_sig.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128f --out-private " + priv1_path + " --out-public " + pub1_path
+        {"slh-dsa", "keygen", "--variant", "sha2-128f", "--out-private", priv1_path, "--out-public", pub1_path}
     ).exit_code, 0);
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128f --out-private " + priv2_path + " --out-public " + pub2_path
+        {"slh-dsa", "keygen", "--variant", "sha2-128f", "--out-private", priv2_path, "--out-public", pub2_path}
     ).exit_code, 0);
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa sign --variant sha2-128f --key " + priv1_path +
-        " --input " + std::string(kMsg) + " --output " + sig_path
+        {"slh-dsa", "sign", "--variant", "sha2-128f", "--key", priv1_path,
+         "--input", std::string(kMsg), "--output", sig_path}
     ).exit_code, 0);
 
     EXPECT_NE(run_scli(scli(),
-        "slh-dsa verify --variant sha2-128f --key " + pub2_path +
-        " --input " + std::string(kMsg) + " --signature " + sig_path
+        {"slh-dsa", "verify", "--variant", "sha2-128f", "--key", pub2_path,
+         "--input", std::string(kMsg), "--signature", sig_path}
     ).exit_code, 0);
 }
 
@@ -163,11 +163,11 @@ TEST_F(SlhDsaTests, SignOutputToBase64Stdout) {
     const std::string pub_path  = tmp("b64_pub.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "slh-dsa keygen --variant sha2-128f --out-private " + priv_path + " --out-public " + pub_path
+        {"slh-dsa", "keygen", "--variant", "sha2-128f", "--out-private", priv_path, "--out-public", pub_path}
     ).exit_code, 0);
 
     const auto r = run_scli(scli(),
-        "slh-dsa sign --variant sha2-128f --key " + priv_path + " --input " + std::string(kMsg));
+        {"slh-dsa", "sign", "--variant", "sha2-128f", "--key", priv_path, "--input", std::string(kMsg)});
     ASSERT_EQ(r.exit_code, 0);
     // 17088 bytes → base64 is larger
     EXPECT_GT(r.stdout_text.size(), 20000U);

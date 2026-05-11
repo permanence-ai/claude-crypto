@@ -43,9 +43,7 @@ static auto ecdh_keygen(const std::string& scli_path,
                         const std::string& pub_path) -> bool
 {
     const auto r = run_scli(scli_path,
-        "ecdh keygen --curve " + curve +
-        " --out-private " + priv_path +
-        " --out-public "  + pub_path);
+        {"ecdh", "keygen", "--curve", curve, "--out-private", priv_path, "--out-public", pub_path});
     return r.exit_code == 0;
 }
 
@@ -54,7 +52,7 @@ TEST_F(EcdhTests, KeygenP256ProducesFiles) {
     const std::string priv = tmp("ecdh_kg_priv.der");
     const std::string pub  = tmp("ecdh_kg_pub.der");
     const auto r = run_scli(scli(),
-        "ecdh keygen --curve p256 --out-private " + priv + " --out-public " + pub);
+        {"ecdh", "keygen", "--curve", "p256", "--out-private", priv, "--out-public", pub});
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_GT(std::filesystem::file_size(priv), 0U);
     EXPECT_GT(std::filesystem::file_size(pub),  0U);
@@ -70,9 +68,9 @@ TEST_F(EcdhTests, RoundTripP256) {
     ASSERT_TRUE(ecdh_keygen(scli(), "p256", b_priv, b_pub));
 
     const auto sa = run_scli(scli(),
-        "ecdh compute --curve p256 --key " + a_priv + " --peer-public " + b_pub);
+        {"ecdh", "compute", "--curve", "p256", "--key", a_priv, "--peer-public", b_pub});
     const auto sb = run_scli(scli(),
-        "ecdh compute --curve p256 --key " + b_priv + " --peer-public " + a_pub);
+        {"ecdh", "compute", "--curve", "p256", "--key", b_priv, "--peer-public", a_pub});
 
     ASSERT_EQ(sa.exit_code, 0);
     ASSERT_EQ(sb.exit_code, 0);
@@ -90,9 +88,9 @@ TEST_F(EcdhTests, RoundTripP384) {
     ASSERT_TRUE(ecdh_keygen(scli(), "p384", b_priv, b_pub));
 
     const auto sa = run_scli(scli(),
-        "ecdh compute --curve p384 --key " + a_priv + " --peer-public " + b_pub);
+        {"ecdh", "compute", "--curve", "p384", "--key", a_priv, "--peer-public", b_pub});
     const auto sb = run_scli(scli(),
-        "ecdh compute --curve p384 --key " + b_priv + " --peer-public " + a_pub);
+        {"ecdh", "compute", "--curve", "p384", "--key", b_priv, "--peer-public", a_pub});
 
     ASSERT_EQ(sa.exit_code, 0);
     ASSERT_EQ(sb.exit_code, 0);
@@ -109,9 +107,9 @@ TEST_F(EcdhTests, RoundTripP521) {
     ASSERT_TRUE(ecdh_keygen(scli(), "p521", b_priv, b_pub));
 
     const auto sa = run_scli(scli(),
-        "ecdh compute --curve p521 --key " + a_priv + " --peer-public " + b_pub);
+        {"ecdh", "compute", "--curve", "p521", "--key", a_priv, "--peer-public", b_pub});
     const auto sb = run_scli(scli(),
-        "ecdh compute --curve p521 --key " + b_priv + " --peer-public " + a_pub);
+        {"ecdh", "compute", "--curve", "p521", "--key", b_priv, "--peer-public", a_pub});
 
     ASSERT_EQ(sa.exit_code, 0);
     ASSERT_EQ(sb.exit_code, 0);
@@ -131,9 +129,9 @@ TEST_F(EcdhTests, DifferentPeersProduceDifferentSecrets) {
     ASSERT_TRUE(ecdh_keygen(scli(), "p256", c_priv, c_pub));
 
     const auto s_ab = run_scli(scli(),
-        "ecdh compute --curve p256 --key " + a_priv + " --peer-public " + b_pub);
+        {"ecdh", "compute", "--curve", "p256", "--key", a_priv, "--peer-public", b_pub});
     const auto s_ac = run_scli(scli(),
-        "ecdh compute --curve p256 --key " + a_priv + " --peer-public " + c_pub);
+        {"ecdh", "compute", "--curve", "p256", "--key", a_priv, "--peer-public", c_pub});
 
     ASSERT_EQ(s_ab.exit_code, 0);
     ASSERT_EQ(s_ac.exit_code, 0);
@@ -152,11 +150,11 @@ TEST_F(EcdhTests, SharedSecretOutputToFile) {
     ASSERT_TRUE(ecdh_keygen(scli(), "p256", b_priv, b_pub));
 
     const auto ra = run_scli(scli(),
-        "ecdh compute --curve p256 --key " + a_priv +
-        " --peer-public " + b_pub + " --output " + secret_a);
+        {"ecdh", "compute", "--curve", "p256", "--key", a_priv,
+         "--peer-public", b_pub, "--output", secret_a});
     const auto rb = run_scli(scli(),
-        "ecdh compute --curve p256 --key " + b_priv +
-        " --peer-public " + a_pub + " --output " + secret_b);
+        {"ecdh", "compute", "--curve", "p256", "--key", b_priv,
+         "--peer-public", a_pub, "--output", secret_b});
 
     ASSERT_EQ(ra.exit_code, 0);
     ASSERT_EQ(rb.exit_code, 0);
@@ -179,7 +177,7 @@ TEST_F(EcdhTests, MixedIO_PrivateKeyB64_PeerPublicFromFile) {
 
     // Get A's private key as base64 (via stdout, no --out-private flag).
     const auto a_priv_b64_r = run_scli(scli(),
-        "ecdh keygen --curve p256 --out-public " + tmp("ecdh_mix_a2_pub.der"));
+        {"ecdh", "keygen", "--curve", "p256", "--out-public", tmp("ecdh_mix_a2_pub.der")});
     // That keygen generates a new key; instead read from the file we made.
     const auto a_priv_bytes = read_file_bytes(a_priv);
     // base64-encode manually using the helper.
@@ -204,11 +202,10 @@ TEST_F(EcdhTests, MixedIO_PrivateKeyB64_PeerPublicFromFile) {
     }
 
     const auto sa = run_scli(scli(),
-        "ecdh compute --curve p256"
-        " --key base64:" + a_priv_b64 +
-        " --peer-public " + b_pub);
+        {"ecdh", "compute", "--curve", "p256",
+         "--key", "base64:" + a_priv_b64, "--peer-public", b_pub});
     const auto sb = run_scli(scli(),
-        "ecdh compute --curve p256 --key " + b_priv + " --peer-public " + a_pub);
+        {"ecdh", "compute", "--curve", "p256", "--key", b_priv, "--peer-public", a_pub});
 
     ASSERT_EQ(sa.exit_code, 0);
     ASSERT_EQ(sb.exit_code, 0);
@@ -216,7 +213,7 @@ TEST_F(EcdhTests, MixedIO_PrivateKeyB64_PeerPublicFromFile) {
 }
 
 TEST_F(EcdhTests, UnknownCurveExitsNonZero) {
-    const auto r = run_scli(scli(), "ecdh keygen --curve secp256k1");
+    const auto r = run_scli(scli(), {"ecdh", "keygen", "--curve", "secp256k1"});
     EXPECT_NE(r.exit_code, 0);
 }
 
@@ -227,7 +224,7 @@ TEST_F(EcdhTests, ComputeWithWrongCurveExitsNonZero) {
     ASSERT_TRUE(ecdh_keygen(scli(), "p256", priv, pub));
 
     const auto r = run_scli(scli(),
-        "ecdh compute --curve p384 --key " + priv + " --peer-public " + pub);
+        {"ecdh", "compute", "--curve", "p384", "--key", priv, "--peer-public", pub});
     EXPECT_NE(r.exit_code, 0);
 }
 
