@@ -133,9 +133,15 @@ jobs:
             ${{ matrix.cmake_extra }}
 
       - name: Run clang-tidy
+        # Use safe-crypto-lib-test/main.cpp as the sole translation unit — it
+        # transitively includes all provider headers with the correct flags.
+        # --header-filter then restricts diagnostics to the target provider scope.
+        # Excluding cli/main.cpp and bench_main.cpp avoids spurious diagnostics
+        # from those entry points (--header-filter only affects included headers,
+        # not primary translation units passed on the command line).
         run: |
           jq -r '.[].file' build-lint-${{ matrix.label }}/compile_commands.json \
-            | grep -v '_deps' \
+            | grep 'safe-crypto-lib-test/main\.cpp$' \
             | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
                 -p build-lint-${{ matrix.label }} \
                 "--header-filter=${{ matrix.header_filter }}"
