@@ -6,6 +6,7 @@ add_executable(${EXE_NAME}
         cli_test_runner.hpp
         digest_tests.hpp
         ecdh_tests.hpp
+        help_tests.hpp
         ecdsa_tests.hpp
         io_tests.hpp
         kdf_tests.hpp
