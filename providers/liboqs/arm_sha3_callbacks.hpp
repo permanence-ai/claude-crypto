@@ -34,6 +34,7 @@ namespace arm_asm::detail {
 //   have been consumed so far.  When sq_pos reaches rate_bytes we permute
 //   again and refill sq_buf.
 // ---------------------------------------------------------------------------
+// NOLINTBEGIN(misc-non-private-member-variables-in-classes)
 struct ArmSha3Ctx {
     uint64_t state[25]{};       // Keccak-f[1600] state (200 bytes)
     uint8_t  sq_buf[168]{};     // squeeze output buffer (max rate = SHAKE-128 = 168 B)
@@ -108,6 +109,7 @@ struct ArmSha3Ctx {
         std::memcpy(output, sq_buf, out_bytes);
     }
 };
+// NOLINTEND(misc-non-private-member-variables-in-classes)
 
 // ---------------------------------------------------------------------------
 // Heap allocation helpers

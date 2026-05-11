@@ -1127,7 +1127,7 @@ struct OpenSslBackend {
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
-        if (is_pqc && ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
+        if (is_pqc && static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return err_invalid_arg; }
 
         EVP_MD_CTX* ctx = EVP_MD_CTX_new();
         if (ctx == nullptr) { return err_invalid_arg; }
@@ -1165,7 +1165,7 @@ struct OpenSslBackend {
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc_v) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
-        if (is_pqc_v && ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
+        if (is_pqc_v && static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return err_invalid_arg; }
 
         EVP_MD_CTX* ctx = EVP_MD_CTX_new();
         if (ctx == nullptr) { return err_invalid_arg; }
@@ -1343,7 +1343,7 @@ struct OpenSslBackend {
         if ((alg & 0xFF'000000U) != kAlgMlKemBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
-        if (ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
+        if (static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return err_invalid_arg; }
 
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
         if (ctx == nullptr) { return err_invalid_arg; }
@@ -1384,7 +1384,7 @@ struct OpenSslBackend {
         if ((alg & 0xFF'000000U) != kAlgMlKemBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
-        if (ossl_asym_store_alg(key) != alg) { return err_invalid_arg; }
+        if (static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return err_invalid_arg; }
 
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
         if (ctx == nullptr) { return err_invalid_arg; }

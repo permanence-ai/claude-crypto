@@ -59,7 +59,7 @@ constexpr std::size_t rsa_max_limbs = 64;  // 4096 bits / 64 bits per limb
 
 template<std::size_t NW>
 struct BigInt {
-    std::array<uint64_t, NW> d{};  // d[0] = least significant limb
+    std::array<uint64_t, NW> d{};  // d[0] = least significant limb  // NOLINT(misc-non-private-member-variables-in-classes)
 
     [[nodiscard]] constexpr uint64_t& operator[](std::size_t i)       noexcept { return d[i]; }
     [[nodiscard]] constexpr const uint64_t& operator[](std::size_t i) const noexcept { return d[i]; }
@@ -91,7 +91,7 @@ inline BigInt<NW> bigint_from_bytes(const CryptoByte* bytes, std::size_t byte_le
 
 // Store NW*8 bytes in big-endian order.
 template<std::size_t NW>
-inline void bigint_to_bytes(const BigInt<NW>& a, CryptoByte* bytes) noexcept {
+inline void bigint_to_bytes(const BigInt<NW>& a, CryptoByte* bytes) noexcept {  // NOLINT(readability-non-const-parameter)
     for (std::size_t i = 0; i < NW * 8U; ++i) {
         const std::size_t limb_idx  = i / 8U;
         const std::size_t bit_shift = (i % 8U) * 8U;
@@ -247,8 +247,8 @@ inline BigInt<NW> mont_mul(const BigInt<NW>& a, const BigInt<NW>& b,
     //   - overflow != 0: result + t[NW]*2^(64*NW) >= m, so subtract
     //   - borrow == 0:   result >= m, so subtract
     // keep_reduced is zero when result < m and no overflow (keep result).
-    const uint64_t overflow_mask = static_cast<uint64_t>(-static_cast<int64_t>(overflow != 0U));
-    const uint64_t no_borrow_mask = static_cast<uint64_t>(-static_cast<int64_t>(borrow == 0U));
+    const auto overflow_mask = static_cast<uint64_t>(-static_cast<int64_t>(overflow != 0U));
+    const auto no_borrow_mask = static_cast<uint64_t>(-static_cast<int64_t>(borrow == 0U));
     const uint64_t keep_reduced = overflow_mask | no_borrow_mask;
     return bigint_ct_select(reduced, result, keep_reduced);
 }
@@ -333,7 +333,7 @@ inline BigInt<NW> bigint_powmod_ct(
             result_m = mont_mul(result_m, result_m, m, m0inv);
             // Conditionally multiply by base if bit is set.
             const uint64_t bit = (exp.d[wi] >> static_cast<unsigned>(bi)) & 1U;
-            const uint64_t bit_mask = static_cast<uint64_t>(-static_cast<int64_t>(bit));  // all-ones if bit==1
+            const auto bit_mask = static_cast<uint64_t>(-static_cast<int64_t>(bit));  // all-ones if bit==1
             const BigInt<NW> prod = mont_mul(result_m, base_m, m, m0inv);
             result_m = bigint_ct_select(prod, result_m, bit_mask);
         }

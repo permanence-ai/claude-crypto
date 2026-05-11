@@ -337,7 +337,7 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     s = static_cast<u128>(lo[8]) + hi[8] + (s >> 64U);
     r.v[8] = static_cast<uint64_t>(s);
     // The carry out of bit 520 is at most 1, and wraps back via 2^521 ≡ 1.
-    const uint64_t top_carry = static_cast<uint64_t>(s >> 9U);  // carry out of bit 520
+    const auto top_carry = static_cast<uint64_t>(s >> 9U);  // carry out of bit 520
     // Add top_carry back to r.v[0] (since 2^521 ≡ 1).
     s = static_cast<u128>(r.v[0]) + top_carry;
     r.v[0] = static_cast<uint64_t>(s);

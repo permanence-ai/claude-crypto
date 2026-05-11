@@ -366,7 +366,7 @@ static inline auto p384_point_double_ct(const P384Point& p) noexcept -> P384Poin
         const Fe384 y3    = fe384_sub(fe384_mul(alpha, fe384_sub(beta4, x3)), gamma8);
         return P384Point{.X = x3, .Y = y3, .Z = z3};
     }();
-    const uint64_t is_identity = static_cast<uint64_t>(fe384_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe384_is_zero(p.Z));
     return p384_point_ct_select(p384_identity, doubled, is_identity);
 }
 
@@ -389,7 +389,7 @@ static inline auto p384_point_add_affine_ct(const P384Point& p, const P384Affine
         return P384Point{.X = x3, .Y = y3, .Z = z3};
     }();
     const P384Point q_jac{.X = q.X, .Y = q.Y, .Z = fe384_one};
-    const uint64_t is_identity = static_cast<uint64_t>(fe384_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe384_is_zero(p.Z));
     return p384_point_ct_select(q_jac, added, is_identity);
 }
 
@@ -609,7 +609,7 @@ static inline auto p384_scalar_add(
     r.v[4] = static_cast<uint64_t>(t);
     t = static_cast<u128>(a.v[5]) + b.v[5] + (t >> 64U);
     r.v[5] = static_cast<uint64_t>(t);
-    const uint64_t overflow = static_cast<uint64_t>(t >> 64U);
+    const auto overflow = static_cast<uint64_t>(t >> 64U);
 
     Fe384 sub{};
     auto s = static_cast<u128>(r.v[0]) - p384_n[0];

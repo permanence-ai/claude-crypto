@@ -466,7 +466,11 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         body_len += der_encode_integer(d, mod_bytes, body + body_len);
 
         // Promote HW → NW for p, q, dp, dq, qinv.
-        BigInt<NW> p_nw{}, q_nw{}, dp_nw{}, dq_nw{}, qinv_nw{};
+        BigInt<NW> p_nw{};
+        BigInt<NW> q_nw{};
+        BigInt<NW> dp_nw{};
+        BigInt<NW> dq_nw{};
+        BigInt<NW> qinv_nw{};
         for (std::size_t i = 0; i < HW; ++i) {
             p_nw.d[i]    = p.d[i];
             q_nw.d[i]    = q.d[i];

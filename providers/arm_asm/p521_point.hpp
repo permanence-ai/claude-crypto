@@ -384,7 +384,7 @@ static inline auto p521_point_double_ct(const P521Point& p) noexcept -> P521Poin
         const Fe521 y3     = fe521_sub(fe521_mul(alpha, fe521_sub(beta4, x3)), gamma8);
         return P521Point{.X = x3, .Y = y3, .Z = z3};
     }();
-    const uint64_t is_identity = static_cast<uint64_t>(fe521_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe521_is_zero(p.Z));
     return p521_point_ct_select(p521_identity, doubled, is_identity);
 }
 
@@ -406,7 +406,7 @@ static inline auto p521_point_add_affine_ct(const P521Point& p, const P521Affine
         return P521Point{.X = x3, .Y = y3, .Z = z3};
     }();
     const P521Point q_jac{.X = q.X, .Y = q.Y, .Z = fe521_one};
-    const uint64_t is_identity = static_cast<uint64_t>(fe521_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe521_is_zero(p.Z));
     return p521_point_ct_select(q_jac, added, is_identity);
 }
 
@@ -624,7 +624,7 @@ static inline auto p521_scalar_add(
     r.v[7] = static_cast<uint64_t>(t);
     t = static_cast<u128>(a.v[8]) + b.v[8] + (t >> 64U);
     r.v[8] = static_cast<uint64_t>(t);
-    const uint64_t overflow = static_cast<uint64_t>(t >> 64U);
+    const auto overflow = static_cast<uint64_t>(t >> 64U);
 
     Fe521 sub{};
     auto s = static_cast<u128>(r.v[0]) - p521_n[0];

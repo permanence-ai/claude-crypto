@@ -43,7 +43,7 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
     const uint8_t* scalar_be, std::size_t qlen,
     const uint8_t* hash_be,   std::size_t hlen,
     const uint64_t* n_limbs,  std::size_t n_limb_count,
-    uint8_t* k_out) noexcept
+    uint8_t* k_out) noexcept  // NOLINT(readability-non-const-parameter)
 {
     // Step a: hash is h1 = H(m), already provided.
     // Step b: V = 0x01 * qlen

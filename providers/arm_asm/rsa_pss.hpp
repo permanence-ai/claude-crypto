@@ -45,7 +45,7 @@ inline bool pss_encode(
     const CryptoByte* msg,     std::size_t msg_len,
     const CryptoByte* salt,              // hLen random bytes
     std::size_t       modulus_bits,
-    CryptoByte*       out_em) noexcept
+    CryptoByte*       out_em) noexcept  // NOLINT(readability-non-const-parameter)
 {
     const std::size_t em_bits = modulus_bits - 1U;
     const std::size_t em_len  = (em_bits + 7U) / 8U;
@@ -125,7 +125,7 @@ inline bool pss_verify(
 
     // Check top bits of maskedDB[0] are zero.
     const std::size_t top_bits = (8U * em_len) - em_bits;
-    const uint8_t top_mask = static_cast<uint8_t>(0xFFU << (8U - top_bits));
+    const auto top_mask = static_cast<uint8_t>(0xFFU << (8U - top_bits));
     if ((masked_db[0] & top_mask) != 0U) { return false; }
 
     // DB = maskedDB XOR MGF1(H, db_len).

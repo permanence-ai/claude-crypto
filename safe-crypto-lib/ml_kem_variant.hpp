@@ -40,6 +40,6 @@ constexpr std::size_t ml_kem_ciphertext_size(const MlKemVariant v) {
 }
 
 // FIPS 203, Section 2 — shared secret is always 32 bytes for all parameter sets.
-constexpr std::size_t ml_kem_shared_secret_size(const MlKemVariant) {
+constexpr std::size_t ml_kem_shared_secret_size(const MlKemVariant /*variant*/) {
     return 32U;
 }

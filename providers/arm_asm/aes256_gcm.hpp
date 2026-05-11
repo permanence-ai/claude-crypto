@@ -80,7 +80,6 @@ static inline void gcm_ctr_crypt(
         ByteArray<aes_gcm_tag_bytes> ks_bytes{};
         vst1q_u8(ks_bytes.data(), ks);
         for (std::size_t i = 0; offset + i < len; ++i) {
-
             out[offset + i] = static_cast<CryptoByte>(in[offset + i] ^ ks_bytes[i]);
         }
     }

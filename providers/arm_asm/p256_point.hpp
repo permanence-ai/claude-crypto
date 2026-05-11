@@ -418,7 +418,7 @@ static inline auto p256_point_double_ct(const P256Point& p) noexcept -> P256Poin
         return P256Point{.X = x3, .Y = y3, .Z = z3};
     }();
     // If p is identity (Z==0), return identity; otherwise return doubled.
-    const uint64_t is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
     return p256_point_ct_select(p256_identity, doubled, is_identity);
 }
 
@@ -445,7 +445,7 @@ static inline auto p256_point_add_affine_ct(const P256Point& p, const P256Affine
     }();
     // If p is identity (Z==0), return q as Jacobian with Z=1.
     const P256Point q_jac{.X = q.X, .Y = q.Y, .Z = fe256_one};
-    const uint64_t is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
     return p256_point_ct_select(q_jac, added, is_identity);
 }
 
@@ -681,7 +681,7 @@ static inline auto p256_scalar_add(
     r.v[2] = static_cast<uint64_t>(t);
     t = static_cast<u128>(a.v[3]) + b.v[3] + (t >> 64U);
     r.v[3] = static_cast<uint64_t>(t);
-    const uint64_t overflow = static_cast<uint64_t>(t >> 64U);
+    const auto overflow = static_cast<uint64_t>(t >> 64U);
 
     // Subtract n if r >= n or overflowed.
     Fe256 sub{};
