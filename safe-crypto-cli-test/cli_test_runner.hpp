@@ -3,17 +3,22 @@
 #pragma once
 
 // Utilities for invoking scli as a subprocess and capturing stdout/exit code.
+//
+// run_scli() uses fork/execv (no shell) so argument values are passed verbatim
+// and there is no shared stderr temp file to race on under parallel ctest runs.
 
 #include <array>
 #include <cstring>
-#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
-#include <sys/wait.h>
 #include <vector>
+
+#include <poll.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "defs.hpp"
 
@@ -26,39 +31,122 @@ struct RunResult {
     int         exit_code{};
 };
 
-// Run `scli_path <args>` and return captured stdout, stderr, and exit code.
-// Trailing newlines on stdout_text and stderr_text are stripped.
+// Split a whitespace-delimited argument string into tokens.
+// Handles multiple consecutive spaces; does not handle quoting (test args
+// should not contain spaces — use file paths that are space-free).
+[[nodiscard]]
+inline auto split_args(const std::string& s) -> std::vector<std::string>
+{
+    std::vector<std::string> tokens;
+    std::size_t i = 0;
+    while (i < s.size()) {
+        while (i < s.size() && s[i] == ' ') { ++i; }
+        if (i >= s.size()) { break; }
+        std::size_t j = i;
+        while (j < s.size() && s[j] != ' ') { ++j; }
+        tokens.push_back(s.substr(i, j - i));
+        i = j;
+    }
+    return tokens;
+}
+
+// Drain a non-blocking read end of a pipe into `out` until EOF.
+inline void drain_pipe(int fd, std::string& out)
+{
+    std::array<char, 4096> buf{};
+    ::ssize_t n = 0;
+    while ((n = ::read(fd, buf.data(), buf.size())) > 0) {
+        out.append(buf.data(), static_cast<std::size_t>(n));
+    }
+}
+
+// Run `scli_path <args>` via fork/execv and return captured stdout, stderr,
+// and exit code.  Trailing newlines on stdout_text and stderr_text are stripped.
+// `args` is a whitespace-delimited string split into argv tokens — values must
+// not contain spaces (use file paths under /tmp which are space-free).
 [[nodiscard]]
 inline auto run_scli(const std::string& scli_path, const std::string& args) -> RunResult
 {
-    // Use a temp file for stderr so we can capture it independently.
-    const std::string stderr_path =
-        (std::filesystem::temp_directory_path() / "scli_test_stderr.txt").string();
-    const std::string cmd = scli_path + " " + args + " 2>" + stderr_path;
-    // NOLINTNEXTLINE(cert-env33-c,concurrency-mt-unsafe)
-    FILE* pipe = ::popen(cmd.c_str(), "r");
-    if (pipe == nullptr) { return {"", "", 127}; }
+    // Build argv: scli_path + tokens from args.
+    const auto tokens = split_args(args);
+    std::vector<const char*> argv;
+    argv.reserve(tokens.size() + 2U);
+    argv.push_back(scli_path.c_str());
+    for (const auto& t : tokens) { argv.push_back(t.c_str()); }
+    argv.push_back(nullptr);
+
+    // Create pipes for stdout and stderr.
+    std::array<int, 2> stdout_pipe{};
+    std::array<int, 2> stderr_pipe{};
+    if (::pipe(stdout_pipe.data()) != 0 || ::pipe(stderr_pipe.data()) != 0) {
+        return {"", "pipe() failed", 127};
+    }
+
+    const pid_t pid = ::fork();
+    if (pid == -1) {
+        ::close(stdout_pipe[0]); ::close(stdout_pipe[1]);
+        ::close(stderr_pipe[0]); ::close(stderr_pipe[1]);
+        return {"", "fork() failed", 127};
+    }
+
+    if (pid == 0) {
+        // Child: wire up pipes and exec.
+        ::close(stdout_pipe[0]);
+        ::close(stderr_pipe[0]);
+        ::dup2(stdout_pipe[1], STDOUT_FILENO);  // NOLINT(hicpp-signed-bitwise)
+        ::dup2(stderr_pipe[1], STDERR_FILENO);  // NOLINT(hicpp-signed-bitwise)
+        ::close(stdout_pipe[1]);
+        ::close(stderr_pipe[1]);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        ::execv(scli_path.c_str(), const_cast<char* const*>(argv.data()));
+        ::_exit(127);  // execv failed
+    }
+
+    // Parent: close write ends, drain both pipes, then wait.
+    ::close(stdout_pipe[1]);
+    ::close(stderr_pipe[1]);
 
     std::string out;
-    std::array<char, 4096> buf{};
-    while (::fgets(buf.data(), static_cast<int>(buf.size()), pipe) != nullptr) {
-        out += buf.data();
+    std::string err;
+
+    // Poll both pipes until both reach EOF.
+    std::array<struct ::pollfd, 2> fds{};
+    fds[0] = {stdout_pipe[0], POLLIN, 0};
+    fds[1] = {stderr_pipe[0], POLLIN, 0};
+    int open_count = 2;
+
+    while (open_count > 0) {
+        const int ready = ::poll(fds.data(), static_cast<::nfds_t>(fds.size()), -1);
+        if (ready <= 0) { break; }
+        for (auto& pfd : fds) {
+            if (pfd.fd < 0) { continue; }
+            if ((pfd.revents & POLLIN) != 0) {  // NOLINT(hicpp-signed-bitwise)
+                std::array<char, 4096> buf{};
+                const ::ssize_t n = ::read(pfd.fd, buf.data(), buf.size());
+                if (n > 0) {
+                    if (pfd.fd == stdout_pipe[0]) { out.append(buf.data(), static_cast<std::size_t>(n)); }
+                    else                          { err.append(buf.data(), static_cast<std::size_t>(n)); }
+                }
+            }
+            if ((pfd.revents & (POLLHUP | POLLERR)) != 0) {  // NOLINT(hicpp-signed-bitwise)
+                // Drain any remaining bytes after HUP.
+                if (pfd.fd == stdout_pipe[0]) { drain_pipe(pfd.fd, out); }
+                else                          { drain_pipe(pfd.fd, err); }
+                ::close(pfd.fd);
+                pfd.fd = -1;
+                --open_count;
+            }
+        }
     }
-    const int status = ::pclose(pipe);
-    const int code   = WIFEXITED(status) ? WEXITSTATUS(status) : -1;  // NOLINT(hicpp-signed-bitwise)
+    ::close(stdout_pipe[0]);
+    ::close(stderr_pipe[0]);
+
+    int status = 0;
+    ::waitpid(pid, &status, 0);
+    const int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;  // NOLINT(hicpp-signed-bitwise)
 
     // Strip single trailing newline if present.
     if (!out.empty() && out.back() == '\n') { out.pop_back(); }
-
-    // Read and clean up the stderr temp file.
-    std::string err;
-    {
-        std::ifstream ef(stderr_path);
-        if (ef) {
-            err.assign(std::istreambuf_iterator<char>(ef), std::istreambuf_iterator<char>());
-        }
-    }
-    std::filesystem::remove(stderr_path);
     if (!err.empty() && err.back() == '\n') { err.pop_back(); }
 
     return {out, err, code};
