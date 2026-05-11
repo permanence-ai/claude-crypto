@@ -374,6 +374,36 @@ TEST_F(IoTests, SecretOutput_RejectsSymlink) {
     std::filesystem::remove(real_path);
 }
 
+TEST_F(IoTests, SecretOutput_KdfDeriveOutputFile_HasMode0600) {
+    const std::string out_path = tmp("io_perm_kdf_derive.bin");
+    // 64-zero-byte IKM (base64) for a 32-byte output.
+    const auto r = run_scli(scli(),
+        "kdf derive --length 32"
+        " --ikm base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        " --output " + out_path);
+    ASSERT_EQ(r.exit_code, 0);
+
+    struct stat st{};
+    ASSERT_EQ(::stat(out_path.c_str(), &st), 0);
+    EXPECT_EQ(st.st_mode & 0777U, 0600U);  // NOLINT(cppcoreguidelines-avoid-magic-numbers)
+}
+
+TEST_F(IoTests, SecretOutput_KdfDeriveOutputFile_RejectsExistingPath) {
+    const std::string out_path = tmp("io_perm_kdf_derive_exist.bin");
+    const std::string ikm_spec =
+        "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+    // First derive creates the file.
+    const auto r1 = run_scli(scli(),
+        "kdf derive --length 32 --ikm " + ikm_spec + " --output " + out_path);
+    ASSERT_EQ(r1.exit_code, 0);
+
+    // Second derive must fail: output file already exists.
+    const auto r2 = run_scli(scli(),
+        "kdf derive --length 32 --ikm " + ikm_spec + " --output " + out_path);
+    EXPECT_NE(r2.exit_code, 0);
+}
+
 
 // ─── ecdsa ────────────────────────────────────────────────────────────────────
 
