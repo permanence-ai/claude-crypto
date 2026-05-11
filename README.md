@@ -556,6 +556,8 @@ All subcommands share the same input/output model:
 | `<path>` | Read from / write to a file (raw binary) |
 | *(omit `--output`)* | Base64-encode and print to stdout |
 
+**Secret vs. public file outputs.** Options that write secret material (private keys, shared secrets, generated IKM, and derived keys) use a hardened writer: the output file is created with mode `0600` (owner read/write only), will not follow symlinks, and will fail if the path already exists. Options that write public material (public keys, ciphertexts, signatures, digests) use the standard writer, which respects the process umask and will overwrite existing files.
+
 ### Subcommands
 
 #### `digest` — Compute a cryptographic hash

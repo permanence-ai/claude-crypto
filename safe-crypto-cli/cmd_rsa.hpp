@@ -60,7 +60,7 @@ inline void register_rsa(CLI::App& app)
         const auto run = [&]<RsaKeyBits KB>() {
             const auto kp = generate_rsa_key<KB>();
             if (!kp.has_value()) { die(kp.error()); }
-            const auto op = write_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
+            const auto op = write_secret_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
             if (!op.has_value()) { die(op.error()); }
             const auto oq = write_output(pub_spec, std::span<const CryptoByte>(kp->public_key_der.data(), kp->public_key_der.size()));
             if (!oq.has_value()) { die(oq.error()); }
