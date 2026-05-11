@@ -19,6 +19,8 @@
 #   MinSizeRel     — -Os, LTO, dead-strip, hardening (size)
 #   RelWithDebInfo — -O2, debug info (profiling / coverage)
 #   Sanitize       — -O1, ASan + UBSan, full debug info (defect detection)
+#   SanitizeTSan   — -O1, TSan (thread-safety), full debug info
+#   SanitizeLSan   — -O1, LSan (leak detection), full debug info
 
 # ---------------------------------------------------------------------------
 # Default build type — choose Debug when the generator is single-config and
@@ -28,7 +30,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Build type not set — defaulting to Debug")
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-        Debug Release MinSizeRel RelWithDebInfo Sanitize)
+        Debug Release MinSizeRel RelWithDebInfo Sanitize SanitizeTSan SanitizeLSan)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -46,6 +48,44 @@ mark_as_advanced(
     CMAKE_CXX_FLAGS_SANITIZE
     CMAKE_EXE_LINKER_FLAGS_SANITIZE
     CMAKE_SHARED_LINKER_FLAGS_SANITIZE
+)
+
+# ---------------------------------------------------------------------------
+# SanitizeTSan build type — ThreadSanitizer (mutually exclusive with ASan).
+# ---------------------------------------------------------------------------
+set(_tsan_compile -fsanitize=thread -fno-omit-frame-pointer -g -O1)
+set(_tsan_link    -fsanitize=thread)
+
+set(CMAKE_C_FLAGS_SANITIZETSAN   "${_tsan_compile}" CACHE STRING "C flags for SanitizeTSan")
+set(CMAKE_CXX_FLAGS_SANITIZETSAN "${_tsan_compile}" CACHE STRING "C++ flags for SanitizeTSan")
+set(CMAKE_EXE_LINKER_FLAGS_SANITIZETSAN    "${_tsan_link}" CACHE STRING "Linker flags for SanitizeTSan")
+set(CMAKE_SHARED_LINKER_FLAGS_SANITIZETSAN "${_tsan_link}" CACHE STRING "Shared linker flags for SanitizeTSan")
+mark_as_advanced(
+    CMAKE_C_FLAGS_SANITIZETSAN
+    CMAKE_CXX_FLAGS_SANITIZETSAN
+    CMAKE_EXE_LINKER_FLAGS_SANITIZETSAN
+    CMAKE_SHARED_LINKER_FLAGS_SANITIZETSAN
+)
+
+# ---------------------------------------------------------------------------
+# SanitizeLSan build type — LeakSanitizer (standalone, requires clang).
+# On macOS, system clang does not support standalone LSan; use homebrew clang:
+#   cmake -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ \
+#         -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang \
+#         -DCMAKE_BUILD_TYPE=SanitizeLSan ...
+# ---------------------------------------------------------------------------
+set(_lsan_compile -fsanitize=leak -fno-omit-frame-pointer -g -O1)
+set(_lsan_link    -fsanitize=leak)
+
+set(CMAKE_C_FLAGS_SANITIZELSAN   "${_lsan_compile}" CACHE STRING "C flags for SanitizeLSan")
+set(CMAKE_CXX_FLAGS_SANITIZELSAN "${_lsan_compile}" CACHE STRING "C++ flags for SanitizeLSan")
+set(CMAKE_EXE_LINKER_FLAGS_SANITIZELSAN    "${_lsan_link}" CACHE STRING "Linker flags for SanitizeLSan")
+set(CMAKE_SHARED_LINKER_FLAGS_SANITIZELSAN "${_lsan_link}" CACHE STRING "Shared linker flags for SanitizeLSan")
+mark_as_advanced(
+    CMAKE_C_FLAGS_SANITIZELSAN
+    CMAKE_CXX_FLAGS_SANITIZELSAN
+    CMAKE_EXE_LINKER_FLAGS_SANITIZELSAN
+    CMAKE_SHARED_LINKER_FLAGS_SANITIZELSAN
 )
 
 # ---------------------------------------------------------------------------
@@ -98,8 +138,8 @@ target_compile_options(safe_crypto_optimize INTERFACE
     # RelWithDebInfo: balanced — O2 with debug info for profiling/coverage
     $<$<CONFIG:RelWithDebInfo>:-O2 -g>
 
-    # Sanitize: light optimisation, ASan + UBSan (flags come from CMAKE_CXX_FLAGS_SANITIZE)
-    # No additional options needed here — CMake injects them via the cache variables above.
+    # Sanitize/SanitizeTSan/SanitizeLSan: flags come from the cache variables above.
+    # No additional options needed here — CMake injects them via the cache variables.
 )
 
 target_compile_definitions(safe_crypto_optimize INTERFACE
