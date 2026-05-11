@@ -169,22 +169,22 @@ public:
     }
 
     [[nodiscard]]
-    auto begin() -> std::array<CryptoByte, N>::iterator {
+    auto begin() -> ByteArray<N>::iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto begin() const -> std::array<CryptoByte, N>::const_iterator {
+    auto begin() const -> ByteArray<N>::const_iterator {
         return data_.begin();
     }
 
     [[nodiscard]]
-    auto end() -> std::array<CryptoByte, N>::iterator {
+    auto end() -> ByteArray<N>::iterator {
         return data_.end();
     }
 
     [[nodiscard]]
-    auto end() const -> std::array<CryptoByte, N>::const_iterator {
+    auto end() const -> ByteArray<N>::const_iterator {
         return data_.end();
     }
 
@@ -209,5 +209,5 @@ public:
     }
 
 private:
-    std::array<CryptoByte, N> data_{};
+    ByteArray<N> data_{};
 };

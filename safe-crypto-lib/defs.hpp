@@ -2,11 +2,20 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 
 using CryptoByte = std::uint8_t;
+
+// Template aliases for fixed-size byte arrays and spans.
+// Prefer these over spelling out std::array<CryptoByte, N> or
+// std::span<[const] CryptoByte, N> at every use site.
+template<std::size_t N> using ByteArray = std::array<CryptoByte, N>;
+template<std::size_t N> using ByteSpan  = std::span<CryptoByte, N>;
+template<std::size_t N> using CByteSpan = std::span<const CryptoByte, N>;
 
 constexpr std::size_t bits_per_byte = 8;
 
