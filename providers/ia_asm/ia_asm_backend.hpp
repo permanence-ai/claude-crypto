@@ -90,19 +90,19 @@ struct IaAsmBackend {
     {
         if (alg == alg_sha(ShaVariant::Sha256)) {
             if (output_size < sha256_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha256(input, input_len, output);
+            ia_asm::detail::sha256(input, input_len, std::span<CryptoByte, sha256_digest_bytes>{output, sha256_digest_bytes});
             *output_len = sha256_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha512)) {
             if (output_size < sha512_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha512(input, input_len, output);
+            ia_asm::detail::sha512(input, input_len, std::span<CryptoByte, sha512_digest_bytes>{output, sha512_digest_bytes});
             *output_len = sha512_size_bytes;
             return ok;
         }
         if (alg == alg_sha(ShaVariant::Sha384)) {
             if (output_size < sha384_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha384(input, input_len, output);
+            ia_asm::detail::sha384(input, input_len, std::span<CryptoByte, sha384_digest_bytes>{output, sha384_digest_bytes});
             *output_len = sha384_size_bytes;
             return ok;
         }
