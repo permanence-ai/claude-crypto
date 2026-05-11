@@ -105,11 +105,10 @@ TEST_F(KdfTests, ExpandKeyWithInfoProducesExpectedSize) {
 
 
 TEST_F(KdfTests, DeriveKeyLargeOutputWithAdequateIkmSucceeds) {
-    // The protocol max is hkdf_sha384_max_output_bytes, but the ARM ASM key
-    // store caps IKM at 512 bytes, so the largest output achievable via
-    // derive_key is 256 (= 512/2).  Use 256 bytes to verify no false rejection
-    // from our new guard while staying within provider limits.
-    constexpr std::size_t kOutputLen = 256;
+    // Use output_length = 128 so that the required IKM is exactly 256 bytes —
+    // the smallest raw-key cap across all providers (OpenSSL: 256 bytes).
+    // This confirms our output-length guard does not false-reject legal inputs.
+    constexpr std::size_t kOutputLen = 128;
     auto ikm = make_random_secure_buffer(kOutputLen * 2);
 
     const auto result = derive_key(kOutputLen,
