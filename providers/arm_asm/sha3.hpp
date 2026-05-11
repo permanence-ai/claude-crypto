@@ -108,7 +108,7 @@ private:
 
 // SHA3-256: rate=136, out=32
 inline void sha3_256(const CryptoByte* msg, std::size_t msg_len,
-                     std::span<CryptoByte, sha256_digest_bytes> out) noexcept
+                     ByteSpan<sha256_digest_bytes> out) noexcept
 {
     Sha3Ctx ctx;
     ctx.init(136, sha256_digest_bytes);
@@ -118,7 +118,7 @@ inline void sha3_256(const CryptoByte* msg, std::size_t msg_len,
 
 // SHA3-384: rate=104, out=48
 inline void sha3_384(const CryptoByte* msg, std::size_t msg_len,
-                     std::span<CryptoByte, sha384_digest_bytes> out) noexcept
+                     ByteSpan<sha384_digest_bytes> out) noexcept
 {
     Sha3Ctx ctx;
     ctx.init(104, sha384_digest_bytes);
@@ -128,7 +128,7 @@ inline void sha3_384(const CryptoByte* msg, std::size_t msg_len,
 
 // SHA3-512: rate=72, out=64
 inline void sha3_512(const CryptoByte* msg, std::size_t msg_len,
-                     std::span<CryptoByte, sha512_digest_bytes> out) noexcept
+                     ByteSpan<sha512_digest_bytes> out) noexcept
 {
     Sha3Ctx ctx;
     ctx.init(72, sha512_digest_bytes);

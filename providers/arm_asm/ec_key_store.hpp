@@ -66,17 +66,17 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
         if (curve == EcCurveId::P256) {
             if (key_len != p256_scalar_bytes) { return false; }
             Fe256 tmp{};
-            return p256_scalar_sig_decode(std::span<const CryptoByte, p256_scalar_bytes>{key, p256_scalar_bytes}, tmp);
+            return p256_scalar_sig_decode(CByteSpan<p256_scalar_bytes>{key, p256_scalar_bytes}, tmp);
         }
         if (curve == EcCurveId::P384) {
             if (key_len != p384_scalar_bytes) { return false; }
             Fe384 tmp{};
-            return p384_scalar_sig_decode(std::span<const CryptoByte, p384_scalar_bytes>{key, p384_scalar_bytes}, tmp);
+            return p384_scalar_sig_decode(CByteSpan<p384_scalar_bytes>{key, p384_scalar_bytes}, tmp);
         }
         if (curve == EcCurveId::P521) {
             if (key_len != p521_scalar_bytes) { return false; }
             Fe521 tmp{};
-            return p521_scalar_sig_decode(std::span<const CryptoByte, p521_scalar_bytes>{key, p521_scalar_bytes}, tmp);
+            return p521_scalar_sig_decode(CByteSpan<p521_scalar_bytes>{key, p521_scalar_bytes}, tmp);
         }
         return false;
     }
@@ -85,15 +85,15 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
         if (curve == EcCurveId::P256) {
             if (key_len != p256_public_key_bytes) { return false; }
             if (key[0] != 0x04U) { return false; }
-            const Fe256 x = fe256_from_bytes(std::span<const CryptoByte, p256_scalar_bytes>{key + 1,  p256_scalar_bytes});
-            const Fe256 y = fe256_from_bytes(std::span<const CryptoByte, p256_scalar_bytes>{key + 33, p256_scalar_bytes});
+            const Fe256 x = fe256_from_bytes(CByteSpan<p256_scalar_bytes>{key + 1,  p256_scalar_bytes});
+            const Fe256 y = fe256_from_bytes(CByteSpan<p256_scalar_bytes>{key + 33, p256_scalar_bytes});
             return p256_validate_public_point(x, y);
         }
         if (curve == EcCurveId::P384) {
             if (key_len != p384_public_key_bytes) { return false; }
             if (key[0] != 0x04U) { return false; }
-            const Fe384 x = fe384_from_bytes(std::span<const CryptoByte, p384_scalar_bytes>{key + 1,  p384_scalar_bytes});
-            const Fe384 y = fe384_from_bytes(std::span<const CryptoByte, p384_scalar_bytes>{key + 49, p384_scalar_bytes});
+            const Fe384 x = fe384_from_bytes(CByteSpan<p384_scalar_bytes>{key + 1,  p384_scalar_bytes});
+            const Fe384 y = fe384_from_bytes(CByteSpan<p384_scalar_bytes>{key + 49, p384_scalar_bytes});
             return p384_validate_public_point(x, y);
         }
         if (curve == EcCurveId::P521) {
@@ -101,8 +101,8 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
             if (key[0] != 0x04U) { return false; }
             if ((key[1]  & 0xFEU) != 0U) { return false; }
             if ((key[67] & 0xFEU) != 0U) { return false; }
-            const Fe521 x = fe521_from_bytes(std::span<const CryptoByte, p521_scalar_bytes>{key + 1,  p521_scalar_bytes});
-            const Fe521 y = fe521_from_bytes(std::span<const CryptoByte, p521_scalar_bytes>{key + 67, p521_scalar_bytes});
+            const Fe521 x = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{key + 1,  p521_scalar_bytes});
+            const Fe521 y = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{key + 67, p521_scalar_bytes});
             return p521_validate_public_point(x, y);
         }
         return false;

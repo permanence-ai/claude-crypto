@@ -58,7 +58,7 @@ static constexpr Fe384 fe384_p = {{
 
 [[nodiscard]]
 static inline auto fe384_from_bytes(
-    std::span<const CryptoByte, p384_scalar_bytes> b) noexcept -> Fe384
+    CByteSpan<p384_scalar_bytes> b) noexcept -> Fe384
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
@@ -73,7 +73,7 @@ static inline auto fe384_from_bytes(
 }
 
 static inline void fe384_to_bytes(
-    const Fe384& a, std::span<CryptoByte, p384_scalar_bytes> b) noexcept
+    const Fe384& a, ByteSpan<p384_scalar_bytes> b) noexcept
 {
     for (int i = 0; i < 6; ++i) {
         uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(5 - i)) * 8);

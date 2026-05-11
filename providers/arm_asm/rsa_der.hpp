@@ -292,11 +292,11 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept
 {
     // Fixed rsaEncryption OID: 1.2.840.113549.1.1.1
-    static constexpr std::array<CryptoByte, 11> kRsaOid = {
+    static constexpr ByteArray<11> kRsaOid = {
         0x06, 0x09,
         0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01
     };
-    static constexpr std::array<CryptoByte, 2> kNull = { 0x05, 0x00 };
+    static constexpr ByteArray<2> kNull = { 0x05, 0x00 };
 
     // Helper: encode a DER length into a local buffer, return bytes written.
     auto encode_len = [](std::size_t len, CryptoByte* buf) -> std::size_t {
@@ -323,8 +323,8 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     const std::size_t e_int_content = e_len + (e_needs_pad ? 1U : 0U);
 
     // INTEGER TLV sizes: tag(1) + len_field + content
-    std::array<CryptoByte, 3> n_len_buf{};
-    std::array<CryptoByte, 3> e_len_buf{};
+    ByteArray<3> n_len_buf{};
+    ByteArray<3> e_len_buf{};
     const std::size_t n_len_bytes = encode_len(n_int_content, n_len_buf.data());
     const std::size_t e_len_bytes = encode_len(e_int_content, e_len_buf.data());
     const std::size_t n_tlv = 1U + n_len_bytes + n_int_content;
@@ -332,25 +332,25 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
 
     // Inner RSAPublicKey SEQUENCE body = n_tlv + e_tlv
     const std::size_t rsakey_body = n_tlv + e_tlv;
-    std::array<CryptoByte, 3> rsakey_len_buf{};
+    ByteArray<3> rsakey_len_buf{};
     const std::size_t rsakey_len_bytes = encode_len(rsakey_body, rsakey_len_buf.data());
     const std::size_t rsakey_seq = 1U + rsakey_len_bytes + rsakey_body;
 
     // BIT STRING: 0x03, len, 0x00 (unused bits), RSAPublicKey SEQUENCE
     const std::size_t bitstr_content = 1U + rsakey_seq;
-    std::array<CryptoByte, 3> bitstr_len_buf{};
+    ByteArray<3> bitstr_len_buf{};
     const std::size_t bitstr_len_bytes = encode_len(bitstr_content, bitstr_len_buf.data());
     const std::size_t bitstr_tlv = 1U + bitstr_len_bytes + bitstr_content;
 
     // AlgorithmIdentifier SEQUENCE = oid + null
     const std::size_t algid_body = kRsaOid.size() + kNull.size();
-    std::array<CryptoByte, 3> algid_len_buf{};
+    ByteArray<3> algid_len_buf{};
     const std::size_t algid_len_bytes = encode_len(algid_body, algid_len_buf.data());
     const std::size_t algid_seq = 1U + algid_len_bytes + algid_body;
 
     // Outer SubjectPublicKeyInfo SEQUENCE body = algid + bitstr
     const std::size_t spki_body = algid_seq + bitstr_tlv;
-    std::array<CryptoByte, 3> spki_len_buf{};
+    ByteArray<3> spki_len_buf{};
     const std::size_t spki_len_bytes = encode_len(spki_body, spki_len_buf.data());
     const std::size_t spki_total = 1U + spki_len_bytes + spki_body;
 
@@ -442,13 +442,13 @@ inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,rea
     const std::size_t nc = n_len + (n_pad ? 1U : 0U);
     const std::size_t ec = e_len + (e_pad ? 1U : 0U);
 
-    std::array<CryptoByte, 3> nlen_buf{};
-    std::array<CryptoByte, 3> elen_buf{};
+    ByteArray<3> nlen_buf{};
+    ByteArray<3> elen_buf{};
     const std::size_t nlb = encode_len(nc, nlen_buf.data());
     const std::size_t elb = encode_len(ec, elen_buf.data());
     const std::size_t body = 1U + nlb + nc + 1U + elb + ec;
 
-    std::array<CryptoByte, 3> slen_buf{};
+    ByteArray<3> slen_buf{};
     const std::size_t slb = encode_len(body, slen_buf.data());
     const std::size_t total = 1U + slb + body;
 

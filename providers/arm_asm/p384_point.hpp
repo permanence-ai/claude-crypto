@@ -402,7 +402,7 @@ static inline auto p384_point_add_affine_ct(const P384Point& p, const P384Affine
 
 [[nodiscard]]
 static inline auto p384_scalar_mul_base(
-    std::span<const CryptoByte, p384_scalar_bytes> scalar) noexcept -> P384Point
+    CByteSpan<p384_scalar_bytes> scalar) noexcept -> P384Point
 {
     P384Point result = p384_identity;
 
@@ -452,7 +452,7 @@ static inline auto p384_to_affine(const P384Point& p) noexcept -> P384Point {
 
 [[nodiscard]]
 static inline auto p384_scalar_mul(
-    const P384Point& base, std::span<const CryptoByte, p384_scalar_bytes> scalar) noexcept -> P384Point
+    const P384Point& base, CByteSpan<p384_scalar_bytes> scalar) noexcept -> P384Point
 {
     P384Point result = p384_identity;
     P384Point tmp    = base;
@@ -481,7 +481,7 @@ static inline auto p384_scalar_mul(
 
 [[nodiscard]]
 static inline auto p384_scalar_from_bytes96(
-    std::span<const CryptoByte, p384_sig_bytes> b) noexcept -> Fe384
+    CByteSpan<p384_sig_bytes> b) noexcept -> Fe384
 {
     std::array<uint32_t, 24> w{};
     for (int i = 0; i < 24; ++i) {
@@ -549,7 +549,7 @@ static inline auto p384_scalar_from_bytes96(
 
 [[nodiscard]]
 static inline auto p384_scalar_from_bytes48(
-    std::span<const CryptoByte, p384_scalar_bytes> b) noexcept -> Fe384
+    CByteSpan<p384_scalar_bytes> b) noexcept -> Fe384
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
@@ -808,7 +808,7 @@ static inline auto p384_scalar_is_zero(const Fe384& a) noexcept -> bool {
 // Returns true and writes the scalar iff 1 <= val < n; rejects val == 0 or val >= n.
 [[nodiscard]]
 static inline auto p384_scalar_sig_decode(
-    std::span<const CryptoByte, p384_scalar_bytes> b, Fe384& out) noexcept -> bool
+    CByteSpan<p384_scalar_bytes> b, Fe384& out) noexcept -> bool
 {
     Fe384 r{};
     for (int i = 0; i < 6; ++i) {
@@ -844,13 +844,13 @@ static inline auto p384_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p384_compute_public_key(
-    std::span<const CryptoByte, p384_scalar_bytes> private_scalar_be,
-    std::span<CryptoByte, p384_public_key_bytes> public_key_uncompressed) noexcept
+    CByteSpan<p384_scalar_bytes> private_scalar_be,
+    ByteSpan<p384_public_key_bytes> public_key_uncompressed) noexcept
 {
     const P384Point pub = p384_to_affine(p384_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe384_to_bytes(pub.X, std::span<CryptoByte, p384_scalar_bytes>{public_key_uncompressed.data() + 1, p384_scalar_bytes});
-    fe384_to_bytes(pub.Y, std::span<CryptoByte, p384_scalar_bytes>{public_key_uncompressed.data() + 49, p384_scalar_bytes});
+    fe384_to_bytes(pub.X, ByteSpan<p384_scalar_bytes>{public_key_uncompressed.data() + 1, p384_scalar_bytes});
+    fe384_to_bytes(pub.Y, ByteSpan<p384_scalar_bytes>{public_key_uncompressed.data() + 49, p384_scalar_bytes});
 }
 
 
