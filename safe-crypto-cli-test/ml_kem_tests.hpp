@@ -42,7 +42,7 @@ TEST_F(MlKemTests, KeygenKem512ProducesKeys) {
     const std::string priv_path = tmp("mlkem_512_priv.bin");
     const std::string pub_path  = tmp("mlkem_512_pub.bin");
     const auto r = run_scli(scli(),
-        "ml-kem keygen --variant 512 --out-private " + priv_path + " --out-public " + pub_path);
+        {"ml-kem", "keygen", "--variant", "512", "--out-private", priv_path, "--out-public", pub_path});
     ASSERT_EQ(r.exit_code, 0);
     EXPECT_EQ(std::filesystem::file_size(priv_path), 1632U);
     EXPECT_EQ(std::filesystem::file_size(pub_path),   800U);
@@ -52,7 +52,7 @@ TEST_F(MlKemTests, KeygenKem768ProducesKeys) {
     const std::string priv_path = tmp("mlkem_768_priv.bin");
     const std::string pub_path  = tmp("mlkem_768_pub.bin");
     const auto r = run_scli(scli(),
-        "ml-kem keygen --variant 768 --out-private " + priv_path + " --out-public " + pub_path);
+        {"ml-kem", "keygen", "--variant", "768", "--out-private", priv_path, "--out-public", pub_path});
     ASSERT_EQ(r.exit_code, 0);
     EXPECT_EQ(std::filesystem::file_size(priv_path), 2400U);
     EXPECT_EQ(std::filesystem::file_size(pub_path),  1184U);
@@ -62,7 +62,7 @@ TEST_F(MlKemTests, KeygenKem1024ProducesKeys) {
     const std::string priv_path = tmp("mlkem_1024_priv.bin");
     const std::string pub_path  = tmp("mlkem_1024_pub.bin");
     const auto r = run_scli(scli(),
-        "ml-kem keygen --variant 1024 --out-private " + priv_path + " --out-public " + pub_path);
+        {"ml-kem", "keygen", "--variant", "1024", "--out-private", priv_path, "--out-public", pub_path});
     ASSERT_EQ(r.exit_code, 0);
     EXPECT_EQ(std::filesystem::file_size(priv_path), 3168U);
     EXPECT_EQ(std::filesystem::file_size(pub_path),  1568U);
@@ -70,7 +70,7 @@ TEST_F(MlKemTests, KeygenKem1024ProducesKeys) {
 
 TEST_F(MlKemTests, KeygenUnknownVariantExitsNonZero) {
     const auto r = run_scli(scli(),
-        "ml-kem keygen --variant 256 --out-private /dev/null --out-public /dev/null");
+        {"ml-kem", "keygen", "--variant", "256", "--out-private", "/dev/null", "--out-public", "/dev/null"});
     EXPECT_NE(r.exit_code, 0);
 }
 
@@ -85,17 +85,17 @@ TEST_F(MlKemTests, RoundTripKem512) {
     const std::string ss2_path  = tmp("rt512_ss2.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem keygen --variant 512 --out-private " + priv_path + " --out-public " + pub_path
+        {"ml-kem", "keygen", "--variant", "512", "--out-private", priv_path, "--out-public", pub_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem encapsulate --variant 512 --key " + pub_path +
-        " --out-ciphertext " + ct_path + " --out-secret " + ss1_path
+        {"ml-kem", "encapsulate", "--variant", "512", "--key", pub_path,
+         "--out-ciphertext", ct_path, "--out-secret", ss1_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem decapsulate --variant 512 --key " + priv_path +
-        " --ciphertext " + ct_path + " --output " + ss2_path
+        {"ml-kem", "decapsulate", "--variant", "512", "--key", priv_path,
+         "--ciphertext", ct_path, "--output", ss2_path}
     ).exit_code, 0);
 
     EXPECT_EQ(std::filesystem::file_size(ct_path),   768U);
@@ -112,17 +112,17 @@ TEST_F(MlKemTests, RoundTripKem1024) {
     const std::string ss2_path  = tmp("rt1024_ss2.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem keygen --variant 1024 --out-private " + priv_path + " --out-public " + pub_path
+        {"ml-kem", "keygen", "--variant", "1024", "--out-private", priv_path, "--out-public", pub_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem encapsulate --variant 1024 --key " + pub_path +
-        " --out-ciphertext " + ct_path + " --out-secret " + ss1_path
+        {"ml-kem", "encapsulate", "--variant", "1024", "--key", pub_path,
+         "--out-ciphertext", ct_path, "--out-secret", ss1_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem decapsulate --variant 1024 --key " + priv_path +
-        " --ciphertext " + ct_path + " --output " + ss2_path
+        {"ml-kem", "decapsulate", "--variant", "1024", "--key", priv_path,
+         "--ciphertext", ct_path, "--output", ss2_path}
     ).exit_code, 0);
 
     EXPECT_EQ(std::filesystem::file_size(ct_path),  1568U);
@@ -138,17 +138,17 @@ TEST_F(MlKemTests, EncapsulateProducesUniqueSecrets) {
     const std::string ss2_path  = tmp("uniq_ss2.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem keygen --variant 512 --out-private " + priv_path + " --out-public " + pub_path
+        {"ml-kem", "keygen", "--variant", "512", "--out-private", priv_path, "--out-public", pub_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem encapsulate --variant 512 --key " + pub_path +
-        " --out-ciphertext " + ct1_path + " --out-secret " + ss1_path
+        {"ml-kem", "encapsulate", "--variant", "512", "--key", pub_path,
+         "--out-ciphertext", ct1_path, "--out-secret", ss1_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem encapsulate --variant 512 --key " + pub_path +
-        " --out-ciphertext " + ct2_path + " --out-secret " + ss2_path
+        {"ml-kem", "encapsulate", "--variant", "512", "--key", pub_path,
+         "--out-ciphertext", ct2_path, "--out-secret", ss2_path}
     ).exit_code, 0);
 
     EXPECT_NE(read_file_bytes(ss1_path), read_file_bytes(ss2_path));
@@ -164,29 +164,29 @@ TEST_F(MlKemTests, DecapsulateWrongKeyExitsNonZero) {
     const std::string ss_path    = tmp("wrongkey_ss.bin");
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem keygen --variant 512 --out-private " + priv1_path + " --out-public " + pub1_path
+        {"ml-kem", "keygen", "--variant", "512", "--out-private", priv1_path, "--out-public", pub1_path}
     ).exit_code, 0);
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem keygen --variant 512 --out-private " + priv2_path + " --out-public " + pub2_path
+        {"ml-kem", "keygen", "--variant", "512", "--out-private", priv2_path, "--out-public", pub2_path}
     ).exit_code, 0);
 
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem encapsulate --variant 512 --key " + pub1_path +
-        " --out-ciphertext " + ct_path + " --out-secret " + ss_path
+        {"ml-kem", "encapsulate", "--variant", "512", "--key", pub1_path,
+         "--out-ciphertext", ct_path, "--out-secret", ss_path}
     ).exit_code, 0);
 
     // Decapsulate with key2 — should fail (wrong key, different shared secret or error)
     const auto r = run_scli(scli(),
-        "ml-kem decapsulate --variant 512 --key " + priv2_path +
-        " --ciphertext " + ct_path + " --output /dev/null");
+        {"ml-kem", "decapsulate", "--variant", "512", "--key", priv2_path,
+         "--ciphertext", ct_path, "--output", "/dev/null"});
     // ML-KEM decapsulation with wrong key is implicit rejection (returns garbage),
     // but size check should still pass; the shared secrets differ.
     // The library validates key sizes, so this should exit 0 with a wrong secret.
     // We verify the secret doesn't match by doing the round-trip comparison.
     const std::string ss_wrong_path = tmp("wrongkey_ss_wrong.bin");
     ASSERT_EQ(run_scli(scli(),
-        "ml-kem decapsulate --variant 512 --key " + priv2_path +
-        " --ciphertext " + ct_path + " --output " + ss_wrong_path
+        {"ml-kem", "decapsulate", "--variant", "512", "--key", priv2_path,
+         "--ciphertext", ct_path, "--output", ss_wrong_path}
     ).exit_code, 0);
     EXPECT_NE(read_file_bytes(ss_path), read_file_bytes(ss_wrong_path));
 }

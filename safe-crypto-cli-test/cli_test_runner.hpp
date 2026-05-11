@@ -3,22 +3,18 @@
 #pragma once
 
 // Utilities for invoking scli as a subprocess and capturing stdout/exit code.
-//
-// run_scli() uses fork/execv (no shell) so argument values are passed verbatim
-// and there is no shared stderr temp file to race on under parallel ctest runs.
 
 #include <array>
 #include <cstring>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
-#include <vector>
-
-#include <poll.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <vector>
 
 #include "defs.hpp"
 
@@ -31,113 +27,60 @@ struct RunResult {
     int         exit_code{};
 };
 
-// Split a whitespace-delimited argument string into tokens.
-// Handles multiple consecutive spaces; does not handle quoting (test args
-// should not contain spaces — use file paths that are space-free).
+// Read all bytes from a file descriptor into a string.
 [[nodiscard]]
-inline auto split_args(const std::string& s) -> std::vector<std::string>
+static inline auto read_fd(int fd) -> std::string
 {
-    std::vector<std::string> tokens;
-    std::size_t i = 0;
-    while (i < s.size()) {
-        while (i < s.size() && s[i] == ' ') { ++i; }
-        if (i >= s.size()) { break; }
-        std::size_t j = i;
-        while (j < s.size() && s[j] != ' ') { ++j; }
-        tokens.push_back(s.substr(i, j - i));
-        i = j;
-    }
-    return tokens;
-}
-
-// Drain a non-blocking read end of a pipe into `out` until EOF.
-inline void drain_pipe(int fd, std::string& out)
-{
+    std::string result;
     std::array<char, 4096> buf{};
-    ::ssize_t n = 0;
+    ssize_t n = 0;
     while ((n = ::read(fd, buf.data(), buf.size())) > 0) {
-        out.append(buf.data(), static_cast<std::size_t>(n));
+        result.append(buf.data(), static_cast<std::string::size_type>(n));
     }
+    return result;
 }
 
-// Run `scli_path <args>` via fork/execv and return captured stdout, stderr,
-// and exit code.  Trailing newlines on stdout_text and stderr_text are stripped.
-// `args` is a whitespace-delimited string split into argv tokens — values must
-// not contain spaces (use file paths under /tmp which are space-free).
+// Run scli_path with the given argv tokens and return captured stdout, stderr, and exit code.
+// Trailing newlines on stdout_text and stderr_text are stripped.
 [[nodiscard]]
-inline auto run_scli(const std::string& scli_path, const std::string& args) -> RunResult
+inline auto run_scli(const std::string& scli_path, std::vector<std::string> args) -> RunResult
 {
-    // Build argv: scli_path + tokens from args.
-    const auto tokens = split_args(args);
-    std::vector<const char*> argv;
-    argv.reserve(tokens.size() + 2U);
-    argv.push_back(scli_path.c_str());
-    for (const auto& t : tokens) { argv.push_back(t.c_str()); }
-    argv.push_back(nullptr);
+    // Build argv: scli_path as argv[0], then each element of args, then nullptr.
+    std::vector<const char*> argv_ptrs;
+    argv_ptrs.reserve(args.size() + 2);
+    argv_ptrs.push_back(scli_path.c_str());
+    for (const auto& a : args) { argv_ptrs.push_back(a.c_str()); }
+    argv_ptrs.push_back(nullptr);
 
     // Create pipes for stdout and stderr.
-    std::array<int, 2> stdout_pipe{};
-    std::array<int, 2> stderr_pipe{};
-    if (::pipe(stdout_pipe.data()) != 0 || ::pipe(stderr_pipe.data()) != 0) {
-        return {"", "pipe() failed", 127};
-    }
+    int stdout_pipe[2]{};
+    int stderr_pipe[2]{};
+    if (::pipe(stdout_pipe) != 0 || ::pipe(stderr_pipe) != 0) { return {"", "", 127}; }
 
     const pid_t pid = ::fork();
-    if (pid == -1) {
+    if (pid < 0) {
         ::close(stdout_pipe[0]); ::close(stdout_pipe[1]);
         ::close(stderr_pipe[0]); ::close(stderr_pipe[1]);
-        return {"", "fork() failed", 127};
+        return {"", "", 127};
     }
 
     if (pid == 0) {
-        // Child: wire up pipes and exec.
-        ::close(stdout_pipe[0]);
-        ::close(stderr_pipe[0]);
-        ::dup2(stdout_pipe[1], STDOUT_FILENO);  // NOLINT(hicpp-signed-bitwise)
-        ::dup2(stderr_pipe[1], STDERR_FILENO);  // NOLINT(hicpp-signed-bitwise)
-        ::close(stdout_pipe[1]);
-        ::close(stderr_pipe[1]);
+        // Child: redirect stdout/stderr to pipes and exec.
+        ::dup2(stdout_pipe[1], STDOUT_FILENO);
+        ::dup2(stderr_pipe[1], STDERR_FILENO);
+        ::close(stdout_pipe[0]); ::close(stdout_pipe[1]);
+        ::close(stderr_pipe[0]); ::close(stderr_pipe[1]);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        ::execv(scli_path.c_str(), const_cast<char* const*>(argv.data()));
-        ::_exit(127);  // execv failed
+        ::execv(scli_path.c_str(), const_cast<char* const*>(argv_ptrs.data()));
+        ::_exit(127);
     }
 
-    // Parent: close write ends, drain both pipes, then wait.
+    // Parent: close write ends and read from read ends.
     ::close(stdout_pipe[1]);
     ::close(stderr_pipe[1]);
 
-    std::string out;
-    std::string err;
-
-    // Poll both pipes until both reach EOF.
-    std::array<struct ::pollfd, 2> fds{};
-    fds[0] = {stdout_pipe[0], POLLIN, 0};
-    fds[1] = {stderr_pipe[0], POLLIN, 0};
-    int open_count = 2;
-
-    while (open_count > 0) {
-        const int ready = ::poll(fds.data(), static_cast<::nfds_t>(fds.size()), -1);
-        if (ready <= 0) { break; }
-        for (auto& pfd : fds) {
-            if (pfd.fd < 0) { continue; }
-            if ((pfd.revents & POLLIN) != 0) {  // NOLINT(hicpp-signed-bitwise)
-                std::array<char, 4096> buf{};
-                const ::ssize_t n = ::read(pfd.fd, buf.data(), buf.size());
-                if (n > 0) {
-                    if (pfd.fd == stdout_pipe[0]) { out.append(buf.data(), static_cast<std::size_t>(n)); }
-                    else                          { err.append(buf.data(), static_cast<std::size_t>(n)); }
-                }
-            }
-            if ((pfd.revents & (POLLHUP | POLLERR)) != 0) {  // NOLINT(hicpp-signed-bitwise)
-                // Drain any remaining bytes after HUP.
-                if (pfd.fd == stdout_pipe[0]) { drain_pipe(pfd.fd, out); }
-                else                          { drain_pipe(pfd.fd, err); }
-                ::close(pfd.fd);
-                pfd.fd = -1;
-                --open_count;
-            }
-        }
-    }
+    std::string out = read_fd(stdout_pipe[0]);
+    std::string err = read_fd(stderr_pipe[0]);
     ::close(stdout_pipe[0]);
     ::close(stderr_pipe[0]);
 
