@@ -18,14 +18,14 @@ protected:
 };
 
 TEST_F(HelpTests, NoArgsExitsZeroAndPrintsHelp) {
-    const auto r = run_scli(scli(), "");
+    const auto r = run_scli(scli(), {});
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_NE(r.stdout_text.find("SUBCOMMAND"), std::string::npos);
     EXPECT_NE(r.stdout_text.find("digest"), std::string::npos);
 }
 
 TEST_F(HelpTests, HelpFlagExitsZeroAndPrintsHelp) {
-    const auto r = run_scli(scli(), "--help");
+    const auto r = run_scli(scli(), {"--help"});
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_NE(r.stdout_text.find("SUBCOMMAND"), std::string::npos);
     EXPECT_NE(r.stdout_text.find("digest"), std::string::npos);

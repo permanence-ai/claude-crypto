@@ -25,9 +25,8 @@ protected:
         priv_path_ = (std::filesystem::temp_directory_path() / "rsa_test_priv.der").string();
         pub_path_  = (std::filesystem::temp_directory_path() / "rsa_test_pub.der").string();
         const auto r = run_scli(scli(),
-            "rsa keygen --bits 3072"
-            " --out-private " + priv_path_ +
-            " --out-public "  + pub_path_);
+            {"rsa", "keygen", "--bits", "3072",
+             "--out-private", priv_path_, "--out-public", pub_path_});
         keygen_ok_ = (r.exit_code == 0);
     }
 
@@ -66,13 +65,13 @@ TEST_F(RsaTests, KeygenProducesFiles) {
 TEST_F(RsaTests, OaepRoundTrip) {
     ASSERT_TRUE(keygen_ok_);
     const auto enc = run_scli(scli(),
-        "rsa oaep-encrypt --bits 3072 --key " + pub_path_ + " --input " + kMsg);
+        {"rsa", "oaep-encrypt", "--bits", "3072", "--key", pub_path_, "--input", kMsg});
     ASSERT_EQ(enc.exit_code, 0);
     ASSERT_FALSE(enc.stdout_text.empty());
 
     const auto dec = run_scli(scli(),
-        "rsa oaep-decrypt --bits 3072 --key " + priv_path_ +
-        " --input base64:" + enc.stdout_text);
+        {"rsa", "oaep-decrypt", "--bits", "3072", "--key", priv_path_,
+         "--input", "base64:" + enc.stdout_text});
     EXPECT_EQ(dec.exit_code, 0);
     // Decrypted plaintext is base64("hello world").
     EXPECT_EQ(dec.stdout_text, "aGVsbG8gd29ybGQ=");
@@ -85,17 +84,17 @@ TEST_F(RsaTests, OaepDecryptFailsWithWrongKey) {
     const std::string priv2 = (std::filesystem::temp_directory_path() / "rsa_wrong_priv.der").string();
     const std::string pub2  = (std::filesystem::temp_directory_path() / "rsa_wrong_pub.der").string();
     const auto kg2 = run_scli(scli(),
-        "rsa keygen --bits 3072 --out-private " + priv2 + " --out-public " + pub2);
+        {"rsa", "keygen", "--bits", "3072", "--out-private", priv2, "--out-public", pub2});
     ASSERT_EQ(kg2.exit_code, 0);
 
     const auto enc = run_scli(scli(),
-        "rsa oaep-encrypt --bits 3072 --key " + pub_path_ + " --input " + kMsg);
+        {"rsa", "oaep-encrypt", "--bits", "3072", "--key", pub_path_, "--input", kMsg});
     ASSERT_EQ(enc.exit_code, 0);
 
     // Decrypt with key2 — must fail.
     const auto dec = run_scli(scli(),
-        "rsa oaep-decrypt --bits 3072 --key " + priv2 +
-        " --input base64:" + enc.stdout_text);
+        {"rsa", "oaep-decrypt", "--bits", "3072", "--key", priv2,
+         "--input", "base64:" + enc.stdout_text});
     EXPECT_NE(dec.exit_code, 0);
 
     std::filesystem::remove(priv2);
@@ -107,55 +106,55 @@ TEST_F(RsaTests, OaepRoundTripWithLabel) {
     const std::string label = "base64:bXkgbGFiZWw=";  // "my label"
 
     const auto enc = run_scli(scli(),
-        "rsa oaep-encrypt --bits 3072 --key " + pub_path_ +
-        " --input " + kMsg + " --label " + label);
+        {"rsa", "oaep-encrypt", "--bits", "3072", "--key", pub_path_,
+         "--input", kMsg, "--label", label});
     ASSERT_EQ(enc.exit_code, 0);
 
     const auto dec = run_scli(scli(),
-        "rsa oaep-decrypt --bits 3072 --key " + priv_path_ +
-        " --input base64:" + enc.stdout_text + " --label " + label);
+        {"rsa", "oaep-decrypt", "--bits", "3072", "--key", priv_path_,
+         "--input", "base64:" + enc.stdout_text, "--label", label});
     EXPECT_EQ(dec.exit_code, 0);
     EXPECT_EQ(dec.stdout_text, "aGVsbG8gd29ybGQ=");
 }
 
 TEST_F(RsaTests, OaepDecryptFailsWithWrongLabel) {
     ASSERT_TRUE(keygen_ok_);
-    const std::string label      = "base64:bXkgbGFiZWw=";   // "my label"
+    const std::string label      = "base64:bXkgbGFiZWw=";       // "my label"
     const std::string wrong_label = "base64:d3JvbmcgbGFiZWw=";  // "wrong label"
 
     const auto enc = run_scli(scli(),
-        "rsa oaep-encrypt --bits 3072 --key " + pub_path_ +
-        " --input " + kMsg + " --label " + label);
+        {"rsa", "oaep-encrypt", "--bits", "3072", "--key", pub_path_,
+         "--input", kMsg, "--label", label});
     ASSERT_EQ(enc.exit_code, 0);
 
     const auto dec = run_scli(scli(),
-        "rsa oaep-decrypt --bits 3072 --key " + priv_path_ +
-        " --input base64:" + enc.stdout_text + " --label " + wrong_label);
+        {"rsa", "oaep-decrypt", "--bits", "3072", "--key", priv_path_,
+         "--input", "base64:" + enc.stdout_text, "--label", wrong_label});
     EXPECT_NE(dec.exit_code, 0);
 }
 
 TEST_F(RsaTests, PssSignVerifyRoundTrip) {
     ASSERT_TRUE(keygen_ok_);
     const auto sig = run_scli(scli(),
-        "rsa pss-sign --bits 3072 --key " + priv_path_ + " --input " + kMsg);
+        {"rsa", "pss-sign", "--bits", "3072", "--key", priv_path_, "--input", kMsg});
     ASSERT_EQ(sig.exit_code, 0);
     ASSERT_FALSE(sig.stdout_text.empty());
 
     const auto verify = run_scli(scli(),
-        "rsa pss-verify --bits 3072 --key " + pub_path_ +
-        " --input " + kMsg + " --signature base64:" + sig.stdout_text);
+        {"rsa", "pss-verify", "--bits", "3072", "--key", pub_path_,
+         "--input", kMsg, "--signature", "base64:" + sig.stdout_text});
     EXPECT_EQ(verify.exit_code, 0);
 }
 
 TEST_F(RsaTests, PssVerifyFailsWithWrongMessage) {
     ASSERT_TRUE(keygen_ok_);
     const auto sig = run_scli(scli(),
-        "rsa pss-sign --bits 3072 --key " + priv_path_ + " --input " + kMsg);
+        {"rsa", "pss-sign", "--bits", "3072", "--key", priv_path_, "--input", kMsg});
     ASSERT_EQ(sig.exit_code, 0);
 
     const auto verify = run_scli(scli(),
-        "rsa pss-verify --bits 3072 --key " + pub_path_ +
-        " --input " + kOtherMsg + " --signature base64:" + sig.stdout_text);
+        {"rsa", "pss-verify", "--bits", "3072", "--key", pub_path_,
+         "--input", kOtherMsg, "--signature", "base64:" + sig.stdout_text});
     EXPECT_NE(verify.exit_code, 0);
 }
 
@@ -164,22 +163,22 @@ TEST_F(RsaTests, PssSignatureToFile) {
     const std::string sig_path = (std::filesystem::temp_directory_path() / "rsa_sig.bin").string();
 
     const auto sig = run_scli(scli(),
-        "rsa pss-sign --bits 3072 --key " + priv_path_ +
-        " --input " + kMsg + " --output " + sig_path);
+        {"rsa", "pss-sign", "--bits", "3072", "--key", priv_path_,
+         "--input", kMsg, "--output", sig_path});
     ASSERT_EQ(sig.exit_code, 0);
     // 3072-bit RSA-PSS signature is 384 bytes.
     EXPECT_EQ(std::filesystem::file_size(sig_path), 384U);
 
     const auto verify = run_scli(scli(),
-        "rsa pss-verify --bits 3072 --key " + pub_path_ +
-        " --input " + kMsg + " --signature " + sig_path);
+        {"rsa", "pss-verify", "--bits", "3072", "--key", pub_path_,
+         "--input", kMsg, "--signature", sig_path});
     EXPECT_EQ(verify.exit_code, 0);
 
     std::filesystem::remove(sig_path);
 }
 
 TEST_F(RsaTests, UnknownBitsExitsNonZero) {
-    const auto r = run_scli(scli(), "rsa keygen --bits 2048");
+    const auto r = run_scli(scli(), {"rsa", "keygen", "--bits", "2048"});
     EXPECT_NE(r.exit_code, 0);
 }
 

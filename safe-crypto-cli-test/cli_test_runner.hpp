@@ -13,6 +13,8 @@
 #include <iterator>
 #include <string>
 #include <sys/wait.h>
+#include <poll.h>
+#include <unistd.h>
 #include <vector>
 
 #include "defs.hpp"
@@ -26,39 +28,95 @@ struct RunResult {
     int         exit_code{};
 };
 
-// Run `scli_path <args>` and return captured stdout, stderr, and exit code.
+// Run scli_path with the given argv tokens and return captured stdout, stderr, and exit code.
+// Stdout and stderr are drained concurrently via poll() to prevent pipe-buffer deadlocks:
+// if the child fills the stderr pipe while the parent is blocked reading stdout EOF (or vice
+// versa), both sides would hang without concurrent draining.
 // Trailing newlines on stdout_text and stderr_text are stripped.
 [[nodiscard]]
-inline auto run_scli(const std::string& scli_path, const std::string& args) -> RunResult
+inline auto run_scli(const std::string& scli_path, std::vector<std::string> args) -> RunResult
 {
-    // Use a temp file for stderr so we can capture it independently.
-    const std::string stderr_path =
-        (std::filesystem::temp_directory_path() / "scli_test_stderr.txt").string();
-    const std::string cmd = scli_path + " " + args + " 2>" + stderr_path;
-    // NOLINTNEXTLINE(cert-env33-c,concurrency-mt-unsafe)
-    FILE* pipe = ::popen(cmd.c_str(), "r");
-    if (pipe == nullptr) { return {"", "", 127}; }
+    // Build argv: scli_path as argv[0], then each element of args, then nullptr.
+    std::vector<const char*> argv_ptrs;
+    argv_ptrs.reserve(args.size() + 2U);
+    argv_ptrs.push_back(scli_path.c_str());
+    for (const auto& a : args) { argv_ptrs.push_back(a.c_str()); }
+    argv_ptrs.push_back(nullptr);
+
+    // Create pipes for stdout and stderr.
+    int stdout_pipe[2]{};
+    int stderr_pipe[2]{};
+    if (::pipe(stdout_pipe) != 0 || ::pipe(stderr_pipe) != 0) { return {"", "", 127}; }
+
+    const pid_t pid = ::fork();
+    if (pid < 0) {
+        ::close(stdout_pipe[0]); ::close(stdout_pipe[1]);
+        ::close(stderr_pipe[0]); ::close(stderr_pipe[1]);
+        return {"", "", 127};
+    }
+
+    if (pid == 0) {
+        // Child: redirect stdout/stderr to pipes and exec.
+        ::dup2(stdout_pipe[1], STDOUT_FILENO);
+        ::dup2(stderr_pipe[1], STDERR_FILENO);
+        ::close(stdout_pipe[0]); ::close(stdout_pipe[1]);
+        ::close(stderr_pipe[0]); ::close(stderr_pipe[1]);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        ::execv(scli_path.c_str(), const_cast<char* const*>(argv_ptrs.data()));
+        ::_exit(127);
+    }
+
+    // Parent: close write ends; drain both read ends concurrently via poll().
+    ::close(stdout_pipe[1]);
+    ::close(stderr_pipe[1]);
 
     std::string out;
+    std::string err;
     std::array<char, 4096> buf{};
-    while (::fgets(buf.data(), static_cast<int>(buf.size()), pipe) != nullptr) {
-        out += buf.data();
+
+    // fds[0] = stdout pipe, fds[1] = stderr pipe.
+    std::array<struct pollfd, 2> fds{};
+    fds[0].fd     = stdout_pipe[0];
+    fds[0].events = POLLIN;
+    fds[1].fd     = stderr_pipe[0];
+    fds[1].events = POLLIN;
+
+    int open_count = 2;
+    while (open_count > 0) {
+        const int ready = ::poll(fds.data(), static_cast<nfds_t>(fds.size()), -1);
+        if (ready <= 0) { break; }
+
+        for (auto& pfd : fds) {
+            if (pfd.fd < 0) { continue; }
+            if ((pfd.revents & POLLIN) != 0) {
+                const ::ssize_t n = ::read(pfd.fd, buf.data(), buf.size());
+                if (n > 0) {
+                    (pfd.fd == stdout_pipe[0] ? out : err)
+                        .append(buf.data(), static_cast<std::string::size_type>(n));
+                }
+            }
+            if ((pfd.revents & (POLLHUP | POLLERR)) != 0) {
+                // Drain any remaining bytes after HUP before closing.
+                ::ssize_t n = 0;
+                while ((n = ::read(pfd.fd, buf.data(), buf.size())) > 0) {
+                    (pfd.fd == stdout_pipe[0] ? out : err)
+                        .append(buf.data(), static_cast<std::string::size_type>(n));
+                }
+                ::close(pfd.fd);
+                pfd.fd = -1;
+                --open_count;
+            }
+        }
     }
-    const int status = ::pclose(pipe);
-    const int code   = WIFEXITED(status) ? WEXITSTATUS(status) : -1;  // NOLINT(hicpp-signed-bitwise)
+    if (fds[0].fd >= 0) { ::close(fds[0].fd); }
+    if (fds[1].fd >= 0) { ::close(fds[1].fd); }
+
+    int status = 0;
+    ::waitpid(pid, &status, 0);
+    const int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;  // NOLINT(hicpp-signed-bitwise)
 
     // Strip single trailing newline if present.
     if (!out.empty() && out.back() == '\n') { out.pop_back(); }
-
-    // Read and clean up the stderr temp file.
-    std::string err;
-    {
-        std::ifstream ef(stderr_path);
-        if (ef) {
-            err.assign(std::istreambuf_iterator<char>(ef), std::istreambuf_iterator<char>());
-        }
-    }
-    std::filesystem::remove(stderr_path);
     if (!err.empty() && err.back() == '\n') { err.pop_back(); }
 
     return {out, err, code};

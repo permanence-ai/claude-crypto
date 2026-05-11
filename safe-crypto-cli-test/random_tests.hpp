@@ -20,27 +20,27 @@ protected:
 };
 
 TEST_F(RandomTests, Produces32BytesAs44CharBase64) {
-    const auto r = run_scli(scli(), "random --length 32");
+    const auto r = run_scli(scli(), {"random", "--length", "32"});
     EXPECT_EQ(r.exit_code, 0);
     // 32 bytes → 44 base64 chars (including padding '=').
     EXPECT_EQ(r.stdout_text.size(), 44U);
 }
 
 TEST_F(RandomTests, Produces64BytesAs88CharBase64) {
-    const auto r = run_scli(scli(), "random --length 64");
+    const auto r = run_scli(scli(), {"random", "--length", "64"});
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_EQ(r.stdout_text.size(), 88U);
 }
 
 TEST_F(RandomTests, Produces1ByteAs4CharBase64) {
-    const auto r = run_scli(scli(), "random --length 1");
+    const auto r = run_scli(scli(), {"random", "--length", "1"});
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_EQ(r.stdout_text.size(), 4U);
 }
 
 TEST_F(RandomTests, TwoCalls_ProduceDifferentOutput) {
-    const auto r1 = run_scli(scli(), "random --length 32");
-    const auto r2 = run_scli(scli(), "random --length 32");
+    const auto r1 = run_scli(scli(), {"random", "--length", "32"});
+    const auto r2 = run_scli(scli(), {"random", "--length", "32"});
     ASSERT_EQ(r1.exit_code, 0);
     ASSERT_EQ(r2.exit_code, 0);
     // Probability of collision is negligible (1/2^256).
@@ -48,7 +48,7 @@ TEST_F(RandomTests, TwoCalls_ProduceDifferentOutput) {
 }
 
 TEST_F(RandomTests, ZeroLengthExitsNonZero) {
-    const auto r = run_scli(scli(), "random --length 0");
+    const auto r = run_scli(scli(), {"random", "--length", "0"});
     EXPECT_NE(r.exit_code, 0);
 }
 
