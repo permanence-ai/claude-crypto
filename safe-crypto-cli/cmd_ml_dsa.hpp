@@ -78,9 +78,9 @@ inline void register_ml_dsa(CLI::App& app)
         const std::string in_spec     = sign_input->as<std::string>();
         const std::string out_spec    = sign_output->count() ? sign_output->as<std::string>() : "base64";
 
-        auto key_buf = read_input(key_spec);
+        auto key_buf = read_input_bounded(key_spec, cli_key_max_bytes);
         if (!key_buf) { die("failed to read private key: " + key_buf.error()); }
-        auto msg_buf = read_input(in_spec);
+        auto msg_buf = read_input_bounded(in_spec, cli_message_max_bytes);
         if (!msg_buf) { die("failed to read message: " + msg_buf.error()); }
 
         auto run = [&]<MlDsaVariant V>() {
@@ -124,11 +124,11 @@ inline void register_ml_dsa(CLI::App& app)
         const std::string in_spec     = verify_input->as<std::string>();
         const std::string sig_spec    = verify_signature->as<std::string>();
 
-        auto key_buf = read_input(key_spec);
+        auto key_buf = read_input_bounded(key_spec, cli_key_max_bytes);
         if (!key_buf) { die("failed to read public key: " + key_buf.error()); }
-        auto msg_buf = read_input(in_spec);
+        auto msg_buf = read_input_bounded(in_spec, cli_message_max_bytes);
         if (!msg_buf) { die("failed to read message: " + msg_buf.error()); }
-        auto sig_buf = read_input(sig_spec);
+        auto sig_buf = read_input_bounded(sig_spec, cli_signature_max_bytes);
         if (!sig_buf) { die("failed to read signature: " + sig_buf.error()); }
 
         auto run = [&]<MlDsaVariant V>() {

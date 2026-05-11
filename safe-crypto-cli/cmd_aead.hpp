@@ -48,15 +48,15 @@ inline void register_aead(CLI::App& app)
             die("--op must be 'encrypt' or 'decrypt'");
         }
 
-        const auto key_buf = read_input(key->as<std::string>());
+        const auto key_buf = read_input_bounded(key->as<std::string>(), cli_key_max_bytes);
         if (!key_buf.has_value()) { die(key_buf.error()); }
 
-        const auto in_buf = read_input(input->as<std::string>());
+        const auto in_buf = read_input_bounded(input->as<std::string>(), cli_message_max_bytes);
         if (!in_buf.has_value()) { die(in_buf.error()); }
 
         std::optional<SecureBuffer> aad_buf;
         if (aad->count() > 0U) {
-            auto a = read_input(aad->as<std::string>());
+            auto a = read_input_bounded(aad->as<std::string>(), cli_message_max_bytes);
             if (!a.has_value()) { die(a.error()); }
             aad_buf = std::move(*a);
         }

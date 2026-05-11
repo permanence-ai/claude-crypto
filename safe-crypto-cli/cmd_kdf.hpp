@@ -49,7 +49,7 @@ inline void register_kdf(CLI::App& app)
         // Build optional IKM.
         std::optional<SecureBuffer> ikm_opt;
         if (drv_ikm->count() > 0U) {
-            auto buf = read_input(drv_ikm->as<std::string>());
+            auto buf = read_input_bounded(drv_ikm->as<std::string>(), cli_key_max_bytes);
             if (!buf.has_value()) { die(buf.error()); }
             ikm_opt = std::move(*buf);
         } else {
@@ -69,7 +69,7 @@ inline void register_kdf(CLI::App& app)
         // Build optional salt.
         std::optional<SecureBuffer> salt_opt;
         if (drv_salt->count() > 0U) {
-            auto buf = read_input(drv_salt->as<std::string>());
+            auto buf = read_input_bounded(drv_salt->as<std::string>(), cli_key_max_bytes);
             if (!buf.has_value()) { die(buf.error()); }
             salt_opt = std::move(*buf);
         }
@@ -77,7 +77,7 @@ inline void register_kdf(CLI::App& app)
         // Build optional info.
         std::optional<SecureBuffer> info_opt;
         if (drv_info->count() > 0U) {
-            auto buf = read_input(drv_info->as<std::string>());
+            auto buf = read_input_bounded(drv_info->as<std::string>(), cli_key_max_bytes);
             if (!buf.has_value()) { die(buf.error()); }
             info_opt = std::move(*buf);
         }
@@ -111,7 +111,7 @@ inline void register_kdf(CLI::App& app)
                 std::to_string(hkdf_sha384_max_output_bytes) + " bytes)");
         }
 
-        auto prk_buf = read_input(exp_prk->as<std::string>());
+        auto prk_buf = read_input_bounded(exp_prk->as<std::string>(), cli_key_max_bytes);
         if (!prk_buf.has_value()) { die(prk_buf.error()); }
 
         // HKDF-SHA384 requires the PRK to be exactly the hash output length (48 bytes).
@@ -123,7 +123,7 @@ inline void register_kdf(CLI::App& app)
 
         std::optional<SecureBuffer> info_opt;
         if (exp_info->count() > 0U) {
-            auto buf = read_input(exp_info->as<std::string>());
+            auto buf = read_input_bounded(exp_info->as<std::string>(), cli_key_max_bytes);
             if (!buf.has_value()) { die(buf.error()); }
             info_opt = std::move(*buf);
         }
