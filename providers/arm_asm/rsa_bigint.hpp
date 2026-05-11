@@ -189,22 +189,7 @@ inline BigInt<NW> bigint_reduce_once(const BigInt<NW>& a, const BigInt<NW>& m) n
 // Montgomery multiplication.
 // -----------------------------------------------------------------------
 
-// Compute m0inv = -m[0]^{-1} mod 2^64 using Newton's method.
-// Only valid for odd m.
-[[nodiscard]]
-inline uint64_t mont_compute_m0inv(uint64_t m0) noexcept {
-    // Start: inv ≡ m0 mod 2^4 (m0 is odd, so this works).
-    uint64_t inv = m0;  // 1 step good to 4 bits; iterate
-    // Hensel lifting: each step doubles precision.
-    for (int i = 0; i < 5; ++i) { // 5 iterations: 4,8,16,32,64 bits
-        inv = inv * (2U - (m0 * inv));
-    }
-    return static_cast<uint64_t>(-(static_cast<__uint128_t>(1U) * inv) % (static_cast<__uint128_t>(1U) << 64U)
-           == 0U ? 0U : inv);
-    // Simpler: just return -inv mod 2^64 directly.
-}
-
-// Actually: -m0^{-1} mod 2^64.
+// -m0^{-1} mod 2^64.
 [[nodiscard]]
 inline uint64_t mont_neg_inv(uint64_t m0) noexcept {
     uint64_t inv = m0;

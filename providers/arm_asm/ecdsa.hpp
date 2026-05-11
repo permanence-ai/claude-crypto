@@ -54,9 +54,10 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
     FixedSecureBuffer<66> K{};
     // K is already zero-initialized by FixedSecureBuffer.
 
-    // Combine message for HMAC: V || 0x00 || x || h1
-    // Max: qlen(66) + 1 + qlen(66) + hlen(64) = 197
-    FixedSecureBuffer<66 + 1 + 66 + 64> msg_buf{};
+    // Combine message for HMAC: V || 0x00 || x || bits2octets(h1)
+    // bits2octets always writes qlen bytes (zero-padded when hlen < qlen).
+    // Max: qlen(66) + 1 + qlen(66) + qlen(66) = 199
+    FixedSecureBuffer<66 + 1 + 66 + 66> msg_buf{};
 
     // Step d: K = HMAC_K(V || 0x00 || int2octets(x) || bits2octets(h1))
     // Step e: V = HMAC_K(V)

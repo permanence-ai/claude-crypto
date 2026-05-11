@@ -157,12 +157,6 @@ static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
     const uint64_t c4 = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c4;
 }
 
-// Multiply using raw Poly1305Limbs (builds precomp inline — used for power building).
-static inline void poly1305_multiply(Poly1305Limbs& h,
-                                      const Poly1305Limbs& r) noexcept {
-    poly1305_multiply_precomp(h, make_precomp(r));
-}
-
 // Add a message block to the accumulator (limb-wise, no carry needed here).
 static inline void poly1305_add_block(Poly1305Limbs& h,
                                        uint64_t lo, uint64_t hi,
