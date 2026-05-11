@@ -36,13 +36,18 @@ endif()
 # ---------------------------------------------------------------------------
 # Sanitize build type — propagate flags CMake doesn't know about natively.
 # ---------------------------------------------------------------------------
-set(_san_compile -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1)
-set(_san_link    -fsanitize=address,undefined)
+# Use string(JOIN) so the cache variables hold space-separated strings, not
+# semicolon-joined CMake lists.  Semicolons in CMAKE_*_FLAGS_* are treated as
+# shell command separators by Ninja/Make, breaking the build.
+string(JOIN " " _san_compile_str
+    "-fsanitize=address,undefined" "-fno-omit-frame-pointer" "-g" "-O1")
+string(JOIN " " _san_link_str
+    "-fsanitize=address,undefined")
 
-set(CMAKE_C_FLAGS_SANITIZE   "${_san_compile}" CACHE STRING "C flags for Sanitize" FORCE)
-set(CMAKE_CXX_FLAGS_SANITIZE "${_san_compile}" CACHE STRING "C++ flags for Sanitize" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS_SANITIZE    "${_san_link}" CACHE STRING "Linker flags for Sanitize" FORCE)
-set(CMAKE_SHARED_LINKER_FLAGS_SANITIZE "${_san_link}" CACHE STRING "Shared linker flags for Sanitize" FORCE)
+set(CMAKE_C_FLAGS_SANITIZE   "${_san_compile_str}" CACHE STRING "C flags for Sanitize" FORCE)
+set(CMAKE_CXX_FLAGS_SANITIZE "${_san_compile_str}" CACHE STRING "C++ flags for Sanitize" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS_SANITIZE    "${_san_link_str}" CACHE STRING "Linker flags for Sanitize" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS_SANITIZE "${_san_link_str}" CACHE STRING "Shared linker flags for Sanitize" FORCE)
 mark_as_advanced(
     CMAKE_C_FLAGS_SANITIZE
     CMAKE_CXX_FLAGS_SANITIZE
@@ -53,13 +58,15 @@ mark_as_advanced(
 # ---------------------------------------------------------------------------
 # SanitizeTSan build type — ThreadSanitizer (mutually exclusive with ASan).
 # ---------------------------------------------------------------------------
-set(_tsan_compile -fsanitize=thread -fno-omit-frame-pointer -g -O1)
-set(_tsan_link    -fsanitize=thread)
+string(JOIN " " _tsan_compile_str
+    "-fsanitize=thread" "-fno-omit-frame-pointer" "-g" "-O1")
+string(JOIN " " _tsan_link_str
+    "-fsanitize=thread")
 
-set(CMAKE_C_FLAGS_SANITIZETSAN   "${_tsan_compile}" CACHE STRING "C flags for SanitizeTSan" FORCE)
-set(CMAKE_CXX_FLAGS_SANITIZETSAN "${_tsan_compile}" CACHE STRING "C++ flags for SanitizeTSan" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS_SANITIZETSAN    "${_tsan_link}" CACHE STRING "Linker flags for SanitizeTSan" FORCE)
-set(CMAKE_SHARED_LINKER_FLAGS_SANITIZETSAN "${_tsan_link}" CACHE STRING "Shared linker flags for SanitizeTSan" FORCE)
+set(CMAKE_C_FLAGS_SANITIZETSAN   "${_tsan_compile_str}" CACHE STRING "C flags for SanitizeTSan" FORCE)
+set(CMAKE_CXX_FLAGS_SANITIZETSAN "${_tsan_compile_str}" CACHE STRING "C++ flags for SanitizeTSan" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS_SANITIZETSAN    "${_tsan_link_str}" CACHE STRING "Linker flags for SanitizeTSan" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS_SANITIZETSAN "${_tsan_link_str}" CACHE STRING "Shared linker flags for SanitizeTSan" FORCE)
 mark_as_advanced(
     CMAKE_C_FLAGS_SANITIZETSAN
     CMAKE_CXX_FLAGS_SANITIZETSAN
@@ -74,13 +81,15 @@ mark_as_advanced(
 #         -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang \
 #         -DCMAKE_BUILD_TYPE=SanitizeLSan ...
 # ---------------------------------------------------------------------------
-set(_lsan_compile -fsanitize=leak -fno-omit-frame-pointer -g -O1)
-set(_lsan_link    -fsanitize=leak)
+string(JOIN " " _lsan_compile_str
+    "-fsanitize=leak" "-fno-omit-frame-pointer" "-g" "-O1")
+string(JOIN " " _lsan_link_str
+    "-fsanitize=leak")
 
-set(CMAKE_C_FLAGS_SANITIZELSAN   "${_lsan_compile}" CACHE STRING "C flags for SanitizeLSan" FORCE)
-set(CMAKE_CXX_FLAGS_SANITIZELSAN "${_lsan_compile}" CACHE STRING "C++ flags for SanitizeLSan" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS_SANITIZELSAN    "${_lsan_link}" CACHE STRING "Linker flags for SanitizeLSan" FORCE)
-set(CMAKE_SHARED_LINKER_FLAGS_SANITIZELSAN "${_lsan_link}" CACHE STRING "Shared linker flags for SanitizeLSan" FORCE)
+set(CMAKE_C_FLAGS_SANITIZELSAN   "${_lsan_compile_str}" CACHE STRING "C flags for SanitizeLSan" FORCE)
+set(CMAKE_CXX_FLAGS_SANITIZELSAN "${_lsan_compile_str}" CACHE STRING "C++ flags for SanitizeLSan" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS_SANITIZELSAN    "${_lsan_link_str}" CACHE STRING "Linker flags for SanitizeLSan" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS_SANITIZELSAN "${_lsan_link_str}" CACHE STRING "Shared linker flags for SanitizeLSan" FORCE)
 mark_as_advanced(
     CMAKE_C_FLAGS_SANITIZELSAN
     CMAKE_CXX_FLAGS_SANITIZELSAN
