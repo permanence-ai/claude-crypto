@@ -473,10 +473,8 @@ TEST_F(IoTests, BoundedInput_OversizedMessageFile_DigestRejectsWithNonZero) {
 
 // A base64 string encoding more than 64 KiB must be rejected for key inputs.
 TEST_F(IoTests, BoundedInput_OversizedBase64Key_MacRejectsWithNonZero) {
-    // 65537 bytes of zeros → base64 string is well over 64 KiB encoded.
-    // Use a simple "A" repeated string that exceeds the 4/3 ratio threshold.
-    // ceil(65537 / 3) * 4 = 87384 base64 chars.  We use 87384 'A's (valid base64, decodes to ~65537 bytes).
-    // Pad to a multiple of 4.
+    // 65537 bytes encodes to ceil(65537/3)*4 = 87384 base64 chars.
+    // 87384 'A' chars decode to exactly 65538 bytes — one over the cap.
     const std::size_t encoded_len = ((65537U + 2U) / 3U) * 4U;
     std::string big_b64(encoded_len, 'A');
 
@@ -485,6 +483,23 @@ TEST_F(IoTests, BoundedInput_OversizedBase64Key_MacRejectsWithNonZero) {
         " --key base64:" + big_b64 +
         " --input base64:" + std::string(kHelloB64));
     EXPECT_NE(r.exit_code, 0);
+}
+
+// A base64 string encoding exactly 64 KiB must not be rejected by the bounded-
+// input size guard (regression test for the pre-decode upper-bound off-by-one).
+// The provider may still reject the key as too large, but the error must not be
+// "exceeds maximum allowed size".
+TEST_F(IoTests, BoundedInput_ExactCapBase64Key_NotRejectedBySizeGuard) {
+    // 65536 = 21845*3 + 1 bytes → base64: 21845 "AAAA" groups + "AA==" = 87384 chars.
+    std::string exact_cap_b64(21845U * 4U, 'A');
+    exact_cap_b64 += "AA==";
+
+    const auto r = run_scli(scli(),
+        "mac --algo sha256"
+        " --key base64:" + exact_cap_b64 +
+        " --input base64:" + std::string(kHelloB64));
+    // Must not be rejected by the CLI size guard — any failure is from the provider.
+    EXPECT_EQ(r.stderr_text.find("exceeds maximum"), std::string::npos);
 }
 
 }  // namespace scli_test

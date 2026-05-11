@@ -42,12 +42,6 @@ inline auto read_input_bounded(std::string_view spec, std::size_t max_bytes)
 {
     if (spec.starts_with("base64:")) {
         const std::string_view b64 = spec.substr(7U);
-        // Each 4 base64 chars decode to at most 3 bytes.
-        const std::size_t decoded_bound = (b64.size() / 4U) * 3U;
-        if (decoded_bound > max_bytes) {
-            return std::unexpected("input exceeds maximum allowed size of " +
-                                   std::to_string(max_bytes) + " bytes");
-        }
         const auto decoded = base64_decode(b64);
         if (!decoded.has_value()) {
             return std::unexpected(std::string("invalid base64 in input"));
