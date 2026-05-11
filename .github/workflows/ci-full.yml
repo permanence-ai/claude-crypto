@@ -334,6 +334,9 @@ jobs:
             -DSAFE_CRYPTO_PQC=NONE \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
+      - name: Verify sanitizer flags present
+        run: grep -q "\-fsanitize=thread" build-tsan/compile_commands.json
+
       - name: Build
         run: cmake --build build-tsan
 
@@ -382,6 +385,9 @@ jobs:
             -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM \
             -DSAFE_CRYPTO_PQC=NONE \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Verify sanitizer flags present
+        run: grep -q "\-fsanitize=leak" build-lsan/compile_commands.json
 
       - name: Build
         run: cmake --build build-lsan
