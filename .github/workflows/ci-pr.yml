@@ -78,27 +78,27 @@ jobs:
             provider: PSA_MBEDTLS
             pqc: NONE
             cmake_extra: ""
-            tidy_paths: "safe-crypto-lib providers/psa_mbedtls"
+            header_filter: "safe-crypto-lib/|providers/psa_mbedtls/"
           - label: ARM_ASM
             provider: ARM_ASM
             pqc: NONE
             cmake_extra: ""
-            tidy_paths: "providers/arm_asm"
+            header_filter: "providers/arm_asm/"
           - label: OPENSSL
             provider: OPENSSL
             pqc: NONE
             cmake_extra: ""
-            tidy_paths: "providers/openssl"
+            header_filter: "providers/openssl/"
           - label: IA_ASM
             provider: IA_ASM
             pqc: NONE
             cmake_extra: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
-            tidy_paths: "providers/ia_asm"
+            header_filter: "providers/ia_asm/"
           - label: LIBOQS
             provider: ARM_ASM
             pqc: LIBOQS
             cmake_extra: ""
-            tidy_paths: "providers/liboqs"
+            header_filter: "providers/liboqs/"
 
     steps:
       - name: Checkout
@@ -133,10 +133,18 @@ jobs:
             ${{ matrix.cmake_extra }}
 
       - name: Run clang-tidy
+        # Use safe-crypto-lib-test/main.cpp as the sole translation unit — it
+        # transitively includes all provider headers with the correct flags.
+        # --header-filter then restricts diagnostics to the target provider scope.
+        # Excluding cli/main.cpp and bench_main.cpp avoids spurious diagnostics
+        # from those entry points (--header-filter only affects included headers,
+        # not primary translation units passed on the command line).
         run: |
-          find ${{ matrix.tidy_paths }} -name '*.hpp' \
+          jq -r '.[].file' build-lint-${{ matrix.label }}/compile_commands.json \
+            | grep 'safe-crypto-lib-test/main\.cpp$' \
             | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
-                -p build-lint-${{ matrix.label }}
+                -p build-lint-${{ matrix.label }} \
+                "--header-filter=${{ matrix.header_filter }}"
 
   # ---------------------------------------------------------------------------
   # ThreadSanitizer — PSA_MBEDTLS for a fast PR-gate check.
