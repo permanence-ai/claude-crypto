@@ -651,6 +651,118 @@ TEST_F(ArmAsmPointUtilTests, P384ScalarFromBytes96NPlus1ReturnsOne) {
 }
 
 // ---------------------------------------------------------------------------
+// point_add identity and self-doubling branches (issue #105)
+// ---------------------------------------------------------------------------
+
+// P-256: identity + G = G
+TEST_F(ArmAsmPointUtilTests, P256AddIdentityLeftReturnsRight) {
+    using namespace arm_asm::detail;
+    const P256Point G{.X = p256_Gx, .Y = p256_Gy, .Z = fe256_one};
+    const P256Point result = p256_point_add(p256_identity, G);
+    const P256Point aff    = p256_to_affine(result);
+    for (int i = 0; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(aff.X.v[i], p256_Gx.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(aff.Y.v[i], p256_Gy.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-256: G + identity = G
+TEST_F(ArmAsmPointUtilTests, P256AddIdentityRightReturnsLeft) {
+    using namespace arm_asm::detail;
+    const P256Point G{.X = p256_Gx, .Y = p256_Gy, .Z = fe256_one};
+    const P256Point result = p256_point_add(G, p256_identity);
+    const P256Point aff    = p256_to_affine(result);
+    for (int i = 0; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(aff.X.v[i], p256_Gx.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(aff.Y.v[i], p256_Gy.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-256: G + G via point_add equals point_double(G)
+TEST_F(ArmAsmPointUtilTests, P256AddSelfEqualsDouble) {
+    using namespace arm_asm::detail;
+    const P256Point G{.X = p256_Gx, .Y = p256_Gy, .Z = fe256_one};
+    const P256Point via_add    = p256_to_affine(p256_point_add(G, G));
+    const P256Point via_double = p256_to_affine(p256_point_double(G));
+    for (int i = 0; i < 4; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(via_add.X.v[i], via_double.X.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(via_add.Y.v[i], via_double.Y.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-384: identity + G = G
+TEST_F(ArmAsmPointUtilTests, P384AddIdentityLeftReturnsRight) {
+    using namespace arm_asm::detail;
+    const P384Point G{.X = p384_Gx, .Y = p384_Gy, .Z = fe384_one};
+    const P384Point result = p384_point_add(p384_identity, G);
+    const P384Point aff    = p384_to_affine(result);
+    for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(aff.X.v[i], p384_Gx.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(aff.Y.v[i], p384_Gy.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-384: G + identity = G
+TEST_F(ArmAsmPointUtilTests, P384AddIdentityRightReturnsLeft) {
+    using namespace arm_asm::detail;
+    const P384Point G{.X = p384_Gx, .Y = p384_Gy, .Z = fe384_one};
+    const P384Point result = p384_point_add(G, p384_identity);
+    const P384Point aff    = p384_to_affine(result);
+    for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(aff.X.v[i], p384_Gx.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(aff.Y.v[i], p384_Gy.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-384: G + G via point_add equals point_double(G)
+TEST_F(ArmAsmPointUtilTests, P384AddSelfEqualsDouble) {
+    using namespace arm_asm::detail;
+    const P384Point G{.X = p384_Gx, .Y = p384_Gy, .Z = fe384_one};
+    const P384Point via_add    = p384_to_affine(p384_point_add(G, G));
+    const P384Point via_double = p384_to_affine(p384_point_double(G));
+    for (int i = 0; i < 6; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(via_add.X.v[i], via_double.X.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(via_add.Y.v[i], via_double.Y.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-521: identity + G = G
+TEST_F(ArmAsmPointUtilTests, P521AddIdentityLeftReturnsRight) {
+    using namespace arm_asm::detail;
+    const P521Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
+    const P521Point result = p521_point_add(p521_identity, G);
+    const P521Point aff    = p521_to_affine(result);
+    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(aff.X.v[i], p521_Gx.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(aff.Y.v[i], p521_Gy.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-521: G + identity = G
+TEST_F(ArmAsmPointUtilTests, P521AddIdentityRightReturnsLeft) {
+    using namespace arm_asm::detail;
+    const P521Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
+    const P521Point result = p521_point_add(G, p521_identity);
+    const P521Point aff    = p521_to_affine(result);
+    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(aff.X.v[i], p521_Gx.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(aff.Y.v[i], p521_Gy.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// P-521: G + G via point_add equals point_double(G)
+TEST_F(ArmAsmPointUtilTests, P521AddSelfEqualsDouble) {
+    using namespace arm_asm::detail;
+    const P521Point G{.X = p521_Gx, .Y = p521_Gy, .Z = fe521_one};
+    const P521Point via_add    = p521_to_affine(p521_point_add(G, G));
+    const P521Point via_double = p521_to_affine(p521_point_double(G));
+    for (int i = 0; i < 9; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        EXPECT_EQ(via_add.X.v[i], via_double.X.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+        EXPECT_EQ(via_add.Y.v[i], via_double.Y.v[i]); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Phase 7: ChaCha20-Poly1305 tests (RFC 8439)
 // ---------------------------------------------------------------------------
 
