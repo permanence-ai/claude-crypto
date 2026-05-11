@@ -122,7 +122,7 @@ struct GhashCtx {
     // Feed a partial block (padded with zeros to 16 bytes).
     [[gnu::target("aes,neon")]]
     void update_partial(const uint8_t* data, std::size_t len) noexcept {
-        std::array<uint8_t, 16> buf{};
+        std::array<CryptoByte, 16> buf{};
         std::memcpy(buf.data(), data, len);
         update(buf.data());
     }

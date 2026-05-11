@@ -140,18 +140,18 @@ inline void sha512_compress(std::span<uint64_t, 8> state, const uint8_t* block) 
 
 // Full SHA-512 over an arbitrary-length message.
 inline void sha512(const CryptoByte* msg, std::size_t msg_len,
-                   std::span<CryptoByte, 64> out) noexcept
+                   std::span<CryptoByte, sha512_digest_bytes> out) noexcept
 {
     std::array<uint64_t, 8> state{};
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha512_h0[i]; }
 
     std::size_t offset = 0;
-    while (msg_len - offset >= 128) {
+    while (msg_len - offset >= sha512_block_bytes) {
         sha512_compress(state, msg + offset);
-        offset += 128;
+        offset += sha512_block_bytes;
     }
 
-    alignas(128) std::array<uint8_t, 256> pad{};
+    alignas(sha512_block_bytes) std::array<CryptoByte, 2 * sha512_block_bytes> pad{};
     const std::size_t tail = msg_len - offset;
     if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
     pad[tail] = 0x80U;
@@ -175,18 +175,18 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len,
 
 // Full SHA-384 over an arbitrary-length message (same compression, different IV, truncated output).
 inline void sha384(const CryptoByte* msg, std::size_t msg_len,
-                   std::span<CryptoByte, 48> out) noexcept
+                   std::span<CryptoByte, sha384_digest_bytes> out) noexcept
 {
     std::array<uint64_t, 8> state{};
     for (std::size_t i = 0; i < 8; ++i) { state[i] = sha384_h0[i]; }
 
     std::size_t offset = 0;
-    while (msg_len - offset >= 128) {
+    while (msg_len - offset >= sha512_block_bytes) {
         sha512_compress(state, msg + offset);
-        offset += 128;
+        offset += sha512_block_bytes;
     }
 
-    alignas(128) std::array<uint8_t, 256> pad{};
+    alignas(sha512_block_bytes) std::array<CryptoByte, 2 * sha512_block_bytes> pad{};
     const std::size_t tail = msg_len - offset;
     if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
     pad[tail] = 0x80U;

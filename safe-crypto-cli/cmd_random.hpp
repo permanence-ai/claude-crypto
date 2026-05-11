@@ -34,7 +34,7 @@ inline void register_random(CLI::App& app)
         const auto result = random_bytes(n);
         if (!result.has_value()) { die(result.error()); }
 
-        const auto out = write_output(output_val, std::span<const uint8_t>(result->data(), result->size()));
+        const auto out = write_output(output_val, std::span<const CryptoByte>(result->data(), result->size()));
         if (!out.has_value()) { die(out.error()); }
 
         (void)sub;

@@ -60,8 +60,8 @@
 
 class ArmAsmAesGcmVectorTests : public ::testing::Test {
 protected:
-    static std::array<uint8_t, 32> from_hex32(const char* s) {
-        std::array<uint8_t, 32> out{};
+    static std::array<CryptoByte, 32> from_hex32(const char* s) {
+        std::array<CryptoByte, 32> out{};
         for (std::size_t i = 0; i < 32; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -73,8 +73,8 @@ protected:
     }
 
     template<std::size_t N>
-    static std::array<uint8_t, N> from_hex(const char* s) {
-        std::array<uint8_t, N> out{};
+    static std::array<CryptoByte, N> from_hex(const char* s) {
+        std::array<CryptoByte, N> out{};
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -93,7 +93,7 @@ TEST_F(ArmAsmAesGcmVectorTests, ZeroKeyIvEmptyPlaintext) {
     const auto expected_tag = from_hex<16>("530f8afbc74536b9a963b4f1c4cb738b");
 
     // encrypt_output_size(0) = 16 (tag only)
-    std::array<uint8_t, 16> out{};
+    std::array<CryptoByte, 16> out{};
     arm_asm::detail::aes256_gcm_encrypt(key.data(), iv.data(), nullptr, 0,
                                          nullptr, 0, out.data());
     for (std::size_t i = 0; i < 16; ++i) {
@@ -123,7 +123,7 @@ TEST_F(ArmAsmAesGcmVectorTests, Nist256Vector1EncryptNoAad) {
 
     const auto expected_tag = from_hex<16>("b094dac5d93471bdec1a502270e3cc6c");
 
-    std::array<uint8_t, 80> out{}; // 64 + 16
+    std::array<CryptoByte, 80> out{}; // 64 + 16
     arm_asm::detail::aes256_gcm_encrypt(key.data(), iv.data(), nullptr, 0,
                                          pt.data(), pt.size(), out.data());
 
@@ -149,7 +149,7 @@ TEST_F(ArmAsmAesGcmVectorTests, Nist256Vector1DecryptNoAad) {
         "b16aedf5aa0de657ba637b391aafd255");
 
     // ct ‖ tag (80 bytes = 64 CT + 16 tag)
-    std::array<uint8_t, 80> ct_tag{};
+    std::array<CryptoByte, 80> ct_tag{};
     const auto ct = from_hex<64>(
         "522dc1f099567d07f47f37a32a84427d"
         "643a8cdcbfe5c0c97598a2bd2555d1aa"
@@ -159,7 +159,7 @@ TEST_F(ArmAsmAesGcmVectorTests, Nist256Vector1DecryptNoAad) {
     std::memcpy(ct_tag.data(), ct.data(), 64); // NOLINT(cppcoreguidelines-avoid-magic-numbers)
     std::memcpy(ct_tag.data() + 64, tag.data(), aes_gcm_tag_bytes); // NOLINT(cppcoreguidelines-avoid-magic-numbers)
 
-    std::array<uint8_t, 64> pt{};
+    std::array<CryptoByte, 64> pt{};
     const bool ok = arm_asm::detail::aes256_gcm_decrypt(
         key.data(), iv.data(), nullptr, 0,
         ct_tag.data(), ct_tag.size(), pt.data());
@@ -192,7 +192,7 @@ TEST_F(ArmAsmAesGcmVectorTests, Nist256Vector2EncryptWithAad) {
 
     const auto expected_tag = from_hex<16>("76fc6ece0f4e1768cddf8853bb2d551b");
 
-    std::array<uint8_t, 76> out{}; // 60 + 16
+    std::array<CryptoByte, 76> out{}; // 60 + 16
     arm_asm::detail::aes256_gcm_encrypt(
         key.data(), iv.data(),
         aad.data(), aad.size(),
@@ -214,7 +214,7 @@ TEST_F(ArmAsmAesGcmVectorTests, TamperedTagRejected) {
         "feffe9928665731c6d6a8f9467308308");
     const auto iv = from_hex<12>("cafebabefacedbaddecaf888");
 
-    std::array<uint8_t, 80> ct_tag{};
+    std::array<CryptoByte, 80> ct_tag{};
     const auto ct = from_hex<64>(
         "522dc1f099567d07f47f37a32a84427d"
         "643a8cdcbfe5c0c97598a2bd2555d1aa"
@@ -225,7 +225,7 @@ TEST_F(ArmAsmAesGcmVectorTests, TamperedTagRejected) {
     std::memcpy(ct_tag.data() + 64, tag.data(), aes_gcm_tag_bytes); // NOLINT(cppcoreguidelines-avoid-magic-numbers)
     ct_tag[0] ^= 0xFFU; // tamper first ciphertext byte
 
-    std::array<uint8_t, 64> pt{};
+    std::array<CryptoByte, 64> pt{};
     const bool ok = arm_asm::detail::aes256_gcm_decrypt(
         key.data(), iv.data(), nullptr, 0,
         ct_tag.data(), ct_tag.size(), pt.data());
@@ -244,8 +244,8 @@ TEST_F(ArmAsmAesGcmVectorTests, TamperedTagRejected) {
 class ArmAsmHkdfTests : public ::testing::Test {
 protected:
     template<std::size_t N>
-    static std::array<uint8_t, N> from_hex(const char* s) {
-        std::array<uint8_t, N> out{};
+    static std::array<CryptoByte, N> from_hex(const char* s) {
+        std::array<CryptoByte, N> out{};
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -292,7 +292,7 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc1Sha384) {
                   &op, ArmAsmBackend::kdf_step_info(), info.data(), info.size()),
               ArmAsmBackend::ok);
 
-    std::array<uint8_t, 42> okm{};
+    std::array<CryptoByte, 42> okm{};
     ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
               ArmAsmBackend::ok);
     (void)ArmAsmBackend::key_derivation_abort(&op);
@@ -328,7 +328,7 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc2NoSaltNoInfo) {
                   &op, ArmAsmBackend::kdf_step_info(), nullptr, 0),
               ArmAsmBackend::ok);
 
-    std::array<uint8_t, 42> okm{};
+    std::array<CryptoByte, 42> okm{};
     ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
               ArmAsmBackend::ok);
     (void)ArmAsmBackend::key_derivation_abort(&op);
@@ -343,8 +343,8 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc2NoSaltNoInfo) {
 //   OKM mac_key  = 3d965e...afba (48 bytes)
 //   OKM sess_key = 98cf5c...2ec6e (32 bytes)
 TEST_F(ArmAsmHkdfTests, SigmaStyleHkdf80Bytes) {
-    const std::array<uint8_t, 32> ikm{};  // all zeros
-    const std::array<uint8_t, 5>  info = {'s','i','g','m','a'};
+    const std::array<CryptoByte, 32> ikm{};  // all zeros
+    const std::array<CryptoByte, 5>  info = {'s','i','g','m','a'};
     const auto expected_mac  = from_hex<48>(
         "3d965e44429766b7480ee9d3f9afe8d1"
         "32fe043e8fc53746568cf7447f8037cb"
@@ -368,7 +368,7 @@ TEST_F(ArmAsmHkdfTests, SigmaStyleHkdf80Bytes) {
                   &op, ArmAsmBackend::kdf_step_info(), info.data(), info.size()),
               ArmAsmBackend::ok);
 
-    std::array<uint8_t, 80> okm{};
+    std::array<CryptoByte, 80> okm{};
     ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
               ArmAsmBackend::ok);
     (void)ArmAsmBackend::key_derivation_abort(&op);
@@ -393,8 +393,8 @@ TEST_F(ArmAsmHkdfTests, LibraryDeriveKeyImplMatchesVector) {
         "303132333435363738393a3b3c3d3e3f"
         "404142434445464748494a4b4c4d4e4f"
         "50515253");
-    const std::array<uint8_t, 13> salt_arr = from_hex<13>("000102030405060708090a0b0c");
-    const std::array<uint8_t, 10> info_arr = from_hex<10>("f0f1f2f3f4f5f6f7f8f9");
+    const std::array<CryptoByte, 13> salt_arr = from_hex<13>("000102030405060708090a0b0c");
+    const std::array<CryptoByte, 10> info_arr = from_hex<10>("f0f1f2f3f4f5f6f7f8f9");
     const auto expected_okm = from_hex<42>(
         "5ee992b955738e79b66b1fad1ad88899"
         "9f945bbc8ac72c54e01842ca994102b3"
@@ -432,12 +432,12 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
     ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &enc_id), ArmAsmBackend::ok);
     EXPECT_NE(enc_id, ArmAsmBackend::null_key_id());
 
-    const std::array<uint8_t, 12> iv = {0x01,0x02,0x03,0x04,0x05,0x06,
+    const std::array<CryptoByte, 12> iv = {0x01,0x02,0x03,0x04,0x05,0x06,
                                          0x07,0x08,0x09,0x0a,0x0b,0x0c};
-    const std::array<uint8_t, 16> pt = {0x48,0x65,0x6c,0x6c,0x6f,0x2c,
+    const std::array<CryptoByte, 16> pt = {0x48,0x65,0x6c,0x6c,0x6f,0x2c,
                                          0x20,0x57,0x6f,0x72,0x6c,0x64,
                                          0x21,0x0a,0x00,0x00};
-    std::array<uint8_t, 32> ct{};  // 16 + 16 tag
+    std::array<CryptoByte, 32> ct{};  // 16 + 16 tag
     std::size_t ct_len = 0;
 
     ASSERT_EQ(ArmAsmBackend::aead_encrypt(
@@ -449,7 +449,7 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
     EXPECT_EQ(ct_len, 32U);
 
     // Decrypt with the same key.
-    std::array<uint8_t, 16> recovered{};
+    std::array<CryptoByte, 16> recovered{};
     std::size_t recovered_len = 0;
     ASSERT_EQ(ArmAsmBackend::aead_decrypt(
         enc_id, ArmAsmBackend::alg_aes_gcm(),
@@ -467,7 +467,7 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
 
 TEST_F(ArmAsmKeyMgmtTests, ExportImportedKeyReturnsOriginalBytes) {
     // Import a known key, then export it and verify the bytes match.
-    const std::array<uint8_t, 32> original = {
+    const std::array<CryptoByte, 32> original = {
         0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
         0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
         0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,
@@ -478,7 +478,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportImportedKeyReturnsOriginalBytes) {
     ASSERT_EQ(ArmAsmBackend::import_key(&attrs, original.data(), original.size(), &id),
               ArmAsmBackend::ok);
 
-    std::array<uint8_t, 32> exported{};
+    std::array<CryptoByte, 32> exported{};
     std::size_t exported_len = 0;
     ASSERT_EQ(ArmAsmBackend::export_key(id, exported.data(), exported.size(), &exported_len),
               ArmAsmBackend::ok);
@@ -496,7 +496,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportGeneratedKeyHasCorrectSize) {
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
     ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
 
-    std::array<uint8_t, 64> buf{};
+    std::array<CryptoByte, 64> buf{};
     std::size_t len = 0;
     ASSERT_EQ(ArmAsmBackend::export_key(id, buf.data(), buf.size(), &len),
               ArmAsmBackend::ok);
@@ -518,7 +518,7 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateKeyNullAttrsReturnsError) {
 }
 
 TEST_F(ArmAsmKeyMgmtTests, ExportKeyBadIdReturnsError) {
-    std::array<uint8_t, 32> buf{};
+    std::array<CryptoByte, 32> buf{};
     std::size_t len = 0;
     EXPECT_NE(ArmAsmBackend::export_key(ArmAsmBackend::null_key_id(),
                                          buf.data(), buf.size(), &len),
@@ -530,7 +530,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportKeyBufferTooSmallReturnsError) {
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
     ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
 
-    std::array<uint8_t, 16> small_buf{};  // too small for 32-byte key
+    std::array<CryptoByte, 16> small_buf{};  // too small for 32-byte key
     std::size_t len = 0;
     EXPECT_NE(ArmAsmBackend::export_key(id, small_buf.data(), small_buf.size(), &len),
               ArmAsmBackend::ok);
@@ -559,8 +559,8 @@ TEST_F(ArmAsmKeyMgmtTests, ExportKeyBufferTooSmallReturnsError) {
 class ArmAsmPointUtilTests : public ::testing::Test {
 protected:
     template<std::size_t N>
-    static std::array<uint8_t, N> from_hex(const char* s) {
-        std::array<uint8_t, N> out{};
+    static std::array<CryptoByte, N> from_hex(const char* s) {
+        std::array<CryptoByte, N> out{};
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -657,8 +657,8 @@ TEST_F(ArmAsmPointUtilTests, P384ScalarFromBytes96NPlus1ReturnsOne) {
 class ArmAsmChaCha20Poly1305Tests : public ::testing::Test {
 protected:
     template<std::size_t N>
-    static std::array<uint8_t, N> from_hex(const char* s) {
-        std::array<uint8_t, N> out{};
+    static std::array<CryptoByte, N> from_hex(const char* s) {
+        std::array<CryptoByte, N> out{};
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -732,7 +732,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282EncryptWithAad) {
     ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
               ArmAsmBackend::ok);
 
-    std::array<uint8_t, 114 + 16> out{};
+    std::array<CryptoByte, 114 + 16> out{};
     std::size_t out_len = 0;
     ASSERT_EQ(ArmAsmBackend::aead_encrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
@@ -788,7 +788,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282DecryptWithAad) {
         "e576d26586cec64b"
         "6116");
     const auto tag = from_hex<16>("1ae10b594f09e26a7e902ecbd0600691");
-    std::array<uint8_t, 114 + 16> ct_tag{};
+    std::array<CryptoByte, 114 + 16> ct_tag{};
     std::memcpy(ct_tag.data(), ct.data(), 114); // NOLINT(cppcoreguidelines-avoid-magic-numbers)
     std::memcpy(ct_tag.data() + 114, tag.data(), chacha20_poly1305_tag_bytes); // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-avoid-magic-numbers)
 
@@ -797,7 +797,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282DecryptWithAad) {
     ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
               ArmAsmBackend::ok);
 
-    std::array<uint8_t, 114> pt{};
+    std::array<CryptoByte, 114> pt{};
     std::size_t pt_len = 0;
     ASSERT_EQ(ArmAsmBackend::aead_decrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
@@ -832,7 +832,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, ShortVectorRoundTrip) {
               ArmAsmBackend::ok);
 
     // Encrypt.
-    std::array<uint8_t, 32> out{};  // 16 + 16
+    std::array<CryptoByte, 32> out{};  // 16 + 16
     std::size_t out_len = 0;
     ASSERT_EQ(ArmAsmBackend::aead_encrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
@@ -850,7 +850,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, ShortVectorRoundTrip) {
     }
 
     // Decrypt.
-    std::array<uint8_t, 16> recovered{};
+    std::array<CryptoByte, 16> recovered{};
     std::size_t recovered_len = 0;
     ASSERT_EQ(ArmAsmBackend::aead_decrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
@@ -878,7 +878,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
     ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
               ArmAsmBackend::ok);
 
-    std::array<uint8_t, 32> ct_tag{};
+    std::array<CryptoByte, 32> ct_tag{};
     std::size_t ct_len = 0;
     ASSERT_EQ(ArmAsmBackend::aead_encrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
@@ -890,7 +890,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
 
     ct_tag[0] ^= 0xFFU;  // tamper first ciphertext byte
 
-    std::array<uint8_t, 16> out{};
+    std::array<CryptoByte, 16> out{};
     std::size_t out_len = 0;
     EXPECT_NE(ArmAsmBackend::aead_decrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
@@ -935,8 +935,8 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
 class ArmAsmSha3Tests : public ::testing::Test {
 protected:
     template<std::size_t N>
-    static std::array<uint8_t, N> from_hex(const char* s) {
-        std::array<uint8_t, N> out{};
+    static std::array<CryptoByte, N> from_hex(const char* s) {
+        std::array<CryptoByte, N> out{};
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -952,7 +952,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_256EmptyMessage) {
     const auto expected = from_hex<32>(
         "a7ffc6f8bf1ed76651c14756a061d662"
         "f580ff4de43b49fa82d80a4b80f8434a");
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     arm_asm::detail::sha3_256(nullptr, 0, out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -963,8 +963,8 @@ TEST_F(ArmAsmSha3Tests, Sha3_256AbcMessage) {
     const auto expected = from_hex<32>(
         "3a985da74fe225b2045c172d6bd390bd"
         "855f086e3e9d525b46bfe24511431532");
-    const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 3> msg = { 0x61, 0x62, 0x63 };
+    std::array<CryptoByte, 32> out{};
     arm_asm::detail::sha3_256(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -973,12 +973,12 @@ TEST_F(ArmAsmSha3Tests, Sha3_256AbcMessage) {
 
 TEST_F(ArmAsmSha3Tests, Sha3_256MultiBlockMessage) {
     // 200-byte message: 0x00, 0x01, ..., 0xc7
-    std::array<uint8_t, 200> msg{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    std::array<CryptoByte, 200> msg{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     for (std::size_t i = 0; i < 200; ++i) { msg[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-constant-array-index)
     const auto expected = from_hex<32>(
         "5f728f63bf5ee48c77f453c0490398fa"
         "645b8d4c4e56be9a41cfec344d6ca899");
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     arm_asm::detail::sha3_256(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -990,7 +990,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_384EmptyMessage) {
         "0c63a75b845e4f7d01107d852e4c2485"
         "c51a50aaaa94fc61995e71bbee983a2a"
         "c3713831264adb47fb6bd1e058d5f004");
-    std::array<uint8_t, 48> out{};
+    std::array<CryptoByte, 48> out{};
     arm_asm::detail::sha3_384(nullptr, 0, out);
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1002,8 +1002,8 @@ TEST_F(ArmAsmSha3Tests, Sha3_384AbcMessage) {
         "ec01498288516fc926459f58e2c6ad8d"
         "f9b473cb0fc08c2596da7cf0e49be4b2"
         "98d88cea927ac7f539f1edf228376d25");
-    const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
-    std::array<uint8_t, 48> out{};
+    const std::array<CryptoByte, 3> msg = { 0x61, 0x62, 0x63 };
+    std::array<CryptoByte, 48> out{};
     arm_asm::detail::sha3_384(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1016,7 +1016,7 @@ TEST_F(ArmAsmSha3Tests, Sha3_512EmptyMessage) {
         "97c982164fe25859e0d1dcc1475c80a6"
         "15b2123af1f5f94c11e3e9402c3ac558"
         "f500199d95b6d3e301758586281dcd26");
-    std::array<uint8_t, 64> out{};
+    std::array<CryptoByte, 64> out{};
     arm_asm::detail::sha3_512(nullptr, 0, out);
     for (std::size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1029,8 +1029,8 @@ TEST_F(ArmAsmSha3Tests, Sha3_512AbcMessage) {
         "08f621827444f70d884f5d0240d2712e"
         "10e116e9192af3c91a7ec57647e39340"
         "57340b4cf408d5a56592f8274eec53f0");
-    const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
-    std::array<uint8_t, 64> out{};
+    const std::array<CryptoByte, 3> msg = { 0x61, 0x62, 0x63 };
+    std::array<CryptoByte, 64> out{};
     arm_asm::detail::sha3_512(msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1040,13 +1040,13 @@ TEST_F(ArmAsmSha3Tests, Sha3_512AbcMessage) {
 // HMAC-SHA3 tests: key = 0x00..0x1f (32 bytes), message = "abc"
 
 TEST_F(ArmAsmSha3Tests, HmacSha3_256AbcMessage) {
-    std::array<uint8_t, 32> key{};
+    std::array<CryptoByte, 32> key{};
     for (std::size_t i = 0; i < 32; ++i) { key[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
+    const std::array<CryptoByte, 3> msg = { 0x61, 0x62, 0x63 };
     const auto expected = from_hex<32>(
         "632f618ac17ba24355d9ee1fd187cf75"
         "bb5b68e6948804bf6674bf5ee7f1c345");
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     arm_asm::detail::hmac_sha3_256(key.data(), key.size(), msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 32; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1054,14 +1054,14 @@ TEST_F(ArmAsmSha3Tests, HmacSha3_256AbcMessage) {
 }
 
 TEST_F(ArmAsmSha3Tests, HmacSha3_384AbcMessage) {
-    std::array<uint8_t, 32> key{};
+    std::array<CryptoByte, 32> key{};
     for (std::size_t i = 0; i < 32; ++i) { key[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
+    const std::array<CryptoByte, 3> msg = { 0x61, 0x62, 0x63 };
     const auto expected = from_hex<48>(
         "c3247d777589c8bc4527184299a59598"
         "ad32d7f782f6518dac939d717719aa74"
         "442f6f4b596f469aab912b1f0ff2e70c");
-    std::array<uint8_t, 48> out{};
+    std::array<CryptoByte, 48> out{};
     arm_asm::detail::hmac_sha3_384(key.data(), key.size(), msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1069,15 +1069,15 @@ TEST_F(ArmAsmSha3Tests, HmacSha3_384AbcMessage) {
 }
 
 TEST_F(ArmAsmSha3Tests, HmacSha3_512AbcMessage) {
-    std::array<uint8_t, 32> key{};
+    std::array<CryptoByte, 32> key{};
     for (std::size_t i = 0; i < 32; ++i) { key[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
+    const std::array<CryptoByte, 3> msg = { 0x61, 0x62, 0x63 };
     const auto expected = from_hex<64>(
         "833b31e777d6b33d7523a579cc3beb27"
         "6fd6525754c4c54b2d5a347d36240791"
         "7a3c626e7edb8e493b42c8e5a696d5e6"
         "6ba7ad2000eb6cff76cb1ec030130e81");
-    std::array<uint8_t, 64> out{};
+    std::array<CryptoByte, 64> out{};
     arm_asm::detail::hmac_sha3_512(key.data(), key.size(), msg.data(), msg.size(), out);
     for (std::size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1108,8 +1108,8 @@ TEST_F(ArmAsmSha3Tests, HmacSha3_512AbcMessage) {
 class ArmAsmPoly1305Tests : public ::testing::Test {
 protected:
     template<std::size_t N>
-    static std::array<uint8_t, N> from_hex(const char* s) {
-        std::array<uint8_t, N> out{};
+    static std::array<CryptoByte, N> from_hex(const char* s) {
+        std::array<CryptoByte, N> out{};
         for (std::size_t i = 0; i < N; ++i) {
             unsigned v = 0;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -1124,9 +1124,9 @@ protected:
 // RFC 8439 §A.3 TV1: 64-byte all-zero message, all-zero key → all-zero tag.
 // Exercises the 4-block (64B) primary loop path.
 TEST_F(ArmAsmPoly1305Tests, Rfc8439Tv1ZeroMessageZeroKey) {
-    const std::array<uint8_t, 32> key{};
-    const std::array<uint8_t, 64> msg{};
-    std::array<uint8_t, 16> tag{};
+    const std::array<CryptoByte, 32> key{};
+    const std::array<CryptoByte, 64> msg{};
+    std::array<CryptoByte, 16> tag{};
     arm_asm::detail::poly1305_mac(key, msg.data(), msg.size(), tag);
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(tag[i], 0U) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1150,7 +1150,7 @@ TEST_F(ArmAsmPoly1305Tests, Rfc8439Tv2IetfText) {
         "e, which are addressed to";
     const std::size_t msg_len = sizeof(msg_raw) - 1; // exclude null terminator
 
-    std::array<uint8_t, 16> tag{};
+    std::array<CryptoByte, 16> tag{};
     arm_asm::detail::poly1305_mac(
         key,
         reinterpret_cast<const uint8_t*>(msg_raw), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -1163,13 +1163,13 @@ TEST_F(ArmAsmPoly1305Tests, Rfc8439Tv2IetfText) {
 // Custom 96-byte message (0x61 × 96), key = 0x00..0x1f.
 // Exercises quad-block (64B) path then pair (32B) path.
 TEST_F(ArmAsmPoly1305Tests, Custom96ByteMessage) {
-    std::array<uint8_t, 32> key{};
+    std::array<CryptoByte, 32> key{};
     for (std::size_t i = 0; i < 32; ++i) { key[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    std::array<uint8_t, 96> msg{};
+    std::array<CryptoByte, 96> msg{};
     std::fill(msg.begin(), msg.end(), 0x61U);
     const auto expected = from_hex<16>("408aafac65bf6f37cb4d6d69d74dc0f5");
 
-    std::array<uint8_t, 16> tag{};
+    std::array<CryptoByte, 16> tag{};
     arm_asm::detail::poly1305_mac(key, msg.data(), msg.size(), tag);
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1179,13 +1179,13 @@ TEST_F(ArmAsmPoly1305Tests, Custom96ByteMessage) {
 // Custom 128-byte message (0x61 × 128), key = 0x00..0x1f.
 // Exercises exactly two consecutive quad-block iterations.
 TEST_F(ArmAsmPoly1305Tests, Custom128ByteMessage) {
-    std::array<uint8_t, 32> key{};
+    std::array<CryptoByte, 32> key{};
     for (std::size_t i = 0; i < 32; ++i) { key[i] = static_cast<uint8_t>(i); } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-    std::array<uint8_t, 128> msg{};
+    std::array<CryptoByte, 128> msg{};
     std::fill(msg.begin(), msg.end(), 0x61U);
     const auto expected = from_hex<16>("daa0437b0935d2b67bdc3a28e90078a8");
 
-    std::array<uint8_t, 16> tag{};
+    std::array<CryptoByte, 16> tag{};
     arm_asm::detail::poly1305_mac(key, msg.data(), msg.size(), tag);
     for (std::size_t i = 0; i < 16; ++i) {
         EXPECT_EQ(tag[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -1207,12 +1207,12 @@ protected:
 
 TEST_F(ArmAsmSymKeyStoreTests, ImportOversizedKeyReturnsZero) {
     constexpr std::size_t oversize = arm_asm::detail::key_store_max_bytes + 1;
-    std::array<uint8_t, oversize> buf{};
+    std::array<CryptoByte, oversize> buf{};
     EXPECT_EQ(arm_asm::detail::key_store_import(buf.data(), oversize), 0U);
 }
 
 TEST_F(ArmAsmSymKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
-    std::array<uint8_t, 4> dummy{};
+    std::array<CryptoByte, 4> dummy{};
     for (std::size_t i = 0; i < arm_asm::detail::key_store_capacity; ++i) {
         EXPECT_NE(arm_asm::detail::key_store_import(dummy.data(), dummy.size()), 0U) << "slot " << i;
     }
@@ -1263,7 +1263,7 @@ protected:
 
 TEST_F(ArmAsmEcKeyStoreTests, ImportOversizedKeyReturnsZero) {
     constexpr std::size_t oversize = arm_asm::detail::ec_max_key_bytes + 1;
-    std::array<uint8_t, oversize> buf{};
+    std::array<CryptoByte, oversize> buf{};
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
         buf.data(), oversize), 0U);
@@ -1271,7 +1271,7 @@ TEST_F(ArmAsmEcKeyStoreTests, ImportOversizedKeyReturnsZero) {
 
 TEST_F(ArmAsmEcKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
     // Scalar = 1 (valid: 1 <= 1 < n).
-    std::array<uint8_t, 32> scalar_one{};
+    std::array<CryptoByte, 32> scalar_one{};
     scalar_one[31] = 0x01U;
     for (std::size_t i = 0; i < arm_asm::detail::ec_key_store_capacity; ++i) {
         EXPECT_NE(arm_asm::detail::ec_key_store_import(
@@ -1334,7 +1334,7 @@ protected:
     }
 
     // P-256 generator point (1*G) as uncompressed public key.
-    static constexpr std::array<uint8_t, 65> kP256Pub = {{
+    static constexpr std::array<CryptoByte, 65> kP256Pub = {{
         0x04,
         0x6b,0x17,0xd1,0xf2,0xe1,0x2c,0x42,0x47,0xf8,0xbc,0xe6,0xe5,0x63,0xa4,0x40,0xf2,
         0x77,0x03,0x7d,0x81,0x2d,0xeb,0x33,0xa0,0xf4,0xa1,0x39,0x45,0xd8,0x98,0xc2,0x96,
@@ -1343,7 +1343,7 @@ protected:
     }};
 
     // P-384 generator point (1*G) as uncompressed public key.
-    static constexpr std::array<uint8_t, 97> kP384Pub = {{
+    static constexpr std::array<CryptoByte, 97> kP384Pub = {{
         0x04,
         0xaa,0x87,0xca,0x22,0xbe,0x8b,0x05,0x37,0x8e,0xb1,0xc7,0x1e,0xf3,0x20,0xad,0x74,
         0x6e,0x1d,0x3b,0x62,0x8b,0xa7,0x9b,0x98,0x59,0xf7,0x41,0xe0,0x82,0x54,0x2a,0x38,
@@ -1354,7 +1354,7 @@ protected:
     }};
 
     // P-521 generator point (1*G) as uncompressed public key.
-    static constexpr std::array<uint8_t, 133> kP521Pub = {{
+    static constexpr std::array<CryptoByte, 133> kP521Pub = {{
         0x04,
         0x00,0xc6,0x85,0x8e,0x06,0xb7,0x04,0x04,0xe9,0xcd,0x9e,0x3e,0xcb,0x66,0x23,0x95,
         0xb4,0x42,0x9c,0x64,0x81,0x39,0x05,0x3f,0xb5,0x21,0xf8,0x28,0xaf,0x60,0x6b,0x4d,
@@ -1372,7 +1372,7 @@ protected:
 // Private key: valid and invalid cases.
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P256ValidPrivateKeyImports) {
-    std::array<uint8_t, 32> scalar{};
+    std::array<CryptoByte, 32> scalar{};
     scalar[31] = 0x01U; // d = 1
     EXPECT_NE(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
@@ -1380,14 +1380,14 @@ TEST_F(ArmAsmEcKeyImportValidationTests, P256ValidPrivateKeyImports) {
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P256ZeroPrivateKeyRejected) {
-    std::array<uint8_t, 32> scalar{};
+    std::array<CryptoByte, 32> scalar{};
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
         scalar.data(), scalar.size()), 0U);
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyWrongLengthRejected) {
-    std::array<uint8_t, 48> buf{};
+    std::array<CryptoByte, 48> buf{};
     buf[47] = 0x01U;
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::Private,
@@ -1396,7 +1396,7 @@ TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyWrongLengthRejected) {
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyEqualsNRejected) {
     // P-256 group order n.
-    static constexpr std::array<uint8_t, 32> kN = {{
+    static constexpr std::array<CryptoByte, 32> kN = {{
         0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
         0xbc,0xe6,0xfa,0xad,0xa7,0x17,0x9e,0x84,0xf3,0xb9,0xca,0xc2,0xfc,0x63,0x25,0x51,
     }};
@@ -1406,7 +1406,7 @@ TEST_F(ArmAsmEcKeyImportValidationTests, P256PrivateKeyEqualsNRejected) {
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P384ValidPrivateKeyImports) {
-    std::array<uint8_t, 48> scalar{};
+    std::array<CryptoByte, 48> scalar{};
     scalar[47] = 0x01U;
     EXPECT_NE(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Private,
@@ -1414,14 +1414,14 @@ TEST_F(ArmAsmEcKeyImportValidationTests, P384ValidPrivateKeyImports) {
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P384ZeroPrivateKeyRejected) {
-    std::array<uint8_t, 48> scalar{};
+    std::array<CryptoByte, 48> scalar{};
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P384, arm_asm::detail::EcKeyKind::Private,
         scalar.data(), scalar.size()), 0U);
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P521ValidPrivateKeyImports) {
-    std::array<uint8_t, 66> scalar{};
+    std::array<CryptoByte, 66> scalar{};
     scalar[65] = 0x01U;
     EXPECT_NE(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
@@ -1429,14 +1429,14 @@ TEST_F(ArmAsmEcKeyImportValidationTests, P521ValidPrivateKeyImports) {
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P521ZeroPrivateKeyRejected) {
-    std::array<uint8_t, 66> scalar{};
+    std::array<CryptoByte, 66> scalar{};
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P521, arm_asm::detail::EcKeyKind::Private,
         scalar.data(), scalar.size()), 0U);
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, P521PrivateKeyHighBitRejected) {
-    std::array<uint8_t, 66> scalar{};
+    std::array<CryptoByte, 66> scalar{};
     scalar[0]  = 0x02U; // top 7 bits of first byte must be zero
     scalar[65] = 0x01U;
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
@@ -1511,7 +1511,7 @@ TEST_F(ArmAsmEcKeyImportValidationTests, P521PublicKeyOffCurveRejected) {
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, NoneKindRejected) {
-    std::array<uint8_t, 32> buf{};
+    std::array<CryptoByte, 32> buf{};
     buf[31] = 0x01U;
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::P256, arm_asm::detail::EcKeyKind::None,
@@ -1519,7 +1519,7 @@ TEST_F(ArmAsmEcKeyImportValidationTests, NoneKindRejected) {
 }
 
 TEST_F(ArmAsmEcKeyImportValidationTests, NoneCurveRejected) {
-    std::array<uint8_t, 32> buf{};
+    std::array<CryptoByte, 32> buf{};
     buf[31] = 0x01U;
     EXPECT_EQ(arm_asm::detail::ec_key_store_import(
         arm_asm::detail::EcCurveId::None, arm_asm::detail::EcKeyKind::Private,
@@ -1547,7 +1547,7 @@ protected:
 
     // Import a raw symmetric key and return its id.
     static unsigned int import_sym(std::size_t len) {
-        std::vector<uint8_t> buf(len, 0x42U);
+        std::vector<CryptoByte> buf(len, 0x42U);
         return arm_asm::detail::key_store_import(buf.data(), len);
     }
 
@@ -1561,13 +1561,13 @@ protected:
             if (curve == arm_asm::detail::EcCurveId::P256) { scalar_len = 32U; }
             else if (curve == arm_asm::detail::EcCurveId::P384) { scalar_len = 48U; }
             else { scalar_len = 66U; }
-            std::vector<uint8_t> buf(scalar_len, 0U);
+            std::vector<CryptoByte> buf(scalar_len, 0U);
             buf[scalar_len - 1] = 0x01U;
             return arm_asm::detail::ec_key_store_import(curve, kind, buf.data(), scalar_len);
         }
         // Public key: use the generator point (1*G) for the requested curve.
         if (curve == arm_asm::detail::EcCurveId::P256) {
-            static constexpr std::array<uint8_t, 65> kG = {{
+            static constexpr std::array<CryptoByte, 65> kG = {{
                 0x04,
                 0x6b,0x17,0xd1,0xf2,0xe1,0x2c,0x42,0x47,0xf8,0xbc,0xe6,0xe5,0x63,0xa4,0x40,0xf2,
                 0x77,0x03,0x7d,0x81,0x2d,0xeb,0x33,0xa0,0xf4,0xa1,0x39,0x45,0xd8,0x98,0xc2,0x96,
@@ -1577,7 +1577,7 @@ protected:
             return arm_asm::detail::ec_key_store_import(curve, kind, kG.data(), kG.size());
         }
         if (curve == arm_asm::detail::EcCurveId::P384) {
-            static constexpr std::array<uint8_t, 97> kG = {{
+            static constexpr std::array<CryptoByte, 97> kG = {{
                 0x04,
                 0xaa,0x87,0xca,0x22,0xbe,0x8b,0x05,0x37,0x8e,0xb1,0xc7,0x1e,0xf3,0x20,0xad,0x74,
                 0x6e,0x1d,0x3b,0x62,0x8b,0xa7,0x9b,0x98,0x59,0xf7,0x41,0xe0,0x82,0x54,0x2a,0x38,
@@ -1589,7 +1589,7 @@ protected:
             return arm_asm::detail::ec_key_store_import(curve, kind, kG.data(), kG.size());
         }
         // P-521 generator point.
-        static constexpr std::array<uint8_t, 133> kG521 = {{
+        static constexpr std::array<CryptoByte, 133> kG521 = {{
             0x04,
             0x00,0xc6,0x85,0x8e,0x06,0xb7,0x04,0x04,0xe9,0xcd,0x9e,0x3e,0xcb,0x66,0x23,0x95,
             0xb4,0x42,0x9c,0x64,0x81,0x39,0x05,0x3f,0xb5,0x21,0xf8,0x28,0xaf,0x60,0x6b,0x4d,
@@ -1610,8 +1610,8 @@ protected:
 // hash_compute error paths.
 
 TEST_F(ArmAsmBackendErrorTests, HashComputeOutputTooSmall) {
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 1> out{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 1> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::hash_compute(
         ArmAsmBackend::alg_sha(ShaVariant::Sha256),
@@ -1640,8 +1640,8 @@ TEST_F(ArmAsmBackendErrorTests, HashComputeOutputTooSmall) {
 }
 
 TEST_F(ArmAsmBackendErrorTests, HashComputeUnknownAlgReturnsInvalidArg) {
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> out{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::hash_compute(0xFFFFU, msg.data(), msg.size(),
                                            out.data(), out.size(), &out_len),
@@ -1653,7 +1653,7 @@ TEST_F(ArmAsmBackendErrorTests, HashComputeUnknownAlgReturnsInvalidArg) {
 
 TEST_F(ArmAsmBackendErrorTests, ImportKeyEcOversizedReturnsInvalidArg) {
     constexpr std::size_t oversize = arm_asm::detail::ec_max_key_bytes + 1;
-    std::vector<uint8_t> buf(oversize, 0x01U);
+    std::vector<CryptoByte> buf(oversize, 0x01U);
     ArmAsmBackend::KeyAttributes attrs;
     attrs.ec_curve = arm_asm::detail::EcCurveId::P256;
     attrs.ec_kind  = arm_asm::detail::EcKeyKind::Private;
@@ -1664,7 +1664,7 @@ TEST_F(ArmAsmBackendErrorTests, ImportKeyEcOversizedReturnsInvalidArg) {
 
 TEST_F(ArmAsmBackendErrorTests, ImportKeySymOversizedReturnsInvalidArg) {
     constexpr std::size_t oversize = arm_asm::detail::key_store_max_bytes + 1;
-    std::vector<uint8_t> buf(oversize, 0x01U);
+    std::vector<CryptoByte> buf(oversize, 0x01U);
     ArmAsmBackend::KeyAttributes attrs;
     attrs.key_bytes = oversize;
     ArmAsmBackend::KeyId id = 0;
@@ -1700,7 +1700,7 @@ TEST_F(ArmAsmBackendErrorTests, GenerateKeyOversizedReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, ExportKeySymOutputTooSmall) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 4> out{};
+    std::array<CryptoByte, 4> out{};
     std::size_t len = 0;
     EXPECT_EQ(ArmAsmBackend::export_key(id, out.data(), 1, &len),
               ArmAsmBackend::err_invalid_arg);
@@ -1711,14 +1711,14 @@ TEST_F(ArmAsmBackendErrorTests, ExportKeyEcPublicKindReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 128> out{};
+    std::array<CryptoByte, 128> out{};
     std::size_t len = 0;
     EXPECT_EQ(ArmAsmBackend::export_key(id, out.data(), out.size(), &len),
               ArmAsmBackend::err_invalid_arg);
 }
 
 TEST_F(ArmAsmBackendErrorTests, ExportKeySymInvalidIdReturnsInvalidArg) {
-    std::array<uint8_t, 64> out{};
+    std::array<CryptoByte, 64> out{};
     std::size_t len = 0;
     EXPECT_EQ(ArmAsmBackend::export_key(0U, out.data(), out.size(), &len),
               ArmAsmBackend::err_invalid_arg);
@@ -1727,7 +1727,7 @@ TEST_F(ArmAsmBackendErrorTests, ExportKeySymInvalidIdReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyOnSymIdReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 128> out{};
+    std::array<CryptoByte, 128> out{};
     std::size_t len = 0;
     EXPECT_EQ(ArmAsmBackend::export_public_key(id, out.data(), out.size(), &len),
               ArmAsmBackend::err_invalid_arg);
@@ -1737,7 +1737,7 @@ TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyEcOutputTooSmall) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 4> out{};
+    std::array<CryptoByte, 4> out{};
     std::size_t len = 0;
     EXPECT_EQ(ArmAsmBackend::export_public_key(id, out.data(), out.size(), &len),
               ArmAsmBackend::err_invalid_arg);
@@ -1748,7 +1748,7 @@ TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyEcPublicDirectCopyOutputTooSmall)
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 4> out{};
+    std::array<CryptoByte, 4> out{};
     std::size_t len = 0;
     EXPECT_EQ(ArmAsmBackend::export_public_key(id, out.data(), out.size(), &len),
               ArmAsmBackend::err_invalid_arg);
@@ -1758,8 +1758,8 @@ TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyEcPublicDirectCopyOutputTooSmall)
 // mac_compute error paths.
 
 TEST_F(ArmAsmBackendErrorTests, MacComputeInvalidIdReturnsInvalidArg) {
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> out{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::mac_compute(0U, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
                                           msg.data(), msg.size(),
@@ -1770,8 +1770,8 @@ TEST_F(ArmAsmBackendErrorTests, MacComputeInvalidIdReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, MacComputeOutputTooSmall) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 1> out{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 1> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
                                           msg.data(), msg.size(), out.data(), 0, &out_len),
@@ -1796,8 +1796,8 @@ TEST_F(ArmAsmBackendErrorTests, MacComputeOutputTooSmall) {
 TEST_F(ArmAsmBackendErrorTests, MacComputeUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> out{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::mac_compute(id, 0xFFFFU,
                                           msg.data(), msg.size(),
@@ -1808,8 +1808,8 @@ TEST_F(ArmAsmBackendErrorTests, MacComputeUnknownAlgReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, MacVerifyMacLenMismatchReturnsInvalidSig) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 32> mac{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 32> mac{};
     // mac_len=1 vs expected 32 for SHA-256.
     EXPECT_EQ(ArmAsmBackend::mac_verify(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
                                          msg.data(), msg.size(), mac.data(), 1U),
@@ -1820,9 +1820,9 @@ TEST_F(ArmAsmBackendErrorTests, MacVerifyMacLenMismatchReturnsInvalidSig) {
 // aead_encrypt error paths.
 
 TEST_F(ArmAsmBackendErrorTests, AeadEncryptInvalidIdReturnsInvalidArg) {
-    const std::array<uint8_t, 12> nonce{};
-    const std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    const std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_encrypt(0U, ArmAsmBackend::alg_aes_gcm(),
                                            nonce.data(), nonce.size(),
@@ -1836,9 +1836,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptKeyLenNot32ReturnsInvalidArg) {
     // Import a 16-byte key (not 32).
     const unsigned int id = import_sym(16);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 12> nonce{};
-    const std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    const std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                            nonce.data(), nonce.size(),
@@ -1851,9 +1851,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptKeyLenNot32ReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadEncryptOutputTooSmallReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 12> nonce{};
-    const std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 4> out{};  // too small: need pt_len + 16
+    const std::array<CryptoByte, 12> nonce{};
+    const std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 4> out{};  // too small: need pt_len + 16
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                            nonce.data(), nonce.size(),
@@ -1872,9 +1872,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptOutputTooSmallReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadEncryptUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 12> nonce{};
-    const std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 64> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    const std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 64> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, 0xFFFFU,
                                            nonce.data(), nonce.size(),
@@ -1888,9 +1888,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptUnknownAlgReturnsInvalidArg) {
 // aead_decrypt error paths.
 
 TEST_F(ArmAsmBackendErrorTests, AeadDecryptInvalidIdReturnsInvalidArg) {
-    const std::array<uint8_t, 12> nonce{};
-    const std::array<uint8_t, 20> ct{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    const std::array<CryptoByte, 20> ct{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_decrypt(0U, ArmAsmBackend::alg_aes_gcm(),
                                            nonce.data(), nonce.size(),
@@ -1903,9 +1903,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptInvalidIdReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadDecryptKeyLenNot32ReturnsInvalidArg) {
     const unsigned int id = import_sym(16);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 12> nonce{};
-    const std::array<uint8_t, 20> ct{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    const std::array<CryptoByte, 20> ct{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                            nonce.data(), nonce.size(),
@@ -1918,9 +1918,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptKeyLenNot32ReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadDecryptCiphertextTooShortReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 12> nonce{};
-    std::array<uint8_t, 4> ct{};   // < 16-byte tag for both AES-GCM and ChaCha20
-    std::array<uint8_t, 4> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    std::array<CryptoByte, 4> ct{};   // < 16-byte tag for both AES-GCM and ChaCha20
+    std::array<CryptoByte, 4> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                            nonce.data(), nonce.size(),
@@ -1939,9 +1939,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptCiphertextTooShortReturnsInvalidArg) 
 TEST_F(ArmAsmBackendErrorTests, AeadDecryptUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 12> nonce{};
-    const std::array<uint8_t, 20> ct{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    const std::array<CryptoByte, 20> ct{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, 0xFFFFU,
                                            nonce.data(), nonce.size(),
@@ -1957,9 +1957,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptUnknownAlgReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadEncryptShortNonceReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 8> short_nonce{};  // 8 < 12
-    const std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 8> short_nonce{};  // 8 < 12
+    const std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                            short_nonce.data(), short_nonce.size(),
@@ -1978,9 +1978,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptShortNonceReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadEncryptLongNonceReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 16> long_nonce{};  // 16 > 12
-    const std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 16> long_nonce{};  // 16 > 12
+    const std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                            long_nonce.data(), long_nonce.size(),
@@ -1999,8 +1999,8 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptLongNonceReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadEncryptPtLenOverflowReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 12> nonce{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 12> nonce{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     // pt_len near SIZE_MAX would overflow when adding tag bytes.
     const std::size_t huge = SIZE_MAX - 8U;
@@ -2021,9 +2021,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptPtLenOverflowReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, AeadDecryptShortNonceReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 8> short_nonce{};
-    const std::array<uint8_t, 20> ct{};
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 8> short_nonce{};
+    const std::array<CryptoByte, 20> ct{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                            short_nonce.data(), short_nonce.size(),
@@ -2053,8 +2053,8 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> sig{};
     std::size_t sig_len = 0;
     EXPECT_EQ(ArmAsmBackend::sign_message(id, 0xFFFFU,
                                            msg.data(), msg.size(),
@@ -2065,8 +2065,8 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageUnknownAlgReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaNonEcIdReturnsInvalidArg) {
     const unsigned int sym_id = import_sym(32);
     ASSERT_NE(sym_id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> sig{};
     std::size_t sig_len = 0;
     EXPECT_EQ(ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_ecdsa(),
                                            msg.data(), msg.size(),
@@ -2079,8 +2079,8 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaPublicKeyReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> sig{};
     std::size_t sig_len = 0;
     EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
                                            msg.data(), msg.size(),
@@ -2092,8 +2092,8 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaSigTooSmallReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 4> sig{};  // need 64
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 4> sig{};  // need 64
     std::size_t sig_len = 0;
     EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
                                            msg.data(), msg.size(),
@@ -2104,8 +2104,8 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaSigTooSmallReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, SignMessageRsaNonRsaIdReturnsInvalidArg) {
     const unsigned int sym_id = import_sym(32);
     ASSERT_NE(sym_id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 512> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 512> sig{};
     std::size_t sig_len = 0;
     EXPECT_EQ(ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
                                            msg.data(), msg.size(),
@@ -2115,13 +2115,13 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageRsaNonRsaIdReturnsInvalidArg) {
 
 TEST_F(ArmAsmBackendErrorTests, SignMessageRsaPublicKeyReturnsInvalidArg) {
     // Import bytes tagged as RSA Public; sign requires Private.
-    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 4> dummy{0x01, 0x02, 0x03, 0x04};
     const unsigned int id = arm_asm::detail::rsa_key_store_import(
         arm_asm::detail::RsaKeyKind::Public, 3072,
         dummy.data(), dummy.size());
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 512> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 512> sig{};
     std::size_t sig_len = 0;
     EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_rsa_pss(),
                                            msg.data(), msg.size(),
@@ -2136,8 +2136,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(id, 0xFFFFU,
                                              msg.data(), msg.size(),
                                              sig.data(), sig.size()),
@@ -2147,8 +2147,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageUnknownAlgReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, VerifyMessageEcdsaNonEcIdReturnsInvalidArg) {
     const unsigned int sym_id = import_sym(32);
     ASSERT_NE(sym_id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(sym_id, ArmAsmBackend::alg_ecdsa(),
                                              msg.data(), msg.size(),
                                              sig.data(), sig.size()),
@@ -2160,8 +2160,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageEcdsaPrivateKeyReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 64> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 64> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(id, ArmAsmBackend::alg_ecdsa(),
                                              msg.data(), msg.size(),
                                              sig.data(), sig.size()),
@@ -2171,8 +2171,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageEcdsaPrivateKeyReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, VerifyMessageRsaNonRsaIdReturnsInvalidArg) {
     const unsigned int sym_id = import_sym(32);
     ASSERT_NE(sym_id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 384> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 384> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
                                              msg.data(), msg.size(),
                                              sig.data(), sig.size()),
@@ -2181,13 +2181,13 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageRsaNonRsaIdReturnsInvalidArg) {
 
 TEST_F(ArmAsmBackendErrorTests, VerifyMessageRsaPrivateKeyReturnsInvalidArg) {
     // Import bytes tagged as RSA Private; verify requires Public.
-    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 4> dummy{0x01, 0x02, 0x03, 0x04};
     const unsigned int id = arm_asm::detail::rsa_key_store_import(
         arm_asm::detail::RsaKeyKind::Private, 3072,
         dummy.data(), dummy.size());
     ASSERT_NE(id, 0U);
-    const std::array<uint8_t, 4> msg{};
-    std::array<uint8_t, 384> sig{};
+    const std::array<CryptoByte, 4> msg{};
+    std::array<CryptoByte, 384> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(id, ArmAsmBackend::alg_rsa_pss(),
                                              msg.data(), msg.size(),
                                              sig.data(), sig.size()),
@@ -2201,9 +2201,9 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 65> peer{};
+    std::array<CryptoByte, 65> peer{};
     peer[0] = 0x04U;
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(0xFFFFU, id,
                                                 peer.data(), peer.size(),
@@ -2214,9 +2214,9 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementUnknownAlgReturnsInvalidArg) {
 TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementNonEcIdReturnsInvalidArg) {
     const unsigned int sym_id = import_sym(32);
     ASSERT_NE(sym_id, 0U);
-    std::array<uint8_t, 65> peer{};
+    std::array<CryptoByte, 65> peer{};
     peer[0] = 0x04U;
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), sym_id,
                                                 peer.data(), peer.size(),
@@ -2228,9 +2228,9 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementPublicKeyKindReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 65> peer{};
+    std::array<CryptoByte, 65> peer{};
     peer[0] = 0x04U;
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2242,8 +2242,8 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementWrongPeerLenReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 32> peer{};  // wrong: P-256 peer must be 65 bytes
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> peer{};  // wrong: P-256 peer must be 65 bytes
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2258,8 +2258,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptWrongAlgReturnsInvalidArg) {
     const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
                                        arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 512> out{};
+    std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 512> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::asymmetric_encrypt(id, 0xFFFFU,
                                                  pt.data(), pt.size(),
@@ -2272,8 +2272,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptNonRsaIdReturnsInvalidArg) {
     const unsigned int ec_id = import_ec(arm_asm::detail::EcCurveId::P256,
                                           arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(ec_id, 0U);
-    std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 512> out{};
+    std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 512> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::asymmetric_encrypt(ec_id, ArmAsmBackend::alg_rsa_oaep(),
                                                  pt.data(), pt.size(),
@@ -2284,13 +2284,13 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptNonRsaIdReturnsInvalidArg) {
 
 TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptPrivateKeyReturnsInvalidArg) {
     // RSA Private kind; encrypt requires Public.
-    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 4> dummy{0x01, 0x02, 0x03, 0x04};
     const unsigned int id = arm_asm::detail::rsa_key_store_import(
         arm_asm::detail::RsaKeyKind::Private, 3072,
         dummy.data(), dummy.size());
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 4> pt{};
-    std::array<uint8_t, 512> out{};
+    std::array<CryptoByte, 4> pt{};
+    std::array<CryptoByte, 512> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::asymmetric_encrypt(id, ArmAsmBackend::alg_rsa_oaep(),
                                                  pt.data(), pt.size(),
@@ -2300,12 +2300,12 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptPrivateKeyReturnsInvalidArg) {
 }
 
 TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptWrongAlgReturnsInvalidArg) {
-    std::array<uint8_t, 4> dummy{};
+    std::array<CryptoByte, 4> dummy{};
     const unsigned int id = arm_asm::detail::rsa_key_store_import(
         arm_asm::detail::RsaKeyKind::Private, 3072, dummy.data(), dummy.size());
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 32> ct{};
-    std::array<uint8_t, 512> out{};
+    std::array<CryptoByte, 32> ct{};
+    std::array<CryptoByte, 512> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::asymmetric_decrypt(id, 0xFFFFU,
                                                  ct.data(), ct.size(),
@@ -2318,8 +2318,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptNonRsaIdReturnsInvalidArg) {
     const unsigned int ec_id = import_ec(arm_asm::detail::EcCurveId::P256,
                                           arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(ec_id, 0U);
-    std::array<uint8_t, 32> ct{};
-    std::array<uint8_t, 512> out{};
+    std::array<CryptoByte, 32> ct{};
+    std::array<CryptoByte, 512> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::asymmetric_decrypt(ec_id, ArmAsmBackend::alg_rsa_oaep(),
                                                  ct.data(), ct.size(),
@@ -2330,13 +2330,13 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptNonRsaIdReturnsInvalidArg) {
 
 TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptPublicKeyReturnsInvalidArg) {
     // RSA Public kind; decrypt requires Private.
-    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 4> dummy{0x01, 0x02, 0x03, 0x04};
     const unsigned int id = arm_asm::detail::rsa_key_store_import(
         arm_asm::detail::RsaKeyKind::Public, 3072,
         dummy.data(), dummy.size());
     ASSERT_NE(id, 0U);
-    std::array<uint8_t, 32> ct{};
-    std::array<uint8_t, 512> out{};
+    std::array<CryptoByte, 32> ct{};
+    std::array<CryptoByte, 512> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::asymmetric_decrypt(id, ArmAsmBackend::alg_rsa_oaep(),
                                                  ct.data(), ct.size(),
@@ -2355,7 +2355,7 @@ protected:
     static constexpr std::size_t kBits = 3072;
 
     // Minimal valid-looking 8-byte blob that PSA will reject as malformed DER.
-    static constexpr std::array<uint8_t, 8> kBadDer{
+    static constexpr std::array<CryptoByte, 8> kBadDer{
         0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x01
     };
 
@@ -2372,7 +2372,7 @@ protected:
 TEST_F(ArmAsmRsaKeyStoreTests, ImportOversizedKeyReturnsZero) {
     // A buffer larger than rsa_max_private_key_bytes must be rejected.
     constexpr std::size_t oversize = arm_asm::detail::rsa_max_private_key_bytes + 1;
-    std::array<uint8_t, oversize> buf{};
+    std::array<CryptoByte, oversize> buf{};
     const unsigned int id = arm_asm::detail::rsa_key_store_import(
         arm_asm::detail::RsaKeyKind::Private, kBits, buf.data(), oversize);
     EXPECT_EQ(id, 0U);
@@ -2380,7 +2380,7 @@ TEST_F(ArmAsmRsaKeyStoreTests, ImportOversizedKeyReturnsZero) {
 
 TEST_F(ArmAsmRsaKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
     // Fill all 8 slots.
-    std::array<uint8_t, 4> dummy{0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 4> dummy{0x01, 0x02, 0x03, 0x04};
     for (std::size_t i = 0; i < arm_asm::detail::rsa_key_store_capacity; ++i) {
         const unsigned int id = arm_asm::detail::rsa_key_store_import(
             arm_asm::detail::RsaKeyKind::Public, kBits, dummy.data(), dummy.size());
@@ -2432,7 +2432,7 @@ TEST_F(ArmAsmRsaKeyStoreTests, DestroyWithOutOfRangeIdIsNoOp) {
 
 TEST_F(ArmAsmRsaKeyStoreTests, OaepEncryptWithBadDerReturnsFalse) {
     std::size_t ct_len = 0;
-    std::array<uint8_t, 512> ct_buf{};
+    std::array<CryptoByte, 512> ct_buf{};
     EXPECT_FALSE(arm_asm::detail::rsa_oaep_encrypt(
         kBits,
         kBadDer.data(), kBadDer.size(),
@@ -2443,8 +2443,8 @@ TEST_F(ArmAsmRsaKeyStoreTests, OaepEncryptWithBadDerReturnsFalse) {
 
 TEST_F(ArmAsmRsaKeyStoreTests, OaepDecryptWithBadDerReturnsFalse) {
     std::size_t pt_len = 0;
-    std::array<uint8_t, 512> pt_buf{};
-    std::array<uint8_t, 384> fake_ct{};
+    std::array<CryptoByte, 512> pt_buf{};
+    std::array<CryptoByte, 384> fake_ct{};
     EXPECT_FALSE(arm_asm::detail::rsa_oaep_decrypt(
         kBits,
         kBadDer.data(), kBadDer.size(),
@@ -2455,8 +2455,8 @@ TEST_F(ArmAsmRsaKeyStoreTests, OaepDecryptWithBadDerReturnsFalse) {
 
 TEST_F(ArmAsmRsaKeyStoreTests, PssSignWithBadDerReturnsFalse) {
     std::size_t sig_len = 0;
-    std::array<uint8_t, 512> sig_buf{};
-    const std::array<uint8_t, 4> msg{0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 512> sig_buf{};
+    const std::array<CryptoByte, 4> msg{0x01, 0x02, 0x03, 0x04};
     EXPECT_FALSE(arm_asm::detail::rsa_pss_sign(
         kBits,
         kBadDer.data(), kBadDer.size(),
@@ -2465,8 +2465,8 @@ TEST_F(ArmAsmRsaKeyStoreTests, PssSignWithBadDerReturnsFalse) {
 }
 
 TEST_F(ArmAsmRsaKeyStoreTests, PssVerifyWithBadDerReturnsFalse) {
-    const std::array<uint8_t, 4> msg{0x01, 0x02, 0x03, 0x04};
-    std::array<uint8_t, 384> fake_sig{};
+    const std::array<CryptoByte, 4> msg{0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 384> fake_sig{};
     EXPECT_FALSE(arm_asm::detail::rsa_pss_verify(
         kBits,
         kBadDer.data(), kBadDer.size(),
@@ -2480,8 +2480,8 @@ TEST_F(ArmAsmSha3Tests, BackendSha3_256Dispatch) {
     const auto expected = from_hex<32>(
         "3a985da74fe225b2045c172d6bd390bd"
         "855f086e3e9d525b46bfe24511431532");
-    const std::array<uint8_t, 3> msg = { 0x61, 0x62, 0x63 };
-    std::array<uint8_t, 32> out{};
+    const std::array<CryptoByte, 3> msg = { 0x61, 0x62, 0x63 };
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     ASSERT_EQ(ArmAsmBackend::hash_compute(
                   ArmAsmBackend::alg_sha(ShaVariant::Sha3_256),
@@ -2524,8 +2524,8 @@ protected:
     }
 
     // Export the public key for an ECDH key pair.
-    static std::vector<uint8_t> export_public(ArmAsmBackend::KeyId id, std::size_t pk_len) {
-        std::vector<uint8_t> buf(pk_len);
+    static std::vector<CryptoByte> export_public(ArmAsmBackend::KeyId id, std::size_t pk_len) {
+        std::vector<CryptoByte> buf(pk_len);
         std::size_t out_len = 0;
         if (ArmAsmBackend::export_public_key(id, buf.data(), buf.size(), &out_len) != ArmAsmBackend::ok) { return {}; }
         buf.resize(out_len);
@@ -2540,7 +2540,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256ValidPeerSucceeds) {
     ASSERT_NE(id, ArmAsmBackend::null_key_id());
     auto peer = export_public(id, p256_public_key_bytes);
     ASSERT_EQ(peer.size(), 65U);
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2554,7 +2554,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256WrongPrefixReturnsInvalidArg) {
     auto peer = export_public(id, p256_public_key_bytes);
     ASSERT_EQ(peer.size(), 65U);
     peer[0] = 0x02U;  // compressed-point prefix is invalid here
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2565,9 +2565,9 @@ TEST_F(ArmAsmEcdhValidationTests, P256WrongPrefixReturnsInvalidArg) {
 TEST_F(ArmAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
     ASSERT_NE(id, ArmAsmBackend::null_key_id());
-    std::array<uint8_t, 65> peer{};
+    std::array<CryptoByte, 65> peer{};
     peer[0] = 0x04U;  // prefix ok, but x=0, y=0 is the point at infinity
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2579,7 +2579,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256CoordinateEqualToPReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P256);
     ASSERT_NE(id, ArmAsmBackend::null_key_id());
     // P-256 prime p = 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF
-    std::array<uint8_t, 65> peer{};
+    std::array<CryptoByte, 65> peer{};
     peer[0] = 0x04U;
     // Set x = p (all-FF then the specific pattern for P-256).
     peer[1]  = 0xFFU; peer[2]  = 0xFFU; peer[3]  = 0xFFU; peer[4]  = 0xFFU; // NOLINT
@@ -2591,7 +2591,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256CoordinateEqualToPReturnsInvalidArg) {
     peer[25] = 0xFFU; peer[26] = 0xFFU; peer[27] = 0xFFU; peer[28] = 0xFFU; // NOLINT
     peer[29] = 0xFFU; peer[30] = 0xFFU; peer[31] = 0xFFU; peer[32] = 0xFFU; // NOLINT
     // y can be anything — range check on x alone should reject.
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2606,7 +2606,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 65U);
     // Flip the last byte of y to make the point off-curve.
     peer[p256_public_key_bytes - 1U] ^= 0x01U;
-    std::array<uint8_t, 32> out{};
+    std::array<CryptoByte, 32> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2621,7 +2621,7 @@ TEST_F(ArmAsmEcdhValidationTests, P384ValidPeerSucceeds) {
     ASSERT_NE(id, ArmAsmBackend::null_key_id());
     auto peer = export_public(id, p384_public_key_bytes);
     ASSERT_EQ(peer.size(), 97U);
-    std::array<uint8_t, p384_scalar_bytes> out{};
+    std::array<CryptoByte, p384_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2632,9 +2632,9 @@ TEST_F(ArmAsmEcdhValidationTests, P384ValidPeerSucceeds) {
 TEST_F(ArmAsmEcdhValidationTests, P384AllZeroPeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P384);
     ASSERT_NE(id, ArmAsmBackend::null_key_id());
-    std::array<uint8_t, p384_public_key_bytes> peer{};
+    std::array<CryptoByte, p384_public_key_bytes> peer{};
     peer[0] = 0x04U;
-    std::array<uint8_t, p384_scalar_bytes> out{};
+    std::array<CryptoByte, p384_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2648,7 +2648,7 @@ TEST_F(ArmAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
     auto peer = export_public(id, p384_public_key_bytes);
     ASSERT_EQ(peer.size(), 97U);
     peer[p384_public_key_bytes - 1U] ^= 0x01U;
-    std::array<uint8_t, p384_scalar_bytes> out{};
+    std::array<CryptoByte, p384_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2663,7 +2663,7 @@ TEST_F(ArmAsmEcdhValidationTests, P521ValidPeerSucceeds) {
     ASSERT_NE(id, ArmAsmBackend::null_key_id());
     auto peer = export_public(id, p521_public_key_bytes);
     ASSERT_EQ(peer.size(), 133U);
-    std::array<uint8_t, p521_scalar_bytes> out{};
+    std::array<CryptoByte, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2674,9 +2674,9 @@ TEST_F(ArmAsmEcdhValidationTests, P521ValidPeerSucceeds) {
 TEST_F(ArmAsmEcdhValidationTests, P521AllZeroPeerReturnsInvalidArg) {
     const auto id = generate_ecdh_key(arm_asm::detail::EcCurveId::P521);
     ASSERT_NE(id, ArmAsmBackend::null_key_id());
-    std::array<uint8_t, p521_public_key_bytes> peer{};
+    std::array<CryptoByte, p521_public_key_bytes> peer{};
     peer[0] = 0x04U;
-    std::array<uint8_t, p521_scalar_bytes> out{};
+    std::array<CryptoByte, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2690,7 +2690,7 @@ TEST_F(ArmAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
     auto peer = export_public(id, p521_public_key_bytes);
     ASSERT_EQ(peer.size(), 133U);
     peer[p521_public_key_bytes - 1U] ^= 0x01U;
-    std::array<uint8_t, p521_scalar_bytes> out{};
+    std::array<CryptoByte, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2706,7 +2706,7 @@ TEST_F(ArmAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
     // Set a high bit in the first byte of the x coordinate (bytes 1..66 of peer).
     // A valid P-521 x coordinate has at most 1 bit set in byte[0], so bit 7 must be 0.
     peer[1] |= 0x80U;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    std::array<uint8_t, p521_scalar_bytes> out{};
+    std::array<CryptoByte, p521_scalar_bytes> out{};
     std::size_t out_len = 0;
     EXPECT_EQ(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
                                                 peer.data(), peer.size(),
@@ -2742,7 +2742,7 @@ protected:
         if (bits == p256_bits) { pk_len = p256_public_key_bytes; }
         else if (bits == p384_bits) { pk_len = p384_public_key_bytes; }
         else { pk_len = p521_public_key_bytes; }
-        std::vector<uint8_t> pub_buf(pk_len);
+        std::vector<CryptoByte> pub_buf(pk_len);
         std::size_t exported = 0;
         if (ArmAsmBackend::export_public_key(priv_id, pub_buf.data(), pk_len, &exported) != ArmAsmBackend::ok) {
             return {priv_id, ArmAsmBackend::null_key_id()};
@@ -2756,9 +2756,9 @@ protected:
     }
 
     // Sign a fixed message with the given private key id.
-    static std::vector<uint8_t> sign(ArmAsmBackend::KeyId priv_id, std::size_t sig_len) {
-        static constexpr std::array<uint8_t, 64> kMsg{};
-        std::vector<uint8_t> sig(sig_len);
+    static std::vector<CryptoByte> sign(ArmAsmBackend::KeyId priv_id, std::size_t sig_len) {
+        static constexpr std::array<CryptoByte, 64> kMsg{};
+        std::vector<CryptoByte> sig(sig_len);
         std::size_t out_len = 0;
         if (ArmAsmBackend::sign_message(priv_id, ArmAsmBackend::alg_ecdsa(),
                                         kMsg.data(), kMsg.size(),
@@ -2771,8 +2771,8 @@ protected:
 
     // Verify a signature with the given public key id.
     static ArmAsmBackend::Status verify(ArmAsmBackend::KeyId pub_id,
-                                        const std::vector<uint8_t>& sig) {
-        static constexpr std::array<uint8_t, 64> kMsg{};
+                                        const std::vector<CryptoByte>& sig) {
+        static constexpr std::array<CryptoByte, 64> kMsg{};
         return ArmAsmBackend::verify_message(pub_id, ArmAsmBackend::alg_ecdsa(),
                                              kMsg.data(), kMsg.size(),
                                              sig.data(), sig.size());
@@ -2814,7 +2814,7 @@ TEST_F(ArmAsmEcdsaSigDecodeTests, P256REqualsNRejectsSignature) {
     auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
     // P-256 n = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551 (BE)
-    static constexpr std::array<uint8_t, 32> kP256N = {{
+    static constexpr std::array<CryptoByte, 32> kP256N = {{
         0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x00,0x00, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xBC,0xE6,0xFA,0xAD,0xA7,0x17,0x9E,0x84, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -2829,7 +2829,7 @@ TEST_F(ArmAsmEcdsaSigDecodeTests, P256SEqualsNRejectsSignature) {
     ASSERT_NE(priv_id, ArmAsmBackend::null_key_id());
     auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
-    static constexpr std::array<uint8_t, 32> kP256N = {{
+    static constexpr std::array<CryptoByte, 32> kP256N = {{
         0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x00,0x00, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xBC,0xE6,0xFA,0xAD,0xA7,0x17,0x9E,0x84, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -2845,7 +2845,7 @@ TEST_F(ArmAsmEcdsaSigDecodeTests, P256REqualsNPlusOneRejectsSignature) {
     auto sig = sign(priv_id, p256_sig_bytes);
     ASSERT_FALSE(sig.empty());
     // n+1 = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632552
-    static constexpr std::array<uint8_t, 32> kP256NPlus1 = {{
+    static constexpr std::array<CryptoByte, 32> kP256NPlus1 = {{
         0xFF,0xFF,0xFF,0xFF,0x00,0x00,0x00,0x00, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xBC,0xE6,0xFA,0xAD,0xA7,0x17,0x9E,0x84, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -2890,7 +2890,7 @@ TEST_F(ArmAsmEcdsaSigDecodeTests, P384REqualsNRejectsSignature) {
     auto sig = sign(priv_id, p384_sig_bytes);
     ASSERT_FALSE(sig.empty());
     // P-384 n BE: FFFFFFFF...FFFFC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973
-    static constexpr std::array<uint8_t, p384_scalar_bytes> kP384N = {{
+    static constexpr std::array<CryptoByte, p384_scalar_bytes> kP384N = {{
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
@@ -2937,7 +2937,7 @@ TEST_F(ArmAsmEcdsaSigDecodeTests, P521REqualsNRejectsSignature) {
     auto sig = sign(priv_id, p521_sig_bytes);
     ASSERT_FALSE(sig.empty());
     // P-521 n BE: 01FF...FFFA51868783BF2F966B7FCC0148F709A5D03BB5C9B8899C47AEBB6FB71E91386409
-    static constexpr std::array<uint8_t, p521_scalar_bytes> kP521N = {{
+    static constexpr std::array<CryptoByte, p521_scalar_bytes> kP521N = {{
         0x01,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)

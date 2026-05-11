@@ -55,7 +55,7 @@ static constexpr Fe256 fe256_p = {{
 
 [[nodiscard]]
 static inline auto fe256_from_bytes(
-    std::span<const uint8_t, 32> b) noexcept -> Fe256
+    std::span<const CryptoByte, p256_scalar_bytes> b) noexcept -> Fe256
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
@@ -70,7 +70,7 @@ static inline auto fe256_from_bytes(
 }
 
 static inline void fe256_to_bytes(
-    const Fe256& a, std::span<uint8_t, 32> b) noexcept
+    const Fe256& a, std::span<CryptoByte, p256_scalar_bytes> b) noexcept
 {
     for (int i = 0; i < 4; ++i) {
         uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(3 - i)) * 8);

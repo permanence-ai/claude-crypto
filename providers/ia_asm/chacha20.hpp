@@ -79,8 +79,8 @@ static inline void chacha20_qr(__m128i& a, __m128i& b,
 
 // Produce one 64-byte ChaCha20 keystream block into out[64].
 [[gnu::target("sse2")]]
-inline void chacha20_block(std::span<const uint8_t, 32> key, uint32_t counter,
-                            std::span<const uint8_t, 12> nonce, std::span<uint8_t, 64> out) noexcept
+inline void chacha20_block(std::span<const CryptoByte, chacha20_key_size_bytes> key, uint32_t counter,
+                            std::span<const CryptoByte, chacha20_poly1305_nonce_bytes> nonce, std::span<CryptoByte, chacha20_block_bytes> out) noexcept
 {
     const uint32_t k0 = load_le32(key.data() +  0);
     const uint32_t k1 = load_le32(key.data() +  4);
@@ -139,9 +139,9 @@ inline void chacha20_block(std::span<const uint8_t, 32> key, uint32_t counter,
 // XOR 256 bytes (4 consecutive ChaCha20 blocks) using word-major SSE2 layout.
 [[gnu::target("sse2")]]
 static inline void chacha20_xor4( // NOLINT(readability-function-size)
-    std::span<const uint8_t, 32> key, uint32_t counter,
-    std::span<const uint8_t, 12> nonce,
-    const uint8_t* in, uint8_t* out) noexcept
+    std::span<const CryptoByte, chacha20_key_size_bytes> key, uint32_t counter,
+    std::span<const CryptoByte, chacha20_poly1305_nonce_bytes> nonce,
+    const CryptoByte* in, CryptoByte* out) noexcept
 {
     const uint32_t k0 = load_le32(key.data() +  0);
     const uint32_t k1 = load_le32(key.data() +  4);
@@ -244,11 +244,11 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size)
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
 [[gnu::target("sse2")]]
-inline void chacha20_crypt(std::span<const uint8_t, 32> key, uint32_t counter_start,
-                            std::span<const uint8_t, 12> nonce,
-                            const uint8_t* in, uint8_t* out, std::size_t len) noexcept
+inline void chacha20_crypt(std::span<const CryptoByte, chacha20_key_size_bytes> key, uint32_t counter_start,
+                            std::span<const CryptoByte, chacha20_poly1305_nonce_bytes> nonce,
+                            const CryptoByte* in, CryptoByte* out, std::size_t len) noexcept
 {
-    FixedSecureBuffer<64> block;
+    FixedSecureBuffer<chacha20_block_bytes> block;
     uint32_t counter = counter_start;
     std::size_t offset = 0;
 
@@ -260,7 +260,7 @@ inline void chacha20_crypt(std::span<const uint8_t, 32> key, uint32_t counter_st
     }
 
     while (len - offset >= 64U) {
-        chacha20_block(key, counter, nonce, std::span<uint8_t, 64>{block.data(), 64});
+        chacha20_block(key, counter, nonce, std::span<CryptoByte, chacha20_block_bytes>{block.data(), chacha20_block_bytes});
         const __m128i k0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() +  0)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         const __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() + 16)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
         const __m128i k2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(block.data() + 32)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -274,10 +274,10 @@ inline void chacha20_crypt(std::span<const uint8_t, 32> key, uint32_t counter_st
     }
 
     if (offset < len) {
-        chacha20_block(key, counter, nonce, std::span<uint8_t, 64>{block.data(), 64});
+        chacha20_block(key, counter, nonce, std::span<CryptoByte, chacha20_block_bytes>{block.data(), chacha20_block_bytes});
         for (std::size_t i = 0; offset + i < len; ++i) {
 
-            out[offset + i] = static_cast<uint8_t>(in[offset + i] ^ block[i]);
+            out[offset + i] = static_cast<CryptoByte>(in[offset + i] ^ block[i]);
         }
     }
 }
@@ -285,13 +285,13 @@ inline void chacha20_crypt(std::span<const uint8_t, 32> key, uint32_t counter_st
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
 [[gnu::target("sse2")]]
-inline void chacha20_poly1305_key(std::span<const uint8_t, 32> key,
-                                   std::span<const uint8_t, 12> nonce,
-                                   std::span<uint8_t, 32> otk) noexcept
+inline void chacha20_poly1305_key(std::span<const CryptoByte, chacha20_key_size_bytes> key,
+                                   std::span<const CryptoByte, chacha20_poly1305_nonce_bytes> nonce,
+                                   std::span<CryptoByte, poly1305_key_bytes> otk) noexcept
 {
-    FixedSecureBuffer<64> block;
-    chacha20_block(key, 0, nonce, std::span<uint8_t, 64>{block.data(), 64});
-    std::memcpy(otk.data(), block.data(), 32);
+    FixedSecureBuffer<chacha20_block_bytes> block;
+    chacha20_block(key, 0, nonce, std::span<CryptoByte, chacha20_block_bytes>{block.data(), chacha20_block_bytes});
+    std::memcpy(otk.data(), block.data(), poly1305_key_bytes);
 }
 
 }  // namespace ia_asm::detail

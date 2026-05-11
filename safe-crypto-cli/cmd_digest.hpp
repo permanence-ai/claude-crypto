@@ -39,7 +39,7 @@ inline void register_digest(CLI::App& app)
         const auto run_and_write = [&]<ShaVariant V>() {
             const auto result = sha<V>(*data);
             if (!result.has_value()) { die(result.error()); }
-            const auto out = write_output(output_val, std::span<const uint8_t>(result->data(), result->size()));
+            const auto out = write_output(output_val, std::span<const CryptoByte>(result->data(), result->size()));
             if (!out.has_value()) { die(out.error()); }
         };
 

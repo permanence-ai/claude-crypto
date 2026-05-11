@@ -27,8 +27,8 @@ namespace {
 
 // Decode a hex string into a byte array (caller supplies the right size).
 template<std::size_t N>
-static std::array<uint8_t, N> from_hex(const char* s) {
-    std::array<uint8_t, N> out{};
+static std::array<CryptoByte, N> from_hex(const char* s) {
+    std::array<CryptoByte, N> out{};
     for (std::size_t i = 0; i < N; ++i) {
         unsigned v = 0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -44,16 +44,16 @@ static std::array<uint8_t, N> from_hex(const char* s) {
 // We only need this for round-trip tests — the exact key is synthetic.
 //
 // Layout: SEQUENCE { version=0, n, e, d, p, q, dp, dq, qinv }
-std::vector<uint8_t> build_pkcs1_der(
-    const std::vector<uint8_t>& n, const std::vector<uint8_t>& e,
-    const std::vector<uint8_t>& d, const std::vector<uint8_t>& p,
-    const std::vector<uint8_t>& q, const std::vector<uint8_t>& dp,
-    const std::vector<uint8_t>& dq, const std::vector<uint8_t>& qinv)
+std::vector<CryptoByte> build_pkcs1_der(
+    const std::vector<CryptoByte>& n, const std::vector<CryptoByte>& e,
+    const std::vector<CryptoByte>& d, const std::vector<CryptoByte>& p,
+    const std::vector<CryptoByte>& q, const std::vector<CryptoByte>& dp,
+    const std::vector<CryptoByte>& dq, const std::vector<CryptoByte>& qinv)
 {
-    auto encode_int = [](const std::vector<uint8_t>& v) -> std::vector<uint8_t> {
+    auto encode_int = [](const std::vector<CryptoByte>& v) -> std::vector<CryptoByte> {
         const bool needs_pad = !v.empty() && (v[0] & 0x80U) != 0U;
         const std::size_t content = v.size() + (needs_pad ? 1U : 0U);
-        std::vector<uint8_t> out;
+        std::vector<CryptoByte> out;
         out.push_back(0x02U);  // INTEGER tag
         if (content < 0x80U) {
             out.push_back(static_cast<uint8_t>(content));
@@ -70,7 +70,7 @@ std::vector<uint8_t> build_pkcs1_der(
         return out;
     };
 
-    auto version = std::vector<uint8_t>{0x02, 0x01, 0x00};  // INTEGER 0
+    auto version = std::vector<CryptoByte>{0x02, 0x01, 0x00};  // INTEGER 0
     auto en = encode_int(n);
     auto ee = encode_int(e);
     auto ed = encode_int(d);
@@ -84,7 +84,7 @@ std::vector<uint8_t> build_pkcs1_der(
                          + ep.size() + eq.size() + edp.size() + edq.size()
                          + eqinv.size();
 
-    std::vector<uint8_t> out;
+    std::vector<CryptoByte> out;
     out.push_back(0x30U);  // SEQUENCE
     if (body_len < 0x80U) {
         out.push_back(static_cast<uint8_t>(body_len));
@@ -115,14 +115,14 @@ class RsaDerParserTests : public ::testing::Test {};
 // Parsing a well-formed minimal PKCS#1 blob returns the correct components.
 TEST_F(RsaDerParserTests, ParsePrivateKeyRoundTrip) {
     // Use 4-byte synthetic values (not real RSA — just verifying parse logic).
-    const std::vector<uint8_t> n    = {0x00, 0xAB, 0xCD, 0xEF};  // needs strip
-    const std::vector<uint8_t> e    = {0x01, 0x00, 0x01};
-    const std::vector<uint8_t> d    = {0xDE, 0xAD, 0xBE, 0xEF};
-    const std::vector<uint8_t> p    = {0x00, 0xFA, 0xCE};
-    const std::vector<uint8_t> q    = {0x00, 0xCA, 0xFE};
-    const std::vector<uint8_t> dp   = {0x01, 0x23};
-    const std::vector<uint8_t> dq   = {0x04, 0x56};
-    const std::vector<uint8_t> qinv = {0x00, 0x78, 0x9A};
+    const std::vector<CryptoByte> n    = {0x00, 0xAB, 0xCD, 0xEF};  // needs strip
+    const std::vector<CryptoByte> e    = {0x01, 0x00, 0x01};
+    const std::vector<CryptoByte> d    = {0xDE, 0xAD, 0xBE, 0xEF};
+    const std::vector<CryptoByte> p    = {0x00, 0xFA, 0xCE};
+    const std::vector<CryptoByte> q    = {0x00, 0xCA, 0xFE};
+    const std::vector<CryptoByte> dp   = {0x01, 0x23};
+    const std::vector<CryptoByte> dq   = {0x04, 0x56};
+    const std::vector<CryptoByte> qinv = {0x00, 0x78, 0x9A};
 
     const auto der = build_pkcs1_der(n, e, d, p, q, dp, dq, qinv);
 
@@ -157,7 +157,7 @@ TEST_F(RsaDerParserTests, ParsePrivateKeyRoundTrip) {
 
 // Malformed: wrong top-level tag.
 TEST_F(RsaDerParserTests, ParsePrivateKeyBadTag) {
-    const std::array<uint8_t, 4> bad = {0x10, 0x02, 0x02, 0x00};
+    const std::array<CryptoByte, 4> bad = {0x10, 0x02, 0x02, 0x00};
     arm_asm::detail::RsaPrivateKeyComponents out{};
     EXPECT_FALSE(arm_asm::detail::rsa_parse_private_key_der(
         bad.data(), bad.size(), out));
@@ -165,7 +165,7 @@ TEST_F(RsaDerParserTests, ParsePrivateKeyBadTag) {
 
 // Malformed: truncated after tag.
 TEST_F(RsaDerParserTests, ParsePrivateKeyTruncated) {
-    const std::array<uint8_t, 1> bad = {0x30};
+    const std::array<CryptoByte, 1> bad = {0x30};
     arm_asm::detail::RsaPrivateKeyComponents out{};
     EXPECT_FALSE(arm_asm::detail::rsa_parse_private_key_der(
         bad.data(), bad.size(), out));
@@ -173,14 +173,14 @@ TEST_F(RsaDerParserTests, ParsePrivateKeyTruncated) {
 
 // Malformed: wrong version.
 TEST_F(RsaDerParserTests, ParsePrivateKeyBadVersion) {
-    const std::vector<uint8_t> n    = {0x01};
-    const std::vector<uint8_t> e    = {0x01};
-    const std::vector<uint8_t> d    = {0x01};
-    const std::vector<uint8_t> p    = {0x01};
-    const std::vector<uint8_t> q    = {0x01};
-    const std::vector<uint8_t> dp   = {0x01};
-    const std::vector<uint8_t> dq   = {0x01};
-    const std::vector<uint8_t> qinv = {0x01};
+    const std::vector<CryptoByte> n    = {0x01};
+    const std::vector<CryptoByte> e    = {0x01};
+    const std::vector<CryptoByte> d    = {0x01};
+    const std::vector<CryptoByte> p    = {0x01};
+    const std::vector<CryptoByte> q    = {0x01};
+    const std::vector<CryptoByte> dp   = {0x01};
+    const std::vector<CryptoByte> dq   = {0x01};
+    const std::vector<CryptoByte> qinv = {0x01};
     auto der = build_pkcs1_der(n, e, d, p, q, dp, dq, qinv);
     // Patch version byte from 0x00 to 0x01 (version INTEGER value is at offset 4).
     der[4] = 0x01U;
@@ -205,11 +205,11 @@ class RsaDerEncoderTests : public ::testing::Test {};
 // Encoding then parsing back gives the same n and e.
 TEST_F(RsaDerEncoderTests, EncodePublicKeyRoundTrip) {
     // A 4-byte synthetic modulus with high bit set (needs padding).
-    const std::array<uint8_t, 4> n = {0x80, 0x01, 0x02, 0x03};
+    const std::array<CryptoByte, 4> n = {0x80, 0x01, 0x02, 0x03};
     // Standard e = 65537
-    const std::array<uint8_t, 3> e = {0x01, 0x00, 0x01};
+    const std::array<CryptoByte, 3> e = {0x01, 0x00, 0x01};
 
-    std::array<uint8_t, 256> buf{};
+    std::array<CryptoByte, 256> buf{};
     std::size_t out_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_encode_public_key_der(
         n.data(), n.size(), e.data(), e.size(),
@@ -229,10 +229,10 @@ TEST_F(RsaDerEncoderTests, EncodePublicKeyRoundTrip) {
 
 // n with no high bit: no padding needed.
 TEST_F(RsaDerEncoderTests, EncodePublicKeyNoPadding) {
-    const std::array<uint8_t, 4> n = {0x01, 0x02, 0x03, 0x04};
-    const std::array<uint8_t, 3> e = {0x01, 0x00, 0x01};
+    const std::array<CryptoByte, 4> n = {0x01, 0x02, 0x03, 0x04};
+    const std::array<CryptoByte, 3> e = {0x01, 0x00, 0x01};
 
-    std::array<uint8_t, 256> buf{};
+    std::array<CryptoByte, 256> buf{};
     std::size_t out_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_encode_public_key_der(
         n.data(), n.size(), e.data(), e.size(),
@@ -248,9 +248,9 @@ TEST_F(RsaDerEncoderTests, EncodePublicKeyNoPadding) {
 
 // Buffer too small: encode returns false.
 TEST_F(RsaDerEncoderTests, EncodePublicKeyBufferTooSmall) {
-    const std::array<uint8_t, 4> n = {0x01, 0x02, 0x03, 0x04};
-    const std::array<uint8_t, 3> e = {0x01, 0x00, 0x01};
-    std::array<uint8_t, 4> tiny{};
+    const std::array<CryptoByte, 4> n = {0x01, 0x02, 0x03, 0x04};
+    const std::array<CryptoByte, 3> e = {0x01, 0x00, 0x01};
+    std::array<CryptoByte, 4> tiny{};
     std::size_t out_len = 0;
     EXPECT_FALSE(arm_asm::detail::rsa_encode_public_key_der(
         n.data(), n.size(), e.data(), e.size(),
@@ -266,18 +266,18 @@ class RsaDerDerivePublicKeyTests : public ::testing::Test {};
 
 // Extract public key from a synthetic private key DER and verify n, e survive.
 TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyFromPrivate) {
-    const std::vector<uint8_t> n    = {0x7F, 0xAB, 0xCD};  // no high bit: no pad
-    const std::vector<uint8_t> e    = {0x01, 0x00, 0x01};
-    const std::vector<uint8_t> d    = {0x01};
-    const std::vector<uint8_t> p    = {0x01};
-    const std::vector<uint8_t> q    = {0x01};
-    const std::vector<uint8_t> dp   = {0x01};
-    const std::vector<uint8_t> dq   = {0x01};
-    const std::vector<uint8_t> qinv = {0x01};
+    const std::vector<CryptoByte> n    = {0x7F, 0xAB, 0xCD};  // no high bit: no pad
+    const std::vector<CryptoByte> e    = {0x01, 0x00, 0x01};
+    const std::vector<CryptoByte> d    = {0x01};
+    const std::vector<CryptoByte> p    = {0x01};
+    const std::vector<CryptoByte> q    = {0x01};
+    const std::vector<CryptoByte> dp   = {0x01};
+    const std::vector<CryptoByte> dq   = {0x01};
+    const std::vector<CryptoByte> qinv = {0x01};
 
     const auto priv_der = build_pkcs1_der(n, e, d, p, q, dp, dq, qinv);
 
-    std::array<uint8_t, 256> pub_buf{};
+    std::array<CryptoByte, 256> pub_buf{};
     std::size_t pub_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_derive_public_key_der(
         priv_der.data(), priv_der.size(),
@@ -295,8 +295,8 @@ TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyFromPrivate) {
 
 // Passing a malformed DER to derive returns false.
 TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyBadDerReturnsFalse) {
-    const std::array<uint8_t, 4> bad = {0x01, 0x02, 0x03, 0x04};
-    std::array<uint8_t, 256> out{};
+    const std::array<CryptoByte, 4> bad = {0x01, 0x02, 0x03, 0x04};
+    std::array<CryptoByte, 256> out{};
     std::size_t out_len = 0;
     EXPECT_FALSE(arm_asm::detail::rsa_derive_public_key_der(
         bad.data(), bad.size(), out.data(), out.size(), &out_len));
@@ -304,7 +304,7 @@ TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyBadDerReturnsFalse) {
 
 // Verify parse_public_key on bad input returns false.
 TEST_F(RsaDerDerivePublicKeyTests, ParsePublicKeyBadInputReturnsFalse) {
-    const std::array<uint8_t, 4> bad = {0x01, 0x02, 0x03, 0x04};
+    const std::array<CryptoByte, 4> bad = {0x01, 0x02, 0x03, 0x04};
     arm_asm::detail::RsaPublicKeyComponents pub{};
     EXPECT_FALSE(arm_asm::detail::rsa_parse_public_key_der(
         bad.data(), bad.size(), pub));

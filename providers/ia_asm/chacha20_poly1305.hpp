@@ -37,16 +37,16 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 // Build the Poly1305 input and compute the tag.
 [[gnu::target("sse2")]]
 static inline void poly1305_feed( // NOLINT(readability-function-size)
-    const uint8_t* otk,
-    const uint8_t* aad, std::size_t aad_len,
-    const uint8_t* ct,  std::size_t ct_len,
-    std::span<uint8_t, 16> tag_out) noexcept
+    const CryptoByte* otk,
+    const CryptoByte* aad, std::size_t aad_len,
+    const CryptoByte* ct,  std::size_t ct_len,
+    std::span<CryptoByte, poly1305_tag_bytes> tag_out) noexcept
 {
-    const Poly1305Limbs  r  = clamp_r(std::span<const uint8_t, 16>{otk, 16});
+    const Poly1305Limbs  r  = clamp_r(std::span<const CryptoByte, poly1305_tag_bytes>{otk, poly1305_tag_bytes});
     const Poly1305Powers pw = Poly1305Powers::build(r);
     Poly1305Limbs h{};
 
-    auto feed_field = [&](const uint8_t* data, std::size_t len) noexcept {
+    auto feed_field = [&](const CryptoByte* data, std::size_t len) noexcept {
         std::size_t off = 0;
         while (len - off >= 64) {
             const auto [lo0, hi0] = load_le128(data + off);
@@ -69,7 +69,7 @@ static inline void poly1305_feed( // NOLINT(readability-function-size)
             off += 16;
         }
         if (off < len) {
-            std::array<uint8_t, 16> buf{};
+            std::array<CryptoByte, poly1305_tag_bytes> buf{};
             std::memcpy(buf.data(), data + off, len - off);
             const auto [lo, hi] = load_le128(buf.data());
             poly1305_add_block(h, lo, hi, 1U);
@@ -80,14 +80,14 @@ static inline void poly1305_feed( // NOLINT(readability-function-size)
     if (aad_len > 0) { feed_field(aad, aad_len); }
     if (ct_len  > 0) { feed_field(ct,  ct_len);  }
 
-    std::array<uint8_t, 16> len_block{};
+    std::array<CryptoByte, poly1305_tag_bytes> len_block{};
     store_le64(len_block.data(),     static_cast<uint64_t>(aad_len));
     store_le64(len_block.data() + 8, static_cast<uint64_t>(ct_len));
     const auto [lo, hi] = load_le128(len_block.data());
     poly1305_add_block(h, lo, hi, 1U);
     poly1305_multiply_precomp(h, pw.p1);
 
-    poly1305_finish(h, std::span<const uint8_t, 16>{otk + 16, 16}, tag_out);
+    poly1305_finish(h, std::span<const CryptoByte, poly1305_tag_bytes>{otk + poly1305_tag_bytes, poly1305_tag_bytes}, tag_out);
 }
 
 
@@ -99,14 +99,14 @@ inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,reada
     const CryptoByte* pt,   std::size_t pt_len,
     CryptoByte*       out) noexcept
 {
-    FixedSecureBuffer<32> otk;
-    chacha20_poly1305_key(std::span<const uint8_t, 32>{key, 32},
-                          std::span<const uint8_t, 12>{nonce, 12},
-                          std::span<uint8_t, 32>{otk.data(), 32});
-    chacha20_crypt(std::span<const uint8_t, 32>{key, 32}, 1U,
-                   std::span<const uint8_t, 12>{nonce, 12}, pt, out, pt_len);
+    FixedSecureBuffer<poly1305_key_bytes> otk;
+    chacha20_poly1305_key(std::span<const CryptoByte, chacha20_key_size_bytes>{key, chacha20_key_size_bytes},
+                          std::span<const CryptoByte, chacha20_poly1305_nonce_bytes>{nonce, chacha20_poly1305_nonce_bytes},
+                          std::span<CryptoByte, poly1305_key_bytes>{otk.data(), poly1305_key_bytes});
+    chacha20_crypt(std::span<const CryptoByte, chacha20_key_size_bytes>{key, chacha20_key_size_bytes}, 1U,
+                   std::span<const CryptoByte, chacha20_poly1305_nonce_bytes>{nonce, chacha20_poly1305_nonce_bytes}, pt, out, pt_len);
     poly1305_feed(otk.data(), aad, aad_len, out, pt_len,
-                  std::span<uint8_t, 16>{out + pt_len, 16});
+                  std::span<CryptoByte, poly1305_tag_bytes>{out + pt_len, poly1305_tag_bytes});
 }
 
 
@@ -121,12 +121,12 @@ inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,reada
     if (ct_len < chacha20_poly1305_tag_bytes) { return false; }
     const std::size_t pt_len = ct_len - chacha20_poly1305_tag_bytes;
 
-    FixedSecureBuffer<32> otk;
-    chacha20_poly1305_key(std::span<const uint8_t, 32>{key, 32},
-                          std::span<const uint8_t, 12>{nonce, 12},
-                          std::span<uint8_t, 32>{otk.data(), 32});
+    FixedSecureBuffer<poly1305_key_bytes> otk;
+    chacha20_poly1305_key(std::span<const CryptoByte, chacha20_key_size_bytes>{key, chacha20_key_size_bytes},
+                          std::span<const CryptoByte, chacha20_poly1305_nonce_bytes>{nonce, chacha20_poly1305_nonce_bytes},
+                          std::span<CryptoByte, poly1305_key_bytes>{otk.data(), poly1305_key_bytes});
 
-    std::array<uint8_t, 16> expected_tag{};
+    std::array<CryptoByte, poly1305_tag_bytes> expected_tag{};
     poly1305_feed(otk.data(), aad, aad_len, ct, pt_len, expected_tag);
 
     const uint8_t* received_tag = ct + pt_len;
@@ -142,8 +142,8 @@ inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,reada
         return false;
     }
 
-    chacha20_crypt(std::span<const uint8_t, 32>{key, 32}, 1U,
-                   std::span<const uint8_t, 12>{nonce, 12}, ct, out, pt_len);
+    chacha20_crypt(std::span<const CryptoByte, chacha20_key_size_bytes>{key, chacha20_key_size_bytes}, 1U,
+                   std::span<const CryptoByte, chacha20_poly1305_nonce_bytes>{nonce, chacha20_poly1305_nonce_bytes}, ct, out, pt_len);
     return true;
 }
 

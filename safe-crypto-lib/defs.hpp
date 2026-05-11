@@ -21,8 +21,17 @@ constexpr std::size_t chacha20_poly1305_tag_bytes     = 16;
 constexpr std::size_t chacha20_poly1305_nonce_bytes   = 12;
 
 // ChaCha20
+constexpr std::size_t chacha20_block_bytes    = 64;
 constexpr std::size_t chacha20_key_size_bytes = 32;
 constexpr std::size_t chacha20_key_bits       = chacha20_key_size_bytes * bits_per_byte;
+
+// Poly1305
+constexpr std::size_t poly1305_key_bytes = 32;
+constexpr std::size_t poly1305_tag_bytes = 16;
+
+// SHA-2 block sizes
+constexpr std::size_t sha256_block_bytes = 64;
+constexpr std::size_t sha512_block_bytes = 128;
 
 // SHA-2 digest output sizes
 constexpr std::size_t sha256_digest_bytes = 32;

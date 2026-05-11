@@ -15,6 +15,8 @@
 #include <sys/wait.h>
 #include <vector>
 
+#include "defs.hpp"
+
 
 namespace scli_test {
 
@@ -64,7 +66,7 @@ inline auto run_scli(const std::string& scli_path, const std::string& args) -> R
 
 // Write raw bytes to a temp file; returns the path.
 [[nodiscard]]
-inline auto write_temp_file(const std::string& name, const std::vector<uint8_t>& data) -> std::string
+inline auto write_temp_file(const std::string& name, const std::vector<CryptoByte>& data) -> std::string
 {
     const std::string path = (std::filesystem::temp_directory_path() / name).string();
     std::ofstream f(path, std::ios::binary);
@@ -79,7 +81,7 @@ inline auto write_temp_file_b64(const std::string& name, const std::string& b64)
 {
     // Decode base64 → raw bytes.
     static constexpr const char* kAlpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    std::vector<uint8_t> out;
+    std::vector<CryptoByte> out;
     out.reserve(b64.size() * 3 / 4);
     uint32_t acc = 0;
     int      bits = 0;
@@ -99,11 +101,11 @@ inline auto write_temp_file_b64(const std::string& name, const std::string& b64)
 
 // Read all bytes from a file.
 [[nodiscard]]
-inline auto read_file_bytes(const std::string& path) -> std::vector<uint8_t>
+inline auto read_file_bytes(const std::string& path) -> std::vector<CryptoByte>
 {
     std::ifstream f(path, std::ios::binary);
     f >> std::noskipws;
-    return {std::istream_iterator<uint8_t>(f), std::istream_iterator<uint8_t>()};
+    return {std::istream_iterator<CryptoByte>(f), std::istream_iterator<CryptoByte>()};
 }
 
 }  // namespace scli_test

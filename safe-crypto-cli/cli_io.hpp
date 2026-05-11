@@ -62,7 +62,7 @@ inline auto read_input(std::string_view spec) -> std::expected<SecureBuffer, std
 [[nodiscard]]
 inline auto write_output(
     std::string_view spec,
-    std::span<const uint8_t> data)
+    std::span<const CryptoByte> data)
     -> std::expected<void, std::string>
 {
     const bool to_base64_stdout = spec.empty() || spec == "base64";

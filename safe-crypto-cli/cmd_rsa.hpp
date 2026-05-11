@@ -60,9 +60,9 @@ inline void register_rsa(CLI::App& app)
         const auto run = [&]<RsaKeyBits KB>() {
             const auto kp = generate_rsa_key<KB>();
             if (!kp.has_value()) { die(kp.error()); }
-            const auto op = write_output(priv_spec, std::span<const uint8_t>(kp->private_key_der.data(), kp->private_key_der.size()));
+            const auto op = write_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
             if (!op.has_value()) { die(op.error()); }
-            const auto oq = write_output(pub_spec, std::span<const uint8_t>(kp->public_key_der.data(), kp->public_key_der.size()));
+            const auto oq = write_output(pub_spec, std::span<const CryptoByte>(kp->public_key_der.data(), kp->public_key_der.size()));
             if (!oq.has_value()) { die(oq.error()); }
         };
 
@@ -101,7 +101,7 @@ inline void register_rsa(CLI::App& app)
             const auto ct = rsa_oaep_encrypt<KB>(pub, *pt_buf, label_opt);
             if (!ct.has_value()) { die(ct.error()); }
 
-            const auto out = write_output(out_spec, std::span<const uint8_t>(ct->data(), ct->size()));
+            const auto out = write_output(out_spec, std::span<const CryptoByte>(ct->data(), ct->size()));
             if (!out.has_value()) { die(out.error()); }
         };
 
@@ -143,7 +143,7 @@ inline void register_rsa(CLI::App& app)
             const auto pt = rsa_oaep_decrypt<KB>(kp, *ct_buf, label_opt);
             if (!pt.has_value()) { die(pt.error()); }
 
-            const auto out = write_output(out_spec, std::span<const uint8_t>(pt->data(), pt->size()));
+            const auto out = write_output(out_spec, std::span<const CryptoByte>(pt->data(), pt->size()));
             if (!out.has_value()) { die(out.error()); }
         };
 
@@ -182,7 +182,7 @@ inline void register_rsa(CLI::App& app)
             const auto sig = rsa_pss_sign<KB>(kp, *msg_buf);
             if (!sig.has_value()) { die(sig.error()); }
 
-            const auto out = write_output(out_spec, std::span<const uint8_t>(sig->data(), sig->size()));
+            const auto out = write_output(out_spec, std::span<const CryptoByte>(sig->data(), sig->size()));
             if (!out.has_value()) { die(out.error()); }
         };
 
