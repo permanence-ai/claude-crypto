@@ -47,7 +47,7 @@ inline void register_ml_dsa(CLI::App& app)
         auto run = [&]<MlDsaVariant V>() {
             auto kp = ml_dsa_generate_key<V>();
             if (!kp) { die("ml-dsa keygen failed: " + kp.error().message()); }
-            if (auto e = write_output(priv_spec, {kp->private_key.data(), kp->private_key.size()}); !e) {
+            if (auto e = write_secret_output(priv_spec, {kp->private_key.data(), kp->private_key.size()}); !e) {
                 die("failed to write private key: " + e.error());
             }
             if (auto e = write_output(pub_spec, {kp->public_key.data(), kp->public_key.size()}); !e) {

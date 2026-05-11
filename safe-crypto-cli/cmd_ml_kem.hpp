@@ -48,7 +48,7 @@ inline void register_ml_kem(CLI::App& app)
         auto run = [&]<MlKemVariant V>() {
             auto kp = ml_kem_generate_key<V>();
             if (!kp) { die("ml-kem keygen failed: " + kp.error().message()); }
-            if (auto e = write_output(priv_spec, {kp->private_key.data(), kp->private_key.size()}); !e) {
+            if (auto e = write_secret_output(priv_spec, {kp->private_key.data(), kp->private_key.size()}); !e) {
                 die("failed to write private key: " + e.error());
             }
             if (auto e = write_output(pub_spec, {kp->public_key.data(), kp->public_key.size()}); !e) {
@@ -92,7 +92,7 @@ inline void register_ml_kem(CLI::App& app)
             if (auto e = write_output(ct_spec, {result->ciphertext.data(), result->ciphertext.size()}); !e) {
                 die("failed to write ciphertext: " + e.error());
             }
-            if (auto e = write_output(secret_spec, {result->shared_secret.data(), result->shared_secret.size()}); !e) {
+            if (auto e = write_secret_output(secret_spec, {result->shared_secret.data(), result->shared_secret.size()}); !e) {
                 die("failed to write shared secret: " + e.error());
             }
         };
@@ -138,7 +138,7 @@ inline void register_ml_kem(CLI::App& app)
             auto ss = ml_kem_decapsulate<V>(kp, ct);
             if (!ss) { die("ml-kem decapsulate failed: " + ss.error().message()); }
 
-            if (auto e = write_output(out_spec, {ss->data(), ss->size()}); !e) {
+            if (auto e = write_secret_output(out_spec, {ss->data(), ss->size()}); !e) {
                 die("failed to write shared secret: " + e.error());
             }
         };

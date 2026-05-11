@@ -47,7 +47,7 @@ inline void register_slh_dsa(CLI::App& app)
         auto run = [&]<SlhDsaVariant V>() {
             auto kp = slh_dsa_generate_key<V>();
             if (!kp) { die("slh-dsa keygen failed: " + kp.error().message()); }
-            if (auto e = write_output(priv_spec, {kp->private_key.data(), kp->private_key.size()}); !e) {
+            if (auto e = write_secret_output(priv_spec, {kp->private_key.data(), kp->private_key.size()}); !e) {
                 die("failed to write private key: " + e.error());
             }
             if (auto e = write_output(pub_spec, {kp->public_key.data(), kp->public_key.size()}); !e) {

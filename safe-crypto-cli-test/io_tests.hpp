@@ -11,8 +11,12 @@
 //   (5) mixed: some params base64, others file, in one invocation
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
+
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -291,6 +295,83 @@ TEST_F(IoTests, Random_FileOutput_ContentIsRandom) {
     ASSERT_EQ(r1.exit_code, 0);
     ASSERT_EQ(r2.exit_code, 0);
     EXPECT_NE(read_file_bytes(p1), read_file_bytes(p2));
+}
+
+
+// ─── secret file permissions ─────────────────────────────────────────────────
+
+TEST_F(IoTests, SecretOutput_PrivateKeyFile_HasMode0600) {
+    const std::string priv_path = tmp("io_perm_priv.der");
+    const std::string pub_path  = tmp("io_perm_pub.der");
+
+    // Generate an ECDSA key pair; private key must land at mode 0600.
+    const auto r = run_scli(scli(),
+        "ecdsa keygen --curve p256"
+        " --out-private " + priv_path +
+        " --out-public "  + pub_path);
+    ASSERT_EQ(r.exit_code, 0);
+
+    struct stat st{};
+    ASSERT_EQ(::stat(priv_path.c_str(), &st), 0);
+    EXPECT_EQ(st.st_mode & 0777U, 0600U);  // NOLINT(cppcoreguidelines-avoid-magic-numbers)
+}
+
+TEST_F(IoTests, SecretOutput_PublicKeyFile_HasDefaultUmaskMode) {
+    const std::string priv_path = tmp("io_perm_priv2.der");
+    const std::string pub_path  = tmp("io_perm_pub2.der");
+
+    const auto r = run_scli(scli(),
+        "ecdsa keygen --curve p256"
+        " --out-private " + priv_path +
+        " --out-public "  + pub_path);
+    ASSERT_EQ(r.exit_code, 0);
+
+    // Public key uses write_output (std::ofstream), so mode is set by umask —
+    // just verify the file is readable (not locked down to 0000).
+    struct stat st{};
+    ASSERT_EQ(::stat(pub_path.c_str(), &st), 0);
+    EXPECT_NE(st.st_mode & S_IRUSR, 0U);  // NOLINT(hicpp-signed-bitwise)
+}
+
+TEST_F(IoTests, SecretOutput_RejectsExistingFile) {
+    const std::string priv_path = tmp("io_perm_exist.der");
+    const std::string pub_path  = tmp("io_perm_exist_pub.der");
+
+    // First keygen creates the file.
+    const auto r1 = run_scli(scli(),
+        "ecdsa keygen --curve p256"
+        " --out-private " + priv_path +
+        " --out-public "  + pub_path);
+    ASSERT_EQ(r1.exit_code, 0);
+
+    // Second keygen must fail: private key file already exists.
+    // Remove pub so it does not interfere.
+    std::filesystem::remove(pub_path);
+    const std::string pub_path2 = tmp("io_perm_exist_pub2.der");
+    const auto r2 = run_scli(scli(),
+        "ecdsa keygen --curve p256"
+        " --out-private " + priv_path +
+        " --out-public "  + pub_path2);
+    EXPECT_NE(r2.exit_code, 0);
+}
+
+TEST_F(IoTests, SecretOutput_RejectsSymlink) {
+    const std::string real_path = tmp("io_perm_target.der");
+    const std::string link_path = tmp("io_perm_link.der");
+    const std::string pub_path  = tmp("io_perm_link_pub.der");
+
+    // Create an empty file and a symlink pointing to it.
+    { std::ofstream f(real_path); }
+    ::symlink(real_path.c_str(), link_path.c_str());
+
+    // Attempt to write private key through the symlink must fail.
+    const auto r = run_scli(scli(),
+        "ecdsa keygen --curve p256"
+        " --out-private " + link_path +
+        " --out-public "  + pub_path);
+    EXPECT_NE(r.exit_code, 0);
+
+    std::filesystem::remove(real_path);
 }
 
 
