@@ -55,7 +55,7 @@ inline void register_kdf(CLI::App& app)
 
             // Write generated IKM to --out-ikm so the caller can reproduce the derivation.
             const std::string ikm_out_spec = drv_out_ikm->count() > 0U ? drv_out_ikm->as<std::string>() : "";
-            const auto ikm_out = write_output(ikm_out_spec,
+            const auto ikm_out = write_secret_output(ikm_out_spec,
                 std::span<const CryptoByte>(gen->data(), gen->size()));
             if (!ikm_out.has_value()) { die(ikm_out.error()); }
 
@@ -82,7 +82,7 @@ inline void register_kdf(CLI::App& app)
         if (!result.has_value()) { die(result.error()); }
 
         const std::string out_spec = drv_output->count() > 0U ? drv_output->as<std::string>() : "";
-        const auto out = write_output(out_spec, std::span<const CryptoByte>(result->data(), result->size()));
+        const auto out = write_secret_output(out_spec, std::span<const CryptoByte>(result->data(), result->size()));
         if (!out.has_value()) { die(out.error()); }
 
         (void)derive;
@@ -124,7 +124,7 @@ inline void register_kdf(CLI::App& app)
         if (!result.has_value()) { die(result.error()); }
 
         const std::string out_spec = exp_output->count() > 0U ? exp_output->as<std::string>() : "";
-        const auto out = write_output(out_spec, std::span<const CryptoByte>(result->data(), result->size()));
+        const auto out = write_secret_output(out_spec, std::span<const CryptoByte>(result->data(), result->size()));
         if (!out.has_value()) { die(out.error()); }
 
         (void)expand;

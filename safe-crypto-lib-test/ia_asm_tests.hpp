@@ -443,7 +443,7 @@ TEST_F(IaAsmSha256KatTest, EmptyMessage) {
         0xa4,0x95,0x99,0x1b,0x78,0x52,0xb8,0x55, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }};
     std::array<CryptoByte, sha256_digest_bytes> out{};
-    ia_asm::detail::sha256(nullptr, 0, out.data());
+    ia_asm::detail::sha256(nullptr, 0, std::span<CryptoByte, sha256_digest_bytes>{out});
     EXPECT_EQ(out, expected);
 }
 
@@ -457,7 +457,7 @@ TEST_F(IaAsmSha256KatTest, AbcMessage) {
         0x18,0x42,0x3f,0x9d,0x43,0x8b,0xf9,0x77, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }};
     std::array<CryptoByte, sha256_digest_bytes> out{};
-    ia_asm::detail::sha256(msg, 3, out.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ia_asm::detail::sha256(msg, 3, std::span<CryptoByte, sha256_digest_bytes>{out}); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     EXPECT_EQ(out, expected);
 }
 
@@ -472,7 +472,7 @@ TEST_F(IaAsmSha256KatTest, MultiBlockMessage) {
         0xf6,0xec,0xed,0xd4,0x19,0xdb,0x06,0xc1, // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }};
     std::array<CryptoByte, sha256_digest_bytes> out{};
-    ia_asm::detail::sha256(reinterpret_cast<const uint8_t*>(msg), 56, out.data()); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ia_asm::detail::sha256(reinterpret_cast<const uint8_t*>(msg), 56, std::span<CryptoByte, sha256_digest_bytes>{out}); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     EXPECT_EQ(out, expected);
 }
 
