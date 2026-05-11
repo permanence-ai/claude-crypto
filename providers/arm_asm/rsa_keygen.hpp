@@ -306,20 +306,17 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
 // -----------------------------------------------------------------------
 
 // Encode DER length field, returns bytes written.
+// For all supported RSA key sizes (≤ 4096 bits), the largest DER component
+// is 512 bytes, so len never reaches the 3-byte encoding threshold (0x10000).
 inline std::size_t der_write_length(std::size_t len, CryptoByte* buf) noexcept {
     CryptoByte* w = buf; // NOLINT(misc-const-correctness)
     if (len < 0x80U) {
         *w++ = static_cast<CryptoByte>(len);
     } else if (len < 0x100U) {
         *w++ = 0x81U; *w++ = static_cast<CryptoByte>(len);
-    } else if (len < 0x10000U) {
+    } else {
         *w++ = 0x82U;
         *w++ = static_cast<CryptoByte>(len >> 8U);
-        *w++ = static_cast<CryptoByte>(len & 0xFFU);
-    } else {
-        *w++ = 0x83U;
-        *w++ = static_cast<CryptoByte>((len >> 16U) & 0xFFU);
-        *w++ = static_cast<CryptoByte>((len >>  8U) & 0xFFU);
         *w++ = static_cast<CryptoByte>(len & 0xFFU);
     }
     return static_cast<std::size_t>(w - buf);
