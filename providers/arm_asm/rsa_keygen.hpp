@@ -215,7 +215,7 @@ inline bool miller_rabin_is_prime(const BigInt<NW>& n, unsigned int rounds) noex
         // For efficiency we compute a = bigint_powmod_ct trick: instead, just
         // mask the top limb to the same bit-count as n, then subtract n if a >= n.
         // This is O(NW) and correct as long as the masked value is in [0, 2*n).
-        std::array<CryptoByte, NW * 8U> rand_buf{};
+        ByteArray<NW * 8U> rand_buf{};
         generate_random_bytes(rand_buf.data(), rand_buf.size());
         BigInt<NW> a = bigint_from_bytes<NW>(rand_buf.data(), rand_buf.size());
 
@@ -272,7 +272,7 @@ template<std::size_t NW>
 inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
     const std::size_t byte_len = prime_bits / 8U;
     for (;;) {
-        std::array<CryptoByte, NW * 8U> buf{};
+        ByteArray<NW * 8U> buf{};
         generate_random_bytes(buf.data(), byte_len);
         buf[0] |= 0xC0U;                     // set top two bits (correct length, not too small)
         buf[byte_len - 1U] |= 0x01U;          // ensure odd
@@ -329,7 +329,7 @@ inline std::size_t der_encode_integer(
     const BigInt<NW>& val, std::size_t meaningful_bytes,
     CryptoByte* out) noexcept
 {
-    std::array<CryptoByte, NW * 8U> be{};
+    ByteArray<NW * 8U> be{};
     bigint_to_bytes(val, be.data());
     // Source bytes occupy the last meaningful_bytes of the full NW*8 output.
     const CryptoByte* src = be.data() + ((NW * 8U) - meaningful_bytes);
@@ -482,7 +482,7 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         body_len += der_encode_integer(qinv_nw, prime_bytes, body + body_len);
 
         // Write SEQUENCE header into the reserved hdr_reserve bytes.
-        std::array<CryptoByte, 5> hdr{};
+        ByteArray<5> hdr{};
         hdr[0] = 0x30U;
         const std::size_t len_bytes = der_write_length(body_len, hdr.data() + 1U);
         const std::size_t hdr_len = 1U + len_bytes;

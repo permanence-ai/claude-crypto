@@ -56,15 +56,15 @@ inline bool pss_encode(
     const std::size_t db_len = em_len - oaep_hash_len - 1U;  // emLen - hLen - 1
 
     // mHash = Hash(M).
-    std::array<CryptoByte, oaep_hash_len> m_hash{};
+    ByteArray<oaep_hash_len> m_hash{};
     sha384(msg, msg_len, m_hash);
 
     // H = Hash(0x00^8 || mHash || salt).
-    std::array<CryptoByte, 8U + oaep_hash_len + oaep_hash_len> h_input{};
+    ByteArray<8U + oaep_hash_len + oaep_hash_len> h_input{};
     std::memset(h_input.data(), 0, 8U);
     std::memcpy(h_input.data() + 8U,                m_hash.data(), oaep_hash_len);
     std::memcpy(h_input.data() + 8U + oaep_hash_len, salt,          oaep_hash_len);
-    std::array<CryptoByte, oaep_hash_len> h{};
+    ByteArray<oaep_hash_len> h{};
     sha384(h_input.data(), h_input.size(), h);
 
     // DB = PS || 0x01 || salt.
@@ -75,7 +75,7 @@ inline bool pss_encode(
     std::memcpy(out_em + ps_len + 1U, salt, oaep_hash_len);
 
     // maskedDB = DB XOR MGF1(H, db_len).
-    std::array<CryptoByte, 512U> db_mask{};
+    ByteArray<512U> db_mask{};
     mgf1_sha384(h.data(), oaep_hash_len, db_mask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
         out_em[i] ^= db_mask[i];
@@ -129,8 +129,8 @@ inline bool pss_verify(
     if ((masked_db[0] & top_mask) != 0U) { return false; }
 
     // DB = maskedDB XOR MGF1(H, db_len).
-    std::array<CryptoByte, 512U> db{};
-    std::array<CryptoByte, 512U> db_mask{};
+    ByteArray<512U> db{};
+    ByteArray<512U> db_mask{};
     mgf1_sha384(h, oaep_hash_len, db_mask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
         db[i] = masked_db[i] ^ db_mask[i];
@@ -157,15 +157,15 @@ inline bool pss_verify(
     const CryptoByte* salt = db.data() + ps_len + 1U;
 
     // mHash = Hash(M).
-    std::array<CryptoByte, oaep_hash_len> m_hash{};
+    ByteArray<oaep_hash_len> m_hash{};
     sha384(msg, msg_len, m_hash);
 
     // H' = Hash(0x00^8 || mHash || salt).
-    std::array<CryptoByte, 8U + oaep_hash_len + oaep_hash_len> h_input{};
+    ByteArray<8U + oaep_hash_len + oaep_hash_len> h_input{};
     std::memset(h_input.data(), 0, 8U);
     std::memcpy(h_input.data() + 8U,                m_hash.data(), oaep_hash_len);
     std::memcpy(h_input.data() + 8U + oaep_hash_len, salt,          oaep_hash_len);
-    std::array<CryptoByte, oaep_hash_len> h_prime{};
+    ByteArray<oaep_hash_len> h_prime{};
     sha384(h_input.data(), h_input.size(), h_prime);
 
     // Constant-time compare H' with H.

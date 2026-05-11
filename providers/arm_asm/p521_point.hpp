@@ -419,7 +419,7 @@ static inline auto p521_point_add_affine_ct(const P521Point& p, const P521Affine
 
 [[nodiscard]]
 static inline auto p521_scalar_mul_base(
-    std::span<const CryptoByte, p521_scalar_bytes> scalar) noexcept -> P521Point
+    CByteSpan<p521_scalar_bytes> scalar) noexcept -> P521Point
 {
     P521Point result = p521_identity;
 
@@ -482,7 +482,7 @@ static inline auto p521_to_affine(const P521Point& p) noexcept -> P521Point {
 
 [[nodiscard]]
 static inline auto p521_scalar_mul(
-    const P521Point& base, std::span<const CryptoByte, p521_scalar_bytes> scalar) noexcept -> P521Point
+    const P521Point& base, CByteSpan<p521_scalar_bytes> scalar) noexcept -> P521Point
 {
     P521Point result = p521_identity;
     P521Point tmp    = base;
@@ -526,7 +526,7 @@ static inline auto p521_scalar_mul(
 
 [[nodiscard]]
 static inline auto p521_scalar_from_bytes66(
-    std::span<const CryptoByte, p521_scalar_bytes> b) noexcept -> Fe521
+    CByteSpan<p521_scalar_bytes> b) noexcept -> Fe521
 {
     // Load as field element, then conditionally subtract n once.
     Fe521 r{};
@@ -590,14 +590,14 @@ static inline auto p521_scalar_from_bytes66(
 static inline auto p521_scalar_from_bytes66_hash(
     const uint8_t* hash_be, std::size_t hlen) noexcept -> Fe521
 {
-    std::array<CryptoByte, p521_scalar_bytes> padded{};
+    ByteArray<p521_scalar_bytes> padded{};
     const std::size_t qlen = p521_scalar_bytes;
     if (hlen >= qlen) {
         std::memcpy(padded.data(), hash_be, qlen);
     } else {
         std::memcpy(padded.data() + (qlen - hlen), hash_be, hlen);
     }
-    return p521_scalar_from_bytes66(std::span<const CryptoByte, p521_scalar_bytes>{padded.data(), p521_scalar_bytes});
+    return p521_scalar_from_bytes66(CByteSpan<p521_scalar_bytes>{padded.data(), p521_scalar_bytes});
 }
 
 [[nodiscard]]
@@ -811,7 +811,7 @@ static inline auto p521_scalar_is_zero(const Fe521& a) noexcept -> bool {
 // val >= n, or non-canonical encodings where the top 7 bits of b[0] are set.
 [[nodiscard]]
 static inline auto p521_scalar_sig_decode(
-    std::span<const CryptoByte, p521_scalar_bytes> b, Fe521& out) noexcept -> bool
+    CByteSpan<p521_scalar_bytes> b, Fe521& out) noexcept -> bool
 {
     // P-521 scalar is 521 bits (66 bytes); top 7 bits of b[0] must be zero.
     if ((b.data()[0] & 0xFEU) != 0U) { return false; }
@@ -857,13 +857,13 @@ static inline auto p521_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p521_compute_public_key(
-    std::span<const CryptoByte, p521_scalar_bytes> private_scalar_be,
-    std::span<CryptoByte, p521_public_key_bytes> public_key_uncompressed) noexcept
+    CByteSpan<p521_scalar_bytes> private_scalar_be,
+    ByteSpan<p521_public_key_bytes> public_key_uncompressed) noexcept
 {
     const P521Point pub = p521_to_affine(p521_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe521_to_bytes(pub.X, std::span<CryptoByte, p521_scalar_bytes>{public_key_uncompressed.data() + 1, p521_scalar_bytes});
-    fe521_to_bytes(pub.Y, std::span<CryptoByte, p521_scalar_bytes>{public_key_uncompressed.data() + 67, p521_scalar_bytes});
+    fe521_to_bytes(pub.X, ByteSpan<p521_scalar_bytes>{public_key_uncompressed.data() + 1, p521_scalar_bytes});
+    fe521_to_bytes(pub.Y, ByteSpan<p521_scalar_bytes>{public_key_uncompressed.data() + 67, p521_scalar_bytes});
 }
 
 

@@ -459,7 +459,7 @@ static inline auto p256_point_add_affine_ct(const P256Point& p, const P256Affine
 
 [[nodiscard]]
 static inline auto p256_scalar_mul_base(
-    std::span<const CryptoByte, p256_scalar_bytes> scalar) noexcept -> P256Point
+    CByteSpan<p256_scalar_bytes> scalar) noexcept -> P256Point
 {
     P256Point result = p256_identity;
 
@@ -519,7 +519,7 @@ static inline auto p256_to_affine(const P256Point& p) noexcept -> P256Point {
 
 [[nodiscard]]
 static inline auto p256_scalar_mul(
-    const P256Point& base, std::span<const CryptoByte, p256_scalar_bytes> scalar) noexcept -> P256Point
+    const P256Point& base, CByteSpan<p256_scalar_bytes> scalar) noexcept -> P256Point
 {
     // result accumulates k·base; tmp is base doubled at each step.
     P256Point result = p256_identity;
@@ -555,7 +555,7 @@ static inline auto p256_scalar_mul(
 // Used to reduce HMAC output to a scalar.
 [[nodiscard]]
 static inline auto p256_scalar_from_bytes64(
-    std::span<const CryptoByte, p256_sig_bytes> b) noexcept -> Fe256
+    CByteSpan<p256_sig_bytes> b) noexcept -> Fe256
 {
     // Load as 16 × uint32_t big-endian.
     std::array<uint32_t, 16> w{};
@@ -631,7 +631,7 @@ static inline auto p256_scalar_from_bytes64(
 // Reduce a 32-byte big-endian scalar mod n.
 [[nodiscard]]
 static inline auto p256_scalar_from_bytes32(
-    std::span<const CryptoByte, p256_scalar_bytes> b) noexcept -> Fe256
+    CByteSpan<p256_scalar_bytes> b) noexcept -> Fe256
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
@@ -826,7 +826,7 @@ static inline auto p256_scalar_is_zero(const Fe256& a) noexcept -> bool {
 // Unlike p256_scalar_from_bytes32, this does NOT reduce mod n — it rejects instead.
 [[nodiscard]]
 static inline auto p256_scalar_sig_decode(
-    std::span<const CryptoByte, p256_scalar_bytes> b, Fe256& out) noexcept -> bool
+    CByteSpan<p256_scalar_bytes> b, Fe256& out) noexcept -> bool
 {
     Fe256 r{};
     for (int i = 0; i < 4; ++i) {
@@ -865,13 +865,13 @@ static inline auto p256_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p256_compute_public_key(
-    std::span<const CryptoByte, p256_scalar_bytes> private_scalar_be,
-    std::span<CryptoByte, p256_public_key_bytes> public_key_uncompressed) noexcept
+    CByteSpan<p256_scalar_bytes> private_scalar_be,
+    ByteSpan<p256_public_key_bytes> public_key_uncompressed) noexcept
 {
     const P256Point pub = p256_to_affine(p256_scalar_mul_base(private_scalar_be));
     public_key_uncompressed[0] = 0x04U;
-    fe256_to_bytes(pub.X, std::span<CryptoByte, p256_scalar_bytes>{public_key_uncompressed.data() + 1, p256_scalar_bytes});
-    fe256_to_bytes(pub.Y, std::span<CryptoByte, p256_scalar_bytes>{public_key_uncompressed.data() + 33, p256_scalar_bytes});
+    fe256_to_bytes(pub.X, ByteSpan<p256_scalar_bytes>{public_key_uncompressed.data() + 1, p256_scalar_bytes});
+    fe256_to_bytes(pub.Y, ByteSpan<p256_scalar_bytes>{public_key_uncompressed.data() + 33, p256_scalar_bytes});
 }
 
 
