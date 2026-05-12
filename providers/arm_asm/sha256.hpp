@@ -20,14 +20,17 @@
 
 namespace arm_asm::detail {
 
+// SHA-256 padding: 8-byte big-endian message length goes in the last 8 bytes of the block.
+static constexpr std::size_t sha256_len_offset = sha256_block_bytes - sizeof(uint64_t);
+
 // SHA-256 initial hash values (fractional parts of sqrt of first 8 primes).
-inline constexpr std::array<uint32_t, 8> sha256_h0 = {
+inline constexpr std::array<uint32_t, sha256_state_words> sha256_h0 = {
     0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
     0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
 };
 
 // SHA-256 round constants (fractional parts of cbrt of first 64 primes).
-inline constexpr std::array<uint32_t, 64> sha256_k = {
+inline constexpr std::array<uint32_t, sha256_round_constants> sha256_k = {
     0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U,
     0x3956c25bU, 0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U,
     0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U,
@@ -59,7 +62,7 @@ inline constexpr std::array<uint32_t, 64> sha256_k = {
 //     4. su1(wa_prev, wc, wd)  → completes the schedule 1 group behind
 //   Groups 12-15 (rounds 48-63) skip su0; group 12 completes the last su1.
 [[gnu::target("sha2,neon")]]
-inline void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+inline void sha256_compress(std::span<uint32_t, sha256_state_words> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
     uint32x4_t abcd = vld1q_u32(state.data());
     uint32x4_t efgh = vld1q_u32(state.data() + 4);
@@ -209,8 +212,8 @@ inline void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) 
 inline void sha256(const CryptoByte* msg, std::size_t msg_len,
                    ByteSpan<sha256_digest_bytes> out) noexcept
 {
-    std::array<uint32_t, 8> state{};
-    for (std::size_t i = 0; i < 8; ++i) { state[i] = sha256_h0[i]; }
+    std::array<uint32_t, sha256_state_words> state{};
+    for (std::size_t i = 0; i < sha256_state_words; ++i) { state[i] = sha256_h0[i]; }
 
     // Process all complete 64-byte blocks.
     std::size_t offset = 0;
@@ -226,20 +229,20 @@ inline void sha256(const CryptoByte* msg, std::size_t msg_len,
     pad[tail] = 0x80U;
 
     // Append bit-length as big-endian uint64 in the last 8 bytes.
-    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
-    if (tail < 56) {
-        std::memcpy(pad.data() + 56, &bit_len_be, 8);
+    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);  // NOLINT(cppcoreguidelines-init-variables)
+    if (tail < sha256_len_offset) {
+        std::memcpy(pad.data() + sha256_len_offset, &bit_len_be, sizeof(uint64_t));
         sha256_compress(state, pad.data());
     } else {
-        std::memcpy(pad.data() + 120, &bit_len_be, 8);
+        std::memcpy(pad.data() + sha256_block_bytes + sha256_len_offset, &bit_len_be, sizeof(uint64_t));
         sha256_compress(state, pad.data());
-        sha256_compress(state, pad.data() + 64);
+        sha256_compress(state, pad.data() + sha256_block_bytes);
     }
 
     // Serialise state as big-endian bytes.
-    for (std::size_t i = 0; i < 8; ++i) {
-        const uint32_t w = std::byteswap(state[i]);
-        std::memcpy(out.data() + (i * 4), &w, 4);
+    for (std::size_t i = 0; i < sha256_state_words; ++i) {
+        const uint32_t w = std::byteswap(state[i]);  // NOLINT(cppcoreguidelines-init-variables)
+        std::memcpy(out.data() + (i * sizeof(uint32_t)), &w, sizeof(uint32_t));
     }
 }
 

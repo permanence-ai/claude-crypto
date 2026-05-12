@@ -38,8 +38,15 @@
 
 namespace arm_asm::detail {
 
+// SHA-512 padding structure constants.
+// The 128-bit message length occupies the last 16 bytes of the final block.
+static constexpr std::size_t sha512_len_field_bytes = 2U * sizeof(uint64_t);  // 128-bit length
+static constexpr std::size_t sha512_len_threshold   = sha512_block_bytes - sha512_len_field_bytes;
+static constexpr std::size_t sha512_len_lo_offset   = sha512_block_bytes - sizeof(uint64_t);
+static constexpr std::size_t sha384_output_words    = sha384_digest_bytes / sizeof(uint64_t);
+
 // SHA-512 initial hash values — fractional parts of sqrt of first 8 primes.
-inline constexpr std::array<uint64_t, 8> sha512_h0 = {
+inline constexpr std::array<uint64_t, sha512_state_words> sha512_h0 = {
     0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL,
     0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
     0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL,
@@ -47,7 +54,7 @@ inline constexpr std::array<uint64_t, 8> sha512_h0 = {
 };
 
 // SHA-384 initial hash values — fractional parts of sqrt of 9th–16th primes.
-inline constexpr std::array<uint64_t, 8> sha384_h0 = {
+inline constexpr std::array<uint64_t, sha512_state_words> sha384_h0 = {
     0xcbbb9d5dc1059ed8ULL, 0x629a292a367cd507ULL,
     0x9159015a3070dd17ULL, 0x152fecd8f70e5939ULL,
     0x67332667ffc00b31ULL, 0x8eb44a8768581511ULL,
@@ -55,7 +62,7 @@ inline constexpr std::array<uint64_t, 8> sha384_h0 = {
 };
 
 // SHA-512 round constants — fractional parts of cbrt of first 80 primes.
-inline constexpr std::array<uint64_t, 80> sha512_k = {
+inline constexpr std::array<uint64_t, sha512_round_constants> sha512_k = {
     0x428a2f98d728ae22ULL, 0x7137449123ef65cdULL,
     0xb5c0fbcfec4d3b2fULL, 0xe9b5dba58189dbbcULL,
     0x3956c25bf348b538ULL, 0x59f111f1b605d019ULL,
@@ -118,7 +125,7 @@ inline constexpr std::array<uint64_t, 80> sha512_k = {
 //   <cd_complement> += intermed
 // where <ef>,<gh>,<cd>,<ab> rotate through {ef,gh,cd,ab} each step.
 [[gnu::target("sha3,neon")]]
-inline void sha512_compress(std::span<uint64_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+inline void sha512_compress(std::span<uint64_t, sha512_state_words> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
     uint64x2_t ab = vld1q_u64(state.data());
     uint64x2_t cd = vld1q_u64(state.data() + 2);
@@ -271,8 +278,8 @@ inline void sha512_compress(std::span<uint64_t, 8> state, const uint8_t* block) 
 inline void sha512(const CryptoByte* msg, std::size_t msg_len,
                    ByteSpan<sha512_digest_bytes> out) noexcept
 {
-    std::array<uint64_t, 8> state{};
-    for (std::size_t i = 0; i < 8; ++i) { state[i] = sha512_h0[i]; }
+    std::array<uint64_t, sha512_state_words> state{};
+    for (std::size_t i = 0; i < sha512_state_words; ++i) { state[i] = sha512_h0[i]; }
 
     std::size_t offset = 0;
     while (msg_len - offset >= sha512_block_bytes) {
@@ -287,19 +294,19 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len,
     pad[tail] = 0x80U;
 
     // Low 64 bits of the 128-bit big-endian bit-count (high 64 bits are always 0 here).
-    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
-    if (tail < 112) {
-        std::memcpy(pad.data() + 120, &bit_len_be, 8);  // bytes 112-119 = 0 (high), 120-127 = low
+    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);  // NOLINT(cppcoreguidelines-init-variables)
+    if (tail < sha512_len_threshold) {
+        std::memcpy(pad.data() + sha512_len_lo_offset, &bit_len_be, sizeof(uint64_t));  // bytes 112-119 = 0 (high), 120-127 = low
         sha512_compress(state, pad.data());
     } else {
-        std::memcpy(pad.data() + 248, &bit_len_be, 8);
+        std::memcpy(pad.data() + sha512_block_bytes + sha512_len_lo_offset, &bit_len_be, sizeof(uint64_t));
         sha512_compress(state, pad.data());
-        sha512_compress(state, pad.data() + 128);
+        sha512_compress(state, pad.data() + sha512_block_bytes);
     }
 
-    for (std::size_t i = 0; i < 8; ++i) {
-        const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out.data() + (i * 8), &w, 8);
+    for (std::size_t i = 0; i < sha512_state_words; ++i) {
+        const uint64_t w = std::byteswap(state[i]);  // NOLINT(cppcoreguidelines-init-variables)
+        std::memcpy(out.data() + (i * sizeof(uint64_t)), &w, sizeof(uint64_t));
     }
 }
 
@@ -308,8 +315,8 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len,
 inline void sha384(const CryptoByte* msg, std::size_t msg_len,
                    ByteSpan<sha384_digest_bytes> out) noexcept
 {
-    std::array<uint64_t, 8> state{};
-    for (std::size_t i = 0; i < 8; ++i) { state[i] = sha384_h0[i]; }
+    std::array<uint64_t, sha512_state_words> state{};
+    for (std::size_t i = 0; i < sha512_state_words; ++i) { state[i] = sha384_h0[i]; }
 
     std::size_t offset = 0;
     while (msg_len - offset >= sha512_block_bytes) {
@@ -322,20 +329,20 @@ inline void sha384(const CryptoByte* msg, std::size_t msg_len,
     if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
     pad[tail] = 0x80U;
 
-    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);
-    if (tail < 112) {
-        std::memcpy(pad.data() + 120, &bit_len_be, 8);
+    const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);  // NOLINT(cppcoreguidelines-init-variables)
+    if (tail < sha512_len_threshold) {
+        std::memcpy(pad.data() + sha512_len_lo_offset, &bit_len_be, sizeof(uint64_t));
         sha512_compress(state, pad.data());
     } else {
-        std::memcpy(pad.data() + 248, &bit_len_be, 8);
+        std::memcpy(pad.data() + sha512_block_bytes + sha512_len_lo_offset, &bit_len_be, sizeof(uint64_t));
         sha512_compress(state, pad.data());
-        sha512_compress(state, pad.data() + 128);
+        sha512_compress(state, pad.data() + sha512_block_bytes);
     }
 
     // SHA-384 output is the first 6 words (48 bytes).
-    for (std::size_t i = 0; i < 6; ++i) {
-        const uint64_t w = std::byteswap(state[i]);
-        std::memcpy(out.data() + (i * 8), &w, 8);
+    for (std::size_t i = 0; i < sha384_output_words; ++i) {
+        const uint64_t w = std::byteswap(state[i]);  // NOLINT(cppcoreguidelines-init-variables)
+        std::memcpy(out.data() + (i * sizeof(uint64_t)), &w, sizeof(uint64_t));
     }
 }
 

@@ -34,10 +34,10 @@ namespace arm_asm::detail {
 //   have been consumed so far.  When sq_pos reaches rate_bytes we permute
 //   again and refill sq_buf.
 // ---------------------------------------------------------------------------
-// NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+// NOLINTBEGIN(misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 struct ArmSha3Ctx {
-    uint64_t state[25]{};       // Keccak-f[1600] state (200 bytes)
-    uint8_t  sq_buf[168]{};     // squeeze output buffer (max rate = SHAKE-128 = 168 B)
+    uint64_t state[keccak_num_lanes]{};  // Keccak-f[1600] state (200 bytes) — C interop requires plain array
+    uint8_t  sq_buf[shake128_rate_bytes]{};  // squeeze output buffer (max rate = SHAKE-128 = 168 B) — C interop requires plain array
     uint32_t rate_bytes{0};
     uint32_t pos{0};            // bytes absorbed into current block (absorb phase)
     uint32_t sq_pos{0};         // bytes consumed from sq_buf (squeeze phase)
@@ -109,7 +109,7 @@ struct ArmSha3Ctx {
         std::memcpy(output, sq_buf, out_bytes);
     }
 };
-// NOLINTEND(misc-non-private-member-variables-in-classes)
+// NOLINTEND(misc-non-private-member-variables-in-classes,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 
 // ---------------------------------------------------------------------------
 // Heap allocation helpers

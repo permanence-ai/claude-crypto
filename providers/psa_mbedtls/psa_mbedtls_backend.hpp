@@ -293,7 +293,7 @@ struct RealPsaBackend {
         std::size_t* signature_length)
     {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if ((alg & 0xFF00U) == 0xE100U) {
+        if ((alg & kPqcAlgCategoryMask) == kAlgMlDsaBase) {
             using psa_mbedtls::detail::PqcKeyType;
             if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
                 return PSA_ERROR_INVALID_ARGUMENT;
@@ -323,7 +323,7 @@ struct RealPsaBackend {
         const CryptoByte* signature, const std::size_t signature_length)
     {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
-        if ((alg & 0xFF00U) == 0xE100U) {
+        if ((alg & kPqcAlgCategoryMask) == kAlgMlDsaBase) {
             using psa_mbedtls::detail::PqcKeyType;
             if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
                 return PSA_ERROR_INVALID_ARGUMENT;
@@ -748,11 +748,17 @@ struct RealPsaBackend {
         return slh_dsa_public_key_size(v);
     }
 
+    // PQC algorithm base tags (liboqs-routed; top byte = category, low byte = variant).
+    static constexpr Algorithm kAlgMlDsaBase = 0xE100U;
+    static constexpr Algorithm kAlgMlKemBase = 0xE200U;
+    // Mask to extract the category portion of a PQC algorithm tag.
+    static constexpr Algorithm kPqcAlgCategoryMask = 0xFF00U;
+
     // ML-DSA — not supported by native MbedTLS 4.1; routed via liboqs when available.
     [[nodiscard]]
     static Algorithm alg_ml_dsa(const MlDsaVariant v) noexcept {
         // Encode variant in low byte so sign/verify can dispatch without key ID.
-        return static_cast<Algorithm>(0xE100U) | static_cast<Algorithm>(v);
+        return kAlgMlDsaBase | static_cast<Algorithm>(v);
     }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
@@ -803,7 +809,7 @@ struct RealPsaBackend {
     // ML-KEM — not supported by native MbedTLS 4.1; routed via liboqs when available.
     [[nodiscard]]
     static Algorithm alg_ml_kem(const MlKemVariant v) noexcept {
-        return static_cast<Algorithm>(0xE200U) | static_cast<Algorithm>(v);
+        return kAlgMlKemBase | static_cast<Algorithm>(v);
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
@@ -857,11 +863,11 @@ struct RealPsaBackend {
     [[nodiscard]]
     static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,
-        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
-        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+        CryptoByte* const ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
+        CryptoByte* const shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using psa_mbedtls::detail::PqcKeyType;
-        if ((alg & 0xFF00U) != 0xE200U) { return PSA_ERROR_INVALID_ARGUMENT; }
+        if ((alg & kPqcAlgCategoryMask) != kAlgMlKemBase) { return PSA_ERROR_INVALID_ARGUMENT; }
         if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
             return PSA_ERROR_INVALID_ARGUMENT;
         }
@@ -892,10 +898,10 @@ struct RealPsaBackend {
     static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,
         const CryptoByte* ciphertext, std::size_t ciphertext_len,
-        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+        CryptoByte* const shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using psa_mbedtls::detail::PqcKeyType;
-        if ((alg & 0xFF00U) != 0xE200U) { return PSA_ERROR_INVALID_ARGUMENT; }
+        if ((alg & kPqcAlgCategoryMask) != kAlgMlKemBase) { return PSA_ERROR_INVALID_ARGUMENT; }
         if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
             return PSA_ERROR_INVALID_ARGUMENT;
         }

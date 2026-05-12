@@ -42,7 +42,7 @@ constexpr std::size_t sha3_max_rate_bytes = 136;
 // buffer sized to the maximum rate (SHA3-256, 136 bytes), and state metadata.
 struct Sha3Ctx {
     // NOLINT(misc-non-private-member-variables-in-classes) — plain aggregate.
-    std::array<uint64_t, 25> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint64_t, keccak_num_lanes> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::array<uint8_t, sha3_max_rate_bytes> buf{}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t rate_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t out_bytes{0};  // NOLINT(misc-non-private-member-variables-in-classes)

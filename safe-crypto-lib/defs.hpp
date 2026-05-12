@@ -42,6 +42,12 @@ constexpr std::size_t poly1305_tag_bytes = 16;
 constexpr std::size_t sha256_block_bytes = 64;
 constexpr std::size_t sha512_block_bytes = 128;
 
+// SHA-2 internal structure constants
+constexpr std::size_t sha256_state_words    =  8;  // number of 32-bit state words
+constexpr std::size_t sha256_round_constants = 64;  // number of round constants (K[])
+constexpr std::size_t sha512_state_words    =  8;  // number of 64-bit state words
+constexpr std::size_t sha512_round_constants = 80;  // number of round constants (K[])
+
 // SHA-2 digest output sizes
 constexpr std::size_t sha256_digest_bytes = 32;
 constexpr std::size_t sha384_digest_bytes = 48;

@@ -488,7 +488,7 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         // Write SEQUENCE header into the reserved hdr_reserve bytes.
         ByteArray<5> hdr{};
         hdr[0] = 0x30U;
-        const std::size_t len_bytes = der_write_length(body_len, hdr.data() + 1U);
+        const std::size_t len_bytes = der_write_length(body_len, hdr.data() + 1U);  // NOLINT(cppcoreguidelines-init-variables)
         const std::size_t hdr_len = 1U + len_bytes;
         if (hdr_len > hdr_reserve) { return false; }  // shouldn't happen
 

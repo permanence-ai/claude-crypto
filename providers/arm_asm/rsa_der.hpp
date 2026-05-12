@@ -299,7 +299,7 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     static constexpr ByteArray<2> kNull = { 0x05, 0x00 };
 
     // Helper: encode a DER length into a local buffer, return bytes written.
-    auto encode_len = [](std::size_t len, CryptoByte* buf) -> std::size_t {
+    auto encode_len = [](std::size_t len, CryptoByte* const buf) -> std::size_t {
         if (len < 0x80U) {
             buf[0] = static_cast<CryptoByte>(len);
             return 1;
@@ -428,7 +428,7 @@ inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,rea
     const CryptoByte* e_bytes, std::size_t e_len,
     CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept
 {
-    auto encode_len = [](std::size_t len, CryptoByte* buf) -> std::size_t {
+    auto encode_len = [](std::size_t len, CryptoByte* const buf) -> std::size_t {
         if (len < 0x80U) { buf[0] = static_cast<CryptoByte>(len); return 1; }
         if (len < 0x100U) { buf[0] = 0x81U; buf[1] = static_cast<CryptoByte>(len); return 2; }
         buf[0] = 0x82U;

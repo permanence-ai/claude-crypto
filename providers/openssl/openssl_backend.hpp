@@ -79,7 +79,7 @@ struct OpenSslBackend {
         uint8_t     usage{0};    // bitmask of Usage flags below
         Algorithm   alg{0};
 
-        enum Usage : uint8_t {
+        enum class Usage : uint8_t {
             Encrypt = 0x01, Decrypt = 0x02,
             Sign    = 0x04, Verify  = 0x08,
             Derive  = 0x10, Export  = 0x20,
@@ -137,10 +137,16 @@ struct OpenSslBackend {
     // ML-KEM variants: lower 8 bits = MlKemVariant enum value.
     static constexpr Algorithm kAlgMlKemBase       = 0x0C'000000U;
 
+    // Algorithm category mask (top 8 bits of a 32-bit Algorithm tag).
+    static constexpr Algorithm kAlgCategoryMask = 0xFF'000000U;
+
     // KDF step tags (mirror PSA_KEY_DERIVATION_INPUT_* semantics).
     static constexpr KdfStep kKdfStepSecret = 0x01U;
     static constexpr KdfStep kKdfStepSalt   = 0x02U;
     static constexpr KdfStep kKdfStepInfo   = 0x03U;
+
+    // DER SubjectPublicKeyInfo overhead beyond the key bytes.
+    static constexpr std::size_t kRsaSpkiDerOverhead = 50U;
 
     // -------------------------------------------------------------------------
     // Object factories.
@@ -213,154 +219,162 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
         return { .type = KeyAttributes::KeyType::Derive, .bits = key_size_bits,
-                 .usage = KeyAttributes::Derive, .alg = kAlgHkdf };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Derive), .alg = kAlgHkdf };
     }
     [[nodiscard]]
     static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
         return { .type = KeyAttributes::KeyType::Derive, .bits = key_size_bits,
-                 .usage = KeyAttributes::Derive, .alg = kAlgHkdfExpand };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Derive), .alg = kAlgHkdfExpand };
     }
     [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(const ShaVariant v, const std::size_t key_size_bits) noexcept {
         return { .type = KeyAttributes::KeyType::Hmac, .bits = key_size_bits,
-                 .usage = KeyAttributes::Sign, .alg = alg_hmac(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Sign), .alg = alg_hmac(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_hmac_verify_attrs(const ShaVariant v, const std::size_t key_size_bits) noexcept {
         return { .type = KeyAttributes::KeyType::Hmac, .bits = key_size_bits,
-                 .usage = KeyAttributes::Verify, .alg = alg_hmac(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Verify), .alg = alg_hmac(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ecdsa_generate_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Verify | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Sign) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Verify) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = kAlgEcdsa };
     }
     [[nodiscard]]
     static KeyAttributes make_ecdsa_sign_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = KeyAttributes::Sign, .alg = kAlgEcdsa };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Sign), .alg = kAlgEcdsa };
     }
     [[nodiscard]]
     static KeyAttributes make_ecdsa_verify_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcPublicKey, .bits = key_bits,
-                 .usage = KeyAttributes::Verify, .alg = kAlgEcdsa };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Verify), .alg = kAlgEcdsa };
     }
     [[nodiscard]]
     static KeyAttributes make_ecdh_generate_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Derive) | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Derive) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = kAlgEcdh };
     }
     [[nodiscard]]
     static KeyAttributes make_ecdh_agree_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::EcKeyPair, .bits = key_bits,
-                 .usage = KeyAttributes::Derive, .alg = kAlgEcdh };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Derive), .alg = kAlgEcdh };
     }
     [[nodiscard]]
     static KeyAttributes make_aes256_gcm_encrypt_attrs() noexcept {
         return { .type = KeyAttributes::KeyType::Aes256, .bits = aes256_key_bits,
-                 .usage = KeyAttributes::Encrypt, .alg = kAlgAesGcm };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Encrypt), .alg = kAlgAesGcm };
     }
     [[nodiscard]]
     static KeyAttributes make_aes256_gcm_decrypt_attrs() noexcept {
         return { .type = KeyAttributes::KeyType::Aes256, .bits = aes256_key_bits,
-                 .usage = KeyAttributes::Decrypt, .alg = kAlgAesGcm };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Decrypt), .alg = kAlgAesGcm };
     }
     [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_encrypt_attrs() noexcept {
         return { .type = KeyAttributes::KeyType::ChaCha20, .bits = chacha20_key_bits,
-                 .usage = KeyAttributes::Encrypt, .alg = kAlgChaCha20Poly };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Encrypt), .alg = kAlgChaCha20Poly };
     }
     [[nodiscard]]
     static KeyAttributes make_chacha20_poly1305_decrypt_attrs() noexcept {
         return { .type = KeyAttributes::KeyType::ChaCha20, .bits = chacha20_key_bits,
-                 .usage = KeyAttributes::Decrypt, .alg = kAlgChaCha20Poly };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Decrypt), .alg = kAlgChaCha20Poly };
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_oaep_encrypt_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::RsaPublicKey, .bits = key_bits,
-                 .usage = KeyAttributes::Encrypt, .alg = kAlgRsaOaep };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Encrypt), .alg = kAlgRsaOaep };
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_oaep_decrypt_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::RsaKeyPair, .bits = key_bits,
-                 .usage = KeyAttributes::Decrypt, .alg = kAlgRsaOaep };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Decrypt), .alg = kAlgRsaOaep };
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_pss_sign_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::RsaKeyPair, .bits = key_bits,
-                 .usage = KeyAttributes::Sign, .alg = kAlgRsaPss };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Sign), .alg = kAlgRsaPss };
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_pss_verify_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::RsaPublicKey, .bits = key_bits,
-                 .usage = KeyAttributes::Verify, .alg = kAlgRsaPss };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Verify), .alg = kAlgRsaPss };
     }
     [[nodiscard]]
     static KeyAttributes make_rsa_key_pair_attrs(const std::size_t key_bits) noexcept {
         return { .type = KeyAttributes::KeyType::RsaKeyPair, .bits = key_bits,
-                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Encrypt) | KeyAttributes::Decrypt |
-                                               KeyAttributes::Sign    | KeyAttributes::Verify  |
-                                               KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Encrypt) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Decrypt) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Sign)    |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Verify)  |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = kAlgRsaOaep };
     }
     [[nodiscard]]
     static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
                  .bits = slh_dsa_private_key_size(v) * 8U,
-                 .usage = KeyAttributes::Sign, .alg = alg_slh_dsa(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Sign), .alg = alg_slh_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaPublicKey,
                  .bits = slh_dsa_public_key_size(v) * 8U,
-                 .usage = KeyAttributes::Verify, .alg = alg_slh_dsa(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Verify), .alg = alg_slh_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
                  .bits = slh_dsa_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Sign) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = alg_slh_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
                  .bits = ml_dsa_private_key_size(v) * 8U,
-                 .usage = KeyAttributes::Sign, .alg = alg_ml_dsa(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Sign), .alg = alg_ml_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_verify_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaPublicKey,
                  .bits = ml_dsa_public_key_size(v) * 8U,
-                 .usage = KeyAttributes::Verify, .alg = alg_ml_dsa(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Verify), .alg = alg_ml_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_generate_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
                  .bits = ml_dsa_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Sign) | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Sign) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = alg_ml_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemKeyPair,
                  .bits = ml_kem_private_key_size(v) * 8U,
-                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Decrypt) | KeyAttributes::Export),
+                 .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Decrypt) |
+                                               static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = alg_ml_kem(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_encap_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemPublicKey,
                  .bits = ml_kem_public_key_size(v) * 8U,
-                 .usage = KeyAttributes::Encrypt, .alg = alg_ml_kem(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Encrypt), .alg = alg_ml_kem(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_decap_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemKeyPair,
                  .bits = ml_kem_private_key_size(v) * 8U,
-                 .usage = KeyAttributes::Decrypt, .alg = alg_ml_kem(v) };
+                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Decrypt), .alg = alg_ml_kem(v) };
     }
 
     // -------------------------------------------------------------------------
@@ -421,7 +435,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static std::size_t rsa_public_key_export_size(const std::size_t key_bits) noexcept {
         // SubjectPublicKeyInfo DER: key_bits/8 + ~50 bytes overhead.
-        return (key_bits / 8U) + 50U;
+        return (key_bits / 8U) + kRsaSpkiDerOverhead;
     }
     [[nodiscard]]
     static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v) noexcept {
@@ -499,7 +513,7 @@ struct OpenSslBackend {
     // Extracts the SlhDsaVariant from an Algorithm tag, or returns nullopt.
     [[nodiscard]]
     static constexpr const char* slh_dsa_name_from_alg(const Algorithm alg) noexcept {
-        if ((alg & 0xFF'000000U) != kAlgSlhDsaBase) { return nullptr; }
+        if ((alg & kAlgCategoryMask) != kAlgSlhDsaBase) { return nullptr; }
         const auto v = static_cast<SlhDsaVariant>(alg & 0xFFU);
         return slh_dsa_alg_name(v);
     }
@@ -517,7 +531,7 @@ struct OpenSslBackend {
     // Extracts the MlDsaVariant from an Algorithm tag, or returns nullptr.
     [[nodiscard]]
     static constexpr const char* ml_dsa_name_from_alg(const Algorithm alg) noexcept {
-        if ((alg & 0xFF'000000U) != kAlgMlDsaBase) { return nullptr; }
+        if ((alg & kAlgCategoryMask) != kAlgMlDsaBase) { return nullptr; }
         const auto v = static_cast<MlDsaVariant>(alg & 0xFFU);
         return ml_dsa_alg_name(v);
     }
@@ -535,7 +549,7 @@ struct OpenSslBackend {
     // Extracts the MlKemVariant from an Algorithm tag, or returns nullptr.
     [[nodiscard]]
     static constexpr const char* ml_kem_name_from_alg(const Algorithm alg) noexcept {
-        if ((alg & 0xFF'000000U) != kAlgMlKemBase) { return nullptr; }
+        if ((alg & kAlgCategoryMask) != kAlgMlKemBase) { return nullptr; }
         const auto v = static_cast<MlKemVariant>(alg & 0xFFU);
         return ml_kem_alg_name(v);
     }
@@ -544,10 +558,10 @@ struct OpenSslBackend {
     [[nodiscard]]
     static constexpr const char* ec_curve_name(const std::size_t key_bits) noexcept {
         switch (key_bits) {
-            case 256U: return "P-256";
-            case 384U: return "P-384";
-            case 521U: return "P-521";
-            default:   return nullptr;
+            case p256_bits: return "P-256";
+            case p384_bits: return "P-384";
+            case p521_bits: return "P-521";
+            default:        return nullptr;
         }
     }
 
@@ -624,7 +638,7 @@ struct OpenSslBackend {
                     ? ok : err_invalid_arg;
                 EVP_PKEY_CTX_free(pctx);
                 if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -648,7 +662,7 @@ struct OpenSslBackend {
                     ? ok : err_invalid_arg;
                 EVP_PKEY_CTX_free(pctx);
                 if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -658,7 +672,7 @@ struct OpenSslBackend {
                 const CryptoByte* p = data;
                 EVP_PKEY* pkey = d2i_PrivateKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -668,7 +682,7 @@ struct OpenSslBackend {
                 const CryptoByte* p = data;
                 EVP_PKEY* pkey = d2i_PublicKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -680,7 +694,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -692,7 +706,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -704,7 +718,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -716,7 +730,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -728,7 +742,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -740,7 +754,7 @@ struct OpenSslBackend {
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
                     nullptr, alg_name, nullptr, data, data_length);
                 if (pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -767,7 +781,7 @@ struct OpenSslBackend {
             if (curve == nullptr) { return err_invalid_arg; }
             EVP_PKEY* pkey = EVP_EC_gen(curve);
             if (pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -776,7 +790,7 @@ struct OpenSslBackend {
         if (attributes->type == KeyAttributes::KeyType::RsaKeyPair) {
             EVP_PKEY* pkey = EVP_RSA_gen(static_cast<unsigned int>(attributes->bits));
             if (pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -793,7 +807,7 @@ struct OpenSslBackend {
                 ? ok : err_invalid_arg;
             EVP_PKEY_CTX_free(pctx);
             if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -810,7 +824,7 @@ struct OpenSslBackend {
                 ? ok : err_invalid_arg;
             EVP_PKEY_CTX_free(pctx);
             if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -827,7 +841,7 @@ struct OpenSslBackend {
                 ? ok : err_invalid_arg;
             EVP_PKEY_CTX_free(pctx);
             if (rv_gen != ok || pkey == nullptr) { return err_invalid_arg; }
-            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);
+            const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
             *key = id;
             return ok;
@@ -1122,8 +1136,8 @@ struct OpenSslBackend {
         std::size_t* signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        const bool is_pqc = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ||
-                            ((alg & 0xFF'000000U) == kAlgMlDsaBase);
+        const bool is_pqc = ((alg & kAlgCategoryMask) == kAlgSlhDsaBase) ||
+                            ((alg & kAlgCategoryMask) == kAlgMlDsaBase);
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
@@ -1160,8 +1174,8 @@ struct OpenSslBackend {
         const CryptoByte* signature, const std::size_t signature_length) noexcept
     {
         using namespace openssl_provider::detail;
-        const bool is_pqc_v = ((alg & 0xFF'000000U) == kAlgSlhDsaBase) ||
-                              ((alg & 0xFF'000000U) == kAlgMlDsaBase);
+        const bool is_pqc_v = ((alg & kAlgCategoryMask) == kAlgSlhDsaBase) ||
+                              ((alg & kAlgCategoryMask) == kAlgMlDsaBase);
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc_v) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
@@ -1340,7 +1354,7 @@ struct OpenSslBackend {
         std::size_t* shared_secret_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if ((alg & 0xFF'000000U) != kAlgMlKemBase) { return err_invalid_arg; }
+        if ((alg & kAlgCategoryMask) != kAlgMlKemBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
         if (static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return err_invalid_arg; }
@@ -1381,7 +1395,7 @@ struct OpenSslBackend {
         std::size_t* shared_secret_length) noexcept
     {
         using namespace openssl_provider::detail;
-        if ((alg & 0xFF'000000U) != kAlgMlKemBase) { return err_invalid_arg; }
+        if ((alg & kAlgCategoryMask) != kAlgMlKemBase) { return err_invalid_arg; }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
         if (pkey == nullptr) { return err_invalid_arg; }
         if (static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return err_invalid_arg; }
