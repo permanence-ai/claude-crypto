@@ -67,7 +67,7 @@ struct PqcKeyView {
 
 inline PqcKeySlot& pqc_key_slot(std::size_t idx) noexcept {
     static PqcKeySlot slots[pqc_key_store_capacity]{};  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    return slots[idx];
+    return slots[idx];  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 inline std::mutex& pqc_store_mutex() noexcept {

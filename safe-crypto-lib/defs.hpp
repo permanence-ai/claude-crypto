@@ -88,12 +88,15 @@ constexpr std::size_t rsa_3072_bits = 3072;
 // For primes larger than the table, keep the 2048-bit-prime count rather than reducing rounds.
 [[nodiscard]]
 constexpr unsigned int miller_rabin_rounds_for(std::size_t prime_bits) noexcept {
+    // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    // FIPS 186-4 Table C.1: minimum Miller-Rabin rounds by prime size.
     if (prime_bits >= 1345U) { return 4U; }
     if (prime_bits >=  476U) { return 5U; }
     if (prime_bits >=  400U) { return 6U; }
     if (prime_bits >=  347U) { return 7U; }
     if (prime_bits >=  308U) { return 8U; }
     return 27U;  // < 308 bits (small primes in tests)
+    // NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 }
 
 // HKDF-SHA-384 maximum output length: 255 * HashLen (RFC 5869 §2.3, HashLen=48)
