@@ -1,4 +1,4 @@
-Checks: '-*,bugprone-*,cert-*, cppcoreguidelines-*, hicpp-*, misc-*, modernize-*, performance-*, portability-*, readability-*, -modernize-use-trailing-return-type, -readability-identifier-length, -portability-avoid-pragma-once, -misc-include-cleaner, -cppcoreguidelines-pro-type-member-init, -hicpp-member-init, -bugprone-infinite-loop, -misc-const-correctness, -bugprone-branch-clone, -readability-convert-member-functions-to-static'
+Checks: '-*,bugprone-*,cert-*, cppcoreguidelines-*, hicpp-*, misc-*, modernize-*, performance-*, portability-*, readability-*, -modernize-use-trailing-return-type, -readability-identifier-length, -portability-avoid-pragma-once, -misc-include-cleaner, -cppcoreguidelines-pro-type-member-init, -hicpp-member-init, -bugprone-infinite-loop, -misc-const-correctness, -bugprone-branch-clone, -readability-convert-member-functions-to-static, -performance-enum-size'
 ExcludeHeaderFilterRegex: '.*(_deps|googlemock|googletest)/.*'
 CheckOptions:
     - key: bugprone-argument-comment.StrictMode

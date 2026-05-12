@@ -312,7 +312,7 @@ inline std::size_t der_write_length(std::size_t len, CryptoByte* buf) noexcept {
     CryptoByte* w = buf; // NOLINT(misc-const-correctness)
     if (len < der_msb_flag) {
         *w++ = static_cast<CryptoByte>(len);
-    } else if (len < (std::size_t{der_msb_flag} << bits_per_byte)) {
+    } else if (len < der_one_byte_limit) {
         *w++ = der_one_byte_len; *w++ = static_cast<CryptoByte>(len);
     } else {
         *w++ = der_two_byte_len;

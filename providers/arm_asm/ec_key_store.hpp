@@ -101,8 +101,8 @@ inline bool ec_key_validate(EcCurveId curve, EcKeyKind kind, // NOLINT(readabili
             if (key[0] != 0x04U) { return false; }
             // key = 0x04 || x(66 bytes) || y(66 bytes): y starts at offset 1+66=67.
             constexpr std::size_t p521_y_off = 1U + p521_scalar_bytes;
-            if ((key[1]          & der_msb_flag) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            if ((key[p521_y_off] & der_msb_flag) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if ((key[1]          & p521_top_byte_mask) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+            if ((key[p521_y_off] & p521_top_byte_mask) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             const Fe521 x = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{key + 1,          p521_scalar_bytes});
             const Fe521 y = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{key + p521_y_off,  p521_scalar_bytes});
             return p521_validate_public_point(x, y);

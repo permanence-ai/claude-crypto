@@ -106,12 +106,13 @@ constexpr std::size_t hkdf_sha384_max_output_bytes = 255U * sha384_digest_bytes;
 constexpr CryptoByte sha_padding_marker = 0x80U;
 
 // ASN.1/DER encoding constants.
-constexpr CryptoByte der_sequence_tag = 0x30U;  // SEQUENCE tag
-constexpr CryptoByte der_integer_tag  = 0x02U;  // INTEGER tag
-constexpr CryptoByte der_msb_flag     = 0x80U;  // long-form length indicator / sign-bit test
-constexpr CryptoByte der_two_byte_len = 0x82U;  // two-byte length prefix
-constexpr CryptoByte der_one_byte_len = 0x81U;  // one-byte length prefix
-constexpr CryptoByte der_ff_byte      = 0xFFU;  // all-bits-set byte (mask / upper byte)
+constexpr CryptoByte der_sequence_tag    = 0x30U;  // SEQUENCE tag
+constexpr CryptoByte der_integer_tag     = 0x02U;  // INTEGER tag
+constexpr CryptoByte der_msb_flag        = 0x80U;  // long-form length indicator / sign-bit test
+constexpr CryptoByte der_two_byte_len    = 0x82U;  // two-byte length prefix
+constexpr CryptoByte der_one_byte_len    = 0x81U;  // one-byte length prefix
+constexpr CryptoByte der_ff_byte         = 0xFFU;  // all-bits-set byte (mask / upper byte)
+constexpr std::size_t der_one_byte_limit = 256U;   // DER lengths < 256 fit in one extra byte (0x81 <len>)
 
 // RSA/PKCS#1 constants.
 constexpr CryptoByte rsa_pss_trailer  = 0xBCU;  // PKCS#1 PSS trailer field byte (RFC 8017 §9.1)
