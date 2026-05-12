@@ -124,7 +124,7 @@ inline constexpr std::array<uint64_t, sha512_round_constants> sha512_k = {
 //   <new_gh_target> = vsha512h2q_u64(intermed, <cd>, <ab>)
 //   <cd_complement> += intermed
 // where <ef>,<gh>,<cd>,<ab> rotate through {ef,gh,cd,ab} each step.
-[[gnu::target("sha3,neon")]]
+[[gnu::target("sha3,neon")]] // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 inline void sha512_compress(std::span<uint64_t, sha512_state_words> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
     uint64x2_t ab = vld1q_u64(state.data());
@@ -275,7 +275,7 @@ inline void sha512_compress(std::span<uint64_t, sha512_state_words> state, const
 
 // Full SHA-512 over an arbitrary-length message.
 // out must point to at least 64 bytes.
-inline void sha512(const CryptoByte* msg, std::size_t msg_len,
+inline void sha512(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                    ByteSpan<sha512_digest_bytes> out) noexcept
 {
     std::array<uint64_t, sha512_state_words> state{};
@@ -312,7 +312,7 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len,
 
 
 // SHA-384: same compression as SHA-512 but different initial state and 48-byte output.
-inline void sha384(const CryptoByte* msg, std::size_t msg_len,
+inline void sha384(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                    ByteSpan<sha384_digest_bytes> out) noexcept
 {
     std::array<uint64_t, sha512_state_words> state{};

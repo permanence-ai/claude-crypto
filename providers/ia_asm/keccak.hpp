@@ -28,6 +28,11 @@ static constexpr int      keccak_lane_bits  = 64;   // bits per Keccak lane (uin
 static constexpr unsigned keccak_num_lanes  = 25;   // 5×5 lane matrix
 static constexpr unsigned keccak_num_rounds = 24;   // rounds per permutation
 
+// SHA-3 rate constants (bytes XOR'd per round).
+static constexpr unsigned sha3_256_rate_bytes_v = 136;
+static constexpr unsigned sha3_384_rate_bytes_v = 104;
+static constexpr unsigned sha3_512_rate_bytes_v =  72;
+
 // Keccak-f[1600] round constants (ι step).
 inline constexpr std::array<uint64_t, keccak_num_rounds> keccak_rc = {{
     0x0000000000000001ULL, 0x0000000000008082ULL,

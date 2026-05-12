@@ -138,7 +138,7 @@ inline bool pss_verify(
 
     // Zero the top bits of DB[0].
     if (top_bits > 0U) {
-        db[0] &= static_cast<uint8_t>(0xFFU >> top_bits);
+        db[0] &= static_cast<uint8_t>(0xFFU >> top_bits);  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }
 
     // Constant-time checks (accumulate error bits).

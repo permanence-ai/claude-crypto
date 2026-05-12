@@ -61,7 +61,7 @@ inline constexpr std::array<uint32_t, sha256_round_constants> sha256_k = {
 //     3. vsha256h + vsha256h2 using tmp
 //     4. su1(wa_prev, wc, wd)  → completes the schedule 1 group behind
 //   Groups 12-15 (rounds 48-63) skip su0; group 12 completes the last su1.
-[[gnu::target("sha2,neon")]]
+[[gnu::target("sha2,neon")]] // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 inline void sha256_compress(std::span<uint32_t, sha256_state_words> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
 {
     uint32x4_t abcd = vld1q_u32(state.data());
@@ -209,7 +209,7 @@ inline void sha256_compress(std::span<uint32_t, sha256_state_words> state, const
 
 // Full SHA-256 over an arbitrary-length message.
 // Handles padding and big-endian length encoding.
-inline void sha256(const CryptoByte* msg, std::size_t msg_len,
+inline void sha256(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                    ByteSpan<sha256_digest_bytes> out) noexcept
 {
     std::array<uint32_t, sha256_state_words> state{};
