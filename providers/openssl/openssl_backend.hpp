@@ -1103,10 +1103,9 @@ struct OpenSslBackend {
                 rv = err_invalid_arg; break;
             }
             // Set the expected tag before finalising.
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-type-const-cast)
             if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG,
                                     static_cast<int>(tag_len),
-                                    const_cast<CryptoByte*>(ciphertext + ct_len)) != ok) {
+                                    const_cast<CryptoByte*>(ciphertext + ct_len)) != ok) { // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic,cppcoreguidelines-pro-type-const-cast)
                 rv = err_invalid_arg; break;
             }
             int out_len = 0;
@@ -1517,9 +1516,8 @@ struct OpenSslBackend {
         // Info (context, may be zero-length).
         params[n++] = OSSL_PARAM_construct_octet_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             OSSL_KDF_PARAM_INFO,
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-            const_cast<CryptoByte*>(operation->info != nullptr ? operation->info
-                                                                : reinterpret_cast<const CryptoByte*>("")),
+            const_cast<CryptoByte*>(operation->info != nullptr ? operation->info // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                                                                : reinterpret_cast<const CryptoByte*>("")), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
             operation->info_len);
 
         params[n] = OSSL_PARAM_END;  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
