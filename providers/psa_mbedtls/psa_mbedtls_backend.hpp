@@ -861,10 +861,10 @@ struct RealPsaBackend {
         return ml_kem_public_key_size(v);
     }
     [[nodiscard]]
-    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity,bugprone-easily-swappable-parameters)
-        const KeyId key, const Algorithm alg,
-        CryptoByte* const ciphertext,    std::size_t ciphertext_size,    std::size_t* const ciphertext_len,
-        CryptoByte* const shared_secret, std::size_t shared_secret_size, std::size_t* const shared_secret_len) noexcept {
+    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+        const KeyId key, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
+        CryptoByte* const ciphertext,    std::size_t ciphertext_size,    std::size_t* const ciphertext_len,    // NOLINT(readability-non-const-parameter)
+        CryptoByte* const shared_secret, std::size_t shared_secret_size, std::size_t* const shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using psa_mbedtls::detail::PqcKeyType;
         if ((alg & kPqcAlgCategoryMask) != kAlgMlKemBase) { return PSA_ERROR_INVALID_ARGUMENT; }
@@ -895,10 +895,10 @@ struct RealPsaBackend {
 #endif
     }
     [[nodiscard]]
-    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity,bugprone-easily-swappable-parameters)
-        const KeyId key, const Algorithm alg,
+    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+        const KeyId key, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* const ciphertext, std::size_t ciphertext_len,
-        CryptoByte* const shared_secret, std::size_t shared_secret_size, std::size_t* const shared_secret_len) noexcept {
+        CryptoByte* const shared_secret, std::size_t shared_secret_size, std::size_t* const shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using psa_mbedtls::detail::PqcKeyType;
         if ((alg & kPqcAlgCategoryMask) != kAlgMlKemBase) { return PSA_ERROR_INVALID_ARGUMENT; }
