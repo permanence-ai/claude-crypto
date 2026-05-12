@@ -61,8 +61,8 @@ inline constexpr std::array<uint32_t, sha256_round_constants> sha256_k = {
 //     3. vsha256h + vsha256h2 using tmp
 //     4. su1(wa_prev, wc, wd)  → completes the schedule 1 group behind
 //   Groups 12-15 (rounds 48-63) skip su0; group 12 completes the last su1.
-[[gnu::target("sha2,neon")]] // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-inline void sha256_compress(std::span<uint32_t, sha256_state_words> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+[[gnu::target("sha2,neon")]]
+inline void sha256_compress(std::span<uint32_t, sha256_state_words> state, const uint8_t* block) noexcept // NOLINT(cppcoreguidelines-avoid-non-const-global-variables,readability-function-size,readability-function-cognitive-complexity)
 {
     uint32x4_t abcd = vld1q_u32(state.data());
     uint32x4_t efgh = vld1q_u32(state.data() + 4);
@@ -226,7 +226,7 @@ inline void sha256(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugpron
     alignas(sha256_block_bytes) ByteArray<2 * sha256_block_bytes> pad{};
     const std::size_t tail = msg_len - offset;
     if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
-    pad[tail] = 0x80U;
+    pad[tail] = sha_padding_marker;
 
     // Append bit-length as big-endian uint64 in the last 8 bytes.
     const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);  // NOLINT(cppcoreguidelines-init-variables)

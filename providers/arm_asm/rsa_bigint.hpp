@@ -49,7 +49,7 @@ namespace arm_asm::detail {
 // Maximum sizes for RSA-4096 (in 64-bit limbs).
 // -----------------------------------------------------------------------
 
-constexpr std::size_t rsa_max_limbs = 64;  // 4096 bits / 64 bits per limb
+constexpr std::size_t rsa_max_limbs = 4096U / uint64_bits;  // 4096 bits / 64 bits per limb
 
 
 // -----------------------------------------------------------------------
@@ -80,10 +80,10 @@ inline BigInt<NW> bigint_from_bytes(const CryptoByte* bytes, std::size_t byte_le
     BigInt<NW> out{};
     // bytes[0] is most significant; d[0] is least significant limb.
     // We map: byte at position (byte_len - 1 - i) → byte i of the integer.
-    for (std::size_t i = 0; i < byte_len && i < NW * 8U; ++i) {
+    for (std::size_t i = 0; i < byte_len && i < NW * sizeof(uint64_t); ++i) {
         const std::size_t byte_idx = byte_len - 1U - i;  // byte within the source array
-        const std::size_t limb_idx = i / 8U;
-        const std::size_t bit_shift = (i % 8U) * 8U;
+        const std::size_t limb_idx = i / sizeof(uint64_t);
+        const std::size_t bit_shift = (i % sizeof(uint64_t)) * bits_per_byte;
         out.d[limb_idx] |= static_cast<uint64_t>(bytes[byte_idx]) << bit_shift;
     }
     return out;
@@ -92,10 +92,10 @@ inline BigInt<NW> bigint_from_bytes(const CryptoByte* bytes, std::size_t byte_le
 // Store NW*8 bytes in big-endian order.
 template<std::size_t NW>
 inline void bigint_to_bytes(const BigInt<NW>& a, CryptoByte* bytes) noexcept {  // NOLINT(readability-non-const-parameter)
-    for (std::size_t i = 0; i < NW * 8U; ++i) {
-        const std::size_t limb_idx  = i / 8U;
-        const std::size_t bit_shift = (i % 8U) * 8U;
-        bytes[(NW * 8U) - 1U - i] = static_cast<CryptoByte>((a.d[limb_idx] >> bit_shift) & 0xFFU);
+    for (std::size_t i = 0; i < NW * sizeof(uint64_t); ++i) {
+        const std::size_t limb_idx  = i / sizeof(uint64_t);
+        const std::size_t bit_shift = (i % sizeof(uint64_t)) * bits_per_byte;
+        bytes[(NW * sizeof(uint64_t)) - 1U - i] = static_cast<CryptoByte>((a.d[limb_idx] >> bit_shift) & der_ff_byte);
     }
 }
 
@@ -107,7 +107,7 @@ inline void bigint_to_bytes(const BigInt<NW>& a, CryptoByte* bytes) noexcept {  
 // Returns 0xFFFFFFFFFFFFFFFF if a < b, else 0.
 template<std::size_t NW>
 [[nodiscard]]
-inline uint64_t bigint_ct_lt(const BigInt<NW>& a, const BigInt<NW>& b) noexcept {
+inline uint64_t bigint_ct_lt(const BigInt<NW>& a, const BigInt<NW>& b) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     uint64_t borrow = 0;
     for (std::size_t i = 0; i < NW; ++i) {
         const uint64_t ai = a.d[i];
@@ -161,7 +161,7 @@ inline uint64_t bigint_add(BigInt<NW>& out, const BigInt<NW>& a, const BigInt<NW
 
 // out = a - b.  Returns borrow out (0 or 1).
 template<std::size_t NW>
-inline uint64_t bigint_sub(BigInt<NW>& out, const BigInt<NW>& a, const BigInt<NW>& b) noexcept {
+inline uint64_t bigint_sub(BigInt<NW>& out, const BigInt<NW>& a, const BigInt<NW>& b) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     uint64_t borrow = 0;
     for (std::size_t i = 0; i < NW; ++i) {
         const __uint128_t ai = a.d[i];
@@ -193,7 +193,7 @@ inline BigInt<NW> bigint_reduce_once(const BigInt<NW>& a, const BigInt<NW>& m) n
 [[nodiscard]]
 inline uint64_t mont_neg_inv(uint64_t m0) noexcept {
     uint64_t inv = m0;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         inv = inv * (2U - (m0 * inv));
     }
     return static_cast<uint64_t>(-static_cast<__uint128_t>(inv));
@@ -205,7 +205,7 @@ inline uint64_t mont_neg_inv(uint64_t m0) noexcept {
 // Uses CIOS (Coarsely Integrated Operand Scanning) with NW+1 limb accumulator.
 template<std::size_t NW>
 [[nodiscard]]
-inline BigInt<NW> mont_mul(const BigInt<NW>& a, const BigInt<NW>& b,
+inline BigInt<NW> mont_mul(const BigInt<NW>& a, const BigInt<NW>& b, // NOLINT(bugprone-easily-swappable-parameters)
                             const BigInt<NW>& m, uint64_t m0inv) noexcept {
     // t has NW+1 limbs; t[NW] catches carry overflow.
     std::array<uint64_t, NW + 1U> t{};
@@ -216,22 +216,22 @@ inline BigInt<NW> mont_mul(const BigInt<NW>& a, const BigInt<NW>& b,
         for (std::size_t j = 0; j < NW; ++j) {
             const __uint128_t prod = (static_cast<__uint128_t>(a.d[i]) * b.d[j]) + t[j] + carry;
             t[j] = static_cast<uint64_t>(prod);
-            carry = static_cast<uint64_t>(prod >> 64U);
+            carry = static_cast<uint64_t>(prod >> uint64_bits);
         }
         t[NW] += carry;
 
         // Phase 2: Montgomery reduction — t += (t[0] * m0inv mod 2^64) * m; t >>= 64
         const uint64_t q = t[0] * m0inv;
         __uint128_t c = (static_cast<__uint128_t>(q) * m.d[0]) + t[0];
-        c >>= 64U;
+        c >>= uint64_bits;
         for (std::size_t j = 1; j < NW; ++j) {
             c += (static_cast<__uint128_t>(q) * m.d[j]) + t[j];
             t[j - 1U] = static_cast<uint64_t>(c);
-            c >>= 64U;
+            c >>= uint64_bits;
         }
         c += t[NW];
         t[NW - 1U] = static_cast<uint64_t>(c);
-        t[NW] = static_cast<uint64_t>(c >> 64U);
+        t[NW] = static_cast<uint64_t>(c >> uint64_bits);
     }
 
     // Copy lower NW limbs.
@@ -264,7 +264,7 @@ inline BigInt<NW> mont_r2(const BigInt<NW>& m) noexcept {
     // Compute R mod m = 2^(64*NW) mod m by shifting left 64*NW bits.
     // Then compute R^2 mod m = (R mod m)^2 mod m.
     // We do 2*64*NW doublings of r, each time reducing.
-    const std::size_t total_bits = std::size_t{2} * std::size_t{64} * NW;
+    const std::size_t total_bits = std::size_t{2} * uint64_bits * NW;
     for (std::size_t i = 0; i < total_bits; ++i) {
         // r = r * 2 mod m (left shift by 1, then conditional subtract).
         // Left shift r by 1 bit.
@@ -312,7 +312,7 @@ inline BigInt<NW> mont_from(const BigInt<NW>& a, const BigInt<NW>& m, uint64_t m
 template<std::size_t NW>
 [[nodiscard]]
 inline BigInt<NW> bigint_powmod_ct(
-    const BigInt<NW>& base, const BigInt<NW>& exp,
+    const BigInt<NW>& base, const BigInt<NW>& exp, // NOLINT(bugprone-easily-swappable-parameters)
     const BigInt<NW>& m) noexcept
 {
     const uint64_t m0inv = mont_neg_inv(m.d[0]);
@@ -328,7 +328,7 @@ inline BigInt<NW> bigint_powmod_ct(
 
     // Process bits from most significant to least significant.
     for (std::size_t wi = NW; wi-- > 0; ) {
-        for (int bi = 63; bi >= 0; --bi) {
+        for (int bi = static_cast<int>(uint64_bits) - 1; bi >= 0; --bi) {
             // result = result^2
             result_m = mont_mul(result_m, result_m, m, m0inv);
             // Conditionally multiply by base if bit is set.
@@ -355,7 +355,7 @@ template<std::size_t NW>
 [[nodiscard]]
 inline BigInt<NW> rsa_crt_combine(
     const BigInt<NW>& m_p,   // m^dp mod p (in full NW limbs, upper half zero)
-    const BigInt<NW>& m_q,   // m^dq mod q (in full NW limbs, upper half zero)
+    const BigInt<NW>& m_q,   // NOLINT(bugprone-easily-swappable-parameters) m^dq mod q (in full NW limbs, upper half zero)
     const BigInt<NW>& p,
     const BigInt<NW>& q,
     const BigInt<NW>& qinv)  // q^{-1} mod p

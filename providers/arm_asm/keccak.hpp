@@ -67,7 +67,7 @@ static inline uint64_t krotl(uint64_t x) noexcept {
 // ρ+π is fully unrolled with compile-time rotation constants (one ROR each).
 // χ uses scalar bitwise NOT-AND: a ^ (~b & c).
 [[gnu::target("sha3,neon")]]
-inline void keccak_f1600(std::span<uint64_t, keccak_num_lanes> state) noexcept // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+inline void keccak_f1600(std::span<uint64_t, keccak_num_lanes> state) noexcept // NOLINT(cppcoreguidelines-avoid-non-const-global-variables,readability-function-cognitive-complexity,readability-function-size)
 {
     for (const uint64_t rc : keccak_rc) {
 

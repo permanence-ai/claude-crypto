@@ -47,17 +47,17 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
 {
     // Step a: hash is h1 = H(m), already provided.
     // Step b: V = 0x01 * qlen
-    FixedSecureBuffer<66> V{};
+    FixedSecureBuffer<p521_scalar_bytes> V{};
     for (std::size_t i = 0; i < qlen; ++i) { V[i] = 0x01U; }
 
     // Step c: K = 0x00 * qlen
-    FixedSecureBuffer<66> K{};
+    FixedSecureBuffer<p521_scalar_bytes> K{};
     // K is already zero-initialized by FixedSecureBuffer.
 
     // Combine message for HMAC: V || 0x00 || x || bits2octets(h1)
     // bits2octets always writes qlen bytes (zero-padded when hlen < qlen).
     // Max: qlen(66) + 1 + qlen(66) + qlen(66) = 199
-    FixedSecureBuffer<66 + 1 + 66 + 66> msg_buf{};
+    FixedSecureBuffer<p521_scalar_bytes + 1U + p521_scalar_bytes + p521_scalar_bytes> msg_buf{};
 
     // Step d: K = HMAC_K(V || 0x00 || int2octets(x) || bits2octets(h1))
     // Step e: V = HMAC_K(V)
@@ -93,7 +93,7 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
 
     // Step h: generate candidate T until valid k found.
     // In practice the first candidate is almost always valid.
-    for (int attempt = 0; attempt < 100; ++attempt) {
+    for (int attempt = 0; attempt < 100; ++attempt) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
         if (qlen == p256_scalar_bytes) {
             hmac_sha256(K.data(), qlen, V.data(), qlen, ByteSpan<sha256_digest_bytes>{V.data(), sha256_digest_bytes});
         } else if (qlen == p384_scalar_bytes) {
@@ -119,10 +119,10 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
             // Compare from MSB.
             for (int j = static_cast<int>(n_limb_count) - 1; j >= 0; --j) {
                 uint64_t k_limb = 0;
-                for (int b = 0; b < 8; ++b) {
-                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * 8U) + static_cast<std::size_t>(b));
+                for (int b = 0; b < static_cast<int>(bits_per_byte); ++b) {
+                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * bits_per_byte) + static_cast<std::size_t>(b));
                     if (byte_pos < qlen) {
-                        k_limb |= static_cast<uint64_t>(k_out[byte_pos]) << (static_cast<unsigned>(b) * 8U);
+                        k_limb |= static_cast<uint64_t>(k_out[byte_pos]) << (static_cast<unsigned>(b) * bits_per_byte);
                     }
                 }
                 if (k_limb < n_limbs[j]) { k_lt_n = true; break; }
@@ -134,10 +134,10 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
 update_kv:
         // K = HMAC_K(V || 0x00)
         {
-            FixedSecureBuffer<66 + 1> tmp{};
+            FixedSecureBuffer<p521_scalar_bytes + 1U> tmp{};
             std::memcpy(tmp.data(), V.data(), qlen);
             tmp[qlen] = 0x00U;
-            if (qlen == 32) {
+            if (qlen == p256_scalar_bytes) {
                 hmac_sha256(K.data(), qlen, tmp.data(), qlen + 1, ByteSpan<sha256_digest_bytes>{K.data(), sha256_digest_bytes});
                 hmac_sha256(K.data(), qlen, V.data(), qlen, ByteSpan<sha256_digest_bytes>{V.data(), sha256_digest_bytes});
             } else if (qlen == p384_scalar_bytes) {
@@ -157,7 +157,7 @@ update_kv:
 // -----------------------------------------------------------------------
 
 // Sign: private_scalar_be[32], msg_hash[32] → sig_out[64] (r‖s BE).
-static inline bool p256_ecdsa_sign(
+static inline bool p256_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<p256_scalar_bytes> private_scalar_be,
     CByteSpan<sha256_digest_bytes> msg_hash,
     ByteSpan<p256_sig_bytes> sig_out) noexcept
@@ -203,7 +203,7 @@ static inline bool p256_ecdsa_sign(
 }
 
 // Verify: public_key_uncompressed[65] (0x04||x||y), msg_hash[32], sig[64] (r‖s BE).
-static inline bool p256_ecdsa_verify(
+static inline bool p256_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<p256_public_key_bytes> public_key_uncompressed,
     CByteSpan<sha256_digest_bytes> msg_hash,
     CByteSpan<p256_sig_bytes> sig) noexcept
@@ -214,7 +214,8 @@ static inline bool p256_ecdsa_verify(
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    Fe r{}, s{};
+    Fe r{};  // NOLINT(readability-isolate-declaration)
+    Fe s{};
     if (!p256_scalar_sig_decode(CByteSpan<p256_scalar_bytes>{sig.data(),        p256_scalar_bytes}, r)) { return false; }
     if (!p256_scalar_sig_decode(CByteSpan<p256_scalar_bytes>{sig.data() + qlen, p256_scalar_bytes}, s)) { return false; }
 
@@ -254,7 +255,7 @@ static inline bool p256_ecdsa_verify(
 // P-384 ECDSA.
 // -----------------------------------------------------------------------
 
-static inline bool p384_ecdsa_sign(
+static inline bool p384_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<p384_scalar_bytes> private_scalar_be,
     CByteSpan<sha384_digest_bytes> msg_hash,
     ByteSpan<p384_sig_bytes> sig_out) noexcept
@@ -269,7 +270,7 @@ static inline bool p384_ecdsa_sign(
 
     FixedSecureBuffer<qlen> k_buf{};
     rfc6979_generate_k(private_scalar_be.data(), qlen, msg_hash.data(), qlen,
-                       p384_n.data(), 6, k_buf.data());
+                       p384_n.data(), p384_bits / uint64_bits, k_buf.data());
 
     const Fe k = p384_scalar_from_bytes48(CByteSpan<p384_scalar_bytes>{k_buf.data(), p384_scalar_bytes});
     if (p384_scalar_is_zero(k)) { return false; }
@@ -293,7 +294,7 @@ static inline bool p384_ecdsa_sign(
     return true;
 }
 
-static inline bool p384_ecdsa_verify(
+static inline bool p384_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<p384_public_key_bytes> public_key_uncompressed,
     CByteSpan<sha384_digest_bytes> msg_hash,
     CByteSpan<p384_sig_bytes> sig) noexcept
@@ -304,7 +305,8 @@ static inline bool p384_ecdsa_verify(
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    Fe r{}, s{};
+    Fe r{};  // NOLINT(readability-isolate-declaration)
+    Fe s{};
     if (!p384_scalar_sig_decode(CByteSpan<p384_scalar_bytes>{sig.data(),        p384_scalar_bytes}, r)) { return false; }
     if (!p384_scalar_sig_decode(CByteSpan<p384_scalar_bytes>{sig.data() + qlen, p384_scalar_bytes}, s)) { return false; }
 
@@ -341,7 +343,7 @@ static inline bool p384_ecdsa_verify(
 // P-521 ECDSA.
 // -----------------------------------------------------------------------
 
-static inline bool p521_ecdsa_sign(
+static inline bool p521_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<p521_scalar_bytes> private_scalar_be,
     CByteSpan<sha512_digest_bytes> msg_hash,
     ByteSpan<p521_sig_bytes> sig_out) noexcept
@@ -357,7 +359,7 @@ static inline bool p521_ecdsa_sign(
 
     FixedSecureBuffer<qlen> k_buf{};
     rfc6979_generate_k(private_scalar_be.data(), qlen, msg_hash.data(), hlen,
-                       p521_n.data(), 9, k_buf.data());
+                       p521_n.data(), (p521_bits + uint64_bits - 1U) / uint64_bits, k_buf.data());
 
     const Fe k = p521_scalar_from_bytes66(CByteSpan<p521_scalar_bytes>{k_buf.data(), p521_scalar_bytes});
     if (p521_scalar_is_zero(k)) { return false; }
@@ -381,7 +383,7 @@ static inline bool p521_ecdsa_sign(
     return true;
 }
 
-static inline bool p521_ecdsa_verify(
+static inline bool p521_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<p521_public_key_bytes> public_key_uncompressed,
     CByteSpan<sha512_digest_bytes> msg_hash,
     CByteSpan<p521_sig_bytes> sig) noexcept
@@ -393,7 +395,8 @@ static inline bool p521_ecdsa_verify(
 
     if (public_key_uncompressed[0] != 0x04U) { return false; }
 
-    Fe r{}, s{};
+    Fe r{};  // NOLINT(readability-isolate-declaration)
+    Fe s{};
     if (!p521_scalar_sig_decode(CByteSpan<p521_scalar_bytes>{sig.data(),        p521_scalar_bytes}, r)) { return false; }
     if (!p521_scalar_sig_decode(CByteSpan<p521_scalar_bytes>{sig.data() + qlen, p521_scalar_bytes}, s)) { return false; }
 
@@ -409,10 +412,12 @@ static inline bool p521_ecdsa_verify(
     fe521_to_bytes(u2, ByteSpan<p521_scalar_bytes>{u2b.data(), p521_scalar_bytes});
 
     // Reject non-canonical P-521 encodings: top 7 bits of each coordinate's first byte must be zero.
-    if ((public_key_uncompressed[1]  & 0xFEU) != 0U) { return false; }
-    if ((public_key_uncompressed[67] & 0xFEU) != 0U) { return false; }
-    const Fe Qx = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{public_key_uncompressed.data() + 1,  p521_scalar_bytes});
-    const Fe Qy = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{public_key_uncompressed.data() + 67, p521_scalar_bytes});
+    // public_key_uncompressed = 0x04 || x(66 bytes) || y(66 bytes): x starts at [1], y at [1+66=67].
+    constexpr std::size_t p521_y_offset = 1U + p521_scalar_bytes;  // offset of y coordinate in uncompressed key
+    if ((public_key_uncompressed[1]              & der_msb_flag) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    if ((public_key_uncompressed[p521_y_offset]  & der_msb_flag) != 0U) { return false; } // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    const Fe Qx = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{public_key_uncompressed.data() + 1,             p521_scalar_bytes});
+    const Fe Qy = fe521_from_bytes(CByteSpan<p521_scalar_bytes>{public_key_uncompressed.data() + p521_y_offset, p521_scalar_bytes});
     if (!p521_validate_public_point(Qx, Qy)) { return false; }
     const Point Q{.X = Qx, .Y = Qy, .Z = fe521_one};
 

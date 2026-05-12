@@ -102,6 +102,28 @@ constexpr unsigned int miller_rabin_rounds_for(std::size_t prime_bits) noexcept 
 // HKDF-SHA-384 maximum output length: 255 * HashLen (RFC 5869 §2.3, HashLen=48)
 constexpr std::size_t hkdf_sha384_max_output_bytes = 255U * sha384_digest_bytes;
 
+// SHA padding start byte (0x80 appended after the message in SHA-1/2/3 padding).
+constexpr CryptoByte sha_padding_marker = 0x80U;
+
+// ASN.1/DER encoding constants.
+constexpr CryptoByte der_sequence_tag = 0x30U;  // SEQUENCE tag
+constexpr CryptoByte der_integer_tag  = 0x02U;  // INTEGER tag
+constexpr CryptoByte der_msb_flag     = 0x80U;  // long-form length indicator / sign-bit test
+constexpr CryptoByte der_two_byte_len = 0x82U;  // two-byte length prefix
+constexpr CryptoByte der_one_byte_len = 0x81U;  // one-byte length prefix
+constexpr CryptoByte der_ff_byte      = 0xFFU;  // all-bits-set byte (mask / upper byte)
+
+// RSA/PKCS#1 constants.
+constexpr CryptoByte rsa_pss_trailer  = 0xBCU;  // PKCS#1 PSS trailer field byte (RFC 8017 §9.1)
+constexpr CryptoByte rsa_top_two_bits = 0xC0U;  // top-two-bits mask for RSA prime candidates
+
+// P-521 field-element high-byte mask: only bit 0 is valid in the top byte of a
+// 66-byte (528-bit) encoding of a 521-bit value; bits 7:1 must be zero.
+constexpr CryptoByte p521_top_byte_mask = 0xFEU;
+
+// Bits per 64-bit limb (for BigInt arithmetic).
+constexpr std::size_t uint64_bits = 64U;
+
 // Benchmark payload sizes
 constexpr std::size_t bench_size_small  =     64;
 constexpr std::size_t bench_size_medium =   1024;

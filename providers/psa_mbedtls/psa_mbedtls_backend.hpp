@@ -863,7 +863,7 @@ struct RealPsaBackend {
     [[nodiscard]]
     static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
-        CryptoByte* const ciphertext,    std::size_t ciphertext_size,    std::size_t* const ciphertext_len,    // NOLINT(readability-non-const-parameter)
+        CryptoByte* const ciphertext,    std::size_t ciphertext_size,    std::size_t* const ciphertext_len,    // NOLINT(readability-non-const-parameter,bugprone-easily-swappable-parameters)
         CryptoByte* const shared_secret, std::size_t shared_secret_size, std::size_t* const shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using psa_mbedtls::detail::PqcKeyType;

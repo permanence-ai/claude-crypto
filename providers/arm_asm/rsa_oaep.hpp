@@ -56,10 +56,11 @@ inline void mgf1_sha384(
         if (seed_len <= max_seed - 4U) {
             std::memcpy(buf.data(), seed, seed_len);
         }
-        buf[seed_len + 0U] = static_cast<CryptoByte>((counter >> 24U) & 0xFFU);
-        buf[seed_len + 1U] = static_cast<CryptoByte>((counter >> 16U) & 0xFFU);
-        buf[seed_len + 2U] = static_cast<CryptoByte>((counter >>  8U) & 0xFFU);
-        buf[seed_len + 3U] = static_cast<CryptoByte>( counter         & 0xFFU);
+        // I2OSP(counter, 4) — big-endian 32-bit encoding.
+        buf[seed_len + 0U] = static_cast<CryptoByte>((counter >> (3U * bits_per_byte)) & der_ff_byte);
+        buf[seed_len + 1U] = static_cast<CryptoByte>((counter >> (2U * bits_per_byte)) & der_ff_byte);
+        buf[seed_len + 2U] = static_cast<CryptoByte>((counter >>        bits_per_byte)  & der_ff_byte);
+        buf[seed_len + 3U] = static_cast<CryptoByte>( counter                           & der_ff_byte);
 
         ByteArray<oaep_hash_len> hash{};
         sha384(buf.data(), seed_len + 4U, hash);

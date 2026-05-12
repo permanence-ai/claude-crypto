@@ -319,19 +319,19 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
-                 .bits = slh_dsa_private_key_size(v) * 8U,
+                 .bits = slh_dsa_private_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(KeyAttributes::Usage::Sign), .alg = alg_slh_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaPublicKey,
-                 .bits = slh_dsa_public_key_size(v) * 8U,
+                 .bits = slh_dsa_public_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(KeyAttributes::Usage::Verify), .alg = alg_slh_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::SlhDsaKeyPair,
-                 .bits = slh_dsa_private_key_size(v) * 8U,
+                 .bits = slh_dsa_private_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Sign) |
                                                static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = alg_slh_dsa(v) };
@@ -339,19 +339,19 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_sign_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
-                 .bits = ml_dsa_private_key_size(v) * 8U,
+                 .bits = ml_dsa_private_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(KeyAttributes::Usage::Sign), .alg = alg_ml_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_verify_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaPublicKey,
-                 .bits = ml_dsa_public_key_size(v) * 8U,
+                 .bits = ml_dsa_public_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(KeyAttributes::Usage::Verify), .alg = alg_ml_dsa(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_dsa_generate_attrs(const MlDsaVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlDsaKeyPair,
-                 .bits = ml_dsa_private_key_size(v) * 8U,
+                 .bits = ml_dsa_private_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Sign) |
                                                static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = alg_ml_dsa(v) };
@@ -359,7 +359,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_ml_kem_generate_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemKeyPair,
-                 .bits = ml_kem_private_key_size(v) * 8U,
+                 .bits = ml_kem_private_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(static_cast<unsigned>(KeyAttributes::Usage::Decrypt) |
                                                static_cast<unsigned>(KeyAttributes::Usage::Export)),
                  .alg = alg_ml_kem(v) };
@@ -367,13 +367,13 @@ struct OpenSslBackend {
     [[nodiscard]]
     static KeyAttributes make_ml_kem_encap_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemPublicKey,
-                 .bits = ml_kem_public_key_size(v) * 8U,
+                 .bits = ml_kem_public_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(KeyAttributes::Usage::Encrypt), .alg = alg_ml_kem(v) };
     }
     [[nodiscard]]
     static KeyAttributes make_ml_kem_decap_attrs(const MlKemVariant v) noexcept {
         return { .type = KeyAttributes::KeyType::MlKemKeyPair,
-                 .bits = ml_kem_private_key_size(v) * 8U,
+                 .bits = ml_kem_private_key_size(v) * bits_per_byte,
                  .usage = static_cast<uint8_t>(KeyAttributes::Usage::Decrypt), .alg = alg_ml_kem(v) };
     }
 
@@ -383,59 +383,60 @@ struct OpenSslBackend {
     [[nodiscard]]
     static std::size_t ecdsa_sign_output_size(const std::size_t key_bits) noexcept {
         // DER-encoded ECDSA signature: 2 * ceil(key_bits/8) + 8 bytes overhead.
-        const std::size_t coord = (key_bits + 7U) / 8U;
-        return (2U * coord) + 8U;
+        const std::size_t coord = (key_bits + bits_per_byte - 1U) / bits_per_byte;
+        return (2U * coord) + bits_per_byte;
     }
     [[nodiscard]]
     static std::size_t ecdh_shared_secret_size(const std::size_t key_bits) noexcept {
-        return (key_bits + 7U) / 8U;
+        return (key_bits + bits_per_byte - 1U) / bits_per_byte;
     }
     [[nodiscard]]
     static std::size_t ec_private_key_export_size(const std::size_t key_bits) noexcept {
-        return (key_bits + 7U) / 8U;
+        return (key_bits + bits_per_byte - 1U) / bits_per_byte;
     }
     [[nodiscard]]
     static std::size_t ec_public_key_export_size(const std::size_t key_bits) noexcept {
         // Uncompressed point: 0x04 + 2 * coord_bytes
-        return 1U + (2U * ((key_bits + 7U) / 8U));
+        return 1U + (2U * ((key_bits + bits_per_byte - 1U) / bits_per_byte));
     }
     [[nodiscard]]
     static std::size_t aes_gcm_encrypt_output_size(const std::size_t plaintext_size) noexcept {
-        return plaintext_size <= SIZE_MAX - 16U ? plaintext_size + 16U : 0U;  // + 128-bit GCM tag
+        return plaintext_size <= SIZE_MAX - aes_gcm_tag_bytes ? plaintext_size + aes_gcm_tag_bytes : 0U;  // + 128-bit GCM tag
     }
     [[nodiscard]]
     static std::size_t aes_gcm_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
-        return ciphertext_size > 16U ? ciphertext_size - 16U : 0U;
+        return ciphertext_size > aes_gcm_tag_bytes ? ciphertext_size - aes_gcm_tag_bytes : 0U;
     }
     [[nodiscard]]
     static std::size_t chacha20_encrypt_output_size(const std::size_t plaintext_size) noexcept {
-        return plaintext_size <= SIZE_MAX - 16U ? plaintext_size + 16U : 0U;  // + 128-bit Poly1305 tag
+        return plaintext_size <= SIZE_MAX - chacha20_poly1305_tag_bytes ? plaintext_size + chacha20_poly1305_tag_bytes : 0U;  // + 128-bit Poly1305 tag
     }
     [[nodiscard]]
     static std::size_t chacha20_decrypt_output_size(const std::size_t ciphertext_size) noexcept {
-        return ciphertext_size > 16U ? ciphertext_size - 16U : 0U;
+        return ciphertext_size > chacha20_poly1305_tag_bytes ? ciphertext_size - chacha20_poly1305_tag_bytes : 0U;
     }
     [[nodiscard]]
     static std::size_t rsa_oaep_encrypt_output_size(const std::size_t key_bits) noexcept {
-        return key_bits / 8U;
+        return key_bits / bits_per_byte;
     }
     [[nodiscard]]
     static std::size_t rsa_oaep_decrypt_output_size(const std::size_t key_bits) noexcept {
-        return key_bits / 8U;
+        return key_bits / bits_per_byte;
     }
     [[nodiscard]]
     static std::size_t rsa_pss_sign_output_size(const std::size_t key_bits) noexcept {
-        return key_bits / 8U;
+        return key_bits / bits_per_byte;
     }
     [[nodiscard]]
     static std::size_t rsa_private_key_export_size(const std::size_t key_bits) noexcept {
         // PKCS#1 DER: ~5 * (key_bits/8) + overhead.  Use a generous bound.
-        return (5U * (key_bits / 8U)) + 64U;
+        static constexpr std::size_t kRsaPrivKeyDerComponents = 5U;
+        return (kRsaPrivKeyDerComponents * (key_bits / bits_per_byte)) + uint64_bits;
     }
     [[nodiscard]]
     static std::size_t rsa_public_key_export_size(const std::size_t key_bits) noexcept {
         // SubjectPublicKeyInfo DER: key_bits/8 + ~50 bytes overhead.
-        return (key_bits / 8U) + kRsaSpkiDerOverhead;
+        return (key_bits / bits_per_byte) + kRsaSpkiDerOverhead;
     }
     [[nodiscard]]
     static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v) noexcept {
@@ -634,11 +635,11 @@ struct OpenSslBackend {
                 if (pctx == nullptr) { return err_invalid_arg; }
                 EVP_PKEY* pkey = nullptr;
                 const Status rv_import = (EVP_PKEY_fromdata_init(pctx) == ok &&
-                    EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_KEYPAIR, params) == ok)
+                    EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_KEYPAIR, params) == ok)  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
                     ? ok : err_invalid_arg;
                 EVP_PKEY_CTX_free(pctx);
                 if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -658,11 +659,11 @@ struct OpenSslBackend {
                 if (pctx == nullptr) { return err_invalid_arg; }
                 EVP_PKEY* pkey = nullptr;
                 const Status rv_import = (EVP_PKEY_fromdata_init(pctx) == ok &&
-                    EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) == ok)
+                    EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) == ok)  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
                     ? ok : err_invalid_arg;
                 EVP_PKEY_CTX_free(pctx);
                 if (rv_import != ok || pkey == nullptr) { return err_invalid_arg; }
-                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
+                const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return err_invalid_arg; }
                 *key = id;
                 return ok;
@@ -762,7 +763,7 @@ struct OpenSslBackend {
             default: return err_invalid_arg;
         }
 
-        const unsigned int id = ossl_raw_store_import(kind, data, data_length);
+        const unsigned int id = ossl_raw_store_import(kind, data, data_length); // NOLINT(cppcoreguidelines-init-variables)
         if (id == 0U) { return err_invalid_arg; }
         *key = id;
         return ok;
@@ -969,7 +970,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status mac_compute(  // NOLINT(readability-function-size)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* mac, const std::size_t mac_size, std::size_t* mac_length) noexcept
     {
@@ -990,7 +991,7 @@ struct OpenSslBackend {
 
         std::size_t out_len = mac_size;
         const unsigned char* result = EVP_Q_mac(nullptr, "HMAC", nullptr,
-                                                digest, params,
+                                                digest, params,  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
                                                 slot->data.data(), slot->len,
                                                 input, input_length,
                                                 mac, mac_size, &out_len);
@@ -1006,7 +1007,7 @@ struct OpenSslBackend {
         const CryptoByte* mac, const std::size_t mac_length) noexcept
     {
         // Compute a fresh MAC and compare in constant time.
-        std::array<CryptoByte, 64> computed{};  // large enough for any HMAC output
+        std::array<CryptoByte, sha512_digest_bytes> computed{};  // large enough for any HMAC output
         std::size_t computed_len = 0;
         const Status rv = mac_compute(key, alg,
                                       input, input_length,
@@ -1020,7 +1021,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status aead_encrypt(  // NOLINT(readability-function-size)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* nonce, const std::size_t nonce_length,
         const CryptoByte* additional_data, const std::size_t additional_data_length,
         const CryptoByte* plaintext, const std::size_t plaintext_length,
@@ -1054,7 +1055,7 @@ struct OpenSslBackend {
             }
             if (EVP_EncryptUpdate(ctx, ciphertext, &out_len,
                                   plaintext, static_cast<int>(plaintext_length)) != ok) { break; }
-            std::size_t written = static_cast<std::size_t>(out_len);
+            std::size_t written = static_cast<std::size_t>(out_len); // NOLINT(hicpp-use-auto,modernize-use-auto)
             int final_len = 0;
             if (EVP_EncryptFinal_ex(ctx, ciphertext + written, &final_len) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
             written += static_cast<std::size_t>(final_len);
@@ -1072,7 +1073,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status aead_decrypt(  // NOLINT(readability-function-size)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* nonce, const std::size_t nonce_length,
         const CryptoByte* additional_data, const std::size_t additional_data_length,
         const CryptoByte* ciphertext, const std::size_t ciphertext_length,
@@ -1116,7 +1117,7 @@ struct OpenSslBackend {
             }
             if (EVP_DecryptUpdate(ctx, plaintext, &out_len,
                                   ciphertext, static_cast<int>(ct_len)) != ok) { break; }
-            const std::size_t written = static_cast<std::size_t>(out_len);
+            const std::size_t written = static_cast<std::size_t>(out_len); // NOLINT(hicpp-use-auto,modernize-use-auto)
             int final_len = 0;
             // EVP_DecryptFinal_ex returns 0 if tag verification fails.
             if (EVP_DecryptFinal_ex(ctx, plaintext + written, &final_len) != ok) { break; }  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -1130,7 +1131,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* signature, const std::size_t signature_size,
         std::size_t* signature_length) noexcept
@@ -1169,7 +1170,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status verify_message( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* signature, const std::size_t signature_length) noexcept
     {
@@ -1207,7 +1208,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status raw_key_agreement(  // NOLINT(readability-function-size)
-        const Algorithm alg,
+        const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const KeyId private_key,
         const CryptoByte* peer_key, const std::size_t peer_key_length,
         CryptoByte* output, const std::size_t output_size,
@@ -1220,16 +1221,17 @@ struct OpenSslBackend {
         if (our_pkey == nullptr) { return err_invalid_arg; }
 
         // Derive the curve name from our key so we can import the peer's public key.
-        char curve_name[32]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-const-correctness)
+        static constexpr std::size_t kOsslCurveNameMax = 32U;
+        char curve_name[kOsslCurveNameMax]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays,misc-const-correctness)
         const std::size_t name_len = sizeof(curve_name);
         if (EVP_PKEY_get_utf8_string_param(our_pkey,
                 OSSL_PKEY_PARAM_GROUP_NAME,
-                curve_name, name_len, nullptr) != ok) { return err_invalid_arg; }
+                curve_name, name_len, nullptr) != ok) { return err_invalid_arg; }  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
 
         // Import peer uncompressed point (04||x||y) via EVP_PKEY_fromdata.
         OSSL_PARAM peer_params[] = {  // NOLINT(*)
             OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
-                curve_name, 0),
+                curve_name, 0),  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
             OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
                 const_cast<CryptoByte*>(peer_key), peer_key_length),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
             OSSL_PARAM_END
@@ -1238,7 +1240,7 @@ struct OpenSslBackend {
         if (peer_pctx == nullptr) { return err_invalid_arg; }
         EVP_PKEY* peer_pkey = nullptr;
         const Status rv_peer = (EVP_PKEY_fromdata_init(peer_pctx) == ok &&
-            EVP_PKEY_fromdata(peer_pctx, &peer_pkey, EVP_PKEY_PUBLIC_KEY, peer_params) == ok)
+            EVP_PKEY_fromdata(peer_pctx, &peer_pkey, EVP_PKEY_PUBLIC_KEY, peer_params) == ok)  // NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
             ? ok : err_invalid_arg;
         EVP_PKEY_CTX_free(peer_pctx);
         if (rv_peer != ok || peer_pkey == nullptr) { return err_invalid_arg; }
@@ -1263,7 +1265,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status asymmetric_encrypt(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
         CryptoByte* output, const std::size_t output_size,
@@ -1306,7 +1308,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status asymmetric_decrypt(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
         CryptoByte* output, const std::size_t output_size,
@@ -1348,8 +1350,8 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId key, const Algorithm alg,
-        CryptoByte* ciphertext, const std::size_t ciphertext_size, std::size_t* ciphertext_length,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        CryptoByte* ciphertext, const std::size_t ciphertext_size, std::size_t* ciphertext_length,  // NOLINT(bugprone-easily-swappable-parameters)
         CryptoByte* shared_secret, const std::size_t shared_secret_size,
         std::size_t* shared_secret_length) noexcept
     {
@@ -1389,7 +1391,7 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId key, const Algorithm alg,
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* ciphertext, const std::size_t ciphertext_length,
         CryptoByte* shared_secret, const std::size_t shared_secret_size,
         std::size_t* shared_secret_length) noexcept
@@ -1441,7 +1443,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static Status key_derivation_input_key(
         KdfOperation* operation,
-        const KdfStep step,
+        const KdfStep step,  // NOLINT(bugprone-easily-swappable-parameters)
         const KeyId key) noexcept
     {
         using namespace openssl_provider::detail;
@@ -1484,7 +1486,8 @@ struct OpenSslBackend {
         if (operation->secret == nullptr) { return err_invalid_arg; }
 
         // Build the parameter list.  Maximum 6 params + END.
-        OSSL_PARAM params[7];  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+        static constexpr std::size_t kKdfMaxParams = 7U;  // 6 named params + OSSL_PARAM_END
+        OSSL_PARAM params[kKdfMaxParams];  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
         int n = 0;
 
         // Digest: always SHA2-384 (matching the rest of this library).
@@ -1521,6 +1524,7 @@ struct OpenSslBackend {
 
         params[n] = OSSL_PARAM_END;  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
         return EVP_KDF_derive(operation->ctx, output, output_length, params);
     }
 

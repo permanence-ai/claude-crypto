@@ -124,8 +124,8 @@ inline constexpr std::array<uint64_t, sha512_round_constants> sha512_k = {
 //   <new_gh_target> = vsha512h2q_u64(intermed, <cd>, <ab>)
 //   <cd_complement> += intermed
 // where <ef>,<gh>,<cd>,<ab> rotate through {ef,gh,cd,ab} each step.
-[[gnu::target("sha3,neon")]] // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-inline void sha512_compress(std::span<uint64_t, sha512_state_words> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+[[gnu::target("sha3,neon")]]
+inline void sha512_compress(std::span<uint64_t, sha512_state_words> state, const uint8_t* block) noexcept // NOLINT(cppcoreguidelines-avoid-non-const-global-variables,readability-function-size,readability-function-cognitive-complexity)
 {
     uint64x2_t ab = vld1q_u64(state.data());
     uint64x2_t cd = vld1q_u64(state.data() + 2);
@@ -291,7 +291,7 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugpron
     alignas(sha512_block_bytes) ByteArray<2 * sha512_block_bytes> pad{};
     const std::size_t tail = msg_len - offset;
     if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
-    pad[tail] = 0x80U;
+    pad[tail] = sha_padding_marker;
 
     // Low 64 bits of the 128-bit big-endian bit-count (high 64 bits are always 0 here).
     const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);  // NOLINT(cppcoreguidelines-init-variables)
@@ -327,7 +327,7 @@ inline void sha384(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugpron
     alignas(sha512_block_bytes) ByteArray<2 * sha512_block_bytes> pad{};
     const std::size_t tail = msg_len - offset;
     if (tail > 0) { std::memcpy(pad.data(), msg + offset, tail); }
-    pad[tail] = 0x80U;
+    pad[tail] = sha_padding_marker;
 
     const uint64_t bit_len_be = std::byteswap(static_cast<uint64_t>(msg_len) * 8U);  // NOLINT(cppcoreguidelines-init-variables)
     if (tail < sha512_len_threshold) {

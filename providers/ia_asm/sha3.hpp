@@ -49,7 +49,7 @@ struct Sha3Ctx {
     std::size_t out_bytes{0};  // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t buf_used{0};   // NOLINT(misc-non-private-member-variables-in-classes)
 
-    void init(std::size_t rate, std::size_t out) noexcept {
+    void init(std::size_t rate, std::size_t out) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
         state.fill(0);
         buf.fill(0);
         rate_bytes = rate;

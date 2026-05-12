@@ -84,17 +84,17 @@ inline bool read_tag(const CryptoByte*& p, std::size_t& rem, uint8_t expected_ta
 // Reads a DER length field.  Supports both short and long form.
 // Returns false on malformed input or if the remaining bytes are insufficient.
 [[nodiscard]]
-inline bool read_length(const CryptoByte*& p, std::size_t& rem, std::size_t& out_len) noexcept {
+inline bool read_length(const CryptoByte*& p, std::size_t& rem, std::size_t& out_len) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     if (rem < 1) { return false; }
     const uint8_t first = *p; ++p; --rem;
-    if ((first & 0x80U) == 0U) {
+    if ((first & der_msb_flag) == 0U) {
         out_len = first;
     } else {
         const std::size_t num_bytes = first & 0x7FU;
         if (num_bytes == 0 || num_bytes > 4 || rem < num_bytes) { return false; }
         out_len = 0;
         for (std::size_t i = 0; i < num_bytes; ++i) {
-            out_len = (out_len << 8U) | static_cast<std::size_t>(*p);
+            out_len = (out_len << bits_per_byte) | static_cast<std::size_t>(*p);
             ++p; --rem;
         }
     }
@@ -106,7 +106,7 @@ inline bool read_length(const CryptoByte*& p, std::size_t& rem, std::size_t& out
 // After this call, rem is the number of bytes within the sequence body.
 [[nodiscard]]
 inline bool enter_sequence(const CryptoByte*& p, std::size_t& rem) noexcept {
-    if (!read_tag(p, rem, 0x30U)) { return false; }
+    if (!read_tag(p, rem, der_sequence_tag)) { return false; }
     std::size_t seq_len = 0; // NOLINT(misc-const-correctness)
     if (!read_length(p, rem, seq_len)) { return false; }
     rem = seq_len;
@@ -300,24 +300,24 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
 
     // Helper: encode a DER length into a local buffer, return bytes written.
     auto encode_len = [](std::size_t len, CryptoByte* const buf) -> std::size_t {
-        if (len < 0x80U) {
+        if (len < der_msb_flag) {
             buf[0] = static_cast<CryptoByte>(len);
             return 1;
         }
-        if (len < 0x100U) {
-            buf[0] = 0x81U;
+        if (len < (std::size_t{der_msb_flag} << bits_per_byte)) {
+            buf[0] = der_one_byte_len;
             buf[1] = static_cast<CryptoByte>(len);
             return 2;
         }
-        buf[0] = 0x82U;
-        buf[1] = static_cast<CryptoByte>(len >> 8U);
-        buf[2] = static_cast<CryptoByte>(len & 0xFFU);
+        buf[0] = der_two_byte_len;
+        buf[1] = static_cast<CryptoByte>(len >> bits_per_byte);
+        buf[2] = static_cast<CryptoByte>(len & der_ff_byte);
         return 3;
     };
 
     // Determine whether we need a leading 0x00 byte for n and e.
-    const bool n_needs_pad = (n_len > 0) && ((n_bytes[0] & 0x80U) != 0U);
-    const bool e_needs_pad = (e_len > 0) && ((e_bytes[0] & 0x80U) != 0U);
+    const bool n_needs_pad = (n_len > 0) && ((n_bytes[0] & der_msb_flag) != 0U);
+    const bool e_needs_pad = (e_len > 0) && ((e_bytes[0] & der_msb_flag) != 0U);
 
     const std::size_t n_int_content = n_len + (n_needs_pad ? 1U : 0U);
     const std::size_t e_int_content = e_len + (e_needs_pad ? 1U : 0U);
@@ -364,11 +364,11 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     auto write_byte = [&](uint8_t b) { *w++ = b; };
 
     // Outer SEQUENCE
-    write_byte(0x30U);
+    write_byte(der_sequence_tag);
     write(spki_len_buf.data(), spki_len_bytes);
 
     // AlgorithmIdentifier SEQUENCE
-    write_byte(0x30U);
+    write_byte(der_sequence_tag);
     write(algid_len_buf.data(), algid_len_bytes);
     write(kRsaOid.data(), kRsaOid.size());
     write(kNull.data(),   kNull.size());
@@ -379,7 +379,7 @@ inline bool rsa_encode_public_key_der( // NOLINT(readability-function-size,reada
     write_byte(0x00U);  // unused bits = 0
 
     // RSAPublicKey SEQUENCE
-    write_byte(0x30U);
+    write_byte(der_sequence_tag);
     write(rsakey_len_buf.data(), rsakey_len_bytes);
 
     // INTEGER n
@@ -429,16 +429,16 @@ inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,rea
     CryptoByte* out_buf, std::size_t out_max, std::size_t* out_len) noexcept
 {
     auto encode_len = [](std::size_t len, CryptoByte* const buf) -> std::size_t {
-        if (len < 0x80U) { buf[0] = static_cast<CryptoByte>(len); return 1; }
-        if (len < 0x100U) { buf[0] = 0x81U; buf[1] = static_cast<CryptoByte>(len); return 2; }
-        buf[0] = 0x82U;
-        buf[1] = static_cast<CryptoByte>(len >> 8U);
-        buf[2] = static_cast<CryptoByte>(len & 0xFFU);
+        if (len < der_msb_flag) { buf[0] = static_cast<CryptoByte>(len); return 1; }
+        if (len < (std::size_t{der_msb_flag} << bits_per_byte)) { buf[0] = der_one_byte_len; buf[1] = static_cast<CryptoByte>(len); return 2; }
+        buf[0] = der_two_byte_len;
+        buf[1] = static_cast<CryptoByte>(len >> bits_per_byte);
+        buf[2] = static_cast<CryptoByte>(len & der_ff_byte);
         return 3;
     };
 
-    const bool n_pad = (n_len > 0) && ((n_bytes[0] & 0x80U) != 0U);
-    const bool e_pad = (e_len > 0) && ((e_bytes[0] & 0x80U) != 0U);
+    const bool n_pad = (n_len > 0) && ((n_bytes[0] & der_msb_flag) != 0U);
+    const bool e_pad = (e_len > 0) && ((e_bytes[0] & der_msb_flag) != 0U);
     const std::size_t nc = n_len + (n_pad ? 1U : 0U);
     const std::size_t ec = e_len + (e_pad ? 1U : 0U);
 
@@ -458,7 +458,7 @@ inline bool rsa_encode_pkcs1_pubkey_der( // NOLINT(readability-function-size,rea
     auto wb = [&](uint8_t b) { *w++ = b; };
     auto wn = [&](const CryptoByte* src, std::size_t n2) { std::memcpy(w, src, n2); w += n2; };
 
-    wb(0x30U); wn(slen_buf.data(), slb);
+    wb(der_sequence_tag); wn(slen_buf.data(), slb);
     wb(0x02U); wn(nlen_buf.data(), nlb);
     if (n_pad) { wb(0x00U); }
     wn(n_bytes, n_len);
