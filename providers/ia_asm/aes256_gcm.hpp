@@ -39,8 +39,8 @@ static inline void gcm_inc_counter(std::span<CryptoByte, aes_gcm_tag_bytes> ctr)
 // CTR encrypt/decrypt (same operation): XOR plaintext/ciphertext with the
 // AES-CTR keystream starting at counter block ctr[].
 [[gnu::target("aes,ssse3")]]
-static inline void gcm_ctr_crypt( // NOLINT(readability-function-size,bugprone-easily-swappable-parameters)
-    const CryptoByte* in,
+static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
+    const CryptoByte* in, // NOLINT(bugprone-easily-swappable-parameters)
     CryptoByte* out,
     std::size_t len,
     std::span<CryptoByte, aes_gcm_tag_bytes> ctr,
@@ -86,11 +86,11 @@ static inline void gcm_length_block(
 
 // Compute the 16-byte GHASH authentication tag.
 [[gnu::target("aes,pclmul,ssse3")]]
-static inline void gcm_compute_tag( // NOLINT(readability-function-size,bugprone-easily-swappable-parameters)
-    const CryptoByte*    aad,
+static inline void gcm_compute_tag( // NOLINT(readability-function-size)
+    const CryptoByte*    aad, // NOLINT(bugprone-easily-swappable-parameters)
     std::size_t          aad_len,
     const CryptoByte*    ct,
-    std::size_t          ct_len,
+    std::size_t          ct_len, // NOLINT(bugprone-easily-swappable-parameters)
     std::span<const CryptoByte, aes_gcm_tag_bytes> E_J0,
     const Aes256Schedule& sched,
     std::span<CryptoByte, aes_gcm_tag_bytes> tag_out) noexcept
