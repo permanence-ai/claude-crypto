@@ -26,8 +26,18 @@
 
 namespace arm_asm::detail {
 
+// Keccak-f[1600] structural constants.
+static constexpr int      keccak_lane_bits      = 64;   // bits per Keccak lane (uint64_t)
+static constexpr unsigned keccak_num_lanes      = 25;   // 5×5 lane matrix
+static constexpr unsigned keccak_num_rounds     = 24;   // rounds per permutation
+// Sponge rate constants (bytes per round for each hash/XOF variant).
+static constexpr unsigned shake128_rate_bytes   = 168;  // SHAKE-128 rate (largest; used for sq_buf sizing)
+static constexpr unsigned sha3_256_rate_bytes_v = 136;  // SHA3-256 rate
+static constexpr unsigned sha3_384_rate_bytes_v = 104;  // SHA3-384 rate
+static constexpr unsigned sha3_512_rate_bytes_v =  72;  // SHA3-512 rate
+
 // Keccak-f[1600] round constants (ι step).
-inline constexpr std::array<uint64_t, 24> keccak_rc = {
+inline constexpr std::array<uint64_t, keccak_num_rounds> keccak_rc = {
     0x0000000000000001ULL, 0x0000000000008082ULL,
     0x800000000000808aULL, 0x8000000080008000ULL,
     0x000000000000808bULL, 0x0000000080000001ULL,
@@ -46,8 +56,8 @@ inline constexpr std::array<uint64_t, 24> keccak_rc = {
 // emits a single ROR instruction on AArch64.
 template<int N>
 static inline uint64_t krotl(uint64_t x) noexcept {
-    static_assert(N > 0 && N < 64);
-    return (x << static_cast<unsigned>(N)) | (x >> static_cast<unsigned>(64 - N));
+    static_assert(N > 0 && N < keccak_lane_bits);
+    return (x << static_cast<unsigned>(N)) | (x >> static_cast<unsigned>(keccak_lane_bits - N));
 }
 
 
@@ -57,7 +67,7 @@ static inline uint64_t krotl(uint64_t x) noexcept {
 // ρ+π is fully unrolled with compile-time rotation constants (one ROR each).
 // χ uses scalar bitwise NOT-AND: a ^ (~b & c).
 [[gnu::target("sha3,neon")]]
-inline void keccak_f1600(std::span<uint64_t, 25> state) noexcept // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+inline void keccak_f1600(std::span<uint64_t, keccak_num_lanes> state) noexcept // NOLINT(cppcoreguidelines-avoid-non-const-global-variables,readability-function-cognitive-complexity,readability-function-size)
 {
     for (const uint64_t rc : keccak_rc) {
 

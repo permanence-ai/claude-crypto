@@ -83,7 +83,7 @@ static inline auto fe521_from_bytes(
     // but we only have 521 bits, so v[8] = bits [520:512] = 9 bits.
     // bits [520:512]: byte index 65-64 = byte 1 has bits [519:512], byte 0 has bit [520].
     // So v[8] = (b[0] << 8) | b[1] truncated to 9 bits.
-    r.v[8] = (static_cast<uint64_t>(b.data()[0]) << 8U) | static_cast<uint64_t>(b.data()[1]);
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
     r.v[8] &= 0x1ffULL;
     return r;
 }
@@ -92,8 +92,8 @@ static inline void fe521_to_bytes(
     const Fe521& a, ByteSpan<p521_scalar_bytes> b) noexcept
 {
     // v[8] holds 9 bits: bits[520:512].  Write as b[0] (bit 520) and b[1] (bits[519:512]).
-    b.data()[0] = static_cast<uint8_t>(a.v[8] >> 8U);
-    b.data()[1] = static_cast<uint8_t>(a.v[8]);
+    b[0] = static_cast<uint8_t>(a.v[8] >> 8U);
+    b[1] = static_cast<uint8_t>(a.v[8]);
     for (int i = 0; i < 8; ++i) {
         uint8_t* p = b.data() + (65 - (i * 8));
         p[0]  = static_cast<uint8_t>(a.v[i]);
@@ -264,7 +264,7 @@ static inline auto fe521_sub(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
 // Then result = lo + hi (mod p), followed by at most one conditional subtract.
 
 [[nodiscard]]
-static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
+static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 { // NOLINT(bugprone-easily-swappable-parameters)
     using u128 = unsigned __int128;
     // Full 9×9 schoolbook multiplication into 18 limbs with row-by-row carry
     // propagation. Accumulating all products into u128 accumulators first
@@ -274,12 +274,12 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     for (int i = 0; i < 9; ++i) {
         u128 carry = 0;
         for (int j = 0; j < 9; ++j) {
-            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             c[i + j] = static_cast<uint64_t>(tt);
             carry = tt >> 64U;
         }
         for (int k = i + 9; k < 18 && carry != 0U; ++k) {
-            const u128 tt = static_cast<u128>(c[k]) + carry;
+            const u128 tt = static_cast<u128>(c[k]) + carry; // NOLINT(cppcoreguidelines-init-variables)
             c[k] = static_cast<uint64_t>(tt);
             carry = tt >> 64U;
         }
@@ -337,7 +337,7 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     s = static_cast<u128>(lo[8]) + hi[8] + (s >> 64U);
     r.v[8] = static_cast<uint64_t>(s);
     // The carry out of bit 520 is at most 1, and wraps back via 2^521 ≡ 1.
-    const uint64_t top_carry = static_cast<uint64_t>(s >> 9U);  // carry out of bit 520
+    const auto top_carry = static_cast<uint64_t>(s >> 9U);  // carry out of bit 520
     // Add top_carry back to r.v[0] (since 2^521 ≡ 1).
     s = static_cast<u128>(r.v[0]) + top_carry;
     r.v[0] = static_cast<uint64_t>(s);

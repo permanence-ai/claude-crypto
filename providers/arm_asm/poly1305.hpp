@@ -64,7 +64,7 @@ static inline auto load_le128(const uint8_t* p) noexcept -> Le128 {
 }
 
 // Store a 16-byte little-endian 128-bit unsigned integer.
-static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept {
+static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     std::memcpy(p,     &lo, 8);
     std::memcpy(p + 8, &hi, 8);
 }
@@ -168,8 +168,8 @@ static inline void poly1305_add_block(Poly1305Limbs& h,
 }
 
 // Final reduction: ensure h < 2^130-5, then compute (h + s) mod 2^128.
-static inline void poly1305_finish(const Poly1305Limbs& h_in,
-                                    CByteSpan<poly1305_tag_bytes> s_bytes,
+static inline void poly1305_finish(const Poly1305Limbs& h_in, // NOLINT(bugprone-easily-swappable-parameters)
+                                    CByteSpan<poly1305_tag_bytes> s_bytes, // NOLINT(bugprone-easily-swappable-parameters)
                                     ByteSpan<poly1305_tag_bytes> tag) noexcept
 {
 
@@ -237,9 +237,9 @@ struct Poly1305Powers {
 [[gnu::target("neon")]]
 static inline void poly1305_process_quad( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     Poly1305Limbs& h,
-    uint64_t m0lo, uint64_t m0hi,
-    uint64_t m1lo, uint64_t m1hi,
-    uint64_t m2lo, uint64_t m2hi,
+    uint64_t m0lo, uint64_t m0hi, // NOLINT(bugprone-easily-swappable-parameters)
+    uint64_t m1lo, uint64_t m1hi, // NOLINT(bugprone-easily-swappable-parameters)
+    uint64_t m2lo, uint64_t m2hi, // NOLINT(bugprone-easily-swappable-parameters)
     uint64_t m3lo, uint64_t m3hi,
     const Poly1305Powers& pw) noexcept
 {
@@ -273,7 +273,7 @@ static inline void poly1305_process_quad( // NOLINT(readability-function-size,re
 [[gnu::target("neon")]]
 static inline void poly1305_process_pair(
     Poly1305Limbs& h,
-    uint64_t m1lo, uint64_t m1hi,
+    uint64_t m1lo, uint64_t m1hi, // NOLINT(bugprone-easily-swappable-parameters)
     uint64_t m2lo, uint64_t m2hi,
     const Poly1305Powers& pw) noexcept
 {
@@ -295,8 +295,8 @@ static inline void poly1305_process_pair(
 // Compute a Poly1305 tag over msg[] using the 32-byte one-time key.
 // key[0..15] = r, key[16..31] = s.
 [[gnu::target("neon")]]
-inline void poly1305_mac(CByteSpan<poly1305_key_bytes> key, const CryptoByte* msg,
-                          std::size_t msg_len, ByteSpan<poly1305_tag_bytes> tag) noexcept
+inline void poly1305_mac(CByteSpan<poly1305_key_bytes> key, const CryptoByte* msg, // NOLINT(bugprone-easily-swappable-parameters)
+                          std::size_t msg_len, ByteSpan<poly1305_tag_bytes> tag) noexcept // NOLINT(bugprone-easily-swappable-parameters)
 {
 
     const Poly1305Limbs r   = clamp_r(CByteSpan<poly1305_tag_bytes>{key.data(), poly1305_tag_bytes});

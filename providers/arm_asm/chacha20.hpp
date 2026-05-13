@@ -94,7 +94,7 @@ static inline void store_le32(uint8_t* p, uint32_t v) noexcept {
 // Produce one 64-byte ChaCha20 keystream block into out[64].
 // key: 32 bytes, counter: block counter (1-based for message), nonce: 12 bytes.
 [[gnu::target("neon")]]
-inline void chacha20_block(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter,
+inline void chacha20_block(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter, // NOLINT(bugprone-easily-swappable-parameters)
                             CByteSpan<chacha20_poly1305_nonce_bytes> nonce, ByteSpan<chacha20_block_bytes> out) noexcept
 {
 
@@ -223,7 +223,7 @@ static inline void chacha20_transpose4( // NOLINT(readability-function-size,read
 // already in registers, saving 16 NEON registers vs. an explicit save.
 [[gnu::target("neon")]]
 static inline void chacha20_xor4( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    CByteSpan<chacha20_key_size_bytes> key, uint32_t counter,
+    CByteSpan<chacha20_key_size_bytes> key, uint32_t counter, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
     const uint8_t* in, uint8_t* out) noexcept
 {
@@ -348,7 +348,7 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size,readabilit
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
 [[gnu::target("neon")]]
-inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter_start,
+inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter_start, // NOLINT(bugprone-easily-swappable-parameters)
                             CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
                             const uint8_t* in, uint8_t* out, std::size_t len) noexcept
 {
@@ -392,7 +392,7 @@ inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t coun
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
 [[gnu::target("neon")]]
-inline void chacha20_poly1305_key(CByteSpan<chacha20_key_size_bytes> key,
+inline void chacha20_poly1305_key(CByteSpan<chacha20_key_size_bytes> key, // NOLINT(bugprone-easily-swappable-parameters)
                                    CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
                                    ByteSpan<poly1305_key_bytes> otk) noexcept
 {

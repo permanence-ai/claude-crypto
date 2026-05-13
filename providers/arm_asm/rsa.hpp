@@ -128,11 +128,11 @@ inline void rsa_key_store_destroy(unsigned int id) noexcept {
 // Unsupported sizes return false.
 template<typename Fn>
 [[nodiscard]]
-inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept {
+inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept { // NOLINT(cppcoreguidelines-missing-std-forward)
     switch (bits) {
-        case 2048U: return std::forward<Fn>(fn).template operator()<32U>();
-        case 3072U: return std::forward<Fn>(fn).template operator()<48U>();
-        case 4096U: return std::forward<Fn>(fn).template operator()<64U>();
+        case rsa_2048_bits: return fn.template operator()<rsa_2048_bits / uint64_bits>();
+        case rsa_3072_bits: return fn.template operator()<rsa_3072_bits / uint64_bits>();
+        case rsa_max_key_bits: return fn.template operator()<rsa_max_key_bits / uint64_bits>();
         default: return false;
     }
 }
@@ -140,12 +140,12 @@ inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept {
 // 1024-bit (NW=16) supported for tests, plus 2048/3072/4096.
 template<typename Fn>
 [[nodiscard]]
-inline bool rsa_dispatch_all(std::size_t bits, Fn&& fn) noexcept {
+inline bool rsa_dispatch_all(std::size_t bits, Fn&& fn) noexcept { // NOLINT(cppcoreguidelines-missing-std-forward)
     switch (bits) {
-        case 1024U: return std::forward<Fn>(fn).template operator()<16U>();
-        case 2048U: return std::forward<Fn>(fn).template operator()<32U>();
-        case 3072U: return std::forward<Fn>(fn).template operator()<48U>();
-        case 4096U: return std::forward<Fn>(fn).template operator()<64U>();
+        case rsa_1024_bits: return fn.template operator()<rsa_1024_bits / uint64_bits>();
+        case rsa_2048_bits: return fn.template operator()<rsa_2048_bits / uint64_bits>();
+        case rsa_3072_bits: return fn.template operator()<rsa_3072_bits / uint64_bits>();
+        case rsa_max_key_bits: return fn.template operator()<rsa_max_key_bits / uint64_bits>();
         default: return false;
     }
 }
@@ -194,7 +194,7 @@ inline bool rsa_oaep_encrypt( // NOLINT(readability-function-cognitive-complexit
     RsaPublicKeyComponents pub{};
     if (!rsa_parse_public_key_der(pub_der, pub_len, pub)) { return false; }
 
-    const std::size_t k = bits / 8U;
+    const std::size_t k = bits / bits_per_byte;
     if (ct_max < k) { return false; }
     if (pub.n_len != k) { return false; }  // modulus must match declared key size
 
@@ -226,12 +226,12 @@ inline bool rsa_oaep_decrypt( // NOLINT(readability-function-cognitive-complexit
     const CryptoByte* label, std::size_t label_len,
     CryptoByte* pt_out, std::size_t pt_max, std::size_t* pt_len) noexcept
 {
-    if (ct_len != bits / 8U) { return false; }
+    if (ct_len != bits / bits_per_byte) { return false; }
 
     RsaPrivateKeyComponents priv{};
     if (!rsa_parse_private_key_der(priv_der, priv_len, priv)) { return false; }
 
-    const std::size_t k = bits / 8U;
+    const std::size_t k = bits / bits_per_byte;
 
     FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};
 
@@ -262,7 +262,7 @@ inline bool rsa_pss_sign( // NOLINT(readability-function-cognitive-complexity,re
     const CryptoByte* msg, std::size_t msg_len,
     CryptoByte* sig_out, std::size_t sig_max, std::size_t* sig_len) noexcept
 {
-    const std::size_t k = bits / 8U;
+    const std::size_t k = bits / bits_per_byte;
     if (sig_max < k) { return false; }
 
     RsaPrivateKeyComponents priv{};
@@ -301,11 +301,11 @@ inline bool rsa_pss_verify( // NOLINT(readability-function-cognitive-complexity,
     const CryptoByte* msg, std::size_t msg_len,
     const CryptoByte* sig, std::size_t sig_len) noexcept
 {
-    if (sig_len != bits / 8U) { return false; }
+    if (sig_len != bits / bits_per_byte) { return false; }
 
     RsaPublicKeyComponents pub{};
     if (!rsa_parse_public_key_der(pub_der, pub_len, pub)) { return false; }
-    if (pub.n_len != bits / 8U) { return false; }  // modulus must match declared key size
+    if (pub.n_len != bits / bits_per_byte) { return false; }  // modulus must match declared key size
 
     FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};
 

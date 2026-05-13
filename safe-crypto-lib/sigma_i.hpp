@@ -294,7 +294,7 @@ inline auto sigma_i_deserialize_bundle(const SecureBuffer& plaintext)
 template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const SecureBuffer& key,
+    const SecureBuffer& key, // NOLINT(bugprone-easily-swappable-parameters)
     const SecureBuffer& plaintext)
     -> std::expected<SigmaIBundle, CryptoError>
 {

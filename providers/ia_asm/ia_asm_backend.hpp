@@ -86,7 +86,7 @@ struct IaAsmBackend {
 
     [[nodiscard]]
     static Status hash_compute(Algorithm alg, const CryptoByte* input, std::size_t input_len,
-                               CryptoByte* output, std::size_t output_size, std::size_t* output_len)
+                               CryptoByte* output, std::size_t output_size, std::size_t* output_len) // NOLINT(readability-non-const-parameter)
     {
         if (alg == alg_sha(ShaVariant::Sha256)) {
             if (output_size < sha256_size_bytes) { return err_invalid_arg; }
@@ -177,7 +177,7 @@ struct IaAsmBackend {
                     const Fe256 s = p256_scalar_from_bytes32(std::span<const CryptoByte, p256_scalar_bytes>{sk.data(), p256_scalar_bytes});
                     if (!p256_scalar_is_zero(s)) {
                         fe256_to_bytes(s, std::span<CryptoByte, p256_scalar_bytes>{sk.data(), p256_scalar_bytes});
-                        const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len);
+                        const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
                         return ok;
@@ -193,7 +193,7 @@ struct IaAsmBackend {
                     const Fe384 s = p384_scalar_from_bytes48(std::span<const CryptoByte, p384_scalar_bytes>{sk.data(), p384_scalar_bytes});
                     if (!p384_scalar_is_zero(s)) {
                         fe384_to_bytes(s, std::span<CryptoByte, p384_scalar_bytes>{sk.data(), p384_scalar_bytes});
-                        const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len);
+                        const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
                         return ok;
@@ -209,7 +209,7 @@ struct IaAsmBackend {
                     const Fe521 s = p521_scalar_from_bytes66(std::span<const CryptoByte, p521_scalar_bytes>{sk.data(), p521_scalar_bytes});
                     if (!p521_scalar_is_zero(s)) {
                         fe521_to_bytes(s, std::span<CryptoByte, p521_scalar_bytes>{sk.data(), p521_scalar_bytes});
-                        const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len);
+                        const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
                         return ok;
@@ -429,7 +429,7 @@ struct IaAsmBackend {
     static Status mac_compute(  // NOLINT(readability-function-size)
                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                               const CryptoByte* msg, std::size_t msg_len,
-                              CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
+                              CryptoByte* out, std::size_t out_size, std::size_t* out_len) { // NOLINT(readability-non-const-parameter)
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
         if (!ia_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
@@ -557,7 +557,7 @@ struct IaAsmBackend {
 
     [[nodiscard]]
     static Status sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
-                               KeyId id, Algorithm alg,
+                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                const CryptoByte* msg, std::size_t msg_len,
                                CryptoByte* sig, std::size_t sig_size, std::size_t* sig_len) {
         using namespace arm_asm::detail;
@@ -643,7 +643,7 @@ struct IaAsmBackend {
     }
 
     [[nodiscard]]
-    static Status verify_message(KeyId id, Algorithm alg, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+    static Status verify_message(KeyId id, Algorithm alg, // NOLINT(readability-function-size,readability-function-cognitive-complexity,bugprone-easily-swappable-parameters)
                                  const CryptoByte* msg, std::size_t msg_len,
                                  const CryptoByte* sig, std::size_t sig_len) {
         using namespace arm_asm::detail;
@@ -718,9 +718,9 @@ struct IaAsmBackend {
 
     [[nodiscard]]
     static Status raw_key_agreement(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
-                                    Algorithm alg, KeyId id,
+                                    Algorithm alg, KeyId id, // NOLINT(bugprone-easily-swappable-parameters)
                                     const CryptoByte* peer, std::size_t peer_len,
-                                    CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
+                                    CryptoByte* out, std::size_t out_size, std::size_t* out_len) { // NOLINT(readability-non-const-parameter)
         using namespace arm_asm::detail;
         if (alg != alg_ecdh()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
@@ -785,7 +785,7 @@ struct IaAsmBackend {
 
     [[nodiscard]]
     static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
-                                     KeyId id, Algorithm alg,
+                                     KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                      const CryptoByte* pt, std::size_t pt_len,
                                      const CryptoByte* salt, std::size_t salt_len,
                                      CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -806,7 +806,7 @@ struct IaAsmBackend {
 
     [[nodiscard]]
     static Status asymmetric_decrypt(  // NOLINT(readability-function-size)
-                                     KeyId id, Algorithm alg,
+                                     KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                      const CryptoByte* ct, std::size_t ct_len,
                                      const CryptoByte* salt, std::size_t salt_len,
                                      CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -985,13 +985,13 @@ struct IaAsmBackend {
 
     // SLH-DSA — not yet implemented; all operations return err_invalid_arg.
     [[nodiscard]]
-    static Algorithm alg_slh_dsa(const SlhDsaVariant) noexcept { return 0x0701U; }
+    static Algorithm alg_slh_dsa(const SlhDsaVariant /*v*/) noexcept { return 0x0701U; }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant)     noexcept { return {}; }
+    static KeyAttributes make_slh_dsa_sign_attrs(const SlhDsaVariant /*v*/)     noexcept { return {}; }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant)   noexcept { return {}; }
+    static KeyAttributes make_slh_dsa_verify_attrs(const SlhDsaVariant /*v*/)   noexcept { return {}; }
     [[nodiscard]]
-    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant) noexcept { return {}; }
+    static KeyAttributes make_slh_dsa_generate_attrs(const SlhDsaVariant /*v*/) noexcept { return {}; }
     [[nodiscard]]
     static std::size_t slh_dsa_sign_output_size(const SlhDsaVariant v)          noexcept { return slh_dsa_signature_size(v); }
     [[nodiscard]]
@@ -1075,9 +1075,9 @@ struct IaAsmBackend {
 
     [[nodiscard]]
     static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId id, const Algorithm alg,
-        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
-        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+        const KeyId id, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
+        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,    // NOLINT(readability-non-const-parameter,bugprone-easily-swappable-parameters)
+        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
         if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }
@@ -1104,9 +1104,9 @@ struct IaAsmBackend {
 
     [[nodiscard]]
     static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId id, const Algorithm alg,
+        const KeyId id, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* ciphertext, std::size_t ciphertext_len,
-        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
         if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }

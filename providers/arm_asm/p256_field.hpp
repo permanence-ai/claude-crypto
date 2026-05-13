@@ -219,7 +219,7 @@ static inline auto fe256_neg(const Fe256& a) noexcept -> Fe256 {
 
 // Compute the 512-bit product a × b as 16 × uint32_t words (word 0 = LSW).
 static inline void fe256_mul_raw(
-    std::span<uint32_t, 16> c, const Fe256& a, const Fe256& b) noexcept
+    std::span<uint32_t, 16> c, const Fe256& a, const Fe256& b) noexcept // NOLINT(bugprone-easily-swappable-parameters)
 {
     std::array<uint32_t, 8> a32{};
     std::array<uint32_t, 8> b32{};
@@ -233,7 +233,7 @@ static inline void fe256_mul_raw(
     std::array<u128, 16> tmp{};
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
-            tmp[static_cast<std::size_t>(i + j)] += static_cast<u128>(a32[i]) * b32[j];
+            tmp[static_cast<std::size_t>(i) + static_cast<std::size_t>(j)] += static_cast<u128>(a32[i]) * b32[j];
         }
     }
     uint64_t carry = 0;

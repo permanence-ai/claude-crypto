@@ -44,7 +44,7 @@ struct OpenSslAsymSlot {
 
 inline OpenSslAsymSlot& ossl_asym_slot(std::size_t idx) noexcept {
     static OpenSslAsymSlot slots[ossl_asym_key_store_size]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    return slots[idx];
+    return slots[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 [[nodiscard]]
@@ -112,7 +112,7 @@ enum class OpenSslKeyKind : uint8_t {
 };
 
 struct OpenSslRawSlot {
-    FixedSecureBuffer<ossl_raw_key_max_bytes> data{};
+    FixedSecureBuffer<ossl_raw_key_max_bytes> data{}; // NOLINT(readability-redundant-member-init)
     std::size_t     len{0};
     OpenSslKeyKind  kind{OpenSslKeyKind::None};
     bool            in_use{false};
@@ -120,7 +120,7 @@ struct OpenSslRawSlot {
 
 inline OpenSslRawSlot& ossl_raw_slot(std::size_t idx) noexcept {
     static OpenSslRawSlot slots[ossl_raw_key_store_size]{}; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    return slots[idx];
+    return slots[idx]; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 [[nodiscard]]

@@ -67,7 +67,7 @@ struct PqcKeyView {
 
 inline PqcKeySlot& pqc_key_slot(std::size_t idx) noexcept {
     static PqcKeySlot slots[pqc_key_store_capacity]{};  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
-    return slots[idx];
+    return slots[idx];  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 inline std::mutex& pqc_store_mutex() noexcept {
@@ -121,7 +121,7 @@ inline unsigned int pqc_key_store_import(PqcKeyType type, std::uint8_t variant, 
     if (pub != nullptr && pub_len > 0) {
         std::memcpy(buf + priv_len, pub, pub_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
-    const std::lock_guard<std::mutex> lock{pqc_store_mutex()};
+    const std::scoped_lock lock{pqc_store_mutex()};
     for (std::size_t i = 0; i < pqc_key_store_capacity; ++i) {
         if (!pqc_key_slot(i).in_use) {
             pqc_key_slot(i).data     = buf;
@@ -146,14 +146,14 @@ inline std::optional<PqcKeyView> pqc_key_store_get_private(unsigned int id) noex
         return std::nullopt;
     }
     const std::size_t idx = id - pqc_key_id_base;
-    const std::lock_guard<std::mutex> lock{pqc_store_mutex()};
+    const std::scoped_lock lock{pqc_store_mutex()};
     const PqcKeySlot& s = pqc_key_slot(idx);
     if (!s.in_use || s.priv_len == 0) { return std::nullopt; }
     try {
         SecureBuffer copy{s.priv_len};
         std::memcpy(copy.data(), s.data, s.priv_len);
         return PqcKeyView{.data = std::move(copy), .type = s.type, .variant = s.variant};
-    } catch (...) { return std::nullopt; }
+    } catch (...) { return std::nullopt; }  // NOLINT(bugprone-empty-catch) — allocation failure is an expected noexcept path
 }
 
 // Returns a copy of the public key bytes, or an empty optional on failure.
@@ -163,7 +163,7 @@ inline std::optional<PqcKeyView> pqc_key_store_get_public(unsigned int id) noexc
         return std::nullopt;
     }
     const std::size_t idx = id - pqc_key_id_base;
-    const std::lock_guard<std::mutex> lock{pqc_store_mutex()};
+    const std::scoped_lock lock{pqc_store_mutex()};
     const PqcKeySlot& s = pqc_key_slot(idx);
     if (!s.in_use) { return std::nullopt; }
     const std::size_t pub_len = s.len - s.priv_len;
@@ -172,7 +172,7 @@ inline std::optional<PqcKeyView> pqc_key_store_get_public(unsigned int id) noexc
         SecureBuffer copy{pub_len};
         std::memcpy(copy.data(), s.data + s.priv_len, pub_len);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         return PqcKeyView{.data = std::move(copy), .type = s.type, .variant = s.variant};
-    } catch (...) { return std::nullopt; }
+    } catch (...) { return std::nullopt; }  // NOLINT(bugprone-empty-catch) — allocation failure is an expected noexcept path
 }
 
 [[nodiscard]]
@@ -186,7 +186,7 @@ inline void pqc_key_store_destroy(unsigned int id) noexcept {
     CryptoByte* to_delete = nullptr;
     std::size_t to_delete_len = 0;
     {
-        const std::lock_guard<std::mutex> lock{pqc_store_mutex()};
+        const std::scoped_lock lock{pqc_store_mutex()};
         PqcKeySlot& s = pqc_key_slot(idx);
         to_delete     = s.data;
         to_delete_len = s.len;

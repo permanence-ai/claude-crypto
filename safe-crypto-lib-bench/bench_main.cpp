@@ -37,7 +37,7 @@
 #ifdef SAFE_CRYPTO_PROVIDER_IA_ASM
 #  include "ia_asm_backend.hpp"
 using NativeAsmBackend = IaAsmBackend;
-#elif defined(SAFE_CRYPTO_ARM_ASM_AVAILABLE)
+#elifdef SAFE_CRYPTO_ARM_ASM_AVAILABLE
 #  include "arm_asm_backend.hpp"
 using NativeAsmBackend = ArmAsmBackend;
 #endif
@@ -543,7 +543,7 @@ BENCHMARK_TEMPLATE(BM_RsaPssVerify,   RsaKeyBits::Bits4096, NativeAsmBackend) ->
 // Guarded by SAFE_CRYPTO_PQC_LIBOQS (ARM/PSA) + OpenSslBackend (always).
 // ---------------------------------------------------------------------------
 
-#if defined(SAFE_CRYPTO_PQC_LIBOQS)
+#ifdef SAFE_CRYPTO_PQC_LIBOQS
 
 // ML-DSA keygen
 template<MlDsaVariant V, typename Provider>

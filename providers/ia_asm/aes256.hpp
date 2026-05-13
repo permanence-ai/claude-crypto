@@ -62,10 +62,10 @@ static inline __m128i aes256_keygen_helper2(__m128i key, __m128i keygen_result) 
 inline void aes256_key_expand(std::span<const CryptoByte, aes256_key_size_bytes> key, Aes256Schedule& sched) noexcept
 {
     // Load the two 128-bit halves of the 256-bit key.
-    __m128i k0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key.data()));
-    __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key.data() + 16));
+    __m128i k0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key.data())); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    __m128i k1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(key.data() + 16)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
-    auto* rk = reinterpret_cast<__m128i*>(sched.data());
+    auto* rk = reinterpret_cast<__m128i*>(sched.data()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
     _mm_storeu_si128(rk + 0, k0); // round key 0
     _mm_storeu_si128(rk + 1, k1); // round key 1
@@ -110,7 +110,7 @@ inline void aes256_key_expand(std::span<const CryptoByte, aes256_key_size_bytes>
 [[gnu::target("aes")]]
 inline __m128i aes256_encrypt_block(__m128i block, const Aes256Schedule& sched) noexcept
 {
-    const auto* rk = reinterpret_cast<const __m128i*>(sched.data());
+    const auto* rk = reinterpret_cast<const __m128i*>(sched.data()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 
     block = _mm_xor_si128(block, _mm_loadu_si128(rk + 0));    // AddRoundKey(0)
     block = _mm_aesenc_si128(block, _mm_loadu_si128(rk + 1));  // Round 1

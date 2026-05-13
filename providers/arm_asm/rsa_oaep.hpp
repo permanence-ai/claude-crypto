@@ -56,10 +56,11 @@ inline void mgf1_sha384(
         if (seed_len <= max_seed - 4U) {
             std::memcpy(buf.data(), seed, seed_len);
         }
-        buf[seed_len + 0U] = static_cast<CryptoByte>((counter >> 24U) & 0xFFU);
-        buf[seed_len + 1U] = static_cast<CryptoByte>((counter >> 16U) & 0xFFU);
-        buf[seed_len + 2U] = static_cast<CryptoByte>((counter >>  8U) & 0xFFU);
-        buf[seed_len + 3U] = static_cast<CryptoByte>( counter         & 0xFFU);
+        // I2OSP(counter, 4) — big-endian 32-bit encoding.
+        buf[seed_len + 0U] = static_cast<CryptoByte>((counter >> (3U * bits_per_byte)) & der_ff_byte);
+        buf[seed_len + 1U] = static_cast<CryptoByte>((counter >> (2U * bits_per_byte)) & der_ff_byte);
+        buf[seed_len + 2U] = static_cast<CryptoByte>((counter >>        bits_per_byte)  & der_ff_byte);
+        buf[seed_len + 3U] = static_cast<CryptoByte>( counter                           & der_ff_byte);
 
         ByteArray<oaep_hash_len> hash{};
         sha384(buf.data(), seed_len + 4U, hash);
@@ -85,7 +86,7 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
     const CryptoByte* label, std::size_t label_len,
     const CryptoByte* seed,          // hLen random bytes
     std::size_t       modulus_bytes, // k
-    CryptoByte*       out_em) noexcept
+    CryptoByte*       out_em) noexcept  // NOLINT(readability-non-const-parameter)
 {
     if (modulus_bytes < (2U * oaep_hash_len) + 2U) { return false; }
     const std::size_t db_len = modulus_bytes - oaep_hash_len - 1U;  // k - hLen - 1
@@ -186,15 +187,15 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     uint8_t found = 0U;
     std::size_t msg_start = db_len;  // index into db[] of first message byte
     for (std::size_t i = oaep_hash_len; i < db_len; ++i) {
-        const uint8_t is_one  = static_cast<uint8_t>(static_cast<unsigned>(db[i] == 0x01U) & static_cast<unsigned>(found == 0U));
-        const uint8_t is_zero = static_cast<uint8_t>( db[i] == 0x00U);
+        const auto is_one  = static_cast<uint8_t>(static_cast<unsigned>(db[i] == 0x01U) & static_cast<unsigned>(found == 0U));
+        const auto is_zero = static_cast<uint8_t>( db[i] == 0x00U);
         // If we haven't found 0x01 yet and this byte is not 0x00 and not 0x01: error.
         err |= static_cast<uint8_t>(static_cast<unsigned>(found == 0U) & static_cast<unsigned>(is_zero == 0U) & static_cast<unsigned>(is_one == 0U));
         // Update msg_start in constant-time fashion.
         // When is_one transitions found 0→1, set msg_start = i+1.
         const std::size_t candidate = i + 1U;
         // Use a mask: if is_one, overwrite msg_start.
-        const std::size_t mask = static_cast<std::size_t>(-static_cast<std::ptrdiff_t>(is_one));
+        const auto mask = static_cast<std::size_t>(-static_cast<std::ptrdiff_t>(is_one));
         msg_start = (candidate & mask) | (msg_start & ~mask);
         found |= is_one;
     }

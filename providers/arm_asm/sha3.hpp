@@ -42,13 +42,13 @@ constexpr std::size_t sha3_max_rate_bytes = 136;
 // buffer sized to the maximum rate (SHA3-256, 136 bytes), and state metadata.
 struct Sha3Ctx {
     // NOLINT(misc-non-private-member-variables-in-classes) — plain aggregate.
-    std::array<uint64_t, 25> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
+    std::array<uint64_t, keccak_num_lanes> state{}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::array<uint8_t, sha3_max_rate_bytes> buf{}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t rate_bytes{0}; // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t out_bytes{0};  // NOLINT(misc-non-private-member-variables-in-classes)
     std::size_t buf_used{0};   // NOLINT(misc-non-private-member-variables-in-classes)
 
-    void init(std::size_t rate, std::size_t out) noexcept {
+    void init(std::size_t rate, std::size_t out) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
         state.fill(0);
         buf.fill(0);
         rate_bytes = rate;
@@ -107,31 +107,31 @@ private:
 
 
 // SHA3-256: rate=136, out=32
-inline void sha3_256(const CryptoByte* msg, std::size_t msg_len,
+inline void sha3_256(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                      ByteSpan<sha256_digest_bytes> out) noexcept
 {
     Sha3Ctx ctx;
-    ctx.init(136, sha256_digest_bytes);
+    ctx.init(sha3_256_rate_bytes_v, sha256_digest_bytes);
     ctx.update(msg, msg_len);
     ctx.finish(out.data());
 }
 
 // SHA3-384: rate=104, out=48
-inline void sha3_384(const CryptoByte* msg, std::size_t msg_len,
+inline void sha3_384(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                      ByteSpan<sha384_digest_bytes> out) noexcept
 {
     Sha3Ctx ctx;
-    ctx.init(104, sha384_digest_bytes);
+    ctx.init(sha3_384_rate_bytes_v, sha384_digest_bytes);
     ctx.update(msg, msg_len);
     ctx.finish(out.data());
 }
 
 // SHA3-512: rate=72, out=64
-inline void sha3_512(const CryptoByte* msg, std::size_t msg_len,
+inline void sha3_512(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                      ByteSpan<sha512_digest_bytes> out) noexcept
 {
     Sha3Ctx ctx;
-    ctx.init(72, sha512_digest_bytes);
+    ctx.init(sha3_512_rate_bytes_v, sha512_digest_bytes);
     ctx.update(msg, msg_len);
     ctx.finish(out.data());
 }

@@ -45,7 +45,7 @@ inline bool pss_encode(
     const CryptoByte* msg,     std::size_t msg_len,
     const CryptoByte* salt,              // hLen random bytes
     std::size_t       modulus_bits,
-    CryptoByte*       out_em) noexcept
+    CryptoByte*       out_em) noexcept  // NOLINT(readability-non-const-parameter)
 {
     const std::size_t em_bits = modulus_bits - 1U;
     const std::size_t em_len  = (em_bits + 7U) / 8U;
@@ -84,14 +84,14 @@ inline bool pss_encode(
     // Zero the top (8*emLen - emBits) bits of maskedDB[0].
     const std::size_t top_bits = (8U * em_len) - em_bits;
     if (top_bits > 0U) {
-        out_em[0] &= static_cast<CryptoByte>(0xFFU >> top_bits);
+        out_em[0] &= static_cast<CryptoByte>(der_ff_byte >> top_bits);
     }
 
     // Append H and 0xBC.
     CryptoByte* out_h  = out_em + db_len;
     CryptoByte* out_bc = out_em + db_len + oaep_hash_len;
     std::memcpy(out_h, h.data(), oaep_hash_len);
-    *out_bc = 0xBCU;
+    *out_bc = rsa_pss_trailer;
 
     return true;
 }
@@ -118,14 +118,14 @@ inline bool pss_verify(
     const std::size_t db_len = em_len - oaep_hash_len - 1U;
 
     // Check trailing 0xBC.
-    if (em[em_len - 1U] != 0xBCU) { return false; }
+    if (em[em_len - 1U] != rsa_pss_trailer) { return false; }
 
     const CryptoByte* masked_db = em;
     const CryptoByte* h         = em + db_len;
 
     // Check top bits of maskedDB[0] are zero.
     const std::size_t top_bits = (8U * em_len) - em_bits;
-    const uint8_t top_mask = static_cast<uint8_t>(0xFFU << (8U - top_bits));
+    const auto top_mask = static_cast<uint8_t>(der_ff_byte << (bits_per_byte - top_bits));
     if ((masked_db[0] & top_mask) != 0U) { return false; }
 
     // DB = maskedDB XOR MGF1(H, db_len).
@@ -138,7 +138,7 @@ inline bool pss_verify(
 
     // Zero the top bits of DB[0].
     if (top_bits > 0U) {
-        db[0] &= static_cast<uint8_t>(0xFFU >> top_bits);
+        db[0] &= static_cast<uint8_t>(0xFFU >> top_bits);  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     }
 
     // Constant-time checks (accumulate error bits).

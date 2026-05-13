@@ -56,9 +56,9 @@ static inline void gcm_inc_counter(ByteSpan<aes_gcm_tag_bytes> ctr) noexcept {
 // ctr[] is updated to the counter value after the last full block used.
 [[gnu::target("aes,neon")]]
 static inline void gcm_ctr_crypt(
-    const CryptoByte* in,
-    CryptoByte* out,
-    std::size_t len,
+    const CryptoByte* in, // NOLINT(bugprone-easily-swappable-parameters)
+    CryptoByte* out, // NOLINT(readability-non-const-parameter)
+    std::size_t len, // NOLINT(bugprone-easily-swappable-parameters)
     ByteSpan<aes_gcm_tag_bytes> ctr,
     const Aes256Schedule& sched) noexcept
 {
@@ -80,7 +80,6 @@ static inline void gcm_ctr_crypt(
         ByteArray<aes_gcm_tag_bytes> ks_bytes{};
         vst1q_u8(ks_bytes.data(), ks);
         for (std::size_t i = 0; offset + i < len; ++i) {
-
             out[offset + i] = static_cast<CryptoByte>(in[offset + i] ^ ks_bytes[i]);
         }
     }
@@ -89,13 +88,13 @@ static inline void gcm_ctr_crypt(
 
 // Build the GHASH length block: [len(AAD) in bits BE 64] ‖ [len(C) in bits BE 64].
 static inline void gcm_length_block(
-    uint64_t aad_len,
+    uint64_t aad_len, // NOLINT(bugprone-easily-swappable-parameters)
     uint64_t ct_len,
     ByteSpan<aes_gcm_tag_bytes> out) noexcept
 {
 
-    const uint64_t aad_bits = std::byteswap(aad_len * 8U);
-    const uint64_t ct_bits  = std::byteswap(ct_len  * 8U);
+    const uint64_t aad_bits = std::byteswap(aad_len * 8U); // NOLINT(cppcoreguidelines-init-variables)
+    const uint64_t ct_bits  = std::byteswap(ct_len  * 8U);  // NOLINT(cppcoreguidelines-init-variables)
     std::memcpy(out.data(),     &aad_bits, 8);
     std::memcpy(out.data() + 8, &ct_bits,  8);
 }
@@ -107,10 +106,10 @@ static inline void gcm_length_block(
 //   tag     = GHASH_H(aad_padded ‖ ct_padded ‖ len_block) XOR E_J0
 [[gnu::target("aes,neon")]]
 static inline void gcm_compute_tag( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    const CryptoByte*    aad,
+    const CryptoByte*    aad, // NOLINT(bugprone-easily-swappable-parameters)
     std::size_t          aad_len,
     const CryptoByte*    ct,
-    std::size_t          ct_len,
+    std::size_t          ct_len, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<aes_gcm_tag_bytes> E_J0,
     const Aes256Schedule& sched,
     ByteSpan<aes_gcm_tag_bytes> tag_out) noexcept
@@ -172,7 +171,7 @@ static inline void gcm_compute_tag( // NOLINT(readability-function-size,readabil
 //   out      : must hold pt_len + 16 bytes (ciphertext + tag)
 [[gnu::target("aes,neon")]]
 inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    const CryptoByte* key,
+    const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* iv,
     const CryptoByte* aad,
     std::size_t       aad_len,
@@ -207,7 +206,7 @@ inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-
 //   Returns true on successful tag verification; if false, out is zeroed.
 [[gnu::target("aes,neon")]]
 inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    const CryptoByte* key,
+    const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* iv,
     const CryptoByte* aad,
     std::size_t       aad_len,

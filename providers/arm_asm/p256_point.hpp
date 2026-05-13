@@ -382,7 +382,7 @@ static inline auto p256_G_table_select(unsigned nibble) noexcept -> P256AffinePo
 {
     P256AffinePoint r = p256_G_table[0];
     for (unsigned i = 1; i < 15U; ++i) {
-        const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
+        const uint64_t mask = 0U - static_cast<uint64_t>((i + 1U == nibble) ? 1U : 0U);
         for (int j = 0; j < 4; ++j) {
             r.X.v[j] = (p256_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask);
             r.Y.v[j] = (p256_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask);
@@ -418,7 +418,7 @@ static inline auto p256_point_double_ct(const P256Point& p) noexcept -> P256Poin
         return P256Point{.X = x3, .Y = y3, .Z = z3};
     }();
     // If p is identity (Z==0), return identity; otherwise return doubled.
-    const uint64_t is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
     return p256_point_ct_select(p256_identity, doubled, is_identity);
 }
 
@@ -445,7 +445,7 @@ static inline auto p256_point_add_affine_ct(const P256Point& p, const P256Affine
     }();
     // If p is identity (Z==0), return q as Jacobian with Z=1.
     const P256Point q_jac{.X = q.X, .Y = q.Y, .Z = fe256_one};
-    const uint64_t is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
+    const auto is_identity = static_cast<uint64_t>(fe256_is_zero(p.Z));
     return p256_point_ct_select(q_jac, added, is_identity);
 }
 
@@ -474,8 +474,7 @@ static inline auto p256_scalar_mul_base(
             result = p256_point_double_ct(result);
             result = p256_point_double_ct(result);
 
-            const auto nibble = static_cast<unsigned>(
-                (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
+            const unsigned nibble = (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU);
 
             // CT table lookup; CT add; CT-select based on nibble == 0.
             const P256AffinePoint tab = p256_G_table_select(nibble);
@@ -561,7 +560,7 @@ static inline auto p256_scalar_from_bytes64(
     std::array<uint32_t, 16> w{};
     for (int i = 0; i < 16; ++i) {
         const int j = 15 - i;
-        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(j)) * 4);
+        const uint8_t* p = b.data() + (static_cast<std::ptrdiff_t>(j) * 4);
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -584,7 +583,7 @@ static inline auto p256_scalar_from_bytes64(
     // Reduce top 4 limbs (acc[4..7]) by replacing 2^256 = n + (2^256 - n).
     // At each step: acc -= (acc >> 256) * n, working 64 bits at a time.
     for (int step = 3; step >= 0; --step) {
-        const uint64_t hi = acc[step + 4];
+        const uint64_t hi = acc[step + 4]; // NOLINT(cppcoreguidelines-init-variables)
         if (hi == 0U) { continue; }
         acc[step + 4] = 0;
         // Subtract hi * n from acc[step..step+4].
@@ -592,7 +591,7 @@ static inline auto p256_scalar_from_bytes64(
         int64_t borrow = 0;
         for (int i = 0; i < 4; ++i) {
             const auto prod = static_cast<u128>(hi) * p256_n[i];
-            const int64_t diff = static_cast<int64_t>(acc[step + i])
+            const int64_t diff = static_cast<int64_t>(acc[step + i]) // NOLINT(cppcoreguidelines-init-variables)
                 - static_cast<int64_t>(static_cast<uint64_t>(prod)) + borrow;
             acc[step + i] = static_cast<uint64_t>(diff);
             borrow = -(static_cast<int64_t>(prod >> 64U) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
@@ -681,7 +680,7 @@ static inline auto p256_scalar_add(
     r.v[2] = static_cast<uint64_t>(t);
     t = static_cast<u128>(a.v[3]) + b.v[3] + (t >> 64U);
     r.v[3] = static_cast<uint64_t>(t);
-    const uint64_t overflow = static_cast<uint64_t>(t >> 64U);
+    const auto overflow = static_cast<uint64_t>(t >> 64U);
 
     // Subtract n if r >= n or overflowed.
     Fe256 sub{};
@@ -710,7 +709,7 @@ static inline auto p256_scalar_add(
 // Montgomery multiplication CIOS: compute a*b*R^{-1} mod n, R = 2^256.
 // n_prime = -n[0]^{-1} mod 2^64 = 0xccd1c8aaee00bc4f.
 [[nodiscard]]
-static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> Fe256
+static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> Fe256 // NOLINT(bugprone-easily-swappable-parameters)
 {
     using u128 = unsigned __int128;
     constexpr int s = 4;
@@ -721,16 +720,16 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
         // Step 1: t += a[i] * b
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
-            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
         }
-        u128 tt = static_cast<u128>(t[s]) + carry;
+        u128 tt = static_cast<u128>(t[s]) + carry; // NOLINT(cppcoreguidelines-init-variables)
         t[s]     = static_cast<uint64_t>(tt);
         t[s + 1] = static_cast<uint64_t>(tt >> 64U);
 
         // Step 2: Montgomery reduction step.
-        const uint64_t m = t[0] * n_prime;
+        const uint64_t m = t[0] * n_prime; // NOLINT(cppcoreguidelines-init-variables)
         tt = (static_cast<u128>(m) * p256_n[0]) + t[0];
         carry = static_cast<uint64_t>(tt >> 64U);
         for (int j = 1; j < s; ++j) {
@@ -747,7 +746,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
     }
 
     const Fe256 r{{t[0], t[1], t[2], t[3]}};
-    const uint64_t overflow = t[s];
+    const uint64_t overflow = t[s]; // NOLINT(cppcoreguidelines-init-variables)
 
     // Conditional subtract n.
     Fe256 sub{};
@@ -778,7 +777,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
 // R^2 mod n = 0x66e12d94f3d956202845b2392b6bec594699799c49bd6fa683244c95be79eea2
 [[nodiscard]]
 static inline auto p256_scalar_mul_mod_n(
-    const Fe256& a, const Fe256& b) noexcept -> Fe256
+    const Fe256& a, const Fe256& b) noexcept -> Fe256 // NOLINT(bugprone-easily-swappable-parameters)
 {
     static constexpr Fe256 r2_mod_n = {{
         0x83244c95be79eea2ULL,
@@ -865,7 +864,7 @@ static inline auto p256_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p256_compute_public_key(
-    CByteSpan<p256_scalar_bytes> private_scalar_be,
+    CByteSpan<p256_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     ByteSpan<p256_public_key_bytes> public_key_uncompressed) noexcept
 {
     const P256Point pub = p256_to_affine(p256_scalar_mul_base(private_scalar_be));

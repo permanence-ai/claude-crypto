@@ -66,7 +66,7 @@ inline BigInt<NW> bigint_shr1(const BigInt<NW>& a) noexcept {
     BigInt<NW> r{};
     uint64_t carry = 0;
     for (std::size_t i = NW; i-- > 0U; ) {
-        r.d[i] = (a.d[i] >> 1U) | (carry << 63U);
+        r.d[i] = (a.d[i] >> 1U) | (carry << (uint64_bits - 1U));
         carry = a.d[i] & 1U;
     }
     return r;
@@ -104,10 +104,10 @@ template<std::size_t NW>
 inline uint64_t bigint_mod_small(const BigInt<NW>& a, uint64_t d) noexcept {
     __uint128_t rem = 0;
     for (std::size_t i = NW; i-- > 0U; ) {
-        const __uint128_t val = (rem << 64U) | a.d[i];
+        const __uint128_t val = (rem << uint64_bits) | a.d[i];  // NOLINT(cppcoreguidelines-init-variables)
         rem = val % d;
     }
-    return static_cast<uint64_t>(rem);
+    return static_cast<uint64_t>(rem); // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
 }
 
 
@@ -117,7 +117,7 @@ inline uint64_t bigint_mod_small(const BigInt<NW>& a, uint64_t d) noexcept {
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline uint64_t small_modinv_u64(uint64_t a, uint64_t p) noexcept {
+inline uint64_t small_modinv_u64(uint64_t a, uint64_t p) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     // Fermat: a^{p-2} mod p (p is prime).
     if (a == 0U) { return 0U; }
     uint64_t result = 1U;
@@ -174,12 +174,12 @@ inline BigInt<NW> small_e_modinv(const BigInt<NW>& m) noexcept {
     uint64_t rem = 0U;
     {
         // Process the extra high limb (num[NW]).
-        const __uint128_t val = (static_cast<__uint128_t>(rem) << 64U) | num[NW];
+        const __uint128_t val = (static_cast<__uint128_t>(rem) << uint64_bits) | num[NW];  // NOLINT(cppcoreguidelines-init-variables)
         rem = static_cast<uint64_t>(val % e);
         // The quotient for this position would go in d[NW], but d < m < 2^(64*NW), so it's 0.
     }
     for (std::size_t i = NW; i-- > 0U; ) {
-        const __uint128_t val = (static_cast<__uint128_t>(rem) << 64U) | num[i];
+        const __uint128_t val = (static_cast<__uint128_t>(rem) << uint64_bits) | num[i];  // NOLINT(cppcoreguidelines-init-variables)
         d.d[i] = static_cast<uint64_t>(val / e);
         rem = static_cast<uint64_t>(val % e);
     }
@@ -225,9 +225,9 @@ inline bool miller_rabin_is_prime(const BigInt<NW>& n, unsigned int rounds) noex
         while (top_limb > 0U && n.d[top_limb] == 0U) { --top_limb; }
         const uint64_t top_val = n.d[top_limb];
         // Build a mask with all bits set up to and including the highest bit of top_val.
-        std::size_t bit_pos = 63U;
+        std::size_t bit_pos = uint64_bits - 1U;
         while (bit_pos > 0U && ((top_val >> bit_pos) & 1U) == 0U) { --bit_pos; }
-        const uint64_t top_mask = (bit_pos == 63U) ? UINT64_MAX : ((UINT64_C(1) << (bit_pos + 1U)) - 1U);
+        const uint64_t top_mask = (bit_pos == uint64_bits - 1U) ? UINT64_MAX : ((UINT64_C(1) << (bit_pos + 1U)) - 1U);
 
         // Zero out limbs above top_limb; mask the top limb.
         for (std::size_t i = top_limb + 1U; i < NW; ++i) { a.d[i] = 0U; }
@@ -274,7 +274,7 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
     for (;;) {
         ByteArray<NW * 8U> buf{};
         generate_random_bytes(buf.data(), byte_len);
-        buf[0] |= 0xC0U;                     // set top two bits (correct length, not too small)
+        buf[0] |= rsa_top_two_bits;           // set top two bits (correct length, not too small)
         buf[byte_len - 1U] |= 0x01U;          // ensure odd
 
         const BigInt<NW> candidate = bigint_from_bytes<NW>(buf.data(), byte_len);
@@ -310,14 +310,14 @@ inline BigInt<NW> generate_prime(std::size_t prime_bits) noexcept {
 // is 512 bytes, so len never reaches the 3-byte encoding threshold (0x10000).
 inline std::size_t der_write_length(std::size_t len, CryptoByte* buf) noexcept {
     CryptoByte* w = buf; // NOLINT(misc-const-correctness)
-    if (len < 0x80U) {
+    if (len < der_msb_flag) {
         *w++ = static_cast<CryptoByte>(len);
-    } else if (len < 0x100U) {
-        *w++ = 0x81U; *w++ = static_cast<CryptoByte>(len);
+    } else if (len < der_one_byte_limit) {
+        *w++ = der_one_byte_len; *w++ = static_cast<CryptoByte>(len);
     } else {
-        *w++ = 0x82U;
-        *w++ = static_cast<CryptoByte>(len >> 8U);
-        *w++ = static_cast<CryptoByte>(len & 0xFFU);
+        *w++ = der_two_byte_len;
+        *w++ = static_cast<CryptoByte>(len >> bits_per_byte);
+        *w++ = static_cast<CryptoByte>(len & der_ff_byte);
     }
     return static_cast<std::size_t>(w - buf);
 }
@@ -340,7 +340,7 @@ inline std::size_t der_encode_integer(
     const CryptoByte* v = src + start;
     const std::size_t v_len = meaningful_bytes - start;
 
-    const bool needs_pad = (v[0] & 0x80U) != 0U;
+    const bool needs_pad = (v[0] & der_msb_flag) != 0U;
     const std::size_t content = v_len + (needs_pad ? 1U : 0U);
 
     CryptoByte* w = out;
@@ -407,7 +407,7 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
                 const __uint128_t prod = (static_cast<__uint128_t>(p.d[i]) * q.d[j])
                                        + n.d[i + j] + carry;
                 n.d[i + j] = static_cast<uint64_t>(prod);
-                carry = static_cast<uint64_t>(prod >> 64U);
+                carry = static_cast<uint64_t>(prod >> uint64_bits);
             }
             n.d[i + HW] += carry;
         }
@@ -421,7 +421,7 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
                 const __uint128_t prod = (static_cast<__uint128_t>(p1.d[i]) * q1.d[j])
                                        + phi.d[i + j] + carry;
                 phi.d[i + j] = static_cast<uint64_t>(prod);
-                carry = static_cast<uint64_t>(prod >> 64U);
+                carry = static_cast<uint64_t>(prod >> uint64_bits);
             }
             phi.d[i + HW] += carry;
         }
@@ -466,7 +466,11 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
         body_len += der_encode_integer(d, mod_bytes, body + body_len);
 
         // Promote HW → NW for p, q, dp, dq, qinv.
-        BigInt<NW> p_nw{}, q_nw{}, dp_nw{}, dq_nw{}, qinv_nw{};
+        BigInt<NW> p_nw{};
+        BigInt<NW> q_nw{};
+        BigInt<NW> dp_nw{};
+        BigInt<NW> dq_nw{};
+        BigInt<NW> qinv_nw{};
         for (std::size_t i = 0; i < HW; ++i) {
             p_nw.d[i]    = p.d[i];
             q_nw.d[i]    = q.d[i];
@@ -483,8 +487,8 @@ inline bool rsa_generate_key_der( // NOLINT(readability-function-size,readabilit
 
         // Write SEQUENCE header into the reserved hdr_reserve bytes.
         ByteArray<5> hdr{};
-        hdr[0] = 0x30U;
-        const std::size_t len_bytes = der_write_length(body_len, hdr.data() + 1U);
+        hdr[0] = der_sequence_tag;
+        const std::size_t len_bytes = der_write_length(body_len, hdr.data() + 1U);  // NOLINT(cppcoreguidelines-init-variables)
         const std::size_t hdr_len = 1U + len_bytes;
         if (hdr_len > hdr_reserve) { return false; }  // shouldn't happen
 

@@ -258,9 +258,18 @@ static inline auto fe384_solinas(
     using u128 = unsigned __int128;
 
     // Precast to u128 to avoid 32×32 multiplication staying in 32-bit.
-    const u128 c12 = c[12], c13 = c[13], c14 = c[14], c15 = c[15];
-    const u128 c16 = c[16], c17 = c[17], c18 = c[18], c19 = c[19];
-    const u128 c20 = c[20], c21 = c[21], c22 = c[22], c23 = c[23];
+    const u128 c12 = c[12];
+    const u128 c13 = c[13];
+    const u128 c14 = c[14];
+    const u128 c15 = c[15];
+    const u128 c16 = c[16];
+    const u128 c17 = c[17];
+    const u128 c18 = c[18];
+    const u128 c19 = c[19];
+    const u128 c20 = c[20];
+    const u128 c21 = c[21];
+    const u128 c22 = c[22];
+    const u128 c23 = c[23];
 
     // Unsigned per-word accumulation (W^k mod p384 words derived from field polynomial).
     // W^22[0]=0xFFFFFFFF, W^23[0]=0xFFFFFFFF contribute (W-1)*c[k] to word 0.
@@ -331,7 +340,7 @@ static inline auto fe384_solinas(
 }
 
 [[nodiscard]]
-static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
+static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 { // NOLINT(bugprone-easily-swappable-parameters)
     using u128 = unsigned __int128;
 
     // 6×6 row-by-row multiply: 36 u64×u64 multiply-accumulates vs the old 12×12=144 u32 ones.
@@ -340,7 +349,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
     for (int i = 0; i < 6; ++i) {
         uint64_t carry = 0;
         for (int j = 0; j < 6; ++j) {
-            const u128 t = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry;
+            const u128 t = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             c[i + j] = static_cast<uint64_t>(t);
             carry    = static_cast<uint64_t>(t >> 64U);
         }
