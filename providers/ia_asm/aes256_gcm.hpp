@@ -40,9 +40,9 @@ static inline void gcm_inc_counter(std::span<CryptoByte, aes_gcm_tag_bytes> ctr)
 // AES-CTR keystream starting at counter block ctr[].
 [[gnu::target("aes,ssse3")]]
 static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
-    const CryptoByte* in, // NOLINT(bugprone-easily-swappable-parameters)
-    CryptoByte* out,
-    std::size_t len,
+    const CryptoByte* in,  // NOLINT(bugprone-easily-swappable-parameters)
+    CryptoByte* out,       // NOLINT(bugprone-easily-swappable-parameters)
+    std::size_t len,       // NOLINT(bugprone-easily-swappable-parameters)
     std::span<CryptoByte, aes_gcm_tag_bytes> ctr,
     const Aes256Schedule& sched) noexcept
 {
