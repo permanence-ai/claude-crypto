@@ -57,7 +57,7 @@ static inline void gcm_inc_counter(ByteSpan<aes_gcm_tag_bytes> ctr) noexcept {
 [[gnu::target("aes,neon")]]
 static inline void gcm_ctr_crypt(
     const CryptoByte* in, // NOLINT(bugprone-easily-swappable-parameters)
-    CryptoByte* out,
+    CryptoByte* out, // NOLINT(readability-non-const-parameter)
     std::size_t len, // NOLINT(bugprone-easily-swappable-parameters)
     ByteSpan<aes_gcm_tag_bytes> ctr,
     const Aes256Schedule& sched) noexcept
@@ -93,8 +93,8 @@ static inline void gcm_length_block(
     ByteSpan<aes_gcm_tag_bytes> out) noexcept
 {
 
-    const uint64_t aad_bits = std::byteswap(aad_len * 8U);
-    const uint64_t ct_bits  = std::byteswap(ct_len  * 8U);
+    const uint64_t aad_bits = std::byteswap(aad_len * 8U); // NOLINT(cppcoreguidelines-init-variables)
+    const uint64_t ct_bits  = std::byteswap(ct_len  * 8U);  // NOLINT(cppcoreguidelines-init-variables)
     std::memcpy(out.data(),     &aad_bits, 8);
     std::memcpy(out.data() + 8, &ct_bits,  8);
 }

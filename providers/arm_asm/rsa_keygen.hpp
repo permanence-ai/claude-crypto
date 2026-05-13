@@ -107,7 +107,7 @@ inline uint64_t bigint_mod_small(const BigInt<NW>& a, uint64_t d) noexcept {
         const __uint128_t val = (rem << uint64_bits) | a.d[i];  // NOLINT(cppcoreguidelines-init-variables)
         rem = val % d;
     }
-    return static_cast<uint64_t>(rem);
+    return static_cast<uint64_t>(rem); // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
 }
 
 
@@ -117,7 +117,7 @@ inline uint64_t bigint_mod_small(const BigInt<NW>& a, uint64_t d) noexcept {
 // -----------------------------------------------------------------------
 
 [[nodiscard]]
-inline uint64_t small_modinv_u64(uint64_t a, uint64_t p) noexcept {
+inline uint64_t small_modinv_u64(uint64_t a, uint64_t p) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     // Fermat: a^{p-2} mod p (p is prime).
     if (a == 0U) { return 0U; }
     uint64_t result = 1U;

@@ -139,7 +139,7 @@ inline void sha512_compress(std::span<uint64_t, 8> state, const uint8_t* block) 
 
 
 // Full SHA-512 over an arbitrary-length message.
-inline void sha512(const CryptoByte* msg, std::size_t msg_len,
+inline void sha512(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                    std::span<CryptoByte, sha512_digest_bytes> out) noexcept
 {
     std::array<uint64_t, 8> state{};
@@ -174,7 +174,7 @@ inline void sha512(const CryptoByte* msg, std::size_t msg_len,
 }
 
 // Full SHA-384 over an arbitrary-length message (same compression, different IV, truncated output).
-inline void sha384(const CryptoByte* msg, std::size_t msg_len,
+inline void sha384(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                    std::span<CryptoByte, sha384_digest_bytes> out) noexcept
 {
     std::array<uint64_t, 8> state{};

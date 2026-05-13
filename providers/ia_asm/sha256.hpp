@@ -277,7 +277,7 @@ inline void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) 
 
 // Full SHA-256 over an arbitrary-length message.
 // Handles padding and big-endian length encoding.
-inline void sha256(const CryptoByte* msg, std::size_t msg_len,
+inline void sha256(const CryptoByte* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                    std::span<CryptoByte, sha256_digest_bytes> out) noexcept
 {
     std::array<uint32_t, 8> state{};

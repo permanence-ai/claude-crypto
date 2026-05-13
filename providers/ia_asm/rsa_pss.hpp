@@ -45,7 +45,7 @@ inline bool pss_encode(
     const CryptoByte* msg,     std::size_t msg_len,
     const CryptoByte* salt,              // hLen random bytes
     std::size_t       modulus_bits,
-    CryptoByte*       out_em) noexcept
+    CryptoByte*       out_em) noexcept // NOLINT(readability-non-const-parameter)
 {
     const std::size_t em_bits = modulus_bits - 1U;
     const std::size_t em_len  = (em_bits + 7U) / 8U;

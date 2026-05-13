@@ -347,7 +347,7 @@ static inline auto p521_G_table_select(unsigned nibble) noexcept -> P521AffinePo
 {
     P521AffinePoint r = p521_G_table[0];
     for (unsigned i = 1; i < 15U; ++i) {
-        const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
+        const uint64_t mask = 0U - static_cast<uint64_t>((i + 1U == nibble) ? 1U : 0U);
         for (int j = 0; j < 9; ++j) {
             r.X.v[j] = (p521_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask);
             r.Y.v[j] = (p521_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask);
@@ -672,7 +672,7 @@ static inline auto p521_scalar_add(
 // Computes a*b*R^{-1} mod n where R = 2^576 (9 × 64-bit limbs).
 // n_prime = -n[0]^{-1} mod 2^64 = 0x1d2f5ccd79a995c7
 [[nodiscard]]
-static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> Fe521
+static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> Fe521 // NOLINT(bugprone-easily-swappable-parameters)
 {
     using u128 = unsigned __int128;
     constexpr int s = 9;
@@ -682,15 +682,15 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
-            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
         }
-        u128 tt = static_cast<u128>(t[s]) + carry;
+        u128 tt = static_cast<u128>(t[s]) + carry; // NOLINT(cppcoreguidelines-init-variables)
         t[s]     = static_cast<uint64_t>(tt);
         t[s + 1] = static_cast<uint64_t>(tt >> 64U);
 
-        const uint64_t m = t[0] * n_prime;
+        const uint64_t m = t[0] * n_prime; // NOLINT(cppcoreguidelines-init-variables)
         tt = (static_cast<u128>(m) * p521_n[0]) + t[0];
         carry = static_cast<uint64_t>(tt >> 64U);
         for (int j = 1; j < s; ++j) {
@@ -707,7 +707,7 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
     }
 
     const Fe521 r{{t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]}};
-    const uint64_t overflow = t[s];
+    const uint64_t overflow = t[s]; // NOLINT(cppcoreguidelines-init-variables)
 
     Fe521 sub{};
     auto st = static_cast<u128>(r.v[0]) - p521_n[0];

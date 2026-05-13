@@ -78,7 +78,7 @@ inline void aes256_key_expand(CByteSpan<aes256_key_size_bytes> key, Aes256Schedu
     }
 
     for (std::size_t i = 8; i < 60; ++i) {
-        uint32_t tmp = w[i - 1];
+        uint32_t tmp = w[i - 1]; // NOLINT(cppcoreguidelines-init-variables)
         if (i % 8 == 0) {
             tmp = aes_sub_word(aes_rot_word(tmp)) ^ rcon[(i / 8U) - 1U];
         } else if (i % 8 == 4) {

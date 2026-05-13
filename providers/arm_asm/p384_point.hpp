@@ -333,7 +333,7 @@ static inline auto p384_G_table_select(unsigned nibble) noexcept -> P384AffinePo
 {
     P384AffinePoint r = p384_G_table[0];
     for (unsigned i = 1; i < 15U; ++i) {
-        const uint64_t mask = 0U - static_cast<uint64_t>(i + 1U == nibble);
+        const uint64_t mask = 0U - static_cast<uint64_t>((i + 1U == nibble) ? 1U : 0U);
         for (int j = 0; j < 6; ++j) {
             r.X.v[j] = (p384_G_table[i].X.v[j] & mask) | (r.X.v[j] & ~mask);
             r.Y.v[j] = (p384_G_table[i].Y.v[j] & mask) | (r.Y.v[j] & ~mask);
@@ -485,7 +485,7 @@ static inline auto p384_scalar_from_bytes96(
     std::array<uint32_t, 24> w{};
     for (int i = 0; i < 24; ++i) {
         const int j = 23 - i;
-        const uint8_t* p = b.data() + ((static_cast<std::ptrdiff_t>(j)) * 4);
+        const uint8_t* p = b.data() + (static_cast<std::ptrdiff_t>(j) * 4);
         w[i] = (static_cast<uint32_t>(p[0]) << 24U) |
                (static_cast<uint32_t>(p[1]) << 16U) |
                (static_cast<uint32_t>(p[2]) <<  8U) |
@@ -499,13 +499,13 @@ static inline auto p384_scalar_from_bytes96(
 
     using u128 = unsigned __int128;
     for (int step = 5; step >= 0; --step) {
-        const uint64_t hi = acc[step + 6];
+        const uint64_t hi = acc[step + 6]; // NOLINT(cppcoreguidelines-init-variables)
         if (hi == 0U) { continue; }
         acc[step + 6] = 0;
         int64_t borrow = 0;
         for (int i = 0; i < 6; ++i) {
             const auto prod = static_cast<u128>(hi) * p384_n[i];
-            const int64_t diff = static_cast<int64_t>(acc[step + i])
+            const int64_t diff = static_cast<int64_t>(acc[step + i]) // NOLINT(cppcoreguidelines-init-variables)
                 - static_cast<int64_t>(static_cast<uint64_t>(prod)) + borrow;
             acc[step + i] = static_cast<uint64_t>(diff);
             borrow = -(static_cast<int64_t>(static_cast<uint64_t>(prod >> 64U)) + (diff >> 63)); // NOLINT(hicpp-signed-bitwise)
@@ -646,7 +646,7 @@ static inline auto p384_scalar_add(
 // Computes a*b*R^{-1} mod n where R = 2^384.
 // n_prime = -n[0]^{-1} mod 2^64 = 0x6ed46089e88fdc45
 [[nodiscard]]
-static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> Fe384
+static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> Fe384 // NOLINT(bugprone-easily-swappable-parameters)
 {
     using u128 = unsigned __int128;
     constexpr int s = 6;
@@ -656,15 +656,15 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
     for (int i = 0; i < s; ++i) { // NOLINT(modernize-loop-convert)
         uint64_t carry = 0;
         for (int j = 0; j < s; ++j) { // NOLINT(modernize-loop-convert)
-            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + t[j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             t[j]  = static_cast<uint64_t>(tt);
             carry = static_cast<uint64_t>(tt >> 64U);
         }
-        u128 tt = static_cast<u128>(t[s]) + carry;
+        u128 tt = static_cast<u128>(t[s]) + carry; // NOLINT(cppcoreguidelines-init-variables)
         t[s]     = static_cast<uint64_t>(tt);
         t[s + 1] = static_cast<uint64_t>(tt >> 64U);
 
-        const uint64_t m = t[0] * n_prime;
+        const uint64_t m = t[0] * n_prime; // NOLINT(cppcoreguidelines-init-variables)
         tt = (static_cast<u128>(m) * p384_n[0]) + t[0];
         carry = static_cast<uint64_t>(tt >> 64U);
         for (int j = 1; j < s; ++j) {
@@ -681,7 +681,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
     }
 
     const Fe384 r{{t[0], t[1], t[2], t[3], t[4], t[5]}};
-    const uint64_t overflow = t[s];
+    const uint64_t overflow = t[s]; // NOLINT(cppcoreguidelines-init-variables)
 
     Fe384 sub{};
     auto st = static_cast<u128>(r.v[0]) - p384_n[0];

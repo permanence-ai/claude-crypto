@@ -142,7 +142,7 @@ struct Sha512Ctx {
 // HMAC-SHA-256
 // ---------------------------------------------------------------------------
 inline void hmac_sha256(const uint8_t* key, std::size_t key_len,
-                        const uint8_t* msg, std::size_t msg_len,
+                        const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                         std::span<CryptoByte, sha256_digest_bytes> out) noexcept
 {
     FixedSecureBuffer<sha256_block_bytes> kprime;
@@ -213,14 +213,14 @@ inline void hmac_sha512_impl(std::span<const uint64_t, 8> h0, // NOLINT(readabil
 }
 
 inline void hmac_sha512(const uint8_t* key, std::size_t key_len,
-                        const uint8_t* msg, std::size_t msg_len,
+                        const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                         std::span<CryptoByte, sha512_digest_bytes> out) noexcept
 {
     hmac_sha512_impl(sha512_h0, key, key_len, msg, msg_len, out.data(), sha512_digest_bytes);
 }
 
 inline void hmac_sha384(const uint8_t* key, std::size_t key_len,
-                        const uint8_t* msg, std::size_t msg_len,
+                        const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                         std::span<CryptoByte, sha384_digest_bytes> out) noexcept
 {
     hmac_sha512_impl(sha384_h0, key, key_len, msg, msg_len, out.data(), sha384_digest_bytes);
@@ -230,7 +230,7 @@ inline void hmac_sha384(const uint8_t* key, std::size_t key_len,
 // ---------------------------------------------------------------------------
 // HMAC-SHA3 (SHA3-256, SHA3-384, SHA3-512)
 // ---------------------------------------------------------------------------
-inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes, // NOLINT(readability-function-size,readability-function-cognitive-complexity,bugprone-easily-swappable-parameters)
                             const uint8_t* key, std::size_t key_len,
                             const uint8_t* msg, std::size_t msg_len,
                             uint8_t* out) noexcept
@@ -266,21 +266,21 @@ inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes, // NOLINT(re
 }
 
 inline void hmac_sha3_256(const uint8_t* key, std::size_t key_len,
-                           const uint8_t* msg, std::size_t msg_len,
+                           const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                            std::span<CryptoByte, sha3_256_digest_bytes> out) noexcept
 {
     hmac_sha3_impl(sha3_max_rate_bytes, sha3_256_digest_bytes, key, key_len, msg, msg_len, out.data());
 }
 
 inline void hmac_sha3_384(const uint8_t* key, std::size_t key_len,
-                           const uint8_t* msg, std::size_t msg_len,
+                           const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                            std::span<CryptoByte, sha3_384_digest_bytes> out) noexcept
 {
     hmac_sha3_impl(104, sha3_384_digest_bytes, key, key_len, msg, msg_len, out.data());
 }
 
 inline void hmac_sha3_512(const uint8_t* key, std::size_t key_len,
-                           const uint8_t* msg, std::size_t msg_len,
+                           const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                            std::span<CryptoByte, sha3_512_digest_bytes> out) noexcept
 {
     hmac_sha3_impl(72, sha3_512_digest_bytes, key, key_len, msg, msg_len, out.data());

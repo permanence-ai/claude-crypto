@@ -91,7 +91,7 @@ inline BigInt<NW> bigint_from_bytes(const CryptoByte* bytes, std::size_t byte_le
 
 // Store NW*8 bytes in big-endian order.
 template<std::size_t NW>
-inline void bigint_to_bytes(const BigInt<NW>& a, CryptoByte* bytes) noexcept {  // NOLINT(readability-non-const-parameter)
+inline void bigint_to_bytes(const BigInt<NW>& a, CryptoByte* bytes) noexcept {  // NOLINT(readability-non-const-parameter,misc-unused-parameters)
     for (std::size_t i = 0; i < NW * sizeof(uint64_t); ++i) {
         const std::size_t limb_idx  = i / sizeof(uint64_t);
         const std::size_t bit_shift = (i % sizeof(uint64_t)) * bits_per_byte;
@@ -214,15 +214,15 @@ inline BigInt<NW> mont_mul(const BigInt<NW>& a, const BigInt<NW>& b, // NOLINT(b
         // Phase 1: t += a[i] * b
         uint64_t carry = 0;
         for (std::size_t j = 0; j < NW; ++j) {
-            const __uint128_t prod = (static_cast<__uint128_t>(a.d[i]) * b.d[j]) + t[j] + carry;
+            const __uint128_t prod = (static_cast<__uint128_t>(a.d[i]) * b.d[j]) + t[j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             t[j] = static_cast<uint64_t>(prod);
             carry = static_cast<uint64_t>(prod >> uint64_bits);
         }
         t[NW] += carry;
 
         // Phase 2: Montgomery reduction — t += (t[0] * m0inv mod 2^64) * m; t >>= 64
-        const uint64_t q = t[0] * m0inv;
-        __uint128_t c = (static_cast<__uint128_t>(q) * m.d[0]) + t[0];
+        const uint64_t q = t[0] * m0inv; // NOLINT(cppcoreguidelines-init-variables)
+        __uint128_t c = (static_cast<__uint128_t>(q) * m.d[0]) + t[0]; // NOLINT(cppcoreguidelines-init-variables)
         c >>= uint64_bits;
         for (std::size_t j = 1; j < NW; ++j) {
             c += (static_cast<__uint128_t>(q) * m.d[j]) + t[j];
@@ -240,7 +240,7 @@ inline BigInt<NW> mont_mul(const BigInt<NW>& a, const BigInt<NW>& b, // NOLINT(b
         result.d[i] = t[i];
     }
     // Constant-time final reduction: subtract m if t[NW] != 0 or result >= m.
-    const uint64_t overflow = t[NW];
+    const uint64_t overflow = t[NW]; // NOLINT(cppcoreguidelines-init-variables)
     BigInt<NW> reduced{};
     const uint64_t borrow = bigint_sub(reduced, result, m);
     // keep_reduced is all-ones when we should use reduced (i.e. subtract was correct):

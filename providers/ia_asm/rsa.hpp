@@ -112,7 +112,7 @@ inline void rsa_key_store_destroy(unsigned int id) noexcept {
 
 template<typename Fn>
 [[nodiscard]]
-inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept {
+inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept { // NOLINT(cppcoreguidelines-missing-std-forward)
     switch (bits) {
         case 2048U: return std::forward<Fn>(fn).template operator()<32U>();
         case 3072U: return std::forward<Fn>(fn).template operator()<48U>();
@@ -123,7 +123,7 @@ inline bool rsa_dispatch(std::size_t bits, Fn&& fn) noexcept {
 
 template<typename Fn>
 [[nodiscard]]
-inline bool rsa_dispatch_all(std::size_t bits, Fn&& fn) noexcept {
+inline bool rsa_dispatch_all(std::size_t bits, Fn&& fn) noexcept { // NOLINT(cppcoreguidelines-missing-std-forward)
     switch (bits) {
         case 1024U: return std::forward<Fn>(fn).template operator()<16U>();
         case 2048U: return std::forward<Fn>(fn).template operator()<32U>();

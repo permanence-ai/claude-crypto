@@ -264,7 +264,7 @@ static inline auto fe521_sub(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
 // Then result = lo + hi (mod p), followed by at most one conditional subtract.
 
 [[nodiscard]]
-static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
+static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 { // NOLINT(bugprone-easily-swappable-parameters)
     using u128 = unsigned __int128;
     // Full 9×9 schoolbook multiplication into 18 limbs with row-by-row carry
     // propagation. Accumulating all products into u128 accumulators first
@@ -274,12 +274,12 @@ static inline auto fe521_mul(const Fe521& a, const Fe521& b) noexcept -> Fe521 {
     for (int i = 0; i < 9; ++i) {
         u128 carry = 0;
         for (int j = 0; j < 9; ++j) {
-            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry;
+            const u128 tt = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             c[i + j] = static_cast<uint64_t>(tt);
             carry = tt >> 64U;
         }
         for (int k = i + 9; k < 18 && carry != 0U; ++k) {
-            const u128 tt = static_cast<u128>(c[k]) + carry;
+            const u128 tt = static_cast<u128>(c[k]) + carry; // NOLINT(cppcoreguidelines-init-variables)
             c[k] = static_cast<uint64_t>(tt);
             carry = tt >> 64U;
         }

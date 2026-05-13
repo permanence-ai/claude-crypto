@@ -48,7 +48,7 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 // Feeds data into Poly1305 block-by-block without a large stack allocation.
 // Uses 4-block parallel processing via precomputed r^1..r^4 powers.
 [[gnu::target("neon")]]
-static inline void poly1305_feed(const uint8_t* otk, // NOLINT(bugprone-easily-swappable-parameters)
+static inline void poly1305_feed(const uint8_t* otk, // NOLINT(bugprone-easily-swappable-parameters,misc-unused-parameters)
                                   const uint8_t* aad, std::size_t aad_len,
                                   const uint8_t* ct,  std::size_t ct_len, // NOLINT(bugprone-easily-swappable-parameters)
                                   ByteSpan<poly1305_tag_bytes> tag_out) noexcept

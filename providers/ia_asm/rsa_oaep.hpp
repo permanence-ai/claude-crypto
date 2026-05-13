@@ -85,7 +85,7 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
     const CryptoByte* label, std::size_t label_len,
     const CryptoByte* seed,          // hLen random bytes
     std::size_t       modulus_bytes, // k
-    CryptoByte*       out_em) noexcept
+    CryptoByte*       out_em) noexcept // NOLINT(readability-non-const-parameter)
 {
     if (modulus_bytes < (2U * oaep_hash_len) + 2U) { return false; }
     const std::size_t db_len = modulus_bytes - oaep_hash_len - 1U;  // k - hLen - 1

@@ -340,7 +340,7 @@ static inline auto fe384_solinas(
 }
 
 [[nodiscard]]
-static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
+static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 { // NOLINT(bugprone-easily-swappable-parameters)
     using u128 = unsigned __int128;
 
     // 6×6 row-by-row multiply: 36 u64×u64 multiply-accumulates vs the old 12×12=144 u32 ones.
@@ -349,7 +349,7 @@ static inline auto fe384_mul(const Fe384& a, const Fe384& b) noexcept -> Fe384 {
     for (int i = 0; i < 6; ++i) {
         uint64_t carry = 0;
         for (int j = 0; j < 6; ++j) {
-            const u128 t = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry;
+            const u128 t = (static_cast<u128>(a.v[i]) * b.v[j]) + c[i + j] + carry; // NOLINT(cppcoreguidelines-init-variables)
             c[i + j] = static_cast<uint64_t>(t);
             carry    = static_cast<uint64_t>(t >> 64U);
         }

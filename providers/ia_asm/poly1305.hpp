@@ -101,13 +101,13 @@ static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
     const uint64_t c4 = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c4;
 }
 
-static inline void poly1305_add_block(Poly1305Limbs& h, uint64_t lo, uint64_t hi, uint64_t top) noexcept {
+static inline void poly1305_add_block(Poly1305Limbs& h, uint64_t lo, uint64_t hi, uint64_t top) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     const Poly1305Limbs m = block_to_limbs(lo, hi, top);
     h.h0 += m.h0; h.h1 += m.h1; h.h2 += m.h2;
 }
 
-static inline void poly1305_finish(const Poly1305Limbs& h_in,
-                                    std::span<const CryptoByte, poly1305_tag_bytes> s_bytes,
+static inline void poly1305_finish(const Poly1305Limbs& h_in, // NOLINT(bugprone-easily-swappable-parameters)
+                                    std::span<const CryptoByte, poly1305_tag_bytes> s_bytes, // NOLINT(bugprone-easily-swappable-parameters)
                                     std::span<CryptoByte, poly1305_tag_bytes> tag) noexcept
 {
     uint64_t h0 = h_in.h0;

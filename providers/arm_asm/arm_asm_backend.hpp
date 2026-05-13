@@ -174,7 +174,7 @@ struct ArmAsmBackend {
                     if (!p256_scalar_is_zero(s)) {
                         // p256_scalar_from_bytes32 already reduces mod n, so s < n.
                         fe256_to_bytes(s, ByteSpan<p256_scalar_bytes>{sk.data(), p256_scalar_bytes});
-                        const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len);
+                        const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
                         return ok;
@@ -190,7 +190,7 @@ struct ArmAsmBackend {
                     const Fe384 s = p384_scalar_from_bytes48(CByteSpan<p384_scalar_bytes>{sk.data(), p384_scalar_bytes});
                     if (!p384_scalar_is_zero(s)) {
                         fe384_to_bytes(s, ByteSpan<p384_scalar_bytes>{sk.data(), p384_scalar_bytes});
-                        const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len);
+                        const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
                         return ok;
@@ -206,7 +206,7 @@ struct ArmAsmBackend {
                     const Fe521 s = p521_scalar_from_bytes66(CByteSpan<p521_scalar_bytes>{sk.data(), p521_scalar_bytes});
                     if (!p521_scalar_is_zero(s)) {
                         fe521_to_bytes(s, ByteSpan<p521_scalar_bytes>{sk.data(), p521_scalar_bytes});
-                        const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len);
+                        const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return err_invalid_arg; }
                         *id = slot;
                         return ok;
@@ -1060,7 +1060,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId id, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
-        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,    // NOLINT(readability-non-const-parameter)
+        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,    // NOLINT(readability-non-const-parameter,bugprone-easily-swappable-parameters)
         CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
