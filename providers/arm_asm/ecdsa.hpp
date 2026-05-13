@@ -119,8 +119,8 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
             // Compare from MSB.
             for (int j = static_cast<int>(n_limb_count) - 1; j >= 0; --j) {
                 uint64_t k_limb = 0;
-                for (int b = 0; b < static_cast<int>(bits_per_byte); ++b) {
-                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * bits_per_byte) + static_cast<std::size_t>(b));
+                for (std::size_t b = 0; b < bits_per_byte; ++b) {
+                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * bits_per_byte) + b);
                     if (byte_pos < qlen) {
                         k_limb |= static_cast<uint64_t>(k_out[byte_pos]) << (static_cast<unsigned>(b) * bits_per_byte);
                     }
@@ -157,8 +157,8 @@ update_kv:
 // -----------------------------------------------------------------------
 
 // Sign: private_scalar_be[32], msg_hash[32] → sig_out[64] (r‖s BE).
-static inline bool p256_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p256_scalar_bytes> private_scalar_be,
+static inline bool p256_ecdsa_sign(
+    CByteSpan<p256_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha256_digest_bytes> msg_hash,
     ByteSpan<p256_sig_bytes> sig_out) noexcept
 {
@@ -203,8 +203,8 @@ static inline bool p256_ecdsa_sign( // NOLINT(bugprone-easily-swappable-paramete
 }
 
 // Verify: public_key_uncompressed[65] (0x04||x||y), msg_hash[32], sig[64] (r‖s BE).
-static inline bool p256_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p256_public_key_bytes> public_key_uncompressed,
+static inline bool p256_ecdsa_verify(
+    CByteSpan<p256_public_key_bytes> public_key_uncompressed, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha256_digest_bytes> msg_hash,
     CByteSpan<p256_sig_bytes> sig) noexcept
 {
@@ -255,8 +255,8 @@ static inline bool p256_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parame
 // P-384 ECDSA.
 // -----------------------------------------------------------------------
 
-static inline bool p384_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p384_scalar_bytes> private_scalar_be,
+static inline bool p384_ecdsa_sign(
+    CByteSpan<p384_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha384_digest_bytes> msg_hash,
     ByteSpan<p384_sig_bytes> sig_out) noexcept
 {
@@ -294,8 +294,8 @@ static inline bool p384_ecdsa_sign( // NOLINT(bugprone-easily-swappable-paramete
     return true;
 }
 
-static inline bool p384_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p384_public_key_bytes> public_key_uncompressed,
+static inline bool p384_ecdsa_verify(
+    CByteSpan<p384_public_key_bytes> public_key_uncompressed, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha384_digest_bytes> msg_hash,
     CByteSpan<p384_sig_bytes> sig) noexcept
 {
@@ -343,8 +343,8 @@ static inline bool p384_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parame
 // P-521 ECDSA.
 // -----------------------------------------------------------------------
 
-static inline bool p521_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p521_scalar_bytes> private_scalar_be,
+static inline bool p521_ecdsa_sign(
+    CByteSpan<p521_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha512_digest_bytes> msg_hash,
     ByteSpan<p521_sig_bytes> sig_out) noexcept
 {
@@ -383,8 +383,8 @@ static inline bool p521_ecdsa_sign( // NOLINT(bugprone-easily-swappable-paramete
     return true;
 }
 
-static inline bool p521_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p521_public_key_bytes> public_key_uncompressed,
+static inline bool p521_ecdsa_verify(
+    CByteSpan<p521_public_key_bytes> public_key_uncompressed, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha512_digest_bytes> msg_hash,
     CByteSpan<p521_sig_bytes> sig) noexcept
 {

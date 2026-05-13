@@ -551,7 +551,7 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
-                               KeyId id, Algorithm alg,
+                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                const CryptoByte* msg, std::size_t msg_len,
                                CryptoByte* sig, std::size_t sig_size, std::size_t* sig_len) {
         using namespace arm_asm::detail;
@@ -629,7 +629,7 @@ struct ArmAsmBackend {
         return err_invalid_arg;
     }
     [[nodiscard]]
-    static Status verify_message(KeyId id, Algorithm alg, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+    static Status verify_message(KeyId id, Algorithm alg, // NOLINT(readability-function-size,readability-function-cognitive-complexity,bugprone-easily-swappable-parameters)
                                  const CryptoByte* msg, std::size_t msg_len,
                                  const CryptoByte* sig, std::size_t sig_len) {
         using namespace arm_asm::detail;
@@ -693,7 +693,7 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status raw_key_agreement(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
-                                    Algorithm alg, KeyId id,
+                                    Algorithm alg, KeyId id, // NOLINT(bugprone-easily-swappable-parameters)
                                     const CryptoByte* peer, std::size_t peer_len,
                                     CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
         using namespace arm_asm::detail;
@@ -761,7 +761,7 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status asymmetric_encrypt(  // NOLINT(readability-function-size)
-                                     KeyId id, Algorithm alg,
+                                     KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                      const CryptoByte* pt, std::size_t pt_len,
                                      const CryptoByte* salt, std::size_t salt_len,
                                      CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -781,7 +781,7 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status asymmetric_decrypt(  // NOLINT(readability-function-size)
-                                     KeyId id, Algorithm alg,
+                                     KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                      const CryptoByte* ct, std::size_t ct_len,
                                      const CryptoByte* salt, std::size_t salt_len,
                                      CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
@@ -1059,9 +1059,9 @@ struct ArmAsmBackend {
     static std::size_t ml_kem_public_key_export_size(const MlKemVariant v)   noexcept { return ml_kem_public_key_size(v); }
     [[nodiscard]]
     static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId id, const Algorithm alg,
-        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,
-        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+        const KeyId id, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
+        CryptoByte* ciphertext,    std::size_t ciphertext_size,    std::size_t* ciphertext_len,    // NOLINT(readability-non-const-parameter)
+        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
         if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }
@@ -1089,9 +1089,9 @@ struct ArmAsmBackend {
     }
     [[nodiscard]]
     static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId id, const Algorithm alg,
+        const KeyId id, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* ciphertext, std::size_t ciphertext_len,
-        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept {
+        CryptoByte* shared_secret, std::size_t shared_secret_size, std::size_t* shared_secret_len) noexcept { // NOLINT(readability-non-const-parameter)
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         using arm_asm::detail::PqcKeyType;
         if ((alg & 0xFF00U) != 0x0800U) { return err_invalid_arg; }

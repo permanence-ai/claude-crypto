@@ -474,8 +474,7 @@ static inline auto p256_scalar_mul_base(
             result = p256_point_double_ct(result);
             result = p256_point_double_ct(result);
 
-            const auto nibble = static_cast<unsigned>(
-                (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
+            const unsigned nibble = (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU);
 
             // CT table lookup; CT add; CT-select based on nibble == 0.
             const P256AffinePoint tab = p256_G_table_select(nibble);
@@ -778,7 +777,7 @@ static inline auto p256_mont_mul_n(const Fe256& a, const Fe256& b) noexcept -> F
 // R^2 mod n = 0x66e12d94f3d956202845b2392b6bec594699799c49bd6fa683244c95be79eea2
 [[nodiscard]]
 static inline auto p256_scalar_mul_mod_n(
-    const Fe256& a, const Fe256& b) noexcept -> Fe256
+    const Fe256& a, const Fe256& b) noexcept -> Fe256 // NOLINT(bugprone-easily-swappable-parameters)
 {
     static constexpr Fe256 r2_mod_n = {{
         0x83244c95be79eea2ULL,
@@ -865,7 +864,7 @@ static inline auto p256_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p256_compute_public_key(
-    CByteSpan<p256_scalar_bytes> private_scalar_be,
+    CByteSpan<p256_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     ByteSpan<p256_public_key_bytes> public_key_uncompressed) noexcept
 {
     const P256Point pub = p256_to_affine(p256_scalar_mul_base(private_scalar_be));

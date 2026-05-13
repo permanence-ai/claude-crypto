@@ -83,7 +83,7 @@ static inline auto fe521_from_bytes(
     // but we only have 521 bits, so v[8] = bits [520:512] = 9 bits.
     // bits [520:512]: byte index 65-64 = byte 1 has bits [519:512], byte 0 has bit [520].
     // So v[8] = (b[0] << 8) | b[1] truncated to 9 bits.
-    r.v[8] = (static_cast<uint64_t>(b.data()[0]) << 8U) | static_cast<uint64_t>(b.data()[1]);
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
     r.v[8] &= 0x1ffULL;
     return r;
 }
@@ -92,8 +92,8 @@ static inline void fe521_to_bytes(
     const Fe521& a, ByteSpan<p521_scalar_bytes> b) noexcept
 {
     // v[8] holds 9 bits: bits[520:512].  Write as b[0] (bit 520) and b[1] (bits[519:512]).
-    b.data()[0] = static_cast<uint8_t>(a.v[8] >> 8U);
-    b.data()[1] = static_cast<uint8_t>(a.v[8]);
+    b[0] = static_cast<uint8_t>(a.v[8] >> 8U);
+    b[1] = static_cast<uint8_t>(a.v[8]);
     for (int i = 0; i < 8; ++i) {
         uint8_t* p = b.data() + (65 - (i * 8));
         p[0]  = static_cast<uint8_t>(a.v[i]);

@@ -31,7 +31,7 @@ static inline auto load_le128(const uint8_t* p) noexcept -> Le128 {
     return r;
 }
 
-static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept {
+static inline void store_le128(uint8_t* p, uint64_t lo, uint64_t hi) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     std::memcpy(p,     &lo, 8);
     std::memcpy(p + 8, &hi, 8);
 }
@@ -157,9 +157,9 @@ struct Poly1305Powers {
 
 static inline void poly1305_process_quad( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     Poly1305Limbs& h,
-    uint64_t m0lo, uint64_t m0hi,
-    uint64_t m1lo, uint64_t m1hi,
-    uint64_t m2lo, uint64_t m2hi,
+    uint64_t m0lo, uint64_t m0hi, // NOLINT(bugprone-easily-swappable-parameters)
+    uint64_t m1lo, uint64_t m1hi, // NOLINT(bugprone-easily-swappable-parameters)
+    uint64_t m2lo, uint64_t m2hi, // NOLINT(bugprone-easily-swappable-parameters)
     uint64_t m3lo, uint64_t m3hi,
     const Poly1305Powers& pw) noexcept
 {
@@ -185,7 +185,7 @@ static inline void poly1305_process_quad( // NOLINT(readability-function-size,re
 
 static inline void poly1305_process_pair(
     Poly1305Limbs& h,
-    uint64_t m1lo, uint64_t m1hi,
+    uint64_t m1lo, uint64_t m1hi, // NOLINT(bugprone-easily-swappable-parameters)
     uint64_t m2lo, uint64_t m2hi,
     const Poly1305Powers& pw) noexcept
 {

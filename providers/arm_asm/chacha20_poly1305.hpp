@@ -48,9 +48,9 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 // Feeds data into Poly1305 block-by-block without a large stack allocation.
 // Uses 4-block parallel processing via precomputed r^1..r^4 powers.
 [[gnu::target("neon")]]
-static inline void poly1305_feed(const uint8_t* otk,
+static inline void poly1305_feed(const uint8_t* otk, // NOLINT(bugprone-easily-swappable-parameters)
                                   const uint8_t* aad, std::size_t aad_len,
-                                  const uint8_t* ct,  std::size_t ct_len,
+                                  const uint8_t* ct,  std::size_t ct_len, // NOLINT(bugprone-easily-swappable-parameters)
                                   ByteSpan<poly1305_tag_bytes> tag_out) noexcept
 {
 
@@ -129,11 +129,11 @@ static inline void poly1305_feed(const uint8_t* otk,
 //   out: must hold pt_len + 16 bytes.
 [[gnu::target("neon")]]
 inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    const CryptoByte* key,
-    const CryptoByte* nonce,
+    const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
+    const CryptoByte* nonce, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* aad,  std::size_t aad_len,
     const CryptoByte* pt,   std::size_t pt_len,
-    CryptoByte*       out) noexcept
+    CryptoByte*       out) noexcept // NOLINT(readability-non-const-parameter)
 {
     // Generate one-time key.
     FixedSecureBuffer<poly1305_key_bytes> otk;
@@ -157,11 +157,11 @@ inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,reada
 //   Returns true on successful tag verification; on failure out is zeroized.
 [[gnu::target("neon")]]
 inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-    const CryptoByte* key,
-    const CryptoByte* nonce,
+    const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
+    const CryptoByte* nonce, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* aad, std::size_t aad_len,
     const CryptoByte* ct,  std::size_t ct_len,
-    CryptoByte*       out) noexcept
+    CryptoByte*       out) noexcept // NOLINT(readability-non-const-parameter)
 {
     if (ct_len < chacha20_poly1305_tag_bytes) { return false; }
     const std::size_t pt_len = ct_len - chacha20_poly1305_tag_bytes;

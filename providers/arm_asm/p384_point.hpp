@@ -415,8 +415,7 @@ static inline auto p384_scalar_mul_base(
             result = p384_point_double_ct(result);
             result = p384_point_double_ct(result);
 
-            const auto nibble = static_cast<unsigned>(
-                (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
+            const unsigned nibble = (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU);
 
             const P384AffinePoint tab = p384_G_table_select(nibble);
             const P384Point added = p384_point_add_affine_ct(result, tab);
@@ -719,7 +718,7 @@ static inline auto p384_mont_mul_n(const Fe384& a, const Fe384& b) noexcept -> F
 // R^2 mod n = 0x0c84ee012b39bf213fb05b7a28266895d40d49174aab1cc5bc3e483afcb82947ff3d81e5df1aa4192d319b2419b409a9
 [[nodiscard]]
 static inline auto p384_scalar_mul_mod_n(
-    const Fe384& a, const Fe384& b) noexcept -> Fe384
+    const Fe384& a, const Fe384& b) noexcept -> Fe384 // NOLINT(bugprone-easily-swappable-parameters)
 {
     static constexpr Fe384 r2_mod_n = {{
         0x2d319b2419b409a9ULL,
@@ -844,7 +843,7 @@ static inline auto p384_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p384_compute_public_key(
-    CByteSpan<p384_scalar_bytes> private_scalar_be,
+    CByteSpan<p384_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     ByteSpan<p384_public_key_bytes> public_key_uncompressed) noexcept
 {
     const P384Point pub = p384_to_affine(p384_scalar_mul_base(private_scalar_be));

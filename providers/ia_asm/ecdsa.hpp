@@ -106,8 +106,8 @@ static inline void rfc6979_generate_k( // NOLINT(readability-function-cognitive-
             bool k_lt_n = false;
             for (int j = static_cast<int>(n_limb_count) - 1; j >= 0; --j) {
                 uint64_t k_limb = 0;
-                for (int b = 0; b < static_cast<int>(bits_per_byte); ++b) {
-                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * bits_per_byte) + static_cast<std::size_t>(b));
+                for (std::size_t b = 0; b < bits_per_byte; ++b) {
+                    const std::size_t byte_pos = n_bytes - 1U - ((static_cast<std::size_t>(j) * bits_per_byte) + b);
                     if (byte_pos < qlen) {
                         k_limb |= static_cast<uint64_t>(k_out[byte_pos]) << (static_cast<unsigned>(b) * bits_per_byte);
                     }
@@ -138,8 +138,8 @@ update_kv:
 }
 
 
-static inline bool p256_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
-    std::span<const CryptoByte, p256_scalar_bytes> private_scalar_be,
+static inline bool p256_ecdsa_sign(
+    std::span<const CryptoByte, p256_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     std::span<const CryptoByte, sha256_digest_bytes> msg_hash,
     std::span<CryptoByte, p256_sig_bytes> sig_out) noexcept
 {
@@ -239,8 +239,8 @@ static inline bool p256_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parame
 }
 
 
-static inline bool p384_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
-    std::span<const CryptoByte, p384_scalar_bytes> private_scalar_be,
+static inline bool p384_ecdsa_sign(
+    std::span<const CryptoByte, p384_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     std::span<const CryptoByte, sha384_digest_bytes> msg_hash,
     std::span<CryptoByte, p384_sig_bytes> sig_out) noexcept
 {

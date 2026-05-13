@@ -445,8 +445,7 @@ static inline auto p521_scalar_mul_base(
             result = p521_point_double_ct(result);
             result = p521_point_double_ct(result);
 
-            const auto nibble = static_cast<unsigned>(
-                (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU));
+            const unsigned nibble = (pass == 0) ? (byte_val >> 4U) : (byte_val & 0x0fU);
 
             const P521AffinePoint tab = p521_G_table_select(nibble);
             const P521Point added = p521_point_add_affine_ct(result, tab);
@@ -507,7 +506,7 @@ static inline auto p521_scalar_mul(
     }
     // Process the top byte: only 1 bit (bit 0 of scalar[0]).
     {
-        const uint64_t k_bit = static_cast<uint64_t>(scalar.data()[0]) & 1U;
+        const uint64_t k_bit = static_cast<uint64_t>(scalar[0]) & 1U;
         const P521Point added = p521_point_add(result, tmp);
         const uint64_t mask = 0U - k_bit;
         for (int i = 0; i < 9; ++i) {
@@ -538,7 +537,7 @@ static inline auto p521_scalar_from_bytes66(
             (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) |
             (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);
     }
-    r.v[8] = (static_cast<uint64_t>(b.data()[0]) << 8U) | static_cast<uint64_t>(b.data()[1]);
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
     r.v[8] &= 0x1ffULL;
 
     // Conditional subtract n.
@@ -757,7 +756,7 @@ static inline auto p521_mont_mul_n(const Fe521& a, const Fe521& b) noexcept -> F
 // R^2 mod n (R=2^576):
 [[nodiscard]]
 static inline auto p521_scalar_mul_mod_n(
-    const Fe521& a, const Fe521& b) noexcept -> Fe521
+    const Fe521& a, const Fe521& b) noexcept -> Fe521 // NOLINT(bugprone-easily-swappable-parameters)
 {
     static constexpr Fe521 r2_mod_n = {{
         0x137cd04dcf15dd04ULL,
@@ -814,7 +813,7 @@ static inline auto p521_scalar_sig_decode(
     CByteSpan<p521_scalar_bytes> b, Fe521& out) noexcept -> bool
 {
     // P-521 scalar is 521 bits (66 bytes); top 7 bits of b[0] must be zero.
-    if ((b.data()[0] & 0xFEU) != 0U) { return false; }
+    if ((b[0] & 0xFEU) != 0U) { return false; }
     Fe521 r{};
     for (int i = 0; i < 8; ++i) {
         const uint8_t* p = b.data() + (65 - (i * 8));
@@ -824,7 +823,7 @@ static inline auto p521_scalar_sig_decode(
             (static_cast<uint64_t>(p[-3]) << 24U) | (static_cast<uint64_t>(p[-2]) << 16U) |
             (static_cast<uint64_t>(p[-1]) <<  8U) |  static_cast<uint64_t>(p[0]);
     }
-    r.v[8] = (static_cast<uint64_t>(b.data()[0]) << 8U) | static_cast<uint64_t>(b.data()[1]);
+    r.v[8] = (static_cast<uint64_t>(b[0]) << 8U) | static_cast<uint64_t>(b[1]);
     // No mask needed: high-bit check above guarantees b[0] <= 0x01, so r.v[8] <= 0x1ff.
     if (p521_scalar_is_zero(r)) { return false; }
     using u128 = unsigned __int128;
@@ -857,7 +856,7 @@ static inline auto p521_scalar_sig_decode(
 // -----------------------------------------------------------------------
 
 static inline void p521_compute_public_key(
-    CByteSpan<p521_scalar_bytes> private_scalar_be,
+    CByteSpan<p521_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     ByteSpan<p521_public_key_bytes> public_key_uncompressed) noexcept
 {
     const P521Point pub = p521_to_affine(p521_scalar_mul_base(private_scalar_be));

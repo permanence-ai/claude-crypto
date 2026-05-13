@@ -76,7 +76,7 @@ struct Sha256Ctx {
             std::memcpy(pad.data() + (sha256_block_bytes - sizeof(uint64_t)), &bit_len_be, sizeof(uint64_t));
             sha256_compress(state, pad.data());
         } else {
-            std::memcpy(pad.data() + (2U * sha256_block_bytes - sizeof(uint64_t)), &bit_len_be, sizeof(uint64_t));
+            std::memcpy(pad.data() + ((2U * sha256_block_bytes) - sizeof(uint64_t)), &bit_len_be, sizeof(uint64_t));
             sha256_compress(state, pad.data());
             sha256_compress(state, pad.data() + sha256_block_bytes);
         }
@@ -124,11 +124,11 @@ struct Sha512Ctx {
         std::memcpy(pad.data(), buf.data(), buf_used);
         pad[buf_used] = sha_padding_marker;
         const uint64_t bit_len_be = std::byteswap(total_bytes * bits_per_byte);  // NOLINT(cppcoreguidelines-init-variables)
-        if (buf_used < sha512_block_bytes - 2U * sizeof(uint64_t)) {
+        if (buf_used < sha512_block_bytes - (2U * sizeof(uint64_t))) {
             std::memcpy(pad.data() + (sha512_block_bytes - sizeof(uint64_t)), &bit_len_be, sizeof(uint64_t));
             sha512_compress(state, pad.data());
         } else {
-            std::memcpy(pad.data() + (2U * sha512_block_bytes - sizeof(uint64_t)), &bit_len_be, sizeof(uint64_t));
+            std::memcpy(pad.data() + ((2U * sha512_block_bytes) - sizeof(uint64_t)), &bit_len_be, sizeof(uint64_t));
             sha512_compress(state, pad.data());
             sha512_compress(state, pad.data() + sha512_block_bytes);
         }
@@ -144,8 +144,8 @@ struct Sha512Ctx {
 // HMAC-SHA-256
 // ---------------------------------------------------------------------------
 // key_len may be 0..any; out must be 32 bytes.
-inline void hmac_sha256(const uint8_t* key, std::size_t key_len, // NOLINT(bugprone-easily-swappable-parameters)
-                        const uint8_t* msg, std::size_t msg_len,
+inline void hmac_sha256(const uint8_t* key, std::size_t key_len,
+                        const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                         ByteSpan<sha256_digest_bytes> out) noexcept
 {
     // Derive K': hash key if > 64 bytes, else use directly.
@@ -223,15 +223,15 @@ inline void hmac_sha512_impl(std::span<const uint64_t, sha512_state_words> h0, /
     std::memcpy(out, inner.data(), out_bytes);
 }
 
-inline void hmac_sha512(const uint8_t* key, std::size_t key_len, // NOLINT(bugprone-easily-swappable-parameters)
-                        const uint8_t* msg, std::size_t msg_len,
+inline void hmac_sha512(const uint8_t* key, std::size_t key_len,
+                        const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                         ByteSpan<sha512_digest_bytes> out) noexcept
 {
     hmac_sha512_impl(sha512_h0, key, key_len, msg, msg_len, out.data(), sha512_digest_bytes);
 }
 
-inline void hmac_sha384(const uint8_t* key, std::size_t key_len, // NOLINT(bugprone-easily-swappable-parameters)
-                        const uint8_t* msg, std::size_t msg_len,
+inline void hmac_sha384(const uint8_t* key, std::size_t key_len,
+                        const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                         ByteSpan<sha384_digest_bytes> out) noexcept
 {
     hmac_sha512_impl(sha384_h0, key, key_len, msg, msg_len, out.data(), sha384_digest_bytes);
@@ -286,22 +286,22 @@ inline void hmac_sha3_impl(std::size_t rate, std::size_t out_bytes, // NOLINT(bu
     ctx.finish(out);
 }
 
-inline void hmac_sha3_256(const uint8_t* key, std::size_t key_len, // NOLINT(bugprone-easily-swappable-parameters)
-                           const uint8_t* msg, std::size_t msg_len,
+inline void hmac_sha3_256(const uint8_t* key, std::size_t key_len,
+                           const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                            ByteSpan<sha3_256_digest_bytes> out) noexcept
 {
     hmac_sha3_impl(sha3_max_rate_bytes, sha3_256_digest_bytes, key, key_len, msg, msg_len, out.data());
 }
 
-inline void hmac_sha3_384(const uint8_t* key, std::size_t key_len, // NOLINT(bugprone-easily-swappable-parameters)
-                           const uint8_t* msg, std::size_t msg_len,
+inline void hmac_sha3_384(const uint8_t* key, std::size_t key_len,
+                           const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                            ByteSpan<sha3_384_digest_bytes> out) noexcept
 {
     hmac_sha3_impl(sha3_384_rate_bytes_v, sha3_384_digest_bytes, key, key_len, msg, msg_len, out.data());
 }
 
-inline void hmac_sha3_512(const uint8_t* key, std::size_t key_len, // NOLINT(bugprone-easily-swappable-parameters)
-                           const uint8_t* msg, std::size_t msg_len,
+inline void hmac_sha3_512(const uint8_t* key, std::size_t key_len,
+                           const uint8_t* msg, std::size_t msg_len, // NOLINT(bugprone-easily-swappable-parameters)
                            ByteSpan<sha3_512_digest_bytes> out) noexcept
 {
     hmac_sha3_impl(sha3_512_rate_bytes_v, sha3_512_digest_bytes, key, key_len, msg, msg_len, out.data());

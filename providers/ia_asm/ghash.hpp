@@ -44,7 +44,7 @@ static inline __m128i ghash_load(const uint8_t* block) noexcept {
     const __m128i bswap = _mm_set_epi8(
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     );
-    return _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)), bswap);
+    return _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)), bswap); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 
 [[gnu::target("pclmul,ssse3")]]
@@ -52,14 +52,14 @@ static inline void ghash_store(uint8_t* out, __m128i v) noexcept {
     const __m128i bswap = _mm_set_epi8(
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     );
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(out), _mm_shuffle_epi8(v, bswap));
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(out), _mm_shuffle_epi8(v, bswap)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 
 
 // 128-bit carry-less multiply: a * b → lo:hi (256-bit result).
 [[gnu::target("pclmul,ssse3")]]
-static inline void ghash_clmul256(__m128i a, __m128i b,
-                                   __m128i& lo, __m128i& hi) noexcept {
+static inline void ghash_clmul256(__m128i a, __m128i b, // NOLINT(bugprone-easily-swappable-parameters)
+                                   __m128i& lo, __m128i& hi) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     const __m128i lo_lo = _mm_clmulepi64_si128(a, b, 0x00);
     const __m128i hi_hi = _mm_clmulepi64_si128(a, b, 0x11);
     __m128i       mid   = _mm_xor_si128(
