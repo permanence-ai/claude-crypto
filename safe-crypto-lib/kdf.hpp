@@ -18,8 +18,8 @@
 
 template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
-auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity,bugprone-easily-swappable-parameters)
-    const std::size_t output_length,
+auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
+    const std::size_t output_length, // NOLINT(bugprone-easily-swappable-parameters)
     const std::optional<SecureBuffer>& ikm  = std::nullopt, // NOLINT(bugprone-easily-swappable-parameters)
     const std::optional<SecureBuffer>& salt = std::nullopt,
     const std::optional<SecureBuffer>& info = std::nullopt)
@@ -197,8 +197,8 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
 
 [[nodiscard]]
-inline auto derive_key( // NOLINT(bugprone-easily-swappable-parameters)
-    const std::size_t output_length,
+inline auto derive_key(
+    const std::size_t output_length, // NOLINT(bugprone-easily-swappable-parameters)
     const std::optional<SecureBuffer>& ikm  = std::nullopt, // NOLINT(bugprone-easily-swappable-parameters)
     const std::optional<SecureBuffer>& salt = std::nullopt,
     const std::optional<SecureBuffer>& info = std::nullopt)
