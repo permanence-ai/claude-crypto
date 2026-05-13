@@ -84,7 +84,7 @@ inline constexpr std::array<uint32_t, 64> sha256_k = {{
 //   After the first 16 rounds, each group is updated in-place using
 //   _mm_sha256msg1_epu32 (σ0) and _mm_sha256msg2_epu32 (σ1).
 [[gnu::target("sha,ssse3,sse4.1"), gnu::noinline]]
-void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-size)
+void sha256_compress(std::span<uint32_t, 8> state, const uint8_t* block) noexcept // NOLINT(readability-function-size,misc-definitions-in-headers)
 {
     // Big-endian byte-swap mask: reverses 4-byte words within each 16-byte lane.
     const __m128i bswap_mask = _mm_set_epi8(
