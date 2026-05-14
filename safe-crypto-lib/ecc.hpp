@@ -57,13 +57,13 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
 
     auto attrs = Provider::make_ecdsa_generate_attrs(key_bits);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::generate_key(&attrs);
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ECDSA key generation failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer private_key_der(Provider::ec_private_key_export_size(key_bits));
     std::size_t  private_key_length = 0;
@@ -116,16 +116,15 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_ecdsa_sign_attrs(key_bits);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                         key_pair.private_key_der.data(),
-                        key_pair.private_key_der.size(),
-                        &raw_key_id) != Provider::ok) {
+                        key_pair.private_key_der.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ECDSA private key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer signature(Provider::ecdsa_sign_output_size(key_bits));
     std::size_t  signature_length = 0;
@@ -168,16 +167,15 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_ecdsa_verify_attrs(key_bits);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                         public_key.public_key_der.data(),
-                        public_key.public_key_der.size(),
-                        &raw_key_id) != Provider::ok) {
+                        public_key.public_key_der.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ECDSA public key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     const auto status = Provider::verify_message(
         key_handle.get(),

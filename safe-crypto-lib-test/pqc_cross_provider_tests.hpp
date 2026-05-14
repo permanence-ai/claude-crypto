@@ -83,8 +83,7 @@ static void run_ml_dsa_cross_verify(const char* label) {
         // Generate key with ARM ASM.
         auto arm_gen_attrs = ArmAsmBackend::make_ml_dsa_generate_attrs(V);
         ArmAsmBackend::KeyId arm_priv_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::generate_key(&arm_gen_attrs, &arm_priv_id), ArmAsmBackend::ok)
-            << label << " ARM keygen failed";
+        { auto r_ = ArmAsmBackend::generate_key(&arm_gen_attrs); ASSERT_TRUE(r_.has_value()) << label << " ARM keygen failed"; arm_priv_id = r_.value(); }
 
         // Export ARM private key and public key.
         const std::size_t priv_sz = ArmAsmBackend::ml_dsa_private_key_export_size(V);
@@ -136,9 +135,7 @@ static void run_ml_kem_cross_encap(const char* label) {
         // Import OpenSSL public key into ARM ASM backend for encapsulation.
         auto arm_pub_attrs = ArmAsmBackend::make_ml_kem_encap_attrs(V);
         ArmAsmBackend::KeyId arm_pub_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::import_key(
-            &arm_pub_attrs, ossl_kp->public_key.data(), ossl_kp->public_key.size(), &arm_pub_id),
-            ArmAsmBackend::ok) << label << " ARM public key import failed (OpenSSL→ARM)";
+        { auto r_ = ArmAsmBackend::import_key(&arm_pub_attrs, ossl_kp->public_key.data(), ossl_kp->public_key.size()); ASSERT_TRUE(r_.has_value()) << label << " ARM public key import failed (OpenSSL→ARM)"; arm_pub_id = r_.value(); }
 
         // ARM ASM encapsulate.
         const std::size_t ct_sz = ArmAsmBackend::ml_kem_ciphertext_size(V);
@@ -170,8 +167,7 @@ static void run_ml_kem_cross_encap(const char* label) {
         // Generate key pair with ARM ASM.
         auto arm_gen_attrs = ArmAsmBackend::make_ml_kem_generate_attrs(V);
         ArmAsmBackend::KeyId arm_priv_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::generate_key(&arm_gen_attrs, &arm_priv_id), ArmAsmBackend::ok)
-            << label << " ARM keygen failed";
+        { auto r_ = ArmAsmBackend::generate_key(&arm_gen_attrs); ASSERT_TRUE(r_.has_value()) << label << " ARM keygen failed"; arm_priv_id = r_.value(); }
 
         const std::size_t pub_sz = ArmAsmBackend::ml_kem_public_key_export_size(V);
         SecureBuffer arm_pub(pub_sz);

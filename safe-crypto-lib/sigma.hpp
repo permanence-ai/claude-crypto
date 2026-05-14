@@ -98,15 +98,14 @@ auto sigma_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexit
 
     auto attrs = Provider::make_hkdf_derive_attrs(shared_secret.size() * bits_per_byte);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
-                        shared_secret.data(), shared_secret.size(),
-                        &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs,
+                        shared_secret.data(), shared_secret.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA IKM import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     auto op = Provider::make_kdf_op();
 

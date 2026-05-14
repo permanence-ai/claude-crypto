@@ -28,13 +28,13 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_hmac_generate_attrs(V, key.size() * bits_per_byte);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     FixedSecureBuffer<sha_output_size(V)> mac;
     std::size_t mac_length = 0;
@@ -72,13 +72,13 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_hmac_verify_attrs(V, key.size() * bits_per_byte);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "Key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     const auto status = Provider::mac_verify(
         key_handle.get(), Provider::alg_hmac(V),

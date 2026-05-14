@@ -92,15 +92,14 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
 
     auto attrs = Provider::make_hkdf_derive_attrs(shared_secret.size() * bits_per_byte);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
-                        shared_secret.data(), shared_secret.size(),
-                        &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs,
+                        shared_secret.data(), shared_secret.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I IKM import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     auto op = Provider::make_kdf_op();
 
@@ -311,13 +310,13 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     auto attrs = Provider::make_aes256_gcm_encrypt_attrs();
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer ciphertext(Provider::aes_gcm_encrypt_output_size(plaintext.size()));
 
@@ -368,13 +367,13 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     auto attrs = Provider::make_aes256_gcm_decrypt_attrs();
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs, key.data(), key.size(), &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SIGMA-I AES key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer plaintext(Provider::aes_gcm_decrypt_output_size(bundle.ciphertext.size()));
 

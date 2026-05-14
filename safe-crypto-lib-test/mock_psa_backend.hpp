@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <expected>
 
 #include <gmock/gmock.h>
 #include <psa/crypto.h>
@@ -131,17 +132,27 @@ struct MockPsaBackend {
     {
         return g_mock_psa->hash_compute(alg, in, in_len, hash, hash_size, hash_len);
     }
-    static psa_status_t import_key(
+    static auto import_key(
         const PsaKeyAttributes* attrs,
-        const CryptoByte* data, const std::size_t data_len,
-        mbedtls_svc_key_id_t* key)
+        const CryptoByte* data, const std::size_t data_len)
+        -> std::expected<KeyId, Status>
     {
-        return g_mock_psa->import_key(attrs != nullptr ? &attrs->psa : nullptr, data, data_len, key);
+        KeyId key = null_key_id();
+        const auto s = g_mock_psa->import_key(attrs != nullptr ? &attrs->psa : nullptr, data, data_len, &key);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        return key;
     }
-    static psa_status_t generate_key(
-        const PsaKeyAttributes* attrs, mbedtls_svc_key_id_t* key)
+    static auto generate_key(const PsaKeyAttributes* attrs)
+        -> std::expected<KeyId, Status>
     {
-        return g_mock_psa->generate_key(attrs != nullptr ? &attrs->psa : nullptr, key);
+        KeyId key = null_key_id();
+        const auto s = g_mock_psa->generate_key(attrs != nullptr ? &attrs->psa : nullptr, &key);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        return key;
     }
     static psa_status_t destroy_key(const mbedtls_svc_key_id_t key) {
         return g_mock_psa->destroy_key(key);

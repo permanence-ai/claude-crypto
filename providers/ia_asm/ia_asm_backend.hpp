@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <expected>
 #include <span>
 
 // IA ASM primitives: SHA, HMAC, HKDF, AEAD.
@@ -128,21 +129,19 @@ struct IaAsmBackend {
     }
 
     [[nodiscard]]
-    static Status import_key(const KeyAttributes* attrs, const CryptoByte* key, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-                             std::size_t key_len, KeyId* id) {
+    static auto import_key(const KeyAttributes* attrs, const CryptoByte* key, // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+                           std::size_t key_len) -> std::expected<KeyId, Status> {
         if (attrs != nullptr && attrs->ec_curve != arm_asm::detail::EcCurveId::None) {
             const KeyId slot = arm_asm::detail::ec_key_store_import(
                 attrs->ec_curve, attrs->ec_kind, key, key_len);
-            if (slot == 0U) { return err_invalid_arg; }
-            *id = slot;
-            return ok;
+            if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+            return slot;
         }
         if (attrs != nullptr && attrs->rsa_key_kind != arm_asm::detail::RsaKeyKind::None) {
             const KeyId slot = arm_asm::detail::rsa_key_store_import(
                 attrs->rsa_key_kind, attrs->rsa_bits, key, key_len);
-            if (slot == 0U) { return err_invalid_arg; }
-            *id = slot;
-            return ok;
+            if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+            return slot;
         }
         if (attrs != nullptr && attrs->pqc_type != arm_asm::detail::PqcKeyType::None) {
             using arm_asm::detail::PqcKeyType;
@@ -154,19 +153,17 @@ struct IaAsmBackend {
             const std::size_t pub_sz = is_private ? 0U : key_len;
             const KeyId slot = arm_asm::detail::pqc_key_store_import(
                 attrs->pqc_type, attrs->pqc_variant, priv, priv_sz, pub, pub_sz);
-            if (slot == 0U) { return err_invalid_arg; }
-            *id = slot;
-            return ok;
+            if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+            return slot;
         }
         const KeyId slot = ia_asm::detail::key_store_import(key, key_len);
-        if (slot == 0U) { return err_invalid_arg; }
-        *id = slot;
-        return ok;
+        if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+        return slot;
     }
 
     [[nodiscard]]
-    static Status generate_key(const KeyAttributes* attrs, KeyId* id) { // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        if (attrs == nullptr) { return err_invalid_arg; }
+    static auto generate_key(const KeyAttributes* attrs) -> std::expected<KeyId, Status> { // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+        if (attrs == nullptr) { return std::unexpected(err_invalid_arg); }
         if (attrs->ec_curve != arm_asm::detail::EcCurveId::None) {
             using namespace arm_asm::detail;
             if (attrs->ec_curve == EcCurveId::P256) {
@@ -178,12 +175,11 @@ struct IaAsmBackend {
                     if (!p256_scalar_is_zero(s)) {
                         fe256_to_bytes(s, ByteSpan<p256_scalar_bytes>{sk.data(), p256_scalar_bytes});
                         const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
-                        if (slot == 0U) { return err_invalid_arg; }
-                        *id = slot;
-                        return ok;
+                        if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+                        return slot;
                     }
                 }
-                return err_invalid_arg;
+                return std::unexpected(err_invalid_arg);
             }
             if (attrs->ec_curve == EcCurveId::P384) {
                 constexpr std::size_t sk_len = 48;
@@ -194,12 +190,11 @@ struct IaAsmBackend {
                     if (!p384_scalar_is_zero(s)) {
                         fe384_to_bytes(s, ByteSpan<p384_scalar_bytes>{sk.data(), p384_scalar_bytes});
                         const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
-                        if (slot == 0U) { return err_invalid_arg; }
-                        *id = slot;
-                        return ok;
+                        if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+                        return slot;
                     }
                 }
-                return err_invalid_arg;
+                return std::unexpected(err_invalid_arg);
             }
             if (attrs->ec_curve == EcCurveId::P521) {
                 constexpr std::size_t sk_len = 66;
@@ -210,23 +205,21 @@ struct IaAsmBackend {
                     if (!p521_scalar_is_zero(s)) {
                         fe521_to_bytes(s, ByteSpan<p521_scalar_bytes>{sk.data(), p521_scalar_bytes});
                         const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
-                        if (slot == 0U) { return err_invalid_arg; }
-                        *id = slot;
-                        return ok;
+                        if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+                        return slot;
                     }
                 }
-                return err_invalid_arg;
+                return std::unexpected(err_invalid_arg);
             }
-            return err_invalid_arg;
+            return std::unexpected(err_invalid_arg);
         }
         if (attrs->rsa_key_kind == arm_asm::detail::RsaKeyKind::Private && attrs->rsa_bits > 0) {
             FixedSecureBuffer<arm_asm::detail::rsa_max_public_key_bytes> pub_tmp{};
             std::size_t pub_len = 0;
             const KeyId slot = arm_asm::detail::rsa_generate_key_pair(
                 attrs->rsa_bits, pub_tmp.data(), arm_asm::detail::rsa_max_public_key_bytes, &pub_len);
-            if (slot == 0U) { return err_invalid_arg; }
-            *id = slot;
-            return ok;
+            if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+            return slot;
         }
         if (attrs->pqc_type != arm_asm::detail::PqcKeyType::None) {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -240,7 +233,7 @@ struct IaAsmBackend {
                 if (pub_buf == nullptr || priv_buf == nullptr) {
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return err_invalid_arg;
+                    return std::unexpected(err_invalid_arg);
                 }
                 const bool ok_kg = liboqs_pqc::ml_kem_keygen(v, pub_buf, pub_sz, priv_buf, priv_sz);
                 if (!ok_kg) {
@@ -248,7 +241,7 @@ struct IaAsmBackend {
                     arm_asm::detail::secure_zero(priv_buf, priv_sz);
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return err_invalid_arg;
+                    return std::unexpected(err_invalid_arg);
                 }
                 const KeyId slot = arm_asm::detail::pqc_key_store_import(
                     PqcKeyType::MlKemPrivate, attrs->pqc_variant,
@@ -257,9 +250,8 @@ struct IaAsmBackend {
                 arm_asm::detail::secure_zero(pub_buf,  pub_sz);
                 delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
                 delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
-                if (slot == 0U) { return err_invalid_arg; }
-                *id = slot;
-                return ok;
+                if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+                return slot;
             }
             if (attrs->pqc_type == PqcKeyType::MlDsaPrivate) {
                 const auto v = static_cast<MlDsaVariant>(attrs->pqc_variant);
@@ -270,7 +262,7 @@ struct IaAsmBackend {
                 if (pub_buf == nullptr || priv_buf == nullptr) {
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return err_invalid_arg;
+                    return std::unexpected(err_invalid_arg);
                 }
                 const bool ok_kg = liboqs_pqc::ml_dsa_keygen(v, pub_buf, pub_sz, priv_buf, priv_sz);
                 if (!ok_kg) {
@@ -278,7 +270,7 @@ struct IaAsmBackend {
                     arm_asm::detail::secure_zero(priv_buf, priv_sz);
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return err_invalid_arg;
+                    return std::unexpected(err_invalid_arg);
                 }
                 const KeyId slot = arm_asm::detail::pqc_key_store_import(
                     PqcKeyType::MlDsaPrivate, attrs->pqc_variant,
@@ -287,21 +279,19 @@ struct IaAsmBackend {
                 arm_asm::detail::secure_zero(pub_buf,  pub_sz);
                 delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
                 delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
-                if (slot == 0U) { return err_invalid_arg; }
-                *id = slot;
-                return ok;
+                if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+                return slot;
             }
 #endif
-            return err_invalid_arg;
+            return std::unexpected(err_invalid_arg);
         }
-        if (attrs->key_bytes == 0) { return err_invalid_arg; }
-        if (attrs->key_bytes > ia_asm::detail::key_store_max_bytes) { return err_invalid_arg; }
+        if (attrs->key_bytes == 0) { return std::unexpected(err_invalid_arg); }
+        if (attrs->key_bytes > ia_asm::detail::key_store_max_bytes) { return std::unexpected(err_invalid_arg); }
         FixedSecureBuffer<ia_asm::detail::key_store_max_bytes> buf;
         arm_asm::detail::generate_random_bytes(buf.data(), attrs->key_bytes);
         const KeyId slot = ia_asm::detail::key_store_import(buf.data(), attrs->key_bytes);
-        if (slot == 0U) { return err_invalid_arg; }
-        *id = slot;
-        return ok;
+        if (slot == 0U) { return std::unexpected(err_invalid_arg); }
+        return slot;
     }
 
     [[nodiscard]]
