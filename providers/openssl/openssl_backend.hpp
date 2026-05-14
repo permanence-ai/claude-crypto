@@ -1007,7 +1007,7 @@ struct OpenSslBackend {
         const CryptoByte* mac, const std::size_t mac_length) noexcept
     {
         // Compute a fresh MAC and compare in constant time.
-        std::array<CryptoByte, sha512_digest_bytes> computed{};  // large enough for any HMAC output
+        ByteArray<sha512_digest_bytes> computed{};  // large enough for any HMAC output
         std::size_t computed_len = 0;
         const Status rv = mac_compute(key, alg,
                                       input, input_length,
