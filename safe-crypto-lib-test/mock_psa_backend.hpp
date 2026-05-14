@@ -122,8 +122,15 @@ struct MockPsaBackend {
     static psa_status_t crypto_init() {
         return g_mock_psa->crypto_init();
     }
-    static psa_status_t generate_random(CryptoByte* out, const std::size_t len) {
-        return g_mock_psa->generate_random(out, len);
+    static auto generate_random(const std::size_t len)
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer output(len);
+        const auto s = g_mock_psa->generate_random(output.data(), len);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        return output;
     }
     static psa_status_t hash_compute(
         const psa_algorithm_t alg,

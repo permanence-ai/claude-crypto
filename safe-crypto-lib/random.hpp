@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 #include <expected>
 
 #include "contracts.hpp"
@@ -23,15 +24,14 @@ auto random_bytes_impl(const std::size_t length)
             "PSA crypto init failed"));
     }
 
-    SecureBuffer output(length);
-
-    if (Provider::generate_random(output.data(), output.size()) != Provider::ok) {
+    auto result = Provider::generate_random(length);
+    if (!result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::RandomGenerationFailed,
             "Random byte generation failed"));
     }
 
-    return output;
+    return std::move(result).value();
 }
 
 
@@ -45,14 +45,15 @@ auto random_bytes_fixed_impl() -> std::expected<FixedSecureBuffer<N>, CryptoErro
             "PSA crypto init failed"));
     }
 
-    FixedSecureBuffer<N> output;
-
-    if (Provider::generate_random(output.data(), output.size()) != Provider::ok) {
+    auto result = Provider::generate_random(N);
+    if (!result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::RandomGenerationFailed,
             "Random byte generation failed"));
     }
 
+    FixedSecureBuffer<N> output;
+    std::memcpy(output.data(), result->data(), N);
     return output;
 }
 

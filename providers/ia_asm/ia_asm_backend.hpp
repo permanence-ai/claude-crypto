@@ -80,9 +80,12 @@ struct IaAsmBackend {
     static Status crypto_init() { return ok; }
 
     [[nodiscard]]
-    static Status generate_random(CryptoByte* buf, std::size_t len) {
-        arm_asm::detail::generate_random_bytes(buf, len);
-        return ok;
+    static auto generate_random(const std::size_t len)
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer output(len);
+        arm_asm::detail::generate_random_bytes(output.data(), len);
+        return output;
     }
 
     [[nodiscard]]

@@ -9,6 +9,7 @@
 #include "contracts.hpp"
 #include "defs.hpp"
 #include "ml_dsa_variant.hpp"
+#include "secure_buffer.hpp"
 #include "ml_kem_variant.hpp"
 #include "sha_variant.hpp"
 #include "slh_dsa_variant.hpp"
@@ -132,7 +133,7 @@ concept CryptoProvider = requires(
     { T::ml_kem_public_key_export_size(kem_v) }    -> std::same_as<std::size_t>;
     // Low-level crypto operations
     { T::crypto_init() }                                        -> std::same_as<typename T::Status>;
-    { T::generate_random(buf, len) }                            -> std::same_as<typename T::Status>;
+    { T::generate_random(len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::import_key(attrs, cbuf, len) }  -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
     { T::generate_key(attrs) }           -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
     { T::destroy_key(key) }                                     -> std::same_as<typename T::Status>;

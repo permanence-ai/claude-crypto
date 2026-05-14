@@ -16,6 +16,7 @@
 #include "ml_dsa_variant.hpp"
 #include "ml_kem_variant.hpp"
 #include "pqc_key_store.hpp"
+#include "secure_buffer.hpp"
 #include "sha_variant.hpp"
 #include "slh_dsa_variant.hpp"
 
@@ -72,8 +73,15 @@ struct RealPsaBackend {
     }
 
     [[nodiscard]]
-    static Status generate_random(CryptoByte* output, const std::size_t output_size) {
-        return psa_generate_random(output, output_size);
+    static auto generate_random(const std::size_t output_size)
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer output(output_size);
+        const auto s = psa_generate_random(output.data(), output_size);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        return output;
     }
 
     [[nodiscard]]
