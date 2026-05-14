@@ -454,7 +454,7 @@ TEST_F(SigmaTests, SessionKeyCanBeUsedToEncryptAndDecrypt) {
     std::ranges::copy(result.responder_keys.session_key, resp_key.begin());
 
     // Initiator encrypts a known plaintext with its session key.
-    constexpr std::array<CryptoByte, 8> raw_plaintext = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    constexpr ByteArray< 8> raw_plaintext = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
     SecureBuffer plaintext(raw_plaintext.size());
     std::ranges::copy(raw_plaintext, plaintext.begin());
     const auto enc = aes256_gcm_encrypt(init_key, plaintext, {});

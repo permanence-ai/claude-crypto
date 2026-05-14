@@ -121,7 +121,7 @@ TEST_F(RsaKeygenTests, GenerateAndParseKeyDer1024) {
     constexpr std::size_t NW = 16U;
     constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<CryptoByte, rsa_1024_bits> der_buf{};
+    ByteArray< rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));
@@ -147,7 +147,7 @@ TEST_F(RsaKeygenTests, RoundTripEncryptDecrypt1024) {
     constexpr std::size_t k  = 128U;  // key bytes
     constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<CryptoByte, rsa_1024_bits> der_buf{};
+    ByteArray< rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));
@@ -156,11 +156,11 @@ TEST_F(RsaKeygenTests, RoundTripEncryptDecrypt1024) {
     ASSERT_TRUE(arm_asm::detail::rsa_parse_private_key_der(der_buf.data(), der_len, priv));
 
     // Plaintext = 42 (big-endian, 128 bytes).
-    std::array<CryptoByte, k> m_in{};
+    ByteArray< k> m_in{};
     m_in[k - 1U] = 42U;
 
     // RSA public op: c = m^e mod n.
-    std::array<CryptoByte, k> c{};
+    ByteArray< k> c{};
     arm_asm::detail::rsa_public_op<NW>(
         m_in.data(), k,
         priv.n, priv.n_len,
@@ -168,7 +168,7 @@ TEST_F(RsaKeygenTests, RoundTripEncryptDecrypt1024) {
         c.data());
 
     // RSA private op: m' = c^d mod n (CRT).
-    std::array<CryptoByte, k> m_out{};
+    ByteArray< k> m_out{};
     arm_asm::detail::rsa_private_op<NW>(
         c.data(), k,
         priv.p,    priv.p_len,
@@ -188,7 +188,7 @@ TEST_F(RsaKeygenTests, OaepRoundTrip1024) {
     constexpr std::size_t k  = 128U;
     constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<CryptoByte, rsa_1024_bits> der_buf{};
+    ByteArray< rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));
@@ -196,21 +196,21 @@ TEST_F(RsaKeygenTests, OaepRoundTrip1024) {
     arm_asm::detail::RsaPrivateKeyComponents priv{};
     ASSERT_TRUE(arm_asm::detail::rsa_parse_private_key_der(der_buf.data(), der_len, priv));
 
-    const std::array<CryptoByte, 8> pt = {0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48};  // "ABCDEFGH"
+    const ByteArray< 8> pt = {0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48};  // "ABCDEFGH"
 
     // OAEP encode.
-    std::array<CryptoByte, arm_asm::detail::oaep_hash_len> seed{};
+    ByteArray< arm_asm::detail::oaep_hash_len> seed{};
     arm_asm::detail::generate_random_bytes(seed.data(), seed.size());
-    std::array<CryptoByte, k> em{};
+    ByteArray< k> em{};
     ASSERT_TRUE(arm_asm::detail::oaep_encode(
         pt.data(), pt.size(), nullptr, 0, seed.data(), k, em.data()));
 
     // RSA encrypt.
-    std::array<CryptoByte, k> ct{};
+    ByteArray< k> ct{};
     arm_asm::detail::rsa_public_op<NW>(em.data(), k, priv.n, priv.n_len, priv.e, priv.e_len, ct.data());
 
     // RSA decrypt.
-    std::array<CryptoByte, k> em_dec{};
+    ByteArray< k> em_dec{};
     arm_asm::detail::rsa_private_op<NW>(
         ct.data(), k,
         priv.p, priv.p_len, priv.q, priv.q_len,
@@ -219,7 +219,7 @@ TEST_F(RsaKeygenTests, OaepRoundTrip1024) {
         em_dec.data());
 
     // OAEP decode.
-    std::array<CryptoByte, k> pt_out{};
+    ByteArray< k> pt_out{};
     std::size_t pt_out_len = 0;
     ASSERT_TRUE(arm_asm::detail::oaep_decode(
         em_dec.data(), k, nullptr, 0, pt_out.data(), pt_out.size(), &pt_out_len));
@@ -234,13 +234,13 @@ TEST_F(RsaKeygenTests, PsaCanImportOurGeneratedKey) {
     constexpr std::size_t k  = 128U;
     constexpr std::size_t modulus_bits = rsa_1024_bits;
 
-    std::array<CryptoByte, rsa_1024_bits> der_buf{};
+    ByteArray< rsa_1024_bits> der_buf{};
     std::size_t der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_generate_key_der<NW>(
         modulus_bits, der_buf.data(), der_buf.size(), &der_len));
 
     // Derive SubjectPublicKeyInfo DER (for our own ops) and PKCS#1 RSAPublicKey (for PSA).
-    std::array<CryptoByte, 550> pub_der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ByteArray< 550> pub_der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t pub_der_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_derive_public_key_der(
         der_buf.data(), der_len,
@@ -249,7 +249,7 @@ TEST_F(RsaKeygenTests, PsaCanImportOurGeneratedKey) {
     // PKCS#1 RSAPublicKey DER for PSA import (PSA_KEY_TYPE_RSA_PUBLIC_KEY).
     arm_asm::detail::RsaPrivateKeyComponents priv2{};
     ASSERT_TRUE(arm_asm::detail::rsa_parse_private_key_der(der_buf.data(), der_len, priv2));
-    std::array<CryptoByte, 550> pkcs1_pub_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ByteArray< 550> pkcs1_pub_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t pkcs1_pub_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_encode_pkcs1_pubkey_der(
         priv2.n, priv2.n_len, priv2.e, priv2.e_len,
@@ -275,8 +275,8 @@ TEST_F(RsaKeygenTests, PsaCanImportOurGeneratedKey) {
     mbedtls_svc_key_id_t pub_id = MBEDTLS_SVC_KEY_ID_INIT;
     ASSERT_EQ(psa_import_key(&pub_attrs, pkcs1_pub_buf.data(), pkcs1_pub_len, &pub_id), PSA_SUCCESS);
 
-    const std::array<CryptoByte, 8> pt = {1, 2, 3, 4, 5, 6, 7, 8};
-    std::array<CryptoByte, k> ct{};
+    const ByteArray< 8> pt = {1, 2, 3, 4, 5, 6, 7, 8};
+    ByteArray< k> ct{};
     std::size_t ct_len = 0;
     ASSERT_EQ(psa_asymmetric_encrypt(pub_id, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384),
                                       pt.data(), pt.size(), nullptr, 0,
@@ -284,7 +284,7 @@ TEST_F(RsaKeygenTests, PsaCanImportOurGeneratedKey) {
     psa_destroy_key(pub_id);
 
     // PSA decrypt.
-    std::array<CryptoByte, k> pt_out{};
+    ByteArray< k> pt_out{};
     std::size_t pt_out_len = 0;
     ASSERT_EQ(psa_asymmetric_decrypt(psa_id, PSA_ALG_RSA_OAEP(PSA_ALG_SHA_384),
                                       ct.data(), ct_len, nullptr, 0,
