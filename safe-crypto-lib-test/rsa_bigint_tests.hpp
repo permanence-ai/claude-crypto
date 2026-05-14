@@ -32,8 +32,8 @@ namespace {
 
 // Decode a fixed-size hex string.
 template<std::size_t N>
-static std::array<CryptoByte, N> bigint_from_hex(const char* s) {
-    std::array<CryptoByte, N> out{};
+static ByteArray< N> bigint_from_hex(const char* s) {
+    ByteArray< N> out{};
     for (std::size_t i = 0; i < N; ++i) {
         unsigned v = 0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -54,31 +54,31 @@ static std::array<CryptoByte, N> bigint_from_hex(const char* s) {
 class BigIntLoadStoreTests : public ::testing::Test {};
 
 TEST_F(BigIntLoadStoreTests, FromBytesZero) {
-    const std::array<CryptoByte, 8> bytes{};
+    const ByteArray< 8> bytes{};
     const auto x = arm_asm::detail::bigint_from_bytes<1>(bytes.data(), 8);
     EXPECT_EQ(x.d[0], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 TEST_F(BigIntLoadStoreTests, FromBytesOneWord) {
     // 0x0102030405060708 big-endian → limb[0] = 0x0102030405060708
-    const std::array<CryptoByte, 8> bytes = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08};
+    const ByteArray< 8> bytes = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08};
     const auto x = arm_asm::detail::bigint_from_bytes<1>(bytes.data(), 8);
     EXPECT_EQ(x.d[0], 0x0102030405060708ULL); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 }
 
 TEST_F(BigIntLoadStoreTests, RoundTripTwoLimbs) {
     // 16 bytes: d[0] = low 8 bytes, d[1] = high 8 bytes (little-endian limbs)
-    std::array<CryptoByte, 16> bytes{};
+    ByteArray< 16> bytes{};
     for (std::size_t i = 0; i < 16; ++i) { bytes[i] = static_cast<uint8_t>(i + 1); }
     const auto x = arm_asm::detail::bigint_from_bytes<2>(bytes.data(), 16);
-    std::array<CryptoByte, 16> out{};
+    ByteArray< 16> out{};
     arm_asm::detail::bigint_to_bytes(x, out.data());
     EXPECT_EQ(std::memcmp(bytes.data(), out.data(), 16), 0);
 }
 
 TEST_F(BigIntLoadStoreTests, ShortInputZeroFillsHigh) {
     // 4 bytes into a 2-limb (16-byte) BigInt: high limb must be zero.
-    const std::array<CryptoByte, 4> bytes = {0xDE,0xAD,0xBE,0xEF};
+    const ByteArray< 4> bytes = {0xDE,0xAD,0xBE,0xEF};
     const auto x = arm_asm::detail::bigint_from_bytes<2>(bytes.data(), 4);
     EXPECT_EQ(x.d[1], 0U); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     EXPECT_EQ(x.d[0], 0xDEADBEEFULL); // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -266,7 +266,7 @@ TEST_F(BigIntRsaCrossTests, RsaPublicOpMatchesPsa512) {
     ASSERT_EQ(psa_generate_key(&attrs, &psa_id), PSA_SUCCESS);
 
     // Export private key DER.
-    std::array<CryptoByte, 768> priv_der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ByteArray< 768> priv_der_buf{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     std::size_t priv_der_len = 0;
     ASSERT_EQ(psa_export_key(psa_id, priv_der_buf.data(), priv_der_buf.size(), &priv_der_len),
               PSA_SUCCESS);
@@ -284,11 +284,11 @@ TEST_F(BigIntRsaCrossTests, RsaPublicOpMatchesPsa512) {
 
     // Choose a synthetic plaintext that fits in the modulus.
     // Use m = 42 (trivially < n for any 1024-bit key).
-    std::array<CryptoByte, 128> m_bytes{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ByteArray< 128> m_bytes{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     m_bytes[127] = 42U;  // big-endian 42 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
     // Public key operation: c = m^e mod n.
-    std::array<CryptoByte, 128> c_bytes_ours{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ByteArray< 128> c_bytes_ours{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     arm_asm::detail::rsa_public_op<NW>(
         m_bytes.data(), n_bytes_size,
         priv.n, priv.n_len,
@@ -296,7 +296,7 @@ TEST_F(BigIntRsaCrossTests, RsaPublicOpMatchesPsa512) {
         c_bytes_ours.data());
 
     // Private key operation: m' = c^d mod n using CRT.
-    std::array<CryptoByte, 128> m_recovered{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    ByteArray< 128> m_recovered{}; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     arm_asm::detail::rsa_private_op<NW>(
         c_bytes_ours.data(), n_bytes_size,
         priv.p,    priv.p_len,

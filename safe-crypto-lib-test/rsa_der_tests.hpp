@@ -27,8 +27,8 @@ namespace {
 
 // Decode a hex string into a byte array (caller supplies the right size).
 template<std::size_t N>
-static std::array<CryptoByte, N> from_hex(const char* s) {
-    std::array<CryptoByte, N> out{};
+static ByteArray< N> from_hex(const char* s) {
+    ByteArray< N> out{};
     for (std::size_t i = 0; i < N; ++i) {
         unsigned v = 0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -157,7 +157,7 @@ TEST_F(RsaDerParserTests, ParsePrivateKeyRoundTrip) {
 
 // Malformed: wrong top-level tag.
 TEST_F(RsaDerParserTests, ParsePrivateKeyBadTag) {
-    const std::array<CryptoByte, 4> bad = {0x10, 0x02, 0x02, 0x00};
+    const ByteArray< 4> bad = {0x10, 0x02, 0x02, 0x00};
     arm_asm::detail::RsaPrivateKeyComponents out{};
     EXPECT_FALSE(arm_asm::detail::rsa_parse_private_key_der(
         bad.data(), bad.size(), out));
@@ -165,7 +165,7 @@ TEST_F(RsaDerParserTests, ParsePrivateKeyBadTag) {
 
 // Malformed: truncated after tag.
 TEST_F(RsaDerParserTests, ParsePrivateKeyTruncated) {
-    const std::array<CryptoByte, 1> bad = {0x30};
+    const ByteArray< 1> bad = {0x30};
     arm_asm::detail::RsaPrivateKeyComponents out{};
     EXPECT_FALSE(arm_asm::detail::rsa_parse_private_key_der(
         bad.data(), bad.size(), out));
@@ -205,11 +205,11 @@ class RsaDerEncoderTests : public ::testing::Test {};
 // Encoding then parsing back gives the same n and e.
 TEST_F(RsaDerEncoderTests, EncodePublicKeyRoundTrip) {
     // A 4-byte synthetic modulus with high bit set (needs padding).
-    const std::array<CryptoByte, 4> n = {0x80, 0x01, 0x02, 0x03};
+    const ByteArray< 4> n = {0x80, 0x01, 0x02, 0x03};
     // Standard e = 65537
-    const std::array<CryptoByte, 3> e = {0x01, 0x00, 0x01};
+    const ByteArray< 3> e = {0x01, 0x00, 0x01};
 
-    std::array<CryptoByte, 256> buf{};
+    ByteArray< 256> buf{};
     std::size_t out_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_encode_public_key_der(
         n.data(), n.size(), e.data(), e.size(),
@@ -229,10 +229,10 @@ TEST_F(RsaDerEncoderTests, EncodePublicKeyRoundTrip) {
 
 // n with no high bit: no padding needed.
 TEST_F(RsaDerEncoderTests, EncodePublicKeyNoPadding) {
-    const std::array<CryptoByte, 4> n = {0x01, 0x02, 0x03, 0x04};
-    const std::array<CryptoByte, 3> e = {0x01, 0x00, 0x01};
+    const ByteArray< 4> n = {0x01, 0x02, 0x03, 0x04};
+    const ByteArray< 3> e = {0x01, 0x00, 0x01};
 
-    std::array<CryptoByte, 256> buf{};
+    ByteArray< 256> buf{};
     std::size_t out_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_encode_public_key_der(
         n.data(), n.size(), e.data(), e.size(),
@@ -248,9 +248,9 @@ TEST_F(RsaDerEncoderTests, EncodePublicKeyNoPadding) {
 
 // Buffer too small: encode returns false.
 TEST_F(RsaDerEncoderTests, EncodePublicKeyBufferTooSmall) {
-    const std::array<CryptoByte, 4> n = {0x01, 0x02, 0x03, 0x04};
-    const std::array<CryptoByte, 3> e = {0x01, 0x00, 0x01};
-    std::array<CryptoByte, 4> tiny{};
+    const ByteArray< 4> n = {0x01, 0x02, 0x03, 0x04};
+    const ByteArray< 3> e = {0x01, 0x00, 0x01};
+    ByteArray< 4> tiny{};
     std::size_t out_len = 0;
     EXPECT_FALSE(arm_asm::detail::rsa_encode_public_key_der(
         n.data(), n.size(), e.data(), e.size(),
@@ -277,7 +277,7 @@ TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyFromPrivate) {
 
     const auto priv_der = build_pkcs1_der(n, e, d, p, q, dp, dq, qinv);
 
-    std::array<CryptoByte, 256> pub_buf{};
+    ByteArray< 256> pub_buf{};
     std::size_t pub_len = 0;
     ASSERT_TRUE(arm_asm::detail::rsa_derive_public_key_der(
         priv_der.data(), priv_der.size(),
@@ -295,8 +295,8 @@ TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyFromPrivate) {
 
 // Passing a malformed DER to derive returns false.
 TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyBadDerReturnsFalse) {
-    const std::array<CryptoByte, 4> bad = {0x01, 0x02, 0x03, 0x04};
-    std::array<CryptoByte, 256> out{};
+    const ByteArray< 4> bad = {0x01, 0x02, 0x03, 0x04};
+    ByteArray< 256> out{};
     std::size_t out_len = 0;
     EXPECT_FALSE(arm_asm::detail::rsa_derive_public_key_der(
         bad.data(), bad.size(), out.data(), out.size(), &out_len));
@@ -304,7 +304,7 @@ TEST_F(RsaDerDerivePublicKeyTests, DerivePublicKeyBadDerReturnsFalse) {
 
 // Verify parse_public_key on bad input returns false.
 TEST_F(RsaDerDerivePublicKeyTests, ParsePublicKeyBadInputReturnsFalse) {
-    const std::array<CryptoByte, 4> bad = {0x01, 0x02, 0x03, 0x04};
+    const ByteArray< 4> bad = {0x01, 0x02, 0x03, 0x04};
     arm_asm::detail::RsaPublicKeyComponents pub{};
     EXPECT_FALSE(arm_asm::detail::rsa_parse_public_key_der(
         bad.data(), bad.size(), pub));
