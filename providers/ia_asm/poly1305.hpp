@@ -203,7 +203,7 @@ static inline void poly1305_process_pair(
 
 
 inline void poly1305_mac(CByteSpan<poly1305_key_bytes> key, const CryptoByte* msg, // NOLINT(bugprone-easily-swappable-parameters)
-                          std::size_t msg_len, ByteSpan<poly1305_tag_bytes> tag) noexcept
+                          std::size_t msg_len, ByteSpan<poly1305_tag_bytes> tag) noexcept // NOLINT(bugprone-easily-swappable-parameters)
 {
     const Poly1305Limbs  r  = clamp_r(CByteSpan<poly1305_tag_bytes>{key.data(), poly1305_tag_bytes});
     const Poly1305Powers pw = Poly1305Powers::build(r);
