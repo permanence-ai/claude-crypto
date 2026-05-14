@@ -185,8 +185,8 @@ static inline bool p256_ecdsa_sign(
     return true;
 }
 
-static inline bool p256_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p256_public_key_bytes> public_key_uncompressed,
+static inline bool p256_ecdsa_verify(
+    CByteSpan<p256_public_key_bytes> public_key_uncompressed, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha256_digest_bytes> msg_hash,
     CByteSpan<p256_sig_bytes> sig) noexcept
 {
@@ -286,8 +286,8 @@ static inline bool p384_ecdsa_sign(
     return true;
 }
 
-static inline bool p384_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p384_public_key_bytes> public_key_uncompressed,
+static inline bool p384_ecdsa_verify(
+    CByteSpan<p384_public_key_bytes> public_key_uncompressed, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha384_digest_bytes> msg_hash,
     CByteSpan<p384_sig_bytes> sig) noexcept
 {
@@ -340,8 +340,8 @@ static inline bool p384_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parame
 }
 
 
-static inline bool p521_ecdsa_sign( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p521_scalar_bytes> private_scalar_be,
+static inline bool p521_ecdsa_sign(
+    CByteSpan<p521_scalar_bytes> private_scalar_be, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha512_digest_bytes> msg_hash,
     ByteSpan<p521_sig_bytes> sig_out) noexcept
 {
@@ -389,8 +389,8 @@ static inline bool p521_ecdsa_sign( // NOLINT(bugprone-easily-swappable-paramete
     return true;
 }
 
-static inline bool p521_ecdsa_verify( // NOLINT(bugprone-easily-swappable-parameters)
-    CByteSpan<p521_public_key_bytes> public_key_uncompressed,
+static inline bool p521_ecdsa_verify(
+    CByteSpan<p521_public_key_bytes> public_key_uncompressed, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<sha512_digest_bytes> msg_hash,
     CByteSpan<p521_sig_bytes> sig) noexcept
 {

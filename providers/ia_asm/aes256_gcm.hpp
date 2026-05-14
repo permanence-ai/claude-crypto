@@ -41,7 +41,7 @@ static inline void gcm_inc_counter(ByteSpan<aes_gcm_tag_bytes> ctr) noexcept {
 [[gnu::target("aes,ssse3")]]
 static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
     const CryptoByte* in,  // NOLINT(bugprone-easily-swappable-parameters)
-    CryptoByte* out,       // NOLINT(bugprone-easily-swappable-parameters)
+    CryptoByte* out,       // NOLINT(bugprone-easily-swappable-parameters,readability-non-const-parameter)
     std::size_t len,       // NOLINT(bugprone-easily-swappable-parameters)
     ByteSpan<aes_gcm_tag_bytes> ctr,
     const Aes256Schedule& sched) noexcept

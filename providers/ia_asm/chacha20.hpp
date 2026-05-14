@@ -79,7 +79,7 @@ static inline void chacha20_qr(__m128i& a, __m128i& b,
 
 // Produce one 64-byte ChaCha20 keystream block into out[64].
 [[gnu::target("sse2")]]
-inline void chacha20_block(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter,
+inline void chacha20_block(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter, // NOLINT(bugprone-easily-swappable-parameters)
                             CByteSpan<chacha20_poly1305_nonce_bytes> nonce, ByteSpan<chacha20_block_bytes> out) noexcept
 {
     const uint32_t k0 = load_le32(key.data() +  0);
@@ -139,9 +139,9 @@ inline void chacha20_block(CByteSpan<chacha20_key_size_bytes> key, uint32_t coun
 // XOR 256 bytes (4 consecutive ChaCha20 blocks) using word-major SSE2 layout.
 [[gnu::target("sse2")]]
 static inline void chacha20_xor4( // NOLINT(readability-function-size)
-    CByteSpan<chacha20_key_size_bytes> key, uint32_t counter,
+    CByteSpan<chacha20_key_size_bytes> key, uint32_t counter, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
-    const CryptoByte* in, CryptoByte* out) noexcept
+    const CryptoByte* in, CryptoByte* out) noexcept // NOLINT(readability-non-const-parameter)
 {
     const uint32_t k0 = load_le32(key.data() +  0);
     const uint32_t k1 = load_le32(key.data() +  4);
@@ -244,9 +244,9 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size)
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
 [[gnu::target("sse2")]]
-inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter_start,
+inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter_start, // NOLINT(bugprone-easily-swappable-parameters)
                             CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
-                            const CryptoByte* in, CryptoByte* out, std::size_t len) noexcept
+                            const CryptoByte* in, CryptoByte* out, std::size_t len) noexcept // NOLINT(readability-non-const-parameter)
 {
     FixedSecureBuffer<chacha20_block_bytes> block;
     uint32_t counter = counter_start;
@@ -285,7 +285,7 @@ inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t coun
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
 [[gnu::target("sse2")]]
-inline void chacha20_poly1305_key(CByteSpan<chacha20_key_size_bytes> key,
+inline void chacha20_poly1305_key(CByteSpan<chacha20_key_size_bytes> key, // NOLINT(bugprone-easily-swappable-parameters)
                                    CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
                                    ByteSpan<poly1305_key_bytes> otk) noexcept
 {
