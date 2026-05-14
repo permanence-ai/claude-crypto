@@ -244,10 +244,10 @@ TEST_F(MlDsaTests, Dsa44_SignRejectsAlgorithmVariantMismatch) {
     ASSERT_TRUE(kp.has_value());
 
     auto attrs = MlDsaBackend::make_ml_dsa_sign_attrs(MlDsaVariant::Dsa44);
-    auto raw_id = MlDsaBackend::null_key_id();
-    ASSERT_EQ(MlDsaBackend::import_key(&attrs,
-                                        kp->private_key.data(), kp->private_key.size(),
-                                        &raw_id), MlDsaBackend::ok);
+    const auto key_result = MlDsaBackend::import_key(&attrs,
+                                                      kp->private_key.data(), kp->private_key.size());
+    ASSERT_TRUE(key_result.has_value());
+    const auto raw_id = key_result.value();
 
     constexpr std::size_t sig_size = ml_dsa_signature_size(MlDsaVariant::Dsa65);
     SecureBuffer sig_buf(sig_size);
@@ -273,10 +273,10 @@ TEST_F(MlDsaTests, Dsa44_VerifyRejectsAlgorithmVariantMismatch) {
     ASSERT_TRUE(sig.has_value());
 
     auto attrs = MlDsaBackend::make_ml_dsa_verify_attrs(MlDsaVariant::Dsa44);
-    auto raw_id = MlDsaBackend::null_key_id();
-    ASSERT_EQ(MlDsaBackend::import_key(&attrs,
-                                        kp->public_key.data(), kp->public_key.size(),
-                                        &raw_id), MlDsaBackend::ok);
+    const auto key_result = MlDsaBackend::import_key(&attrs,
+                                                      kp->public_key.data(), kp->public_key.size());
+    ASSERT_TRUE(key_result.has_value());
+    const auto raw_id = key_result.value();
 
     // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
     const auto status = MlDsaBackend::verify_message(
