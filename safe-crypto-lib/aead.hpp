@@ -58,21 +58,16 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer ciphertext(Provider::aes_gcm_encrypt_output_size(plaintext.size()));
-
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
 
-    std::size_t ciphertext_length = 0;
-    const auto status = Provider::aead_encrypt(
+    auto ct_result = Provider::aead_encrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
         iv->data(), iv->size(),
         aad_ptr, aad_size,
-        plaintext.data(), plaintext.size(),
-        ciphertext.data(), ciphertext.size(),
-        &ciphertext_length);
+        plaintext.data(), plaintext.size());
 
-    if (status != Provider::ok) {
+    if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::EncryptionFailed,
             "AES-256-GCM encryption failed"));
@@ -80,7 +75,7 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 
     return AesGcmResult{
         .iv         = std::move(*iv),
-        .ciphertext = std::move(ciphertext),
+        .ciphertext = std::move(ct_result).value(),
     };
 }
 
@@ -112,24 +107,19 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
 
-    SecureBuffer plaintext(Provider::aes_gcm_decrypt_output_size(ciphertext.ciphertext.size()));
-
-    std::size_t plaintext_length = 0;
-    const auto status = Provider::aead_decrypt(
+    auto pt_result = Provider::aead_decrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,
-        ciphertext.ciphertext.data(), ciphertext.ciphertext.size(),
-        plaintext.data(), plaintext.size(),
-        &plaintext_length);
+        ciphertext.ciphertext.data(), ciphertext.ciphertext.size());
 
-    if (status != Provider::ok) {
+    if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::DecryptionFailed,
             "AES-256-GCM decryption failed"));
     }
 
-    return plaintext;
+    return std::move(pt_result).value();
 }
 
 
@@ -162,30 +152,24 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer ciphertext(Provider::chacha20_encrypt_output_size(plaintext.size()));
-
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
 
-    std::size_t ciphertext_length = 0;
-    const auto status = Provider::aead_encrypt(
+    auto ct_result = Provider::aead_encrypt(
         key_handle.get(), Provider::alg_chacha20_poly1305(),
         iv->data(), iv->size(),
         aad_ptr, aad_size,
-        plaintext.data(), plaintext.size(),
-        ciphertext.data(), ciphertext.size(),
-        &ciphertext_length);
+        plaintext.data(), plaintext.size());
 
-    if (status != Provider::ok) {
+    if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::EncryptionFailed,
             "ChaCha20-Poly1305 encryption failed"));
     }
 
-    ciphertext.resize(ciphertext_length);
     return ChaCha20Poly1305Result{
         .iv         = std::move(*iv),
-        .ciphertext = std::move(ciphertext),
+        .ciphertext = std::move(ct_result).value(),
     };
 }
 
@@ -217,25 +201,19 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
     const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
     const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
 
-    SecureBuffer plaintext(Provider::chacha20_decrypt_output_size(ciphertext.ciphertext.size()));
-
-    std::size_t plaintext_length = 0;
-    const auto status = Provider::aead_decrypt(
+    auto pt_result = Provider::aead_decrypt(
         key_handle.get(), Provider::alg_chacha20_poly1305(),
         ciphertext.iv.data(), ciphertext.iv.size(),
         aad_ptr, aad_size,
-        ciphertext.ciphertext.data(), ciphertext.ciphertext.size(),
-        plaintext.data(), plaintext.size(),
-        &plaintext_length);
+        ciphertext.ciphertext.data(), ciphertext.ciphertext.size());
 
-    if (status != Provider::ok) {
+    if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::DecryptionFailed,
             "ChaCha20-Poly1305 decryption failed"));
     }
 
-    plaintext.resize(plaintext_length);
-    return plaintext;
+    return std::move(pt_result).value();
 }
 
 

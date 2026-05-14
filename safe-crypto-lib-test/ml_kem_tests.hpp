@@ -228,19 +228,10 @@ TEST_F(MlKemTests, Kem512_EncapRejectsAlgorithmVariantMismatch) {
     MlKemBackend::KeyId raw_id = MlKemBackend::null_key_id();
     { auto r_ = MlKemBackend::import_key(&attrs, kp->public_key.data(), kp->public_key.size()); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
 
-    constexpr std::size_t ct_size = ml_kem_ciphertext_size(MlKemVariant::Kem768);
-    constexpr std::size_t ss_size = ml_kem_shared_secret_size(MlKemVariant::Kem768);
-    SecureBuffer ct(ct_size);
-    SecureBuffer ss(ss_size);
-    std::size_t ct_len = 0;
-    std::size_t ss_len = 0;
-
     // Pass the Kem768 algorithm ID but the key was imported as Kem512 — must fail.
-    const auto status = MlKemBackend::kem_encapsulate(
-        raw_id, MlKemBackend::alg_ml_kem(MlKemVariant::Kem768),
-        ct.data(), ct_size, &ct_len,
-        ss.data(), ss_size, &ss_len);
-    EXPECT_NE(status, MlKemBackend::ok);
+    const auto result = MlKemBackend::kem_encapsulate(
+        raw_id, MlKemBackend::alg_ml_kem(MlKemVariant::Kem768));
+    EXPECT_FALSE(result.has_value());
 
     EXPECT_EQ(MlKemBackend::destroy_key(raw_id), MlKemBackend::ok);
 }
@@ -258,16 +249,11 @@ TEST_F(MlKemTests, Kem512_DecapRejectsAlgorithmVariantMismatch) {
     MlKemBackend::KeyId raw_id = MlKemBackend::null_key_id();
     { auto r_ = MlKemBackend::import_key(&attrs, kp->private_key.data(), kp->private_key.size()); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
 
-    constexpr std::size_t ss_size = ml_kem_shared_secret_size(MlKemVariant::Kem768);
-    SecureBuffer ss(ss_size);
-    std::size_t ss_len = 0;
-
     // Pass the Kem768 algorithm ID but the key was imported as Kem512 — must fail.
-    const auto status = MlKemBackend::kem_decapsulate(
+    const auto result = MlKemBackend::kem_decapsulate(
         raw_id, MlKemBackend::alg_ml_kem(MlKemVariant::Kem768),
-        encap->ciphertext.data(), encap->ciphertext.size(),
-        ss.data(), ss_size, &ss_len);
-    EXPECT_NE(status, MlKemBackend::ok);
+        encap->ciphertext.data(), encap->ciphertext.size());
+    EXPECT_FALSE(result.has_value());
 
     EXPECT_EQ(MlKemBackend::destroy_key(raw_id), MlKemBackend::ok);
 }

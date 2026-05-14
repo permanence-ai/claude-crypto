@@ -56,35 +56,24 @@ auto ml_kem_generate_key_impl()
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    constexpr std::size_t priv_size = ml_kem_private_key_size(V);
-    constexpr std::size_t pub_size  = ml_kem_public_key_size(V);
-
-    MlKemKeyPair<V> kp{
-        .private_key = SecureBuffer(priv_size),
-        .public_key  = SecureBuffer(pub_size),
-    };
-
-    std::size_t priv_len = 0;
-    if (Provider::export_key(key_handle.get(),
-                             kp.private_key.data(), kp.private_key.size(),
-                             &priv_len) != Provider::ok) {
+    auto priv_result = Provider::export_key(key_handle.get());
+    if (!priv_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ML-KEM private key export failed"));
     }
-    kp.private_key.resize(priv_len);
 
-    std::size_t pub_len = 0;
-    if (Provider::export_public_key(key_handle.get(),
-                                    kp.public_key.data(), kp.public_key.size(),
-                                    &pub_len) != Provider::ok) {
+    auto pub_result = Provider::export_public_key(key_handle.get());
+    if (!pub_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ML-KEM public key export failed"));
     }
-    kp.public_key.resize(pub_len);
 
-    return kp;
+    return MlKemKeyPair<V>{
+        .private_key = std::move(priv_result).value(),
+        .public_key  = std::move(pub_result).value(),
+    };
 }
 
 
@@ -117,27 +106,20 @@ auto ml_kem_encapsulate_impl(const MlKemPublicKey<V>& public_key)
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    MlKemEncapResult result{
-        .ciphertext    = SecureBuffer(Provider::ml_kem_ciphertext_size(V)),
-        .shared_secret = SecureBuffer(Provider::ml_kem_shared_secret_size(V)),
-    };
-    std::size_t ct_len = 0;
-    std::size_t ss_len = 0;
-
-    const auto status = Provider::kem_encapsulate(
+    auto encap_result = Provider::kem_encapsulate(
         key_handle.get(),
-        Provider::alg_ml_kem(V),
-        result.ciphertext.data(), result.ciphertext.size(), &ct_len,
-        result.shared_secret.data(), result.shared_secret.size(), &ss_len);
+        Provider::alg_ml_kem(V));
 
-    if (status != Provider::ok) {
+    if (!encap_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::EncapsulationFailed,
             "ML-KEM encapsulation failed"));
     }
-    result.ciphertext.resize(ct_len);
-    result.shared_secret.resize(ss_len);
-    return result;
+
+    return MlKemEncapResult{
+        .ciphertext    = std::move(encap_result->ciphertext),
+        .shared_secret = std::move(encap_result->shared_secret),
+    };
 }
 
 
@@ -176,22 +158,18 @@ auto ml_kem_decapsulate_impl(
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer shared_secret(Provider::ml_kem_shared_secret_size(V));
-    std::size_t ss_len = 0;
-
-    const auto status = Provider::kem_decapsulate(
+    auto ss_result = Provider::kem_decapsulate(
         key_handle.get(),
         Provider::alg_ml_kem(V),
-        ciphertext.data(), ciphertext.size(),
-        shared_secret.data(), shared_secret.size(), &ss_len);
+        ciphertext.data(), ciphertext.size());
 
-    if (status != Provider::ok) {
+    if (!ss_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::DecapsulationFailed,
             "ML-KEM decapsulation failed"));
     }
-    shared_secret.resize(ss_len);
-    return shared_secret;
+
+    return std::move(ss_result).value();
 }
 
 

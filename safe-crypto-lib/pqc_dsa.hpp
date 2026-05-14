@@ -53,35 +53,24 @@ auto slh_dsa_generate_key_impl()
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    constexpr std::size_t priv_size = slh_dsa_private_key_size(V);
-    constexpr std::size_t pub_size  = slh_dsa_public_key_size(V);
-
-    SlhDsaKeyPair<V> kp{
-        .private_key = SecureBuffer(priv_size),
-        .public_key  = SecureBuffer(pub_size),
-    };
-
-    std::size_t priv_len = 0;
-    if (Provider::export_key(key_handle.get(),
-                             kp.private_key.data(), kp.private_key.size(),
-                             &priv_len) != Provider::ok) {
+    auto priv_result = Provider::export_key(key_handle.get());
+    if (!priv_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "SLH-DSA private key export failed"));
     }
-    kp.private_key.resize(priv_len);
 
-    std::size_t pub_len = 0;
-    if (Provider::export_public_key(key_handle.get(),
-                                    kp.public_key.data(), kp.public_key.size(),
-                                    &pub_len) != Provider::ok) {
+    auto pub_result = Provider::export_public_key(key_handle.get());
+    if (!pub_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "SLH-DSA public key export failed"));
     }
-    kp.public_key.resize(pub_len);
 
-    return kp;
+    return SlhDsaKeyPair<V>{
+        .private_key = std::move(priv_result).value(),
+        .public_key  = std::move(pub_result).value(),
+    };
 }
 
 
@@ -240,35 +229,24 @@ auto ml_dsa_generate_key_impl()
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    constexpr std::size_t priv_size = ml_dsa_private_key_size(V);
-    constexpr std::size_t pub_size  = ml_dsa_public_key_size(V);
-
-    MlDsaKeyPair<V> kp{
-        .private_key = SecureBuffer(priv_size),
-        .public_key  = SecureBuffer(pub_size),
-    };
-
-    std::size_t priv_len = 0;
-    if (Provider::export_key(key_handle.get(),
-                             kp.private_key.data(), kp.private_key.size(),
-                             &priv_len) != Provider::ok) {
+    auto priv_result = Provider::export_key(key_handle.get());
+    if (!priv_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ML-DSA private key export failed"));
     }
-    kp.private_key.resize(priv_len);
 
-    std::size_t pub_len = 0;
-    if (Provider::export_public_key(key_handle.get(),
-                                    kp.public_key.data(), kp.public_key.size(),
-                                    &pub_len) != Provider::ok) {
+    auto pub_result = Provider::export_public_key(key_handle.get());
+    if (!pub_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ML-DSA public key export failed"));
     }
-    kp.public_key.resize(pub_len);
 
-    return kp;
+    return MlDsaKeyPair<V>{
+        .private_key = std::move(priv_result).value(),
+        .public_key  = std::move(pub_result).value(),
+    };
 }
 
 

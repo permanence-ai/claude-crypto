@@ -58,28 +58,22 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer ciphertext(Provider::rsa_oaep_encrypt_output_size(key_bits_val));
-
     const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
 
-    std::size_t ciphertext_length = 0;
-    const auto status = Provider::asymmetric_encrypt(
+    auto ct_result = Provider::asymmetric_encrypt(
         key_handle.get(),
         Provider::alg_rsa_oaep(),
         plaintext.data(), plaintext.size(),
-        label_ptr, label_size,
-        ciphertext.data(), ciphertext.size(),
-        &ciphertext_length);
+        label_ptr, label_size);
 
-    if (status != Provider::ok) {
+    if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::EncryptionFailed,
             "RSA-OAEP encryption failed"));
     }
 
-    ciphertext.resize(ciphertext_length);
-    return ciphertext;
+    return std::move(ct_result).value();
 }
 
 
@@ -111,28 +105,22 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer plaintext(Provider::rsa_oaep_decrypt_output_size(key_bits_val));
-
     const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
     const std::size_t   label_size = label.has_value() ? label->size() : 0;
 
-    std::size_t plaintext_length = 0;
-    const auto status = Provider::asymmetric_decrypt(
+    auto pt_result = Provider::asymmetric_decrypt(
         key_handle.get(),
         Provider::alg_rsa_oaep(),
         ciphertext.data(), ciphertext.size(),
-        label_ptr, label_size,
-        plaintext.data(), plaintext.size(),
-        &plaintext_length);
+        label_ptr, label_size);
 
-    if (status != Provider::ok) {
+    if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::DecryptionFailed,
             "RSA-OAEP decryption failed"));
     }
 
-    plaintext.resize(plaintext_length);
-    return plaintext;
+    return std::move(pt_result).value();
 }
 
 

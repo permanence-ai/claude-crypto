@@ -318,27 +318,21 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer ciphertext(Provider::aes_gcm_encrypt_output_size(plaintext.size()));
-
-    std::size_t ciphertext_length = 0;
-    const auto status = Provider::aead_encrypt(
+    auto ct_result = Provider::aead_encrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
         iv->data(), iv->size(),
         nullptr, 0,
-        plaintext.data(), plaintext.size(),
-        ciphertext.data(), ciphertext.size(),
-        &ciphertext_length);
+        plaintext.data(), plaintext.size());
 
-    if (status != Provider::ok) {
+    if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::EncryptionFailed,
             "SIGMA-I AES-GCM encryption failed"));
     }
 
-    ciphertext.resize(ciphertext_length);
     return SigmaIBundle{
         .iv         = std::move(*iv),
-        .ciphertext = std::move(ciphertext),
+        .ciphertext = std::move(ct_result).value(),
     };
 }
 
@@ -375,25 +369,19 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer plaintext(Provider::aes_gcm_decrypt_output_size(bundle.ciphertext.size()));
-
-    std::size_t plaintext_length = 0;
-    const auto status = Provider::aead_decrypt(
+    auto pt_result = Provider::aead_decrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
         bundle.iv.data(), bundle.iv.size(),
         nullptr, 0,
-        bundle.ciphertext.data(), bundle.ciphertext.size(),
-        plaintext.data(), plaintext.size(),
-        &plaintext_length);
+        bundle.ciphertext.data(), bundle.ciphertext.size());
 
-    if (status != Provider::ok) {
+    if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::SigmaAuthFailed,
             "SIGMA-I bundle decryption failed"));
     }
 
-    plaintext.resize(plaintext_length);
-    return plaintext;
+    return std::move(pt_result).value();
 }
 
 [[nodiscard]]
