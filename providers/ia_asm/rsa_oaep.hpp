@@ -52,7 +52,7 @@ inline void mgf1_sha384(
         // Maximum seed size in OAEP: k bytes (up to 512 for RSA-4096).
         // We allocate generously; the caller controls seed_len.
         constexpr std::size_t max_seed = 512U + 4U;
-        std::array<CryptoByte, max_seed> buf{};
+        ByteArray<max_seed> buf{};
         if (seed_len <= max_seed - 4U) {
             std::memcpy(buf.data(), seed, seed_len);
         }
@@ -61,7 +61,7 @@ inline void mgf1_sha384(
         buf[seed_len + 2U] = static_cast<CryptoByte>((counter >>  8U) & 0xFFU);
         buf[seed_len + 3U] = static_cast<CryptoByte>( counter         & 0xFFU);
 
-        std::array<CryptoByte, oaep_hash_len> hash{};
+        ByteArray<oaep_hash_len> hash{};
         sha384(buf.data(), seed_len + 4U, hash);
 
         const std::size_t take = (out_len - written < oaep_hash_len)
@@ -101,7 +101,7 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
     std::memcpy(out_seed, seed, oaep_hash_len);
 
     // lHash at start of DB.
-    sha384(label, label_len, std::span<CryptoByte, oaep_hash_len>{out_db, oaep_hash_len});
+    sha384(label, label_len, ByteSpan<oaep_hash_len>{out_db, oaep_hash_len});
 
     // PS (zero bytes) — already zero since we zero-fill below.
     // Ensure PS region is zeroed.
@@ -114,14 +114,14 @@ inline bool oaep_encode( // NOLINT(readability-function-size,readability-functio
     std::memcpy(out_db + db_len - pt_len, pt, pt_len);
 
     // maskedDB = DB XOR MGF1(seed, db_len).
-    std::array<CryptoByte, 512U> dbmask{};  // max db_len for RSA-4096: 4096/8 - 48 - 1 = 463
+    ByteArray<512U> dbmask{};  // max db_len for RSA-4096: 4096/8 - 48 - 1 = 463
     mgf1_sha384(seed, oaep_hash_len, dbmask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
         out_db[i] ^= dbmask[i];
     }
 
     // maskedSeed = seed XOR MGF1(maskedDB, hLen).
-    std::array<CryptoByte, oaep_hash_len> seedmask{};
+    ByteArray<oaep_hash_len> seedmask{};
     mgf1_sha384(out_db, db_len, seedmask.data(), oaep_hash_len);
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
         out_seed[i] ^= seedmask[i];
@@ -155,16 +155,16 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     const CryptoByte* masked_db   = em + 1U + oaep_hash_len;
 
     // Recover seed = maskedSeed XOR MGF1(maskedDB, hLen).
-    std::array<CryptoByte, oaep_hash_len> seed{};
-    std::array<CryptoByte, oaep_hash_len> seed_mask{};
+    ByteArray<oaep_hash_len> seed{};
+    ByteArray<oaep_hash_len> seed_mask{};
     mgf1_sha384(masked_db, db_len, seed_mask.data(), oaep_hash_len);
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
         seed[i] = masked_seed[i] ^ seed_mask[i];
     }
 
     // Recover DB = maskedDB XOR MGF1(seed, db_len).
-    std::array<CryptoByte, 512U> db{};
-    std::array<CryptoByte, 512U> db_mask{};
+    ByteArray<512U> db{};
+    ByteArray<512U> db_mask{};
     mgf1_sha384(seed.data(), oaep_hash_len, db_mask.data(), db_len);
     for (std::size_t i = 0; i < db_len; ++i) {
         db[i] = masked_db[i] ^ db_mask[i];
@@ -174,7 +174,7 @@ inline bool oaep_decode( // NOLINT(readability-function-size,readability-functio
     uint8_t err = y;  // Y must be 0x00
 
     // lHash' = SHA-384(label); compare with DB[0..hLen-1].
-    std::array<CryptoByte, oaep_hash_len> lhash{};
+    ByteArray<oaep_hash_len> lhash{};
     sha384(label, label_len, lhash);
     for (std::size_t i = 0; i < oaep_hash_len; ++i) {
         err |= static_cast<uint8_t>(static_cast<unsigned>(db[i]) ^ static_cast<unsigned>(lhash[i]));

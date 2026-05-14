@@ -180,7 +180,7 @@ inline bool rsa_oaep_encrypt( // NOLINT(readability-function-cognitive-complexit
     if (ct_max < k) { return false; }
     if (pub.n_len != k) { return false; }
 
-    std::array<CryptoByte, ia_asm::detail::oaep_hash_len> seed{};
+    ByteArray<ia_asm::detail::oaep_hash_len> seed{};
     generate_random_bytes(seed.data(), seed.size());
 
     FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};
@@ -250,7 +250,7 @@ inline bool rsa_pss_sign( // NOLINT(readability-function-cognitive-complexity,re
     RsaPrivateKeyComponents priv{};
     if (!rsa_parse_private_key_der(priv_der, priv_len, priv)) { return false; }
 
-    std::array<CryptoByte, ia_asm::detail::oaep_hash_len> salt{};
+    ByteArray<ia_asm::detail::oaep_hash_len> salt{};
     generate_random_bytes(salt.data(), salt.size());
 
     FixedSecureBuffer<rsa_max_key_bytes + 1U> em{};

@@ -128,7 +128,7 @@ inline int hkdf_expand(const uint8_t* prk, std::size_t prk_len,
         msg[msg_len] = counter;
         msg_len += 1;
 
-        hmac_sha384(prk, prk_len, msg.data(), msg_len, std::span<CryptoByte, hkdf_hash_len>{t.data(), hkdf_hash_len});
+        hmac_sha384(prk, prk_len, msg.data(), msg_len, ByteSpan<hkdf_hash_len>{t.data(), hkdf_hash_len});
 
         const std::size_t copy_len = std::min(hkdf_hash_len, out_len - written);
 
@@ -156,10 +156,10 @@ inline int hkdf_output_bytes(HkdfState* op, uint8_t* out, std::size_t len) noexc
 
     FixedSecureBuffer<hkdf_hash_len> prk;
     if (op->salt_set && op->salt_len > 0) {
-        hmac_sha384(op->salt.data(), op->salt_len, ikm, ikm_len, std::span<CryptoByte, hkdf_hash_len>{prk.data(), hkdf_hash_len});
+        hmac_sha384(op->salt.data(), op->salt_len, ikm, ikm_len, ByteSpan<hkdf_hash_len>{prk.data(), hkdf_hash_len});
     } else {
         const FixedSecureBuffer<hkdf_hash_len> zero_salt;
-        hmac_sha384(zero_salt.data(), hkdf_hash_len, ikm, ikm_len, std::span<CryptoByte, hkdf_hash_len>{prk.data(), hkdf_hash_len});
+        hmac_sha384(zero_salt.data(), hkdf_hash_len, ikm, ikm_len, ByteSpan<hkdf_hash_len>{prk.data(), hkdf_hash_len});
     }
 
     return hkdf_expand(prk.data(), hkdf_hash_len, op->info.data(), op->info_len, out, len);
