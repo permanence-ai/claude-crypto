@@ -38,6 +38,7 @@
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 
+#include "crypto_provider.hpp"
 #include "defs.hpp"
 #include "ml_dsa_variant.hpp"
 #include "ml_kem_variant.hpp"
@@ -857,8 +858,9 @@ struct OpenSslBackend {
         return err_invalid_arg;
     }
 
+    // Internal helper.
     [[nodiscard]]
-    static Status export_key(
+    static Status export_key_raw(
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
@@ -905,7 +907,21 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status export_public_key(
+    static auto export_key(const KeyId key) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        constexpr std::size_t kMaxKeyExportBytes = 8192U;
+        SecureBuffer buf(kMaxKeyExportBytes);
+        std::size_t len = 0;
+        const auto s = export_key_raw(key, buf.data(), kMaxKeyExportBytes, &len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(len);
+        return buf;
+    }
+
+    // Internal helper.
+    [[nodiscard]]
+    static Status export_public_key_raw(
         const KeyId key,
         CryptoByte* data, const std::size_t data_size, std::size_t* data_length) noexcept
     {
@@ -941,6 +957,19 @@ struct OpenSslBackend {
         }
         *data_length = len;
         return ok;
+    }
+
+    [[nodiscard]]
+    static auto export_public_key(const KeyId key) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        constexpr std::size_t kMaxPubKeyExportBytes = 8192U;
+        SecureBuffer buf(kMaxPubKeyExportBytes);
+        std::size_t len = 0;
+        const auto s = export_public_key_raw(key, buf.data(), kMaxPubKeyExportBytes, &len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(len);
+        return buf;
     }
 
     [[nodiscard]]
@@ -1030,8 +1059,9 @@ struct OpenSslBackend {
         return CRYPTO_memcmp(computed.data(), mac, mac_length) == 0 ? ok : err_invalid_sig;
     }
 
+    // Internal helper.
     [[nodiscard]]
-    static Status aead_encrypt(  // NOLINT(readability-function-size)
+    static Status aead_encrypt_raw(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* nonce, const std::size_t nonce_length,
         const CryptoByte* additional_data, const std::size_t additional_data_length,
@@ -1083,7 +1113,29 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status aead_decrypt(  // NOLINT(readability-function-size)
+    static auto aead_encrypt(
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        const CryptoByte* nonce, const std::size_t nonce_length,
+        const CryptoByte* additional_data, const std::size_t additional_data_length,
+        const CryptoByte* plaintext, const std::size_t plaintext_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        constexpr std::size_t kAeadOverhead = 32U;
+        const std::size_t max_ct = plaintext_length + kAeadOverhead;
+        SecureBuffer buf(max_ct);
+        std::size_t ct_len = 0;
+        const auto s = aead_encrypt_raw(key, alg, nonce, nonce_length,
+                                        additional_data, additional_data_length,
+                                        plaintext, plaintext_length,
+                                        buf.data(), max_ct, &ct_len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(ct_len);
+        return buf;
+    }
+
+    // Internal helper.
+    [[nodiscard]]
+    static Status aead_decrypt_raw(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* nonce, const std::size_t nonce_length,
         const CryptoByte* additional_data, const std::size_t additional_data_length,
@@ -1137,6 +1189,25 @@ struct OpenSslBackend {
 
         EVP_CIPHER_CTX_free(ctx);
         return rv;
+    }
+
+    [[nodiscard]]
+    static auto aead_decrypt(
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        const CryptoByte* nonce, const std::size_t nonce_length,
+        const CryptoByte* additional_data, const std::size_t additional_data_length,
+        const CryptoByte* ciphertext, const std::size_t ciphertext_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer buf(ciphertext_length);
+        std::size_t pt_len = 0;
+        const auto s = aead_decrypt_raw(key, alg, nonce, nonce_length,
+                                        additional_data, additional_data_length,
+                                        ciphertext, ciphertext_length,
+                                        buf.data(), ciphertext_length, &pt_len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(pt_len);
+        return buf;
     }
 
     // Internal helper.
@@ -1234,8 +1305,9 @@ struct OpenSslBackend {
         return rv;
     }
 
+    // Internal helper.
     [[nodiscard]]
-    static Status raw_key_agreement(  // NOLINT(readability-function-size)
+    static Status raw_key_agreement_raw(  // NOLINT(readability-function-size)
         const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const KeyId private_key,
         const CryptoByte* peer_key, const std::size_t peer_key_length,
@@ -1292,7 +1364,25 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status asymmetric_encrypt(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+    static auto raw_key_agreement(
+        const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        const KeyId private_key,
+        const CryptoByte* peer_key, const std::size_t peer_key_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        constexpr std::size_t kMaxEcdhOutputBytes = 66U;  // P-521 max
+        SecureBuffer buf(kMaxEcdhOutputBytes);
+        std::size_t out_len = 0;
+        const auto s = raw_key_agreement_raw(alg, private_key, peer_key, peer_key_length,
+                                             buf.data(), kMaxEcdhOutputBytes, &out_len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(out_len);
+        return buf;
+    }
+
+    // Internal helper.
+    [[nodiscard]]
+    static Status asymmetric_encrypt_raw(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
@@ -1335,7 +1425,25 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status asymmetric_decrypt(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+    static auto asymmetric_encrypt(
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        const CryptoByte* input, const std::size_t input_length,
+        const CryptoByte* salt, const std::size_t salt_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        constexpr std::size_t kMaxRsaOutputBytes = 512U;  // RSA-4096 = 512 bytes
+        SecureBuffer buf(kMaxRsaOutputBytes);
+        std::size_t out_len = 0;
+        const auto s = asymmetric_encrypt_raw(key, alg, input, input_length, salt, salt_length,
+                                              buf.data(), kMaxRsaOutputBytes, &out_len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(out_len);
+        return buf;
+    }
+
+    // Internal helper.
+    [[nodiscard]]
+    static Status asymmetric_decrypt_raw(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         const CryptoByte* salt, const std::size_t salt_length,
@@ -1377,48 +1485,62 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+    static auto asymmetric_decrypt(
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        CryptoByte* ciphertext, const std::size_t ciphertext_size, std::size_t* ciphertext_length,  // NOLINT(bugprone-easily-swappable-parameters)
-        CryptoByte* shared_secret, const std::size_t shared_secret_size,
-        std::size_t* shared_secret_length) noexcept
+        const CryptoByte* input, const std::size_t input_length,
+        const CryptoByte* salt, const std::size_t salt_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        constexpr std::size_t kMaxRsaOutputBytes = 512U;  // RSA-4096 = 512 bytes
+        SecureBuffer buf(kMaxRsaOutputBytes);
+        std::size_t out_len = 0;
+        const auto s = asymmetric_decrypt_raw(key, alg, input, input_length, salt, salt_length,
+                                              buf.data(), kMaxRsaOutputBytes, &out_len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(out_len);
+        return buf;
+    }
+
+    [[nodiscard]]
+    static auto kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+        const KeyId key, const Algorithm alg) noexcept  // NOLINT(bugprone-easily-swappable-parameters)
+        -> std::expected<KemEncapsulateResult, Status>
     {
         using namespace openssl_provider::detail;
-        if ((alg & kAlgCategoryMask) != kAlgMlKemBase) { return err_invalid_arg; }
+        if ((alg & kAlgCategoryMask) != kAlgMlKemBase) { return std::unexpected(err_invalid_arg); }
         EVP_PKEY* pkey = ossl_asym_store_get(key);
-        if (pkey == nullptr) { return err_invalid_arg; }
-        if (static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return err_invalid_arg; }
+        if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
+        if (static_cast<Algorithm>(ossl_asym_store_alg(key)) != alg) { return std::unexpected(err_invalid_arg); }
 
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
-        if (ctx == nullptr) { return err_invalid_arg; }
+        if (ctx == nullptr) { return std::unexpected(err_invalid_arg); }
 
-        Status rv = err_invalid_arg;
+        std::expected<KemEncapsulateResult, Status> result = std::unexpected(err_invalid_arg);
         do { // NOLINT(cppcoreguidelines-avoid-do-while)
             if (EVP_PKEY_encapsulate_init(ctx, nullptr) != ok) { break; }
             // Query output sizes first (pass nullptr buffers).
             std::size_t ct_len = 0;
             std::size_t ss_len = 0;
             if (EVP_PKEY_encapsulate(ctx, nullptr, &ct_len, nullptr, &ss_len) != ok) { break; }
-            if (ct_len > ciphertext_size || ss_len > shared_secret_size) {
-                rv = err_invalid_arg;
-                break;
-            }
+            KemEncapsulateResult r{
+                .ciphertext    = SecureBuffer(ct_len),
+                .shared_secret = SecureBuffer(ss_len),
+            };
             // Re-init is required before the actual call on some OpenSSL versions.
             if (EVP_PKEY_encapsulate_init(ctx, nullptr) != ok) { break; }
             if (EVP_PKEY_encapsulate(ctx,
-                                     ciphertext, &ct_len,
-                                     shared_secret, &ss_len) != ok) { break; }
-            *ciphertext_length    = ct_len;
-            *shared_secret_length = ss_len;
-            rv = ok;
+                                     r.ciphertext.data(), &ct_len,
+                                     r.shared_secret.data(), &ss_len) != ok) { break; }
+            result = std::move(r);
         } while (false); // NOLINT(cppcoreguidelines-avoid-do-while)
 
         EVP_PKEY_CTX_free(ctx);
-        return rv;
+        return result;
     }
 
+    // Internal helper.
     [[nodiscard]]
-    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+    static Status kem_decapsulate_raw( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* ciphertext, const std::size_t ciphertext_length,
         CryptoByte* shared_secret, const std::size_t shared_secret_size,
@@ -1446,6 +1568,22 @@ struct OpenSslBackend {
 
         EVP_PKEY_CTX_free(ctx);
         return rv;
+    }
+
+    [[nodiscard]]
+    static auto kem_decapsulate(
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        const CryptoByte* ciphertext, const std::size_t ciphertext_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        constexpr std::size_t kMlKemSharedSecretBytes = ml_kem_shared_secret_bytes;
+        SecureBuffer buf(kMlKemSharedSecretBytes);
+        std::size_t ss_len = 0;
+        const auto s = kem_decapsulate_raw(key, alg, ciphertext, ciphertext_length,
+                                           buf.data(), kMlKemSharedSecretBytes, &ss_len);
+        if (s != ok) { return std::unexpected(s); }
+        buf.resize(ss_len);
+        return buf;
     }
 
     [[nodiscard]]

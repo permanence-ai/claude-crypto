@@ -171,17 +171,25 @@ struct MockPsaBackend {
     static psa_status_t destroy_key(const mbedtls_svc_key_id_t key) {
         return g_mock_psa->destroy_key(key);
     }
-    static psa_status_t export_key(
-        const mbedtls_svc_key_id_t key,
-        CryptoByte* data, const std::size_t size, std::size_t* len)
+    static auto export_key(const mbedtls_svc_key_id_t key)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->export_key(key, data, size, len);
+        SecureBuffer out(PSA_EXPORT_KEY_PAIR_MAX_SIZE);
+        std::size_t out_len = 0;
+        const auto s = g_mock_psa->export_key(key, out.data(), out.size(), &out_len);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        out.resize(out_len);
+        return out;
     }
-    static psa_status_t export_public_key(
-        const mbedtls_svc_key_id_t key,
-        CryptoByte* data, const std::size_t size, std::size_t* len)
+    static auto export_public_key(const mbedtls_svc_key_id_t key)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->export_public_key(key, data, size, len);
+        SecureBuffer out(PSA_EXPORT_PUBLIC_KEY_MAX_SIZE);
+        std::size_t out_len = 0;
+        const auto s = g_mock_psa->export_public_key(key, out.data(), out.size(), &out_len);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        out.resize(out_len);
+        return out;
     }
     static auto mac_compute(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
@@ -204,25 +212,36 @@ struct MockPsaBackend {
     {
         return g_mock_psa->mac_verify(key, alg, in, in_len, mac, mac_len);
     }
-    static psa_status_t aead_encrypt(  // NOLINT(readability-function-size)
+    static auto aead_encrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CryptoByte* nonce, const std::size_t nonce_len,
         const CryptoByte* aad, const std::size_t aad_len,
-        const CryptoByte* pt, const std::size_t pt_len,
-        CryptoByte* ct, const std::size_t ct_size, std::size_t* ct_len)
+        const CryptoByte* pt, const std::size_t pt_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->aead_encrypt(
-            key, alg, nonce, nonce_len, aad, aad_len, pt, pt_len, ct, ct_size, ct_len);
+        const std::size_t ct_max = PSA_AEAD_ENCRYPT_OUTPUT_MAX_SIZE(pt_len);
+        SecureBuffer ct(ct_max);
+        std::size_t ct_len = 0;
+        const auto s = g_mock_psa->aead_encrypt(
+            key, alg, nonce, nonce_len, aad, aad_len, pt, pt_len, ct.data(), ct_max, &ct_len);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        ct.resize(ct_len);
+        return ct;
     }
-    static psa_status_t aead_decrypt(  // NOLINT(readability-function-size)
+    static auto aead_decrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CryptoByte* nonce, const std::size_t nonce_len,
         const CryptoByte* aad, const std::size_t aad_len,
-        const CryptoByte* ct, const std::size_t ct_len,
-        CryptoByte* pt, const std::size_t pt_size, std::size_t* pt_len)
+        const CryptoByte* ct, const std::size_t ct_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->aead_decrypt(
-            key, alg, nonce, nonce_len, aad, aad_len, ct, ct_len, pt, pt_size, pt_len);
+        SecureBuffer pt(ct_len);
+        std::size_t pt_len = 0;
+        const auto s = g_mock_psa->aead_decrypt(
+            key, alg, nonce, nonce_len, aad, aad_len, ct, ct_len, pt.data(), pt.size(), &pt_len);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        pt.resize(pt_len);
+        return pt;
     }
     static auto sign_message(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
@@ -245,30 +264,48 @@ struct MockPsaBackend {
     {
         return g_mock_psa->verify_message(key, alg, in, in_len, sig, sig_len);
     }
-    static psa_status_t raw_key_agreement(  // NOLINT(readability-function-size)
+    static auto raw_key_agreement(  // NOLINT(readability-function-size)
         const psa_algorithm_t alg, const mbedtls_svc_key_id_t priv_key,
-        const CryptoByte* peer, const std::size_t peer_len,
-        CryptoByte* out, const std::size_t out_size, std::size_t* out_len)
+        const CryptoByte* peer, const std::size_t peer_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->raw_key_agreement(alg, priv_key, peer, peer_len, out, out_size, out_len);
+        const std::size_t max_size = PSA_RAW_KEY_AGREEMENT_OUTPUT_MAX_SIZE;
+        SecureBuffer out(max_size);
+        std::size_t out_len = 0;
+        const auto s = g_mock_psa->raw_key_agreement(alg, priv_key, peer, peer_len, out.data(), max_size, &out_len);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        out.resize(out_len);
+        return out;
     }
-    static psa_status_t asymmetric_encrypt(  // NOLINT(readability-function-size)
+    static auto asymmetric_encrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CryptoByte* in, const std::size_t in_len,
-        const CryptoByte* salt, const std::size_t salt_len,
-        CryptoByte* out, const std::size_t out_size, std::size_t* out_len)
+        const CryptoByte* salt, const std::size_t salt_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->asymmetric_encrypt(
-            key, alg, in, in_len, salt, salt_len, out, out_size, out_len);
+        const std::size_t max_size = PSA_ASYMMETRIC_ENCRYPT_OUTPUT_MAX_SIZE;
+        SecureBuffer out(max_size);
+        std::size_t out_len = 0;
+        const auto s = g_mock_psa->asymmetric_encrypt(
+            key, alg, in, in_len, salt, salt_len, out.data(), max_size, &out_len);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        out.resize(out_len);
+        return out;
     }
-    static psa_status_t asymmetric_decrypt(  // NOLINT(readability-function-size)
+    static auto asymmetric_decrypt(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
         const CryptoByte* in, const std::size_t in_len,
-        const CryptoByte* salt, const std::size_t salt_len,
-        CryptoByte* out, const std::size_t out_size, std::size_t* out_len)
+        const CryptoByte* salt, const std::size_t salt_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->asymmetric_decrypt(
-            key, alg, in, in_len, salt, salt_len, out, out_size, out_len);
+        const std::size_t max_size = PSA_ASYMMETRIC_DECRYPT_OUTPUT_MAX_SIZE;
+        SecureBuffer out(max_size);
+        std::size_t out_len = 0;
+        const auto s = g_mock_psa->asymmetric_decrypt(
+            key, alg, in, in_len, salt, salt_len, out.data(), max_size, &out_len);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        out.resize(out_len);
+        return out;
     }
     static psa_status_t key_derivation_setup(
         psa_key_derivation_operation_t* op, const psa_algorithm_t alg)
@@ -471,16 +508,17 @@ struct MockPsaBackend {
     static std::size_t ml_kem_public_key_export_size(const MlKemVariant v) noexcept {
         return RealPsaBackend::ml_kem_public_key_export_size(v);
     }
-    static Status kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
-        const KeyId k, const Algorithm a,
-        CryptoByte* ct, std::size_t ct_sz, std::size_t* ct_len,
-        CryptoByte* ss, std::size_t ss_sz, std::size_t* ss_len) noexcept {
-        return RealPsaBackend::kem_encapsulate(k, a, ct, ct_sz, ct_len, ss, ss_sz, ss_len);
+    static auto kem_encapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+        const KeyId k, const Algorithm a) noexcept
+        -> std::expected<KemEncapsulateResult, Status>
+    {
+        return RealPsaBackend::kem_encapsulate(k, a);
     }
-    static Status kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
+    static auto kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId k, const Algorithm a,
-        const CryptoByte* ct, std::size_t ct_len,
-        CryptoByte* ss, std::size_t ss_sz, std::size_t* ss_len) noexcept {
-        return RealPsaBackend::kem_decapsulate(k, a, ct, ct_len, ss, ss_sz, ss_len);
+        const CryptoByte* ct, const std::size_t ct_len) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        return RealPsaBackend::kem_decapsulate(k, a, ct, ct_len);
     }
 };

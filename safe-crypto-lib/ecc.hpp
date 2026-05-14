@@ -65,31 +65,21 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer private_key_der(Provider::ec_private_key_export_size(key_bits));
-    std::size_t  private_key_length = 0;
-
-    if (Provider::export_key(key_handle.get(),
-                        private_key_der.data(),
-                        private_key_der.size(),
-                        &private_key_length) != Provider::ok) {
+    auto priv_result = Provider::export_key(key_handle.get());
+    if (!priv_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDSA private key export failed"));
     }
-    private_key_der.resize(private_key_length);
+    SecureBuffer private_key_der = std::move(priv_result).value();
 
-    SecureBuffer public_key_der(Provider::ec_public_key_export_size(key_bits));
-    std::size_t  public_key_length = 0;
-
-    if (Provider::export_public_key(key_handle.get(),
-                               public_key_der.data(),
-                               public_key_der.size(),
-                               &public_key_length) != Provider::ok) {
+    auto pub_result = Provider::export_public_key(key_handle.get());
+    if (!pub_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyExportFailed,
             "ECDSA public key export failed"));
     }
-    public_key_der.resize(public_key_length);
+    SecureBuffer public_key_der = std::move(pub_result).value();
 
     return EccKeyPair{
         .private_key_der = std::move(private_key_der),

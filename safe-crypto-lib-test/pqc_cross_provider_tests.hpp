@@ -86,18 +86,12 @@ static void run_ml_dsa_cross_verify(const char* label) {
         { auto r_ = ArmAsmBackend::generate_key(&arm_gen_attrs); ASSERT_TRUE(r_.has_value()) << label << " ARM keygen failed"; arm_priv_id = r_.value(); }
 
         // Export ARM private key and public key.
-        const std::size_t priv_sz = ArmAsmBackend::ml_dsa_private_key_export_size(V);
-        const std::size_t pub_sz  = ArmAsmBackend::ml_dsa_public_key_export_size(V);
-        SecureBuffer arm_priv(priv_sz);
-        SecureBuffer arm_pub(pub_sz);
-        std::size_t exported_priv_len = 0;
-        std::size_t exported_pub_len  = 0;
-        ASSERT_EQ(ArmAsmBackend::export_key(arm_priv_id, arm_priv.data(), arm_priv.size(), &exported_priv_len),
-                  ArmAsmBackend::ok) << label << " ARM export_key failed";
-        ASSERT_EQ(ArmAsmBackend::export_public_key(arm_priv_id, arm_pub.data(), arm_pub.size(), &exported_pub_len),
-                  ArmAsmBackend::ok) << label << " ARM export_public_key failed";
-        ASSERT_EQ(exported_priv_len, priv_sz);
-        ASSERT_EQ(exported_pub_len,  pub_sz);
+        const auto priv_result = ArmAsmBackend::export_key(arm_priv_id);
+        ASSERT_TRUE(priv_result.has_value()) << label << " ARM export_key failed";
+        const SecureBuffer& arm_priv = *priv_result;
+        const auto pub_result = ArmAsmBackend::export_public_key(arm_priv_id);
+        ASSERT_TRUE(pub_result.has_value()) << label << " ARM export_public_key failed";
+        const SecureBuffer& arm_pub = *pub_result;
 
         // Sign with ARM ASM.
         auto arm_sig_result = ArmAsmBackend::sign_message(
@@ -133,25 +127,16 @@ static void run_ml_kem_cross_encap(const char* label) {
         { auto r_ = ArmAsmBackend::import_key(&arm_pub_attrs, ossl_kp->public_key.data(), ossl_kp->public_key.size()); ASSERT_TRUE(r_.has_value()) << label << " ARM public key import failed (OpenSSL→ARM)"; arm_pub_id = r_.value(); }
 
         // ARM ASM encapsulate.
-        const std::size_t ct_sz = ArmAsmBackend::ml_kem_ciphertext_size(V);
-        const std::size_t ss_sz = ArmAsmBackend::ml_kem_shared_secret_size(V);
-        SecureBuffer arm_ct(ct_sz);
-        SecureBuffer arm_ss(ss_sz);
-        std::size_t arm_ct_len = 0;
-        std::size_t arm_ss_len = 0;
-        ASSERT_EQ(ArmAsmBackend::kem_encapsulate(
-            arm_pub_id, ArmAsmBackend::alg_ml_kem(V),
-            arm_ct.data(), arm_ct.size(), &arm_ct_len,
-            arm_ss.data(), arm_ss.size(), &arm_ss_len), ArmAsmBackend::ok)
-            << label << " ARM encapsulate failed";
-        ASSERT_EQ(arm_ct_len, ct_sz);
-        ASSERT_EQ(arm_ss_len, ss_sz);
+        const auto encap_result = ArmAsmBackend::kem_encapsulate(arm_pub_id, ArmAsmBackend::alg_ml_kem(V));
+        ASSERT_TRUE(encap_result.has_value()) << label << " ARM encapsulate failed";
+        const SecureBuffer& arm_ct = encap_result->ciphertext;
+        const SecureBuffer& arm_ss = encap_result->shared_secret;
         (void)ArmAsmBackend::destroy_key(arm_pub_id);
 
         // OpenSSL decapsulate with its own private key.
-        arm_ct.resize(arm_ct_len);
         const auto ossl_ss = ml_kem_decapsulate_impl<V, OpenSslBackend>(*ossl_kp, arm_ct);
         ASSERT_TRUE(ossl_ss.has_value()) << label << " OpenSSL decapsulate failed (ARM ct)";
+        const std::size_t ss_sz = ArmAsmBackend::ml_kem_shared_secret_size(V);
         ASSERT_EQ(ossl_ss->size(), ss_sz);
         EXPECT_EQ(std::memcmp(arm_ss.data(), ossl_ss->data(), ss_sz), 0)
             << label << " shared secret mismatch (ARM encap, OpenSSL decap)";
@@ -164,12 +149,9 @@ static void run_ml_kem_cross_encap(const char* label) {
         ArmAsmBackend::KeyId arm_priv_id = ArmAsmBackend::null_key_id();
         { auto r_ = ArmAsmBackend::generate_key(&arm_gen_attrs); ASSERT_TRUE(r_.has_value()) << label << " ARM keygen failed"; arm_priv_id = r_.value(); }
 
-        const std::size_t pub_sz = ArmAsmBackend::ml_kem_public_key_export_size(V);
-        SecureBuffer arm_pub(pub_sz);
-        std::size_t exported_pub_len = 0;
-        ASSERT_EQ(ArmAsmBackend::export_public_key(arm_priv_id, arm_pub.data(), arm_pub.size(), &exported_pub_len),
-                  ArmAsmBackend::ok) << label << " ARM export_public_key failed";
-        ASSERT_EQ(exported_pub_len, pub_sz);
+        const auto pub_result = ArmAsmBackend::export_public_key(arm_priv_id);
+        ASSERT_TRUE(pub_result.has_value()) << label << " ARM export_public_key failed";
+        const SecureBuffer& arm_pub = *pub_result;
 
         // OpenSSL encapsulate using ARM-generated public key.
         const MlKemPublicKey<V> ossl_pub{ .public_key = pqc_copy(arm_pub) };
@@ -177,18 +159,15 @@ static void run_ml_kem_cross_encap(const char* label) {
         ASSERT_TRUE(ossl_encap.has_value()) << label << " OpenSSL encapsulate failed";
 
         // ARM ASM decapsulate.
-        const std::size_t ss_sz = ArmAsmBackend::ml_kem_shared_secret_size(V);
-        SecureBuffer arm_ss(ss_sz);
-        std::size_t arm_ss_len = 0;
-        ASSERT_EQ(ArmAsmBackend::kem_decapsulate(
+        const auto ss_result = ArmAsmBackend::kem_decapsulate(
             arm_priv_id, ArmAsmBackend::alg_ml_kem(V),
-            ossl_encap->ciphertext.data(), ossl_encap->ciphertext.size(),
-            arm_ss.data(), arm_ss.size(), &arm_ss_len), ArmAsmBackend::ok)
-            << label << " ARM decapsulate failed (OpenSSL ct)";
-        ASSERT_EQ(arm_ss_len, ss_sz);
+            ossl_encap->ciphertext.data(), ossl_encap->ciphertext.size());
+        ASSERT_TRUE(ss_result.has_value()) << label << " ARM decapsulate failed (OpenSSL ct)";
+        const SecureBuffer& arm_ss = *ss_result;
         (void)ArmAsmBackend::destroy_key(arm_priv_id);
 
-        ASSERT_EQ(ossl_encap->shared_secret.size(), arm_ss_len);
+        ASSERT_EQ(ossl_encap->shared_secret.size(), arm_ss.size());
+        const std::size_t ss_sz = ArmAsmBackend::ml_kem_shared_secret_size(V);
         EXPECT_EQ(std::memcmp(ossl_encap->shared_secret.data(), arm_ss.data(), ss_sz), 0)
             << label << " shared secret mismatch (OpenSSL encap, ARM decap)";
     }

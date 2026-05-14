@@ -15,6 +15,12 @@
 #include "slh_dsa_variant.hpp"
 
 
+struct KemEncapsulateResult {
+    SecureBuffer ciphertext;
+    SecureBuffer shared_secret;
+};
+
+
 // Concept satisfied by any CryptoProvider implementation.  Providers expose:
 //   - Associated types: Status, KeyId, Algorithm, KeyAttributes, KdfOperation, KdfStep
 //   - Status sentinels: ok, err_invalid_sig, err_invalid_arg
@@ -40,7 +46,6 @@ concept CryptoProvider = requires(
     CryptoByte*        buf,
     const CryptoByte*  cbuf,
     std::size_t        len,
-    std::size_t*       len_out,
     ShaVariant         sha_v,
     SlhDsaVariant      slh_v,
     MlDsaVariant       ml_v,
@@ -137,19 +142,19 @@ concept CryptoProvider = requires(
     { T::import_key(attrs, cbuf, len) }  -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
     { T::generate_key(attrs) }           -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
     { T::destroy_key(key) }                                     -> std::same_as<typename T::Status>;
-    { T::export_key(key, buf, len, len_out) }                   -> std::same_as<typename T::Status>;
-    { T::export_public_key(key, buf, len, len_out) }            -> std::same_as<typename T::Status>;
+    { T::export_key(key) }        -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::export_public_key(key) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::sign_message(key, alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::verify_message(key, alg, cbuf, len, cbuf, len) }       -> std::same_as<typename T::Status>;
     { T::mac_compute(key, alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::mac_verify(key, alg, cbuf, len, cbuf, len) }           -> std::same_as<typename T::Status>;
-    { T::aead_encrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
-    { T::aead_decrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
-    { T::asymmetric_encrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<typename T::Status>;
-    { T::asymmetric_decrypt(key, alg, cbuf, len, cbuf, len, buf, len, len_out) }      -> std::same_as<typename T::Status>;
-    { T::raw_key_agreement(alg, key, cbuf, len, buf, len, len_out) }                  -> std::same_as<typename T::Status>;
-    { T::kem_encapsulate(key, alg, buf, len, len_out, buf, len, len_out) }            -> std::same_as<typename T::Status>;
-    { T::kem_decapsulate(key, alg, cbuf, len, buf, len, len_out) }                    -> std::same_as<typename T::Status>;
+    { T::aead_encrypt(key, alg, cbuf, len, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::aead_decrypt(key, alg, cbuf, len, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::asymmetric_encrypt(key, alg, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::asymmetric_decrypt(key, alg, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::raw_key_agreement(alg, key, cbuf, len) }              -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::kem_encapsulate(key, alg) }                           -> std::same_as<std::expected<KemEncapsulateResult, typename T::Status>>;
+    { T::kem_decapsulate(key, alg, cbuf, len) }                -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::hash_compute(alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::key_derivation_setup(op, alg) }                        -> std::same_as<typename T::Status>;
     { T::key_derivation_input_key(op, step, key) }              -> std::same_as<typename T::Status>;
