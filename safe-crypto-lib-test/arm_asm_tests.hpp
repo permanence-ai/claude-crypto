@@ -1710,43 +1710,11 @@ protected:
 
 // hash_compute error paths.
 
-TEST_F(ArmAsmBackendErrorTests, HashComputeOutputTooSmall) {
-    const ByteArray< 4> msg{};
-    ByteArray< 1> out{};
-    std::size_t out_len = 0;
-    EXPECT_EQ(ArmAsmBackend::hash_compute(
-        ArmAsmBackend::alg_sha(ShaVariant::Sha256),
-        msg.data(), msg.size(), out.data(), 0, &out_len),
-        ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::hash_compute(
-        ArmAsmBackend::alg_sha(ShaVariant::Sha384),
-        msg.data(), msg.size(), out.data(), 0, &out_len),
-        ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::hash_compute(
-        ArmAsmBackend::alg_sha(ShaVariant::Sha512),
-        msg.data(), msg.size(), out.data(), 0, &out_len),
-        ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::hash_compute(
-        ArmAsmBackend::alg_sha(ShaVariant::Sha3_256),
-        msg.data(), msg.size(), out.data(), 0, &out_len),
-        ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::hash_compute(
-        ArmAsmBackend::alg_sha(ShaVariant::Sha3_384),
-        msg.data(), msg.size(), out.data(), 0, &out_len),
-        ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::hash_compute(
-        ArmAsmBackend::alg_sha(ShaVariant::Sha3_512),
-        msg.data(), msg.size(), out.data(), 0, &out_len),
-        ArmAsmBackend::err_invalid_arg);
-}
-
 TEST_F(ArmAsmBackendErrorTests, HashComputeUnknownAlgReturnsInvalidArg) {
     const ByteArray< 4> msg{};
-    ByteArray< 64> out{};
-    std::size_t out_len = 0;
-    EXPECT_EQ(ArmAsmBackend::hash_compute(0xFFFFU, msg.data(), msg.size(),
-                                           out.data(), out.size(), &out_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::hash_compute(0xFFFFU, msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 
@@ -1863,50 +1831,19 @@ TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyEcPublicDirectCopyOutputTooSmall)
 
 TEST_F(ArmAsmBackendErrorTests, MacComputeInvalidIdReturnsInvalidArg) {
     const ByteArray< 4> msg{};
-    ByteArray< 64> out{};
-    std::size_t out_len = 0;
-    EXPECT_EQ(ArmAsmBackend::mac_compute(0U, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
-                                          msg.data(), msg.size(),
-                                          out.data(), out.size(), &out_len),
-              ArmAsmBackend::err_invalid_arg);
-}
-
-TEST_F(ArmAsmBackendErrorTests, MacComputeOutputTooSmall) {
-    const unsigned int id = import_sym(32);
-    ASSERT_NE(id, 0U);
-    const ByteArray< 4> msg{};
-    ByteArray< 1> out{};
-    std::size_t out_len = 0;
-    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
-                                          msg.data(), msg.size(), out.data(), 0, &out_len),
-              ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha384),
-                                          msg.data(), msg.size(), out.data(), 0, &out_len),
-              ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha512),
-                                          msg.data(), msg.size(), out.data(), 0, &out_len),
-              ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha3_256),
-                                          msg.data(), msg.size(), out.data(), 0, &out_len),
-              ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha3_384),
-                                          msg.data(), msg.size(), out.data(), 0, &out_len),
-              ArmAsmBackend::err_invalid_arg);
-    EXPECT_EQ(ArmAsmBackend::mac_compute(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha3_512),
-                                          msg.data(), msg.size(), out.data(), 0, &out_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::mac_compute(0U, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
+                                                    msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 TEST_F(ArmAsmBackendErrorTests, MacComputeUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
-    ByteArray< 64> out{};
-    std::size_t out_len = 0;
-    EXPECT_EQ(ArmAsmBackend::mac_compute(id, 0xFFFFU,
-                                          msg.data(), msg.size(),
-                                          out.data(), out.size(), &out_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::mac_compute(id, 0xFFFFU, msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 TEST_F(ArmAsmBackendErrorTests, MacVerifyMacLenMismatchReturnsInvalidSig) {
@@ -2158,24 +2095,19 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageUnknownAlgReturnsInvalidArg) {
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
-    ByteArray< 64> sig{};
-    std::size_t sig_len = 0;
-    EXPECT_EQ(ArmAsmBackend::sign_message(id, 0xFFFFU,
-                                           msg.data(), msg.size(),
-                                           sig.data(), sig.size(), &sig_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::sign_message(id, 0xFFFFU, msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaNonEcIdReturnsInvalidArg) {
     const unsigned int sym_id = import_sym(32);
     ASSERT_NE(sym_id, 0U);
     const ByteArray< 4> msg{};
-    ByteArray< 64> sig{};
-    std::size_t sig_len = 0;
-    EXPECT_EQ(ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_ecdsa(),
-                                           msg.data(), msg.size(),
-                                           sig.data(), sig.size(), &sig_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_ecdsa(),
+                                                     msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaPublicKeyReturnsInvalidArg) {
@@ -2184,37 +2116,20 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaPublicKeyReturnsInvalidArg) {
                                        arm_asm::detail::EcKeyKind::Public, 65);
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
-    ByteArray< 64> sig{};
-    std::size_t sig_len = 0;
-    EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
-                                           msg.data(), msg.size(),
-                                           sig.data(), sig.size(), &sig_len),
-              ArmAsmBackend::err_invalid_arg);
-}
-
-TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaSigTooSmallReturnsInvalidArg) {
-    const unsigned int id = import_ec(arm_asm::detail::EcCurveId::P256,
-                                       arm_asm::detail::EcKeyKind::Private, 32);
-    ASSERT_NE(id, 0U);
-    const ByteArray< 4> msg{};
-    ByteArray< 4> sig{};  // need 64
-    std::size_t sig_len = 0;
-    EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
-                                           msg.data(), msg.size(),
-                                           sig.data(), sig.size(), &sig_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
+                                                     msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 TEST_F(ArmAsmBackendErrorTests, SignMessageRsaNonRsaIdReturnsInvalidArg) {
     const unsigned int sym_id = import_sym(32);
     ASSERT_NE(sym_id, 0U);
     const ByteArray< 4> msg{};
-    ByteArray< 512> sig{};
-    std::size_t sig_len = 0;
-    EXPECT_EQ(ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
-                                           msg.data(), msg.size(),
-                                           sig.data(), sig.size(), &sig_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
+                                                     msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 TEST_F(ArmAsmBackendErrorTests, SignMessageRsaPublicKeyReturnsInvalidArg) {
@@ -2225,12 +2140,10 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageRsaPublicKeyReturnsInvalidArg) {
         dummy.data(), dummy.size());
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
-    ByteArray< 512> sig{};
-    std::size_t sig_len = 0;
-    EXPECT_EQ(ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_rsa_pss(),
-                                           msg.data(), msg.size(),
-                                           sig.data(), sig.size(), &sig_len),
-              ArmAsmBackend::err_invalid_arg);
+    const auto result = ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_rsa_pss(),
+                                                     msg.data(), msg.size());
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
 
 
@@ -2585,16 +2498,13 @@ TEST_F(ArmAsmSha3Tests, BackendSha3_256Dispatch) {
         "3a985da74fe225b2045c172d6bd390bd"
         "855f086e3e9d525b46bfe24511431532");
     const ByteArray< 3> msg = { 0x61, 0x62, 0x63 };
-    ByteArray< 32> out{};
-    std::size_t out_len = 0;
-    ASSERT_EQ(ArmAsmBackend::hash_compute(
-                  ArmAsmBackend::alg_sha(ShaVariant::Sha3_256),
-                  msg.data(), msg.size(),
-                  out.data(), out.size(), &out_len),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(out_len, 32U);
-    for (std::size_t i = 0; i < 32; ++i) {
-        EXPECT_EQ(out[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
+    const auto result = ArmAsmBackend::hash_compute(
+        ArmAsmBackend::alg_sha(ShaVariant::Sha3_256),
+        msg.data(), msg.size());
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 32U);
+    for (std::size_t i = 0; i < 32U; ++i) {
+        EXPECT_EQ(result->data()[i], expected[i]) << "byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 }
 
@@ -2861,17 +2771,14 @@ protected:
     }
 
     // Sign a fixed message with the given private key id.
-    static std::vector<CryptoByte> sign(ArmAsmBackend::KeyId priv_id, std::size_t sig_len) {
+    static std::vector<CryptoByte> sign(ArmAsmBackend::KeyId priv_id, std::size_t /*sig_len*/) {
         static constexpr ByteArray< 64> kMsg{};
-        std::vector<CryptoByte> sig(sig_len);
-        std::size_t out_len = 0;
-        if (ArmAsmBackend::sign_message(priv_id, ArmAsmBackend::alg_ecdsa(),
-                                        kMsg.data(), kMsg.size(),
-                                        sig.data(), sig.size(), &out_len) != ArmAsmBackend::ok) {
+        const auto result = ArmAsmBackend::sign_message(priv_id, ArmAsmBackend::alg_ecdsa(),
+                                                         kMsg.data(), kMsg.size());
+        if (!result.has_value()) {
             return {};
         }
-        sig.resize(out_len);
-        return sig;
+        return std::vector<CryptoByte>(result->data(), result->data() + result->size());
     }
 
     // Verify a signature with the given public key id.

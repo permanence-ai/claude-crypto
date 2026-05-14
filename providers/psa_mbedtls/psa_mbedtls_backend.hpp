@@ -85,12 +85,20 @@ struct RealPsaBackend {
     }
 
     [[nodiscard]]
-    static Status hash_compute(
+    static auto hash_compute(
         const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        CryptoByte* hash, const std::size_t hash_size, std::size_t* hash_length)
+        const CryptoByte* input, const std::size_t input_length)
+        -> std::expected<SecureBuffer, Status>
     {
-        return psa_hash_compute(alg, input, input_length, hash, hash_size, hash_length);
+        const std::size_t hash_size = PSA_HASH_MAX_SIZE;
+        SecureBuffer hash(hash_size);
+        std::size_t hash_length = 0;
+        const auto s = psa_hash_compute(alg, input, input_length, hash.data(), hash_size, &hash_length);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        hash.resize(hash_length);
+        return hash;
     }
 
     [[nodiscard]]
@@ -246,12 +254,20 @@ struct RealPsaBackend {
     }
 
     [[nodiscard]]
-    static Status mac_compute(  // NOLINT(readability-function-size)
+    static auto mac_compute(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        CryptoByte* mac, const std::size_t mac_size, std::size_t* mac_length)
+        const CryptoByte* input, const std::size_t input_length)
+        -> std::expected<SecureBuffer, Status>
     {
-        return psa_mac_compute(key, alg, input, input_length, mac, mac_size, mac_length);
+        const std::size_t mac_size = PSA_MAC_MAX_SIZE;
+        SecureBuffer mac(mac_size);
+        std::size_t mac_length = 0;
+        const auto s = psa_mac_compute(key, alg, input, input_length, mac.data(), mac_size, &mac_length);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        mac.resize(mac_length);
+        return mac;
     }
 
     [[nodiscard]]
@@ -298,34 +314,45 @@ struct RealPsaBackend {
     }
 
     [[nodiscard]]
-    static Status sign_message(  // NOLINT(readability-function-size)
+    static auto sign_message(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        CryptoByte* signature, const std::size_t signature_size,
-        std::size_t* signature_length)
+        const CryptoByte* input, const std::size_t input_length)
+        -> std::expected<SecureBuffer, Status>
     {
+        const std::size_t sig_max = PSA_SIGNATURE_MAX_SIZE;
+        SecureBuffer signature(sig_max);
+        std::size_t sig_len = 0;
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         if ((alg & kPqcAlgCategoryMask) == kAlgMlDsaBase) {
             using psa_mbedtls::detail::PqcKeyType;
             if (!psa_mbedtls::detail::pqc_key_id_is_pqc(static_cast<unsigned int>(key))) {
-                return PSA_ERROR_INVALID_ARGUMENT;
+                return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
             }
             const auto kv_sign = psa_mbedtls::detail::pqc_key_store_get_private(static_cast<unsigned int>(key));
-            if (!kv_sign || kv_sign->type != PqcKeyType::MlDsaPrivate) { return PSA_ERROR_INVALID_ARGUMENT; }
+            if (!kv_sign || kv_sign->type != PqcKeyType::MlDsaPrivate) {
+                return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
+            }
             const auto v = static_cast<MlDsaVariant>(kv_sign->variant);
-            if (alg != alg_ml_dsa(v)) { return PSA_ERROR_INVALID_ARGUMENT; }
-            if (signature_size < ml_dsa_signature_size(v)) { return PSA_ERROR_BUFFER_TOO_SMALL; }
+            if (alg != alg_ml_dsa(v)) {
+                return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
+            }
+            const std::size_t exact_size = ml_dsa_signature_size(v);
             if (!liboqs_pqc::ml_dsa_sign(v, kv_sign->data.data(), kv_sign->data.size(),
                                           input, input_length,
-                                          signature, signature_size, signature_length)) {
-                return PSA_ERROR_INVALID_ARGUMENT;
+                                          signature.data(), exact_size, &sig_len)) {
+                return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
             }
-            return PSA_SUCCESS;
+            signature.resize(sig_len);
+            return signature;
         }
 #endif
-        return psa_sign_message(
-            key, alg, input, input_length,
-            signature, signature_size, signature_length);
+        const auto s = psa_sign_message(key, alg, input, input_length,
+                                         signature.data(), sig_max, &sig_len);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        signature.resize(sig_len);
+        return signature;
     }
 
     [[nodiscard]]

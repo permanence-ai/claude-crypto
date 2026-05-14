@@ -944,24 +944,26 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status hash_compute(
+    static auto hash_compute(
         const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        CryptoByte* hash, const std::size_t hash_size, std::size_t* hash_length) noexcept
+        const CryptoByte* input, const std::size_t input_length) noexcept
+        -> std::expected<SecureBuffer, Status>
     {
         const char* name = digest_name(alg);
-        if (name == nullptr) { return err_invalid_arg; }
-        std::size_t len = hash_size;
+        if (name == nullptr) { return std::unexpected(err_invalid_arg); }
+        SecureBuffer hash(sha512_digest_bytes);
+        std::size_t len = sha512_digest_bytes;
         const Status rv = EVP_Q_digest(nullptr, name, nullptr,
                                        input, input_length,
-                                       hash, &len);
-        if (rv != ok) { return err_invalid_arg; }
-        *hash_length = len;
-        return ok;
+                                       hash.data(), &len);
+        if (rv != ok) { return std::unexpected(err_invalid_arg); }
+        hash.resize(len);
+        return hash;
     }
 
+    // Internal helper used by mac_verify.
     [[nodiscard]]
-    static Status mac_compute(  // NOLINT(readability-function-size)
+    static Status mac_compute_raw(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* mac, const std::size_t mac_size, std::size_t* mac_length) noexcept
@@ -993,6 +995,23 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
+    static auto mac_compute(  // NOLINT(readability-function-size)
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        const CryptoByte* input, const std::size_t input_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer mac(sha512_digest_bytes);
+        std::size_t mac_length = 0;
+        const auto s = mac_compute_raw(key, alg, input, input_length,
+                                       mac.data(), sha512_digest_bytes, &mac_length);
+        if (s != ok) {
+            return std::unexpected(s);
+        }
+        mac.resize(mac_length);
+        return mac;
+    }
+
+    [[nodiscard]]
     static Status mac_verify(
         const KeyId key, const Algorithm alg,
         const CryptoByte* input, const std::size_t input_length,
@@ -1001,10 +1020,10 @@ struct OpenSslBackend {
         // Compute a fresh MAC and compare in constant time.
         ByteArray<sha512_digest_bytes> computed{};  // large enough for any HMAC output
         std::size_t computed_len = 0;
-        const Status rv = mac_compute(key, alg,
-                                      input, input_length,
-                                      computed.data(), computed.size(),
-                                      &computed_len);
+        const Status rv = mac_compute_raw(key, alg,
+                                         input, input_length,
+                                         computed.data(), computed.size(),
+                                         &computed_len);
         if (rv != ok) { return err_invalid_arg; }
         if (computed_len != mac_length) { return err_invalid_sig; }
         // CRYPTO_memcmp is OpenSSL's constant-time compare.
@@ -1120,8 +1139,9 @@ struct OpenSslBackend {
         return rv;
     }
 
+    // Internal helper.
     [[nodiscard]]
-    static Status sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+    static Status sign_message_raw(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const CryptoByte* input, const std::size_t input_length,
         CryptoByte* signature, const std::size_t signature_size,
@@ -1157,6 +1177,23 @@ struct OpenSslBackend {
 
         EVP_MD_CTX_free(ctx);
         return rv;
+    }
+
+    [[nodiscard]]
+    static auto sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+        const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
+        const CryptoByte* input, const std::size_t input_length) noexcept
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer signature(slh_dsa_256f_sig_bytes);
+        std::size_t sig_len = 0;
+        const auto s = sign_message_raw(key, alg, input, input_length,
+                                        signature.data(), slh_dsa_256f_sig_bytes, &sig_len);
+        if (s != ok) {
+            return std::unexpected(s);
+        }
+        signature.resize(sig_len);
+        return signature;
     }
 
     [[nodiscard]]

@@ -229,17 +229,14 @@ protected:
         return {priv_id, static_cast<IaAsmBackend::KeyId>(pub_id)};
     }
 
-    static std::vector<CryptoByte> sign(IaAsmBackend::KeyId priv_id, std::size_t sig_len) {
+    static std::vector<CryptoByte> sign(IaAsmBackend::KeyId priv_id, std::size_t /*sig_len*/) {
         static constexpr ByteArray< sha512_digest_bytes> kMsg{};
-        std::vector<CryptoByte> sig(sig_len);
-        std::size_t out_len = 0;
-        if (IaAsmBackend::sign_message(priv_id, IaAsmBackend::alg_ecdsa(),
-                                       kMsg.data(), kMsg.size(),
-                                       sig.data(), sig.size(), &out_len) != IaAsmBackend::ok) {
+        const auto result = IaAsmBackend::sign_message(priv_id, IaAsmBackend::alg_ecdsa(),
+                                                        kMsg.data(), kMsg.size());
+        if (!result.has_value()) {
             return {};
         }
-        sig.resize(out_len);
-        return sig;
+        return std::vector<CryptoByte>(result->data(), result->data() + result->size());
     }
 
     static IaAsmBackend::Status verify(IaAsmBackend::KeyId pub_id,

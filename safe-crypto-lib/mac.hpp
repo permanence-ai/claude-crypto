@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 #include <expected>
 
 #include "crypto_error.hpp"
@@ -36,21 +37,18 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    FixedSecureBuffer<sha_output_size(V)> mac;
-    std::size_t mac_length = 0;
-
-    const auto status = Provider::mac_compute(
+    auto result = Provider::mac_compute(
         key_handle.get(), Provider::alg_hmac(V),
-        message.data(), message.size(),
-        mac.data(), mac.size(),
-        &mac_length);
+        message.data(), message.size());
 
-    if (status != Provider::ok) {
+    if (!result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::MacGenerationFailed,
             "HMAC generation failed"));
     }
 
+    FixedSecureBuffer<sha_output_size(V)> mac;
+    std::memcpy(mac.data(), result->data(), sha_output_size(V));
     return mac;
 }
 
