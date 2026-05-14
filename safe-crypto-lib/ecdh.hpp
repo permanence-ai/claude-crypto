@@ -33,13 +33,13 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
 
     auto attrs = Provider::make_ecdh_generate_attrs(key_bits);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::generate_key(&attrs);
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ECDH key generation failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer private_key_der(Provider::ec_private_key_export_size(key_bits));
     std::size_t  private_key_length = 0;
@@ -92,16 +92,15 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
 
     auto attrs = Provider::make_ecdh_agree_attrs(key_bits);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                         our_key_pair.private_key_der.data(),
-                        our_key_pair.private_key_der.size(),
-                        &raw_key_id) != Provider::ok) {
+                        our_key_pair.private_key_der.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ECDH private key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer shared_secret(Provider::ecdh_shared_secret_size(key_bits));
     std::size_t  shared_secret_length = 0;

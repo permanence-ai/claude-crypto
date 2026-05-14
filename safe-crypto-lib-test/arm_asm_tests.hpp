@@ -276,8 +276,7 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc1Sha384) {
     // Import IKM, run full HKDF via the state machine.
     auto attrs = ArmAsmBackend::make_hkdf_derive_attrs(ikm.size() * 8U);
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     auto op = ArmAsmBackend::make_kdf_op();
     ASSERT_EQ(ArmAsmBackend::key_derivation_setup(&op, ArmAsmBackend::alg_hkdf()),
@@ -315,8 +314,7 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc2NoSaltNoInfo) {
 
     auto attrs = ArmAsmBackend::make_hkdf_derive_attrs(ikm.size() * 8U);
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     auto op = ArmAsmBackend::make_kdf_op();
     ASSERT_EQ(ArmAsmBackend::key_derivation_setup(&op, ArmAsmBackend::alg_hkdf()),
@@ -355,8 +353,7 @@ TEST_F(ArmAsmHkdfTests, SigmaStyleHkdf80Bytes) {
 
     auto attrs = ArmAsmBackend::make_hkdf_derive_attrs(ikm.size() * 8U);
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     auto op = ArmAsmBackend::make_kdf_op();
     ASSERT_EQ(ArmAsmBackend::key_derivation_setup(&op, ArmAsmBackend::alg_hkdf()),
@@ -429,7 +426,7 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
     // Generate an AES-256-GCM key, encrypt, then decrypt.
     ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
     ArmAsmBackend::KeyId enc_id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &enc_id), ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::generate_key(&attrs); ASSERT_TRUE(r_.has_value()); enc_id = r_.value(); }
     EXPECT_NE(enc_id, ArmAsmBackend::null_key_id());
 
     const ByteArray< 12> iv = {0x01,0x02,0x03,0x04,0x05,0x06,
@@ -475,8 +472,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportImportedKeyReturnsOriginalBytes) {
     };
     ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, original.data(), original.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, original.data(), original.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     ByteArray< 32> exported{};
     std::size_t exported_len = 0;
@@ -494,7 +490,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportGeneratedKeyHasCorrectSize) {
     // A generated AES-256 key must export as exactly 32 bytes.
     ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_decrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::generate_key(&attrs); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     ByteArray< 64> buf{};
     std::size_t len = 0;
@@ -507,14 +503,11 @@ TEST_F(ArmAsmKeyMgmtTests, ExportGeneratedKeyHasCorrectSize) {
 
 TEST_F(ArmAsmKeyMgmtTests, GenerateKeyZeroSizeAttrsReturnsError) {
     ArmAsmBackend::KeyAttributes attrs{};  // key_bytes == 0
-    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    EXPECT_NE(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
-    EXPECT_EQ(id, ArmAsmBackend::null_key_id());
+    EXPECT_FALSE(ArmAsmBackend::generate_key(&attrs).has_value());
 }
 
 TEST_F(ArmAsmKeyMgmtTests, GenerateKeyNullAttrsReturnsError) {
-    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    EXPECT_NE(ArmAsmBackend::generate_key(nullptr, &id), ArmAsmBackend::ok);
+    EXPECT_FALSE(ArmAsmBackend::generate_key(nullptr).has_value());
 }
 
 TEST_F(ArmAsmKeyMgmtTests, ExportKeyBadIdReturnsError) {
@@ -528,7 +521,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportKeyBadIdReturnsError) {
 TEST_F(ArmAsmKeyMgmtTests, ExportKeyBufferTooSmallReturnsError) {
     ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::generate_key(&attrs); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     ByteArray< 16> small_buf{};  // too small for 32-byte key
     std::size_t len = 0;
@@ -841,8 +834,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282EncryptWithAad) {
     // Import key.
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     ByteArray< 114 + 16> out{};
     std::size_t out_len = 0;
@@ -906,8 +898,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282DecryptWithAad) {
 
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     ByteArray< 114> pt{};
     std::size_t pt_len = 0;
@@ -940,8 +931,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, ShortVectorRoundTrip) {
 
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     // Encrypt.
     ByteArray< 32> out{};  // 16 + 16
@@ -987,8 +977,7 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
 
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    ASSERT_EQ(ArmAsmBackend::import_key(&attrs, key.data(), key.size(), &id),
-              ArmAsmBackend::ok);
+    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     ByteArray< 32> ct_tag{};
     std::size_t ct_len = 0;
@@ -1769,9 +1758,9 @@ TEST_F(ArmAsmBackendErrorTests, ImportKeyEcOversizedReturnsInvalidArg) {
     ArmAsmBackend::KeyAttributes attrs;
     attrs.ec_curve = arm_asm::detail::EcCurveId::P256;
     attrs.ec_kind  = arm_asm::detail::EcKeyKind::Private;
-    ArmAsmBackend::KeyId id = 0;
-    EXPECT_EQ(ArmAsmBackend::import_key(&attrs, buf.data(), oversize, &id),
-              ArmAsmBackend::err_invalid_arg);
+    auto r_ = ArmAsmBackend::import_key(&attrs, buf.data(), oversize);
+    EXPECT_FALSE(r_.has_value());
+    if (!r_.has_value()) { EXPECT_EQ(r_.error(), ArmAsmBackend::err_invalid_arg); }
 }
 
 TEST_F(ArmAsmBackendErrorTests, ImportKeySymOversizedReturnsInvalidArg) {
@@ -1779,31 +1768,34 @@ TEST_F(ArmAsmBackendErrorTests, ImportKeySymOversizedReturnsInvalidArg) {
     std::vector<CryptoByte> buf(oversize, 0x01U);
     ArmAsmBackend::KeyAttributes attrs;
     attrs.key_bytes = oversize;
-    ArmAsmBackend::KeyId id = 0;
-    EXPECT_EQ(ArmAsmBackend::import_key(&attrs, buf.data(), oversize, &id),
-              ArmAsmBackend::err_invalid_arg);
+    auto r_ = ArmAsmBackend::import_key(&attrs, buf.data(), oversize);
+    EXPECT_FALSE(r_.has_value());
+    if (!r_.has_value()) { EXPECT_EQ(r_.error(), ArmAsmBackend::err_invalid_arg); }
 }
 
 
 // generate_key error paths.
 
 TEST_F(ArmAsmBackendErrorTests, GenerateKeyNullAttrsReturnsInvalidArg) {
-    ArmAsmBackend::KeyId id = 0;
-    EXPECT_EQ(ArmAsmBackend::generate_key(nullptr, &id), ArmAsmBackend::err_invalid_arg);
+    auto r_ = ArmAsmBackend::generate_key(nullptr);
+    EXPECT_FALSE(r_.has_value());
+    if (!r_.has_value()) { EXPECT_EQ(r_.error(), ArmAsmBackend::err_invalid_arg); }
 }
 
 TEST_F(ArmAsmBackendErrorTests, GenerateKeyZeroBytesReturnsInvalidArg) {
     ArmAsmBackend::KeyAttributes attrs;
     attrs.key_bytes = 0;
-    ArmAsmBackend::KeyId id = 0;
-    EXPECT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::err_invalid_arg);
+    auto r_ = ArmAsmBackend::generate_key(&attrs);
+    EXPECT_FALSE(r_.has_value());
+    if (!r_.has_value()) { EXPECT_EQ(r_.error(), ArmAsmBackend::err_invalid_arg); }
 }
 
 TEST_F(ArmAsmBackendErrorTests, GenerateKeyOversizedReturnsInvalidArg) {
     ArmAsmBackend::KeyAttributes attrs;
     attrs.key_bytes = arm_asm::detail::key_store_max_bytes + 1;
-    ArmAsmBackend::KeyId id = 0;
-    EXPECT_EQ(ArmAsmBackend::generate_key(&attrs, &id), ArmAsmBackend::err_invalid_arg);
+    auto r_ = ArmAsmBackend::generate_key(&attrs);
+    EXPECT_FALSE(r_.has_value());
+    if (!r_.has_value()) { EXPECT_EQ(r_.error(), ArmAsmBackend::err_invalid_arg); }
 }
 
 
@@ -2630,9 +2622,9 @@ protected:
         else if (curve == arm_asm::detail::EcCurveId::P384) { bits = 384; }
         else { bits = 521; }
         auto attrs = ArmAsmBackend::make_ecdh_generate_attrs(bits);
-        ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-        if (ArmAsmBackend::generate_key(&attrs, &id) != ArmAsmBackend::ok) { return ArmAsmBackend::null_key_id(); }
-        return id;
+        auto r = ArmAsmBackend::generate_key(&attrs);
+        if (!r.has_value()) { return ArmAsmBackend::null_key_id(); }
+        return r.value();
     }
 
     // Export the public key for an ECDH key pair.
@@ -2845,10 +2837,11 @@ protected:
     static std::pair<ArmAsmBackend::KeyId, ArmAsmBackend::KeyId>
     generate_ecdsa_pair(std::size_t bits) {
         auto attrs = ArmAsmBackend::make_ecdsa_generate_attrs(bits);
-        ArmAsmBackend::KeyId priv_id = ArmAsmBackend::null_key_id();
-        if (ArmAsmBackend::generate_key(&attrs, &priv_id) != ArmAsmBackend::ok) {
+        auto gen_r = ArmAsmBackend::generate_key(&attrs);
+        if (!gen_r.has_value()) {
             return {ArmAsmBackend::null_key_id(), ArmAsmBackend::null_key_id()};
         }
+        ArmAsmBackend::KeyId priv_id = gen_r.value();
         // The backend stores the private key; import the public key separately.
         std::size_t pk_len = 0;
         if (bits == p256_bits) { pk_len = p256_public_key_bytes; }

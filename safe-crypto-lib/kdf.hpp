@@ -57,13 +57,13 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_hkdf_derive_attrs(ikm_ref.size() * bits_per_byte);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs, ikm_ref.data(), ikm_ref.size(), &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs, ikm_ref.data(), ikm_ref.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "IKM import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     auto op = Provider::make_kdf_op();
 
@@ -147,13 +147,13 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_hkdf_expand_derive_attrs(prk.size() * bits_per_byte);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs, prk.data(), prk.size(), &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::import_key(&attrs, prk.data(), prk.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "PRK import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     auto op = Provider::make_kdf_op();
 
@@ -234,13 +234,13 @@ auto generate_rsa_key_impl(  // NOLINT(readability-function-cognitive-complexity
 
     auto attrs = Provider::make_rsa_key_pair_attrs(key_bits_val);
 
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::generate_key(&attrs);
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "RSA key generation failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer private_key_der(Provider::rsa_private_key_export_size(key_bits_val));
     std::size_t private_key_length = 0;

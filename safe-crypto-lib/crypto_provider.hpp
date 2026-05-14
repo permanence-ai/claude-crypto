@@ -4,6 +4,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <expected>
 
 #include "contracts.hpp"
 #include "defs.hpp"
@@ -32,7 +33,6 @@ concept CryptoProvider = requires(
     T,
     T::KeyAttributes*  attrs,
     T::KeyId           key,
-    T::KeyId*          key_out,
     T::Algorithm       alg,
     T::KdfStep         step,
     T::KdfOperation*   op,
@@ -133,8 +133,8 @@ concept CryptoProvider = requires(
     // Low-level crypto operations
     { T::crypto_init() }                                        -> std::same_as<typename T::Status>;
     { T::generate_random(buf, len) }                            -> std::same_as<typename T::Status>;
-    { T::import_key(attrs, cbuf, len, key_out) }                -> std::same_as<typename T::Status>;
-    { T::generate_key(attrs, key_out) }                         -> std::same_as<typename T::Status>;
+    { T::import_key(attrs, cbuf, len) }  -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
+    { T::generate_key(attrs) }           -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
     { T::destroy_key(key) }                                     -> std::same_as<typename T::Status>;
     { T::export_key(key, buf, len, len_out) }                   -> std::same_as<typename T::Status>;
     { T::export_public_key(key, buf, len, len_out) }            -> std::same_as<typename T::Status>;

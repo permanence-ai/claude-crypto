@@ -48,13 +48,13 @@ auto ml_kem_generate_key_impl()
     }
 
     auto attrs = Provider::make_ml_kem_generate_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::generate_key(&attrs);
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ML-KEM key generation failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     constexpr std::size_t priv_size = ml_kem_private_key_size(V);
     constexpr std::size_t pub_size  = ml_kem_public_key_size(V);
@@ -107,16 +107,15 @@ auto ml_kem_encapsulate_impl(const MlKemPublicKey<V>& public_key)
     }
 
     auto attrs = Provider::make_ml_kem_encap_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                              public_key.public_key.data(),
-                             public_key.public_key.size(),
-                             &raw_key_id) != Provider::ok) {
+                             public_key.public_key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ML-KEM public key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     MlKemEncapResult result{
         .ciphertext    = SecureBuffer(Provider::ml_kem_ciphertext_size(V)),
@@ -167,16 +166,15 @@ auto ml_kem_decapsulate_impl(
     }
 
     auto attrs = Provider::make_ml_kem_decap_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                              key_pair.private_key.data(),
-                             key_pair.private_key.size(),
-                             &raw_key_id) != Provider::ok) {
+                             key_pair.private_key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ML-KEM private key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer shared_secret(Provider::ml_kem_shared_secret_size(V));
     std::size_t ss_len = 0;

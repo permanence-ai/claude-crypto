@@ -35,9 +35,9 @@ protected:
         else if (curve == arm_asm::detail::EcCurveId::P384) { bits = p384_bits; }
         else { bits = p521_bits; }
         auto attrs = IaAsmBackend::make_ecdh_generate_attrs(bits);
-        IaAsmBackend::KeyId id = IaAsmBackend::null_key_id();
-        if (IaAsmBackend::generate_key(&attrs, &id) != IaAsmBackend::ok) { return IaAsmBackend::null_key_id(); }
-        return id;
+        auto r = IaAsmBackend::generate_key(&attrs);
+        if (!r.has_value()) { return IaAsmBackend::null_key_id(); }
+        return r.value();
     }
 
     static std::vector<CryptoByte> export_public(IaAsmBackend::KeyId id, std::size_t pk_len) {
@@ -207,10 +207,11 @@ protected:
     static std::pair<IaAsmBackend::KeyId, IaAsmBackend::KeyId>
     generate_ecdsa_pair(std::size_t bits) {
         auto attrs = IaAsmBackend::make_ecdsa_generate_attrs(bits);
-        IaAsmBackend::KeyId priv_id = IaAsmBackend::null_key_id();
-        if (IaAsmBackend::generate_key(&attrs, &priv_id) != IaAsmBackend::ok) {
+        auto gen_r = IaAsmBackend::generate_key(&attrs);
+        if (!gen_r.has_value()) {
             return {IaAsmBackend::null_key_id(), IaAsmBackend::null_key_id()};
         }
+        IaAsmBackend::KeyId priv_id = gen_r.value();
         std::size_t pk_len = 0;
         if (bits == p256_bits) { pk_len = p256_public_key_bytes; }
         else if (bits == p384_bits) { pk_len = p384_public_key_bytes; }

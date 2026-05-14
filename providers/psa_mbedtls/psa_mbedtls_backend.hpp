@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <expected>
 #include <new>
 
 #include <psa/crypto.h>
@@ -85,10 +86,10 @@ struct RealPsaBackend {
     }
 
     [[nodiscard]]
-    static Status import_key(
+    static auto import_key(
         const KeyAttributes* attributes,
-        const CryptoByte* data, const std::size_t data_length,
-        KeyId* key)
+        const CryptoByte* data, const std::size_t data_length)
+        -> std::expected<KeyId, Status>
     {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         if (attributes != nullptr &&
@@ -102,19 +103,21 @@ struct RealPsaBackend {
             const std::size_t pub_sz = is_private ? 0U : data_length;
             const unsigned int slot = psa_mbedtls::detail::pqc_key_store_import(
                 attributes->pqc_type, attributes->pqc_variant, priv, priv_sz, pub, pub_sz);
-            if (slot == 0U) { return PSA_ERROR_INVALID_ARGUMENT; }
-            *key = static_cast<KeyId>(slot);
-            return PSA_SUCCESS;
+            if (slot == 0U) { return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT)); }
+            return static_cast<KeyId>(slot);
         }
 #endif
-        return psa_import_key(attributes != nullptr ? &attributes->psa : nullptr,
-                              data, data_length, key);
+        KeyId key = null_key_id();
+        const Status s = psa_import_key(attributes != nullptr ? &attributes->psa : nullptr,
+                                        data, data_length, &key);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        return key;
     }
 
     [[nodiscard]]
-    static Status generate_key(
-        const KeyAttributes* attributes,
-        KeyId* key)
+    static auto generate_key(
+        const KeyAttributes* attributes)
+        -> std::expected<KeyId, Status>
     {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         if (attributes != nullptr &&
@@ -129,7 +132,7 @@ struct RealPsaBackend {
                 if (pub_buf == nullptr || priv_buf == nullptr) {
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return PSA_ERROR_INVALID_ARGUMENT;
+                    return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
                 }
                 const bool ok_kg = liboqs_pqc::ml_kem_keygen(v, pub_buf, pub_sz, priv_buf, priv_sz);
                 if (!ok_kg) {
@@ -137,7 +140,7 @@ struct RealPsaBackend {
                     ::detail::secure_zero(priv_buf, priv_sz);
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return PSA_ERROR_INVALID_ARGUMENT;
+                    return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
                 }
                 const unsigned int slot = psa_mbedtls::detail::pqc_key_store_import(
                     PqcKeyType::MlKemPrivate, attributes->pqc_variant,
@@ -146,9 +149,8 @@ struct RealPsaBackend {
                 ::detail::secure_zero(pub_buf,  pub_sz);
                 delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
                 delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
-                if (slot == 0U) { return PSA_ERROR_INVALID_ARGUMENT; }
-                *key = static_cast<KeyId>(slot);
-                return PSA_SUCCESS;
+                if (slot == 0U) { return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT)); }
+                return static_cast<KeyId>(slot);
             }
             if (attributes->pqc_type == PqcKeyType::MlDsaPrivate) {
                 const auto v = static_cast<MlDsaVariant>(attributes->pqc_variant);
@@ -159,7 +161,7 @@ struct RealPsaBackend {
                 if (pub_buf == nullptr || priv_buf == nullptr) {
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return PSA_ERROR_INVALID_ARGUMENT;
+                    return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
                 }
                 const bool ok_kg = liboqs_pqc::ml_dsa_keygen(v, pub_buf, pub_sz, priv_buf, priv_sz);
                 if (!ok_kg) {
@@ -167,7 +169,7 @@ struct RealPsaBackend {
                     ::detail::secure_zero(priv_buf, priv_sz);
                     delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
                     delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
-                    return PSA_ERROR_INVALID_ARGUMENT;
+                    return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
                 }
                 const unsigned int slot = psa_mbedtls::detail::pqc_key_store_import(
                     PqcKeyType::MlDsaPrivate, attributes->pqc_variant,
@@ -176,14 +178,16 @@ struct RealPsaBackend {
                 ::detail::secure_zero(pub_buf,  pub_sz);
                 delete[] priv_buf;  // NOLINT(cppcoreguidelines-owning-memory)
                 delete[] pub_buf;   // NOLINT(cppcoreguidelines-owning-memory)
-                if (slot == 0U) { return PSA_ERROR_INVALID_ARGUMENT; }
-                *key = static_cast<KeyId>(slot);
-                return PSA_SUCCESS;
+                if (slot == 0U) { return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT)); }
+                return static_cast<KeyId>(slot);
             }
-            return PSA_ERROR_INVALID_ARGUMENT;
+            return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
         }
 #endif
-        return psa_generate_key(attributes != nullptr ? &attributes->psa : nullptr, key);
+        KeyId key = null_key_id();
+        const Status s = psa_generate_key(attributes != nullptr ? &attributes->psa : nullptr, &key);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        return key;
     }
 
     [[nodiscard]]

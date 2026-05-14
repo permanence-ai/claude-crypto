@@ -225,10 +225,8 @@ TEST_F(MlKemTests, Kem512_EncapRejectsAlgorithmVariantMismatch) {
     ASSERT_TRUE(kp.has_value());
 
     auto attrs = MlKemBackend::make_ml_kem_encap_attrs(MlKemVariant::Kem512);
-    auto raw_id = MlKemBackend::null_key_id();
-    ASSERT_EQ(MlKemBackend::import_key(&attrs,
-                                        kp->public_key.data(), kp->public_key.size(),
-                                        &raw_id), MlKemBackend::ok);
+    MlKemBackend::KeyId raw_id = MlKemBackend::null_key_id();
+    { auto r_ = MlKemBackend::import_key(&attrs, kp->public_key.data(), kp->public_key.size()); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
 
     constexpr std::size_t ct_size = ml_kem_ciphertext_size(MlKemVariant::Kem768);
     constexpr std::size_t ss_size = ml_kem_shared_secret_size(MlKemVariant::Kem768);
@@ -257,10 +255,8 @@ TEST_F(MlKemTests, Kem512_DecapRejectsAlgorithmVariantMismatch) {
     ASSERT_TRUE(encap.has_value());
 
     auto attrs = MlKemBackend::make_ml_kem_decap_attrs(MlKemVariant::Kem512);
-    auto raw_id = MlKemBackend::null_key_id();
-    ASSERT_EQ(MlKemBackend::import_key(&attrs,
-                                        kp->private_key.data(), kp->private_key.size(),
-                                        &raw_id), MlKemBackend::ok);
+    MlKemBackend::KeyId raw_id = MlKemBackend::null_key_id();
+    { auto r_ = MlKemBackend::import_key(&attrs, kp->private_key.data(), kp->private_key.size()); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
 
     constexpr std::size_t ss_size = ml_kem_shared_secret_size(MlKemVariant::Kem768);
     SecureBuffer ss(ss_size);

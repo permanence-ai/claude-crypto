@@ -45,13 +45,13 @@ auto slh_dsa_generate_key_impl()
     }
 
     auto attrs = Provider::make_slh_dsa_generate_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::generate_key(&attrs);
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "SLH-DSA key generation failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     constexpr std::size_t priv_size = slh_dsa_private_key_size(V);
     constexpr std::size_t pub_size  = slh_dsa_public_key_size(V);
@@ -105,16 +105,15 @@ auto slh_dsa_sign_impl(
     }
 
     auto attrs = Provider::make_slh_dsa_sign_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                              key_pair.private_key.data(),
-                             key_pair.private_key.size(),
-                             &raw_key_id) != Provider::ok) {
+                             key_pair.private_key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SLH-DSA private key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer signature(Provider::slh_dsa_sign_output_size(V));
     std::size_t sig_len = 0;
@@ -163,16 +162,15 @@ auto slh_dsa_verify_impl(
     }
 
     auto attrs = Provider::make_slh_dsa_verify_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                              public_key.public_key.data(),
-                             public_key.public_key.size(),
-                             &raw_key_id) != Provider::ok) {
+                             public_key.public_key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "SLH-DSA public key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     const auto status = Provider::verify_message(
         key_handle.get(),
@@ -239,13 +237,13 @@ auto ml_dsa_generate_key_impl()
     }
 
     auto attrs = Provider::make_ml_dsa_generate_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::generate_key(&attrs, &raw_key_id) != Provider::ok) {
+    auto key_result = Provider::generate_key(&attrs);
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyGenerationFailed,
             "ML-DSA key generation failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     constexpr std::size_t priv_size = ml_dsa_private_key_size(V);
     constexpr std::size_t pub_size  = ml_dsa_public_key_size(V);
@@ -299,16 +297,15 @@ auto ml_dsa_sign_impl(
     }
 
     auto attrs = Provider::make_ml_dsa_sign_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                              key_pair.private_key.data(),
-                             key_pair.private_key.size(),
-                             &raw_key_id) != Provider::ok) {
+                             key_pair.private_key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ML-DSA private key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     SecureBuffer signature(Provider::ml_dsa_sign_output_size(V));
     std::size_t sig_len = 0;
@@ -357,16 +354,15 @@ auto ml_dsa_verify_impl(
     }
 
     auto attrs = Provider::make_ml_dsa_verify_attrs(V);
-    auto raw_key_id = Provider::null_key_id();
-    if (Provider::import_key(&attrs,
+    auto key_result = Provider::import_key(&attrs,
                              public_key.public_key.data(),
-                             public_key.public_key.size(),
-                             &raw_key_id) != Provider::ok) {
+                             public_key.public_key.size());
+    if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
             "ML-DSA public key import failed"));
     }
-    const PsaKeyHandle<Provider> key_handle(raw_key_id);
+    const PsaKeyHandle<Provider> key_handle(key_result.value());
 
     const auto status = Provider::verify_message(
         key_handle.get(),
