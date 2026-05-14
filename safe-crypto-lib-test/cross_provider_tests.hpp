@@ -89,6 +89,17 @@ static void expect_equal_outputs(const ByteArray< N>& psa,
     }
 }
 
+// Compare two runtime-sized output buffers and report the first differing byte.
+static void expect_equal_outputs(const SecureBuffer& psa,
+                                  const SecureBuffer& arm,
+                                  const char* label)
+{
+    for (std::size_t i = 0; i < psa.size(); ++i) {
+        EXPECT_EQ(psa[i], arm[i]) << label << ": first mismatch at byte " << i;
+        if (psa[i] != arm[i]) { return; }
+    }
+}
+
 
 // ---------------------------------------------------------------------------
 // Base fixture: initialises PSA before each test.
@@ -116,23 +127,18 @@ static void run_hash_parity_test(const char* label) {
     for (std::size_t msg_len : {std::size_t{0}, std::size_t{64}, std::size_t{200}}) {
         const auto msg = make_random_secure_buffer(msg_len);
 
-        constexpr std::size_t out_size = sha_output_size(V);
-        ByteArray< out_size> psa_out{};
-        ByteArray< out_size> arm_out{};
-        std::size_t psa_len = 0, arm_len = 0;
-
-        ASSERT_EQ(RealPsaBackend::hash_compute(
-            RealPsaBackend::alg_sha(V), msg.data(), msg.size(),
-            psa_out.data(), psa_out.size(), &psa_len), RealPsaBackend::ok)
+        const auto psa_r = RealPsaBackend::hash_compute(
+            RealPsaBackend::alg_sha(V), msg.data(), msg.size());
+        ASSERT_TRUE(psa_r.has_value())
             << label << " PSA hash_compute failed (msg_len=" << msg_len << ")";
 
-        ASSERT_EQ(NativeAsmBackend::hash_compute(
-            NativeAsmBackend::alg_sha(V), msg.data(), msg.size(),
-            arm_out.data(), arm_out.size(), &arm_len), NativeAsmBackend::ok)
+        const auto arm_r = NativeAsmBackend::hash_compute(
+            NativeAsmBackend::alg_sha(V), msg.data(), msg.size());
+        ASSERT_TRUE(arm_r.has_value())
             << label << " ARM hash_compute failed (msg_len=" << msg_len << ")";
 
-        ASSERT_EQ(psa_len, arm_len) << label << " output length mismatch";
-        expect_equal_outputs(psa_out, arm_out, label);
+        ASSERT_EQ(psa_r->size(), arm_r->size()) << label << " output length mismatch";
+        expect_equal_outputs(*psa_r, *arm_r, label);
     }
 }
 
@@ -155,21 +161,15 @@ static void run_hmac_parity_test(const char* label) {
     const auto key = make_random_secure_buffer(48); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     const auto msg = make_random_secure_buffer(128); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-    constexpr std::size_t out_size = sha_output_size(V);
-    ByteArray< out_size> psa_out{};
-    ByteArray< out_size> arm_out{};
-    std::size_t psa_len = 0, arm_len = 0;
-
     // Import key into PSA store.
     auto psa_attrs = RealPsaBackend::make_hmac_generate_attrs(V, key.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     RealPsaBackend::KeyId psa_id = RealPsaBackend::null_key_id();
     { auto r_ = RealPsaBackend::import_key(&psa_attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()) << label << " PSA key import failed"; psa_id = r_.value(); }
 
-    ASSERT_EQ(RealPsaBackend::mac_compute(
+    const auto psa_mac = RealPsaBackend::mac_compute(
         psa_id, RealPsaBackend::alg_hmac(V),
-        msg.data(), msg.size(),
-        psa_out.data(), psa_out.size(), &psa_len), RealPsaBackend::ok)
-        << label << " PSA mac_compute failed";
+        msg.data(), msg.size());
+    ASSERT_TRUE(psa_mac.has_value()) << label << " PSA mac_compute failed";
     (void)RealPsaBackend::destroy_key(psa_id);
 
     // Import key into ARM ASM store.
@@ -177,15 +177,14 @@ static void run_hmac_parity_test(const char* label) {
     NativeAsmBackend::KeyId arm_id = NativeAsmBackend::null_key_id();
     { auto r_ = NativeAsmBackend::import_key(&arm_attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()) << label << " ARM key import failed"; arm_id = r_.value(); }
 
-    ASSERT_EQ(NativeAsmBackend::mac_compute(
+    const auto arm_mac = NativeAsmBackend::mac_compute(
         arm_id, NativeAsmBackend::alg_hmac(V),
-        msg.data(), msg.size(),
-        arm_out.data(), arm_out.size(), &arm_len), NativeAsmBackend::ok)
-        << label << " ARM mac_compute failed";
+        msg.data(), msg.size());
+    ASSERT_TRUE(arm_mac.has_value()) << label << " ARM mac_compute failed";
     (void)NativeAsmBackend::destroy_key(arm_id);
 
-    ASSERT_EQ(psa_len, arm_len) << label << " output length mismatch";
-    expect_equal_outputs(psa_out, arm_out, label);
+    ASSERT_EQ(psa_mac->size(), arm_mac->size()) << label << " output length mismatch";
+    expect_equal_outputs(*psa_mac, *arm_mac, label);
 }
 
 TEST_F(CrossProviderHmacTests, HmacSha256Parity)   { run_hmac_parity_test<ShaVariant::Sha256> ("HMAC-SHA-256"); }
@@ -716,14 +715,12 @@ static void run_ecdsa_cross_verify_test(const char* label) {
         { auto r_ = NativeAsmBackend::generate_key(&arm_sign_attrs); ASSERT_TRUE(r_.has_value()) << label << " ARM keygen failed"; arm_sign_id = r_.value(); }
 
         // ARM sign.
-        ByteArray< sig_len> arm_sig{};
-        std::size_t arm_sig_len = 0;
-        ASSERT_EQ(NativeAsmBackend::sign_message(
+        const auto arm_sig_r = NativeAsmBackend::sign_message(
             arm_sign_id, NativeAsmBackend::alg_ecdsa(),
-            msg.data(), msg.size(),
-            arm_sig.data(), arm_sig.size(), &arm_sig_len), NativeAsmBackend::ok)
-            << label << " ARM sign failed";
-        ASSERT_EQ(arm_sig_len, sig_len);
+            msg.data(), msg.size());
+        ASSERT_TRUE(arm_sig_r.has_value()) << label << " ARM sign failed";
+        const auto& arm_sig = *arm_sig_r;
+        ASSERT_EQ(arm_sig.size(), sig_len);
 
         // Export ARM public key (uncompressed point) and import into PSA for verification.
         ByteArray< pk_len> arm_pub{};
@@ -739,7 +736,7 @@ static void run_ecdsa_cross_verify_test(const char* label) {
         EXPECT_EQ(RealPsaBackend::verify_message(
             psa_verify_id, RealPsaBackend::alg_ecdsa(),
             msg.data(), msg.size(),
-            arm_sig.data(), arm_sig_len), RealPsaBackend::ok)
+            arm_sig.data(), arm_sig.size()), RealPsaBackend::ok)
             << label << " PSA rejected ARM signature";
 
         (void)NativeAsmBackend::destroy_key(arm_sign_id);
@@ -754,14 +751,12 @@ static void run_ecdsa_cross_verify_test(const char* label) {
         { auto r_ = RealPsaBackend::generate_key(&psa_sig_gen_attrs); ASSERT_TRUE(r_.has_value()) << label << " PSA keygen failed"; psa_sign_id = r_.value(); }
 
         // PSA sign.
-        ByteArray< sig_len> psa_sig{};
-        std::size_t psa_sig_len = 0;
-        ASSERT_EQ(RealPsaBackend::sign_message(
+        const auto psa_sig_r = RealPsaBackend::sign_message(
             psa_sign_id, RealPsaBackend::alg_ecdsa(),
-            msg.data(), msg.size(),
-            psa_sig.data(), psa_sig.size(), &psa_sig_len), RealPsaBackend::ok)
-            << label << " PSA sign failed";
-        ASSERT_EQ(psa_sig_len, sig_len);
+            msg.data(), msg.size());
+        ASSERT_TRUE(psa_sig_r.has_value()) << label << " PSA sign failed";
+        const auto& psa_sig = *psa_sig_r;
+        ASSERT_EQ(psa_sig.size(), sig_len);
 
         // Export PSA public key (uncompressed point) and import into ARM for verification.
         ByteArray< pk_len> psa_pub{};
@@ -778,7 +773,7 @@ static void run_ecdsa_cross_verify_test(const char* label) {
         EXPECT_EQ(NativeAsmBackend::verify_message(
             arm_verify_id, NativeAsmBackend::alg_ecdsa(),
             msg.data(), msg.size(),
-            psa_sig.data(), psa_sig_len), NativeAsmBackend::ok)
+            psa_sig.data(), psa_sig.size()), NativeAsmBackend::ok)
             << label << " ARM rejected PSA signature";
 
         (void)RealPsaBackend::destroy_key(psa_sign_id);
@@ -907,7 +902,6 @@ static void run_rsa_pss_cross_verify_test(const char* label) {
     const auto& pub_der  = kp->public_key_der;
 
     const auto msg = make_test_bytes<64>(0x63U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    const std::size_t sig_buf_size = RealPsaBackend::rsa_pss_sign_output_size(key_bits);
 
     // ---- PSA signs, ARM verifies ----------------------------------------
     {
@@ -915,13 +909,11 @@ static void run_rsa_pss_cross_verify_test(const char* label) {
         RealPsaBackend::KeyId psa_sign_id = RealPsaBackend::null_key_id();
         { auto r_ = RealPsaBackend::import_key(&psa_sign_attrs, priv_der.data(), priv_der.size()); ASSERT_TRUE(r_.has_value()) << label << " PSA private key import failed"; psa_sign_id = r_.value(); }
 
-        SecureBuffer psa_sig(sig_buf_size);
-        std::size_t psa_sig_len = 0;
-        ASSERT_EQ(RealPsaBackend::sign_message(
+        const auto psa_sig_r = RealPsaBackend::sign_message(
             psa_sign_id, RealPsaBackend::alg_rsa_pss(),
-            msg.data(), msg.size(),
-            psa_sig.data(), psa_sig.size(), &psa_sig_len), RealPsaBackend::ok)
-            << label << " PSA sign failed";
+            msg.data(), msg.size());
+        ASSERT_TRUE(psa_sig_r.has_value()) << label << " PSA sign failed";
+        const auto& psa_sig = *psa_sig_r;
         (void)RealPsaBackend::destroy_key(psa_sign_id);
 
         // ARM verify with public key.
@@ -932,7 +924,7 @@ static void run_rsa_pss_cross_verify_test(const char* label) {
         EXPECT_EQ(NativeAsmBackend::verify_message(
             arm_verify_id, NativeAsmBackend::alg_rsa_pss(),
             msg.data(), msg.size(),
-            psa_sig.data(), psa_sig_len), NativeAsmBackend::ok)
+            psa_sig.data(), psa_sig.size()), NativeAsmBackend::ok)
             << label << " ARM rejected PSA-RSA-PSS signature";
         (void)NativeAsmBackend::destroy_key(arm_verify_id);
     }
@@ -943,13 +935,11 @@ static void run_rsa_pss_cross_verify_test(const char* label) {
         NativeAsmBackend::KeyId arm_sign_id = NativeAsmBackend::null_key_id();
         { auto r_ = NativeAsmBackend::import_key(&arm_sign_attrs, priv_der.data(), priv_der.size()); ASSERT_TRUE(r_.has_value()) << label << " ARM private key import failed"; arm_sign_id = r_.value(); }
 
-        SecureBuffer arm_sig(sig_buf_size);
-        std::size_t arm_sig_len = 0;
-        ASSERT_EQ(NativeAsmBackend::sign_message(
+        const auto arm_sig_r = NativeAsmBackend::sign_message(
             arm_sign_id, NativeAsmBackend::alg_rsa_pss(),
-            msg.data(), msg.size(),
-            arm_sig.data(), arm_sig.size(), &arm_sig_len), NativeAsmBackend::ok)
-            << label << " ARM sign failed";
+            msg.data(), msg.size());
+        ASSERT_TRUE(arm_sig_r.has_value()) << label << " ARM sign failed";
+        const auto& arm_sig = *arm_sig_r;
         (void)NativeAsmBackend::destroy_key(arm_sign_id);
 
         // PSA verify with public key.
@@ -960,7 +950,7 @@ static void run_rsa_pss_cross_verify_test(const char* label) {
         EXPECT_EQ(RealPsaBackend::verify_message(
             psa_verify_id, RealPsaBackend::alg_rsa_pss(),
             msg.data(), msg.size(),
-            arm_sig.data(), arm_sig_len), RealPsaBackend::ok)
+            arm_sig.data(), arm_sig.size()), RealPsaBackend::ok)
             << label << " PSA rejected ARM-RSA-PSS signature";
         (void)RealPsaBackend::destroy_key(psa_verify_id);
     }

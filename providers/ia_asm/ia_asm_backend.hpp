@@ -89,46 +89,40 @@ struct IaAsmBackend {
     }
 
     [[nodiscard]]
-    static Status hash_compute(Algorithm alg, const CryptoByte* input, std::size_t input_len,
-                               CryptoByte* output, std::size_t output_size, std::size_t* output_len) // NOLINT(readability-non-const-parameter)
+    static auto hash_compute(const Algorithm alg, const CryptoByte* input, const std::size_t input_len)
+        -> std::expected<SecureBuffer, Status>
     {
         if (alg == alg_sha(ShaVariant::Sha256)) {
-            if (output_size < sha256_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha256(input, input_len, ByteSpan<sha256_digest_bytes>{output, sha256_digest_bytes});
-            *output_len = sha256_size_bytes;
-            return ok;
+            SecureBuffer output(sha256_size_bytes);
+            ia_asm::detail::sha256(input, input_len, ByteSpan<sha256_digest_bytes>{output.data(), sha256_digest_bytes});
+            return output;
         }
         if (alg == alg_sha(ShaVariant::Sha512)) {
-            if (output_size < sha512_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha512(input, input_len, ByteSpan<sha512_digest_bytes>{output, sha512_digest_bytes});
-            *output_len = sha512_size_bytes;
-            return ok;
+            SecureBuffer output(sha512_size_bytes);
+            ia_asm::detail::sha512(input, input_len, ByteSpan<sha512_digest_bytes>{output.data(), sha512_digest_bytes});
+            return output;
         }
         if (alg == alg_sha(ShaVariant::Sha384)) {
-            if (output_size < sha384_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha384(input, input_len, ByteSpan<sha384_digest_bytes>{output, sha384_digest_bytes});
-            *output_len = sha384_size_bytes;
-            return ok;
+            SecureBuffer output(sha384_size_bytes);
+            ia_asm::detail::sha384(input, input_len, ByteSpan<sha384_digest_bytes>{output.data(), sha384_digest_bytes});
+            return output;
         }
         if (alg == alg_sha(ShaVariant::Sha3_256)) {
-            if (output_size < sha3_256_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha3_256(input, input_len, ByteSpan<sha3_256_digest_bytes>{output, sha3_256_digest_bytes});
-            *output_len = sha3_256_size_bytes;
-            return ok;
+            SecureBuffer output(sha3_256_size_bytes);
+            ia_asm::detail::sha3_256(input, input_len, ByteSpan<sha3_256_digest_bytes>{output.data(), sha3_256_digest_bytes});
+            return output;
         }
         if (alg == alg_sha(ShaVariant::Sha3_384)) {
-            if (output_size < sha3_384_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha3_384(input, input_len, ByteSpan<sha3_384_digest_bytes>{output, sha3_384_digest_bytes});
-            *output_len = sha3_384_size_bytes;
-            return ok;
+            SecureBuffer output(sha3_384_size_bytes);
+            ia_asm::detail::sha3_384(input, input_len, ByteSpan<sha3_384_digest_bytes>{output.data(), sha3_384_digest_bytes});
+            return output;
         }
         if (alg == alg_sha(ShaVariant::Sha3_512)) {
-            if (output_size < sha3_512_size_bytes) { return err_invalid_arg; }
-            ia_asm::detail::sha3_512(input, input_len, ByteSpan<sha3_512_digest_bytes>{output, sha3_512_digest_bytes});
-            *output_len = sha3_512_size_bytes;
-            return ok;
+            SecureBuffer output(sha3_512_size_bytes);
+            ia_asm::detail::sha3_512(input, input_len, ByteSpan<sha3_512_digest_bytes>{output.data(), sha3_512_digest_bytes});
+            return output;
         }
-        return err_invalid_arg;
+        return std::unexpected(err_invalid_arg);
     }
 
     [[nodiscard]]
@@ -418,11 +412,12 @@ struct IaAsmBackend {
         return err_invalid_arg;
     }
 
+    // Internal helper used by mac_verify (old out-parameter interface).
     [[nodiscard]]
-    static Status mac_compute(  // NOLINT(readability-function-size)
+    static Status mac_compute_raw(  // NOLINT(readability-function-size)
                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                               const CryptoByte* msg, std::size_t msg_len,
-                              CryptoByte* out, std::size_t out_size, std::size_t* out_len) { // NOLINT(readability-non-const-parameter)
+                              CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
         const CryptoByte* key = nullptr;
         std::size_t key_len = 0;
         if (!ia_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
@@ -464,15 +459,29 @@ struct IaAsmBackend {
         }
         return err_invalid_arg;
     }
-
+    [[nodiscard]]
+    static auto mac_compute(  // NOLINT(readability-function-size)
+                              KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
+                              const CryptoByte* msg, const std::size_t msg_len)
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer out(sha512_size_bytes);  // large enough for any HMAC output
+        std::size_t out_len = 0;
+        const auto s = mac_compute_raw(id, alg, msg, msg_len, out.data(), out.size(), &out_len);
+        if (s != ok) {
+            return std::unexpected(s);
+        }
+        out.resize(out_len);
+        return out;
+    }
     [[nodiscard]]
     static Status mac_verify(KeyId id, Algorithm alg,
                              const CryptoByte* msg, std::size_t msg_len,
                              const CryptoByte* mac, std::size_t mac_len) {
         FixedSecureBuffer<sha512_size_bytes> expected;
         std::size_t expected_len = 0;
-        const Status s = mac_compute(id, alg, msg, msg_len,
-                                     expected.data(), expected.size(), &expected_len);
+        const Status s = mac_compute_raw(id, alg, msg, msg_len,
+                                         expected.data(), expected.size(), &expected_len);
         if (s != ok) { return s; }
         if (mac_len != expected_len) { return err_invalid_sig; }
         unsigned int diff = 0;
@@ -548,8 +557,9 @@ struct IaAsmBackend {
         return err_invalid_arg;
     }
 
+    // Internal helper used by the public sign_message wrapper.
     [[nodiscard]]
-    static Status sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+    static Status sign_message_raw(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
                                KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                                const CryptoByte* msg, std::size_t msg_len,
                                CryptoByte* sig, std::size_t sig_size, std::size_t* sig_len) {
@@ -633,6 +643,21 @@ struct IaAsmBackend {
             return ok;
         }
         return err_invalid_arg;
+    }
+    [[nodiscard]]
+    static auto sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
+                               const KeyId id, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
+                               const CryptoByte* msg, const std::size_t msg_len)
+        -> std::expected<SecureBuffer, Status>
+    {
+        SecureBuffer sig(ml_dsa_87_signature_bytes);  // large enough for any signature
+        std::size_t sig_len = 0;
+        const auto s = sign_message_raw(id, alg, msg, msg_len, sig.data(), sig.size(), &sig_len);
+        if (s != ok) {
+            return std::unexpected(s);
+        }
+        sig.resize(sig_len);
+        return sig;
     }
 
     [[nodiscard]]

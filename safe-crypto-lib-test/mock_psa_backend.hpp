@@ -132,12 +132,19 @@ struct MockPsaBackend {
         }
         return output;
     }
-    static psa_status_t hash_compute(
+    static auto hash_compute(
         const psa_algorithm_t alg,
-        const CryptoByte* in, const std::size_t in_len,
-        CryptoByte* hash, const std::size_t hash_size, std::size_t* hash_len)
+        const CryptoByte* in, const std::size_t in_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->hash_compute(alg, in, in_len, hash, hash_size, hash_len);
+        SecureBuffer hash(PSA_HASH_MAX_SIZE);
+        std::size_t hash_len = 0;
+        const auto s = g_mock_psa->hash_compute(alg, in, in_len, hash.data(), PSA_HASH_MAX_SIZE, &hash_len);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        hash.resize(hash_len);
+        return hash;
     }
     static auto import_key(
         const PsaKeyAttributes* attrs,
@@ -176,12 +183,19 @@ struct MockPsaBackend {
     {
         return g_mock_psa->export_public_key(key, data, size, len);
     }
-    static psa_status_t mac_compute(  // NOLINT(readability-function-size)
+    static auto mac_compute(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
-        const CryptoByte* in, const std::size_t in_len,
-        CryptoByte* mac, const std::size_t mac_size, std::size_t* mac_len)
+        const CryptoByte* in, const std::size_t in_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->mac_compute(key, alg, in, in_len, mac, mac_size, mac_len);
+        SecureBuffer mac(PSA_MAC_MAX_SIZE);
+        std::size_t mac_len = 0;
+        const auto s = g_mock_psa->mac_compute(key, alg, in, in_len, mac.data(), PSA_MAC_MAX_SIZE, &mac_len);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        mac.resize(mac_len);
+        return mac;
     }
     static psa_status_t mac_verify(
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
@@ -210,12 +224,19 @@ struct MockPsaBackend {
         return g_mock_psa->aead_decrypt(
             key, alg, nonce, nonce_len, aad, aad_len, ct, ct_len, pt, pt_size, pt_len);
     }
-    static psa_status_t sign_message(  // NOLINT(readability-function-size)
+    static auto sign_message(  // NOLINT(readability-function-size)
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,
-        const CryptoByte* in, const std::size_t in_len,
-        CryptoByte* sig, const std::size_t sig_size, std::size_t* sig_len)
+        const CryptoByte* in, const std::size_t in_len)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->sign_message(key, alg, in, in_len, sig, sig_size, sig_len);
+        SecureBuffer sig(PSA_SIGNATURE_MAX_SIZE);
+        std::size_t sig_len = 0;
+        const auto s = g_mock_psa->sign_message(key, alg, in, in_len, sig.data(), PSA_SIGNATURE_MAX_SIZE, &sig_len);
+        if (s != PSA_SUCCESS) {
+            return std::unexpected(s);
+        }
+        sig.resize(sig_len);
+        return sig;
     }
     static psa_status_t verify_message(
         const mbedtls_svc_key_id_t key, const psa_algorithm_t alg,

@@ -115,23 +115,18 @@ auto slh_dsa_sign_impl(
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer signature(Provider::slh_dsa_sign_output_size(V));
-    std::size_t sig_len = 0;
-
-    const auto status = Provider::sign_message(
+    auto sig_result = Provider::sign_message(
         key_handle.get(),
         Provider::alg_slh_dsa(V),
-        message.data(), message.size(),
-        signature.data(), signature.size(),
-        &sig_len);
+        message.data(), message.size());
 
-    if (status != Provider::ok) {
+    if (!sig_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::SigningFailed,
             "SLH-DSA signing failed"));
     }
-    signature.resize(sig_len);
-    return signature;
+
+    return std::move(sig_result).value();
 }
 
 
@@ -307,23 +302,18 @@ auto ml_dsa_sign_impl(
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer signature(Provider::ml_dsa_sign_output_size(V));
-    std::size_t sig_len = 0;
-
-    const auto status = Provider::sign_message(
+    auto sig_result = Provider::sign_message(
         key_handle.get(),
         Provider::alg_ml_dsa(V),
-        message.data(), message.size(),
-        signature.data(), signature.size(),
-        &sig_len);
+        message.data(), message.size());
 
-    if (status != Provider::ok) {
+    if (!sig_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::SigningFailed,
             "ML-DSA signing failed"));
     }
-    signature.resize(sig_len);
-    return signature;
+
+    return std::move(sig_result).value();
 }
 
 

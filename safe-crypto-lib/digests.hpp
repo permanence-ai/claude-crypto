@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 #include <expected>
 
 #include "crypto_error.hpp"
@@ -22,21 +23,18 @@ auto sha_impl(const Input& input)
             "PSA crypto init failed"));
     }
 
-    FixedSecureBuffer<sha_output_size(V)> digest;
-    std::size_t digest_length = 0;
-
-    const auto status = Provider::hash_compute(
+    auto result = Provider::hash_compute(
         Provider::alg_sha(V),
-        input.data(), input.size(),
-        digest.data(), digest.size(),
-        &digest_length);
+        input.data(), input.size());
 
-    if (status != Provider::ok) {
+    if (!result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::DigestFailed,
             "SHA computation failed"));
     }
 
+    FixedSecureBuffer<sha_output_size(V)> digest;
+    std::memcpy(digest.data(), result->data(), sha_output_size(V));
     return digest;
 }
 

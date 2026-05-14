@@ -126,24 +126,18 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    SecureBuffer signature(Provider::ecdsa_sign_output_size(key_bits));
-    std::size_t  signature_length = 0;
-
-    const auto status = Provider::sign_message(
+    auto sig_result = Provider::sign_message(
         key_handle.get(),
         Provider::alg_ecdsa(),
-        message.data(), message.size(),
-        signature.data(), signature.size(),
-        &signature_length);
+        message.data(), message.size());
 
-    if (status != Provider::ok) {
+    if (!sig_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::SigningFailed,
             "ECDSA signing failed"));
     }
 
-    signature.resize(signature_length);
-    return signature;
+    return std::move(sig_result).value();
 }
 
 

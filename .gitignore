@@ -1,4 +1,6 @@
 cmake-build*/
+build-*/
+.claude/
 cmake-build-arm-asm/
 cmake-build-arm-asm-pqc/
 cmake-build-ia-asm/

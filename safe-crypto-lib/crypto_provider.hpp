@@ -139,9 +139,9 @@ concept CryptoProvider = requires(
     { T::destroy_key(key) }                                     -> std::same_as<typename T::Status>;
     { T::export_key(key, buf, len, len_out) }                   -> std::same_as<typename T::Status>;
     { T::export_public_key(key, buf, len, len_out) }            -> std::same_as<typename T::Status>;
-    { T::sign_message(key, alg, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
+    { T::sign_message(key, alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::verify_message(key, alg, cbuf, len, cbuf, len) }       -> std::same_as<typename T::Status>;
-    { T::mac_compute(key, alg, cbuf, len, buf, len, len_out) }  -> std::same_as<typename T::Status>;
+    { T::mac_compute(key, alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::mac_verify(key, alg, cbuf, len, cbuf, len) }           -> std::same_as<typename T::Status>;
     { T::aead_encrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
     { T::aead_decrypt(key, alg, cbuf, len, cbuf, len, cbuf, len, buf, len, len_out) } -> std::same_as<typename T::Status>;
@@ -150,7 +150,7 @@ concept CryptoProvider = requires(
     { T::raw_key_agreement(alg, key, cbuf, len, buf, len, len_out) }                  -> std::same_as<typename T::Status>;
     { T::kem_encapsulate(key, alg, buf, len, len_out, buf, len, len_out) }            -> std::same_as<typename T::Status>;
     { T::kem_decapsulate(key, alg, cbuf, len, buf, len, len_out) }                    -> std::same_as<typename T::Status>;
-    { T::hash_compute(alg, cbuf, len, buf, len, len_out) }                            -> std::same_as<typename T::Status>;
+    { T::hash_compute(alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::key_derivation_setup(op, alg) }                        -> std::same_as<typename T::Status>;
     { T::key_derivation_input_key(op, step, key) }              -> std::same_as<typename T::Status>;
     { T::key_derivation_input_bytes(op, step, cbuf, len) }      -> std::same_as<typename T::Status>;

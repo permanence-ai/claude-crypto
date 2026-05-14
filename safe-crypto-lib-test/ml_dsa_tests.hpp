@@ -249,17 +249,13 @@ TEST_F(MlDsaTests, Dsa44_SignRejectsAlgorithmVariantMismatch) {
     ASSERT_TRUE(key_result.has_value());
     const auto raw_id = key_result.value();
 
-    constexpr std::size_t sig_size = ml_dsa_signature_size(MlDsaVariant::Dsa65);
-    SecureBuffer sig_buf(sig_size);
-    std::size_t sig_len = 0;
     const auto msg = make_random_secure_buffer(kMessageSize);
 
     // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
-    const auto status = MlDsaBackend::sign_message(
+    const auto sign_result = MlDsaBackend::sign_message(
         raw_id, MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
-        msg.data(), msg.size(),
-        sig_buf.data(), sig_size, &sig_len);
-    EXPECT_NE(status, MlDsaBackend::ok);
+        msg.data(), msg.size());
+    EXPECT_FALSE(sign_result.has_value());
 
     EXPECT_EQ(MlDsaBackend::destroy_key(raw_id), MlDsaBackend::ok);
 }

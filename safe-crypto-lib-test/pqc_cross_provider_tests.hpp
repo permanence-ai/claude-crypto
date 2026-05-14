@@ -100,16 +100,11 @@ static void run_ml_dsa_cross_verify(const char* label) {
         ASSERT_EQ(exported_pub_len,  pub_sz);
 
         // Sign with ARM ASM.
-        const std::size_t sig_buf_sz = ArmAsmBackend::ml_dsa_sign_output_size(V);
-        SecureBuffer arm_sig(sig_buf_sz);
-        std::size_t arm_sig_len = 0;
-        ASSERT_EQ(ArmAsmBackend::sign_message(
+        auto arm_sig_result = ArmAsmBackend::sign_message(
             arm_priv_id, ArmAsmBackend::alg_ml_dsa(V),
-            msg.data(), msg.size(),
-            arm_sig.data(), arm_sig.size(), &arm_sig_len), ArmAsmBackend::ok)
-            << label << " ARM sign failed";
-        ASSERT_LE(arm_sig_len, sig_buf_sz);
-        arm_sig.resize(arm_sig_len);
+            msg.data(), msg.size());
+        ASSERT_TRUE(arm_sig_result.has_value()) << label << " ARM sign failed";
+        SecureBuffer arm_sig = std::move(arm_sig_result).value();
         (void)ArmAsmBackend::destroy_key(arm_priv_id);
 
         // Import public key into OpenSSL backend and verify.
