@@ -22,13 +22,12 @@ struct KemEncapsulateResult {
 
 
 // Concept satisfied by any CryptoProvider implementation.  Providers expose:
-//   - Associated types: Status, KeyId, Algorithm, KeyAttributes, KdfOperation, KdfStep
+//   - Associated types: Status, KeyId, Algorithm, KeyAttributes
 //   - Status sentinels: ok, err_invalid_sig, err_invalid_arg
-//   - Low-level object factories: null_key_id, make_key_attrs, make_kdf_op
-//   - Algorithm constants: alg_sha, alg_hmac, alg_ecdsa, alg_ecdh, alg_hkdf,
-//     alg_hkdf_expand, alg_aes_gcm, alg_chacha20_poly1305, alg_rsa_oaep, alg_rsa_pss
-//   - KDF step constants: kdf_step_secret, kdf_step_salt, kdf_step_info
-//   - Key attribute factories: make_hkdf_derive_attrs, make_ecdsa_sign_attrs, etc.
+//   - Low-level object factories: null_key_id, make_key_attrs
+//   - Algorithm constants: alg_sha, alg_hmac, alg_ecdsa, alg_ecdh,
+//     alg_aes_gcm, alg_chacha20_poly1305, alg_rsa_oaep, alg_rsa_pss
+//   - Key attribute factories: make_ecdsa_sign_attrs, etc.
 //   - Output size helpers: ecdsa_sign_output_size, aes_gcm_encrypt_output_size, etc.
 //   - Low-level crypto operations: import_key, generate_key, sign_message, etc.
 //
@@ -41,11 +40,10 @@ concept CryptoProvider = requires(
     T::KeyAttributes*  attrs,
     T::KeyId           key,
     T::Algorithm       alg,
-    T::KdfStep         step,
-    T::KdfOperation*   op,
     CryptoByte*        buf,
     const CryptoByte*  cbuf,
     std::size_t        len,
+    bool               bool_v,
     ShaVariant         sha_v,
     SlhDsaVariant      slh_v,
     MlDsaVariant       ml_v,
@@ -56,8 +54,6 @@ concept CryptoProvider = requires(
     typename T::KeyId;
     typename T::Algorithm;
     typename T::KeyAttributes;
-    typename T::KdfOperation;
-    typename T::KdfStep;
     // Status sentinels
     { T::ok }              -> std::convertible_to<typename T::Status>;
     { T::err_invalid_sig } -> std::convertible_to<typename T::Status>;
@@ -65,14 +61,11 @@ concept CryptoProvider = requires(
     // Low-level object factories
     { T::null_key_id() }    -> std::same_as<typename T::KeyId>;
     { T::make_key_attrs() } -> std::same_as<typename T::KeyAttributes>;
-    { T::make_kdf_op() }    -> std::same_as<typename T::KdfOperation>;
     // Algorithm constants
     { T::alg_sha(sha_v) }              -> std::same_as<typename T::Algorithm>;
     { T::alg_hmac(sha_v) }             -> std::same_as<typename T::Algorithm>;
     { T::alg_ecdsa() }                 -> std::same_as<typename T::Algorithm>;
     { T::alg_ecdh() }                  -> std::same_as<typename T::Algorithm>;
-    { T::alg_hkdf() }                  -> std::same_as<typename T::Algorithm>;
-    { T::alg_hkdf_expand() }           -> std::same_as<typename T::Algorithm>;
     { T::alg_aes_gcm() }               -> std::same_as<typename T::Algorithm>;
     { T::alg_chacha20_poly1305() }     -> std::same_as<typename T::Algorithm>;
     { T::alg_rsa_oaep() }              -> std::same_as<typename T::Algorithm>;
@@ -80,13 +73,7 @@ concept CryptoProvider = requires(
     { T::alg_slh_dsa(slh_v) }         -> std::same_as<typename T::Algorithm>;
     { T::alg_ml_dsa(ml_v) }           -> std::same_as<typename T::Algorithm>;
     { T::alg_ml_kem(kem_v) }          -> std::same_as<typename T::Algorithm>;
-    // KDF step constants
-    { T::kdf_step_secret() } -> std::same_as<typename T::KdfStep>;
-    { T::kdf_step_salt() }   -> std::same_as<typename T::KdfStep>;
-    { T::kdf_step_info() }   -> std::same_as<typename T::KdfStep>;
     // Key attribute factories
-    { T::make_hkdf_derive_attrs(len) }           -> std::same_as<typename T::KeyAttributes>;
-    { T::make_hkdf_expand_derive_attrs(len) }    -> std::same_as<typename T::KeyAttributes>;
     { T::make_hmac_generate_attrs(sha_v, len) }  -> std::same_as<typename T::KeyAttributes>;
     { T::make_hmac_verify_attrs(sha_v, len) }    -> std::same_as<typename T::KeyAttributes>;
     { T::make_ecdsa_generate_attrs(len) }        -> std::same_as<typename T::KeyAttributes>;
@@ -156,11 +143,7 @@ concept CryptoProvider = requires(
     { T::kem_encapsulate(key, alg) }                           -> std::same_as<std::expected<KemEncapsulateResult, typename T::Status>>;
     { T::kem_decapsulate(key, alg, cbuf, len) }                -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::hash_compute(alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::key_derivation_setup(op, alg) }                        -> std::same_as<typename T::Status>;
-    { T::key_derivation_input_key(op, step, key) }              -> std::same_as<typename T::Status>;
-    { T::key_derivation_input_bytes(op, step, cbuf, len) }      -> std::same_as<typename T::Status>;
-    { T::key_derivation_output_bytes(op, buf, len) }            -> std::same_as<typename T::Status>;
-    { T::key_derivation_abort(op) }                             -> std::same_as<typename T::Status>;
+    { T::hkdf_derive(cbuf, len, cbuf, len, cbuf, len, len, bool_v) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
 };
 
 

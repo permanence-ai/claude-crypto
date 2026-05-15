@@ -55,77 +55,29 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
     const SecureBuffer& ikm_ref = ikm.has_value() ? *ikm : *generated_ikm;
 
-    auto attrs = Provider::make_hkdf_derive_attrs(ikm_ref.size() * bits_per_byte);
+    const CryptoByte* salt_ptr  = salt.has_value() ? salt->data() : nullptr;
+    const std::size_t salt_size = salt.has_value() ? salt->size() : 0;
+    const CryptoByte* info_ptr  = info.has_value() ? info->data() : nullptr;
+    const std::size_t info_size = info.has_value() ? info->size() : 0;
 
-    auto key_result = Provider::import_key(&attrs, ikm_ref.data(), ikm_ref.size());
-    if (!key_result.has_value()) {
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KeyImportFailed,
-            "IKM import failed"));
-    }
-    const PsaKeyHandle<Provider> key_handle(key_result.value());
+    auto result = Provider::hkdf_derive(
+        ikm_ref.data(), ikm_ref.size(),
+        salt_ptr, salt_size,
+        info_ptr, info_size,
+        output_length, false);
 
-    auto op = Provider::make_kdf_op();
-
-    if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfSetupFailed,
-            "HKDF setup failed"));
-    }
-
-    if (salt.has_value()) {
-        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_salt(),
-                                            salt->data(), salt->size()) != Provider::ok) {
-            (void)Provider::key_derivation_abort(&op);
-            return std::unexpected(CryptoError(
-                CryptoErrorCode::KdfInputFailed,
-                "HKDF salt input failed"));
-        }
-    }
-
-    if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(),
-                                      key_handle.get()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfInputFailed,
-            "HKDF secret input failed"));
-    }
-
-    if (info.has_value()) {
-        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
-                                            info->data(), info->size()) != Provider::ok) {
-            (void)Provider::key_derivation_abort(&op);
-            return std::unexpected(CryptoError(
-                CryptoErrorCode::KdfInputFailed,
-                "HKDF info input failed"));
-        }
-    } else {
-        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
-                                            nullptr, 0) != Provider::ok) {
-            (void)Provider::key_derivation_abort(&op);
-            return std::unexpected(CryptoError(
-                CryptoErrorCode::KdfInputFailed,
-                "HKDF info input failed"));
-        }
-    }
-
-    SecureBuffer output(output_length);
-    if (Provider::key_derivation_output_bytes(&op, output.data(), output.size()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
+    if (!result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
-            "HKDF output failed"));
+            "HKDF derivation failed"));
     }
-
-    (void)Provider::key_derivation_abort(&op);
-    return output;
+    return std::move(result).value();
 }
 
 
 template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
-auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
+auto expand_key_impl(
     const std::size_t output_length,
     const SecureBuffer& prk,
     const std::optional<SecureBuffer>& info = std::nullopt)
@@ -145,54 +97,21 @@ auto expand_key_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_hkdf_expand_derive_attrs(prk.size() * bits_per_byte);
-
-    auto key_result = Provider::import_key(&attrs, prk.data(), prk.size());
-    if (!key_result.has_value()) {
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KeyImportFailed,
-            "PRK import failed"));
-    }
-    const PsaKeyHandle<Provider> key_handle(key_result.value());
-
-    auto op = Provider::make_kdf_op();
-
-    if (Provider::key_derivation_setup(&op, Provider::alg_hkdf_expand()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfSetupFailed,
-            "HKDF-Expand setup failed"));
-    }
-
-    if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(),
-                                      key_handle.get()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfInputFailed,
-            "HKDF-Expand PRK input failed"));
-    }
-
     const CryptoByte* info_ptr  = info.has_value() ? info->data() : nullptr;
-    const std::size_t   info_size = info.has_value() ? info->size() : 0;
+    const std::size_t info_size = info.has_value() ? info->size() : 0;
 
-    if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
-                                        info_ptr, info_size) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfInputFailed,
-            "HKDF-Expand info input failed"));
-    }
+    auto result = Provider::hkdf_derive(
+        prk.data(), prk.size(),
+        nullptr, 0,
+        info_ptr, info_size,
+        output_length, true);
 
-    SecureBuffer output(output_length);
-    if (Provider::key_derivation_output_bytes(&op, output.data(), output.size()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
+    if (!result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
-            "HKDF-Expand output failed"));
+            "HKDF-Expand derivation failed"));
     }
-
-    (void)Provider::key_derivation_abort(&op);
-    return output;
+    return std::move(result).value();
 }
 
 

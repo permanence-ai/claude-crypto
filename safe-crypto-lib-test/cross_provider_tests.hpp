@@ -469,40 +469,18 @@ TEST_F(CrossProviderHkdfTests, HkdfSha384Parity) {
     constexpr std::size_t output_len = sha384_digest_bytes;
 
     // Helper lambda: run HKDF through one provider, return 48-byte output.
-    auto run_hkdf = [&]<typename Provider>() -> ByteArray< output_len> {
-        // IKM must go in as a key.
-        auto attrs = Provider::make_hkdf_derive_attrs(ikm_arr.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        auto import_r = Provider::import_key(&attrs, ikm_arr.data(), ikm_arr.size());
-        if (!import_r.has_value()) {
-            ADD_FAILURE() << "HKDF key import failed";
+    auto run_hkdf = [&]<typename Provider>() -> ByteArray<output_len> {
+        auto r = Provider::hkdf_derive(
+            ikm_arr.data(), ikm_arr.size(),
+            salt_arr.data(), salt_arr.size(),
+            info_arr.data(), info_arr.size(),
+            output_len, false);
+        if (!r.has_value()) {
+            ADD_FAILURE() << "HKDF derivation failed";
             return {};
         }
-        typename Provider::KeyId id = import_r.value();
-
-        auto op = Provider::make_kdf_op();
-        if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
-            ADD_FAILURE() << "HKDF setup failed";
-            (void)Provider::destroy_key(id);
-            return {};
-        }
-        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_salt(),
-                                                  salt_arr.data(), salt_arr.size()) != Provider::ok) {
-            ADD_FAILURE() << "HKDF salt input failed";
-        }
-        if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(), id) != Provider::ok) {
-            ADD_FAILURE() << "HKDF key input failed";
-        }
-        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
-                                                  info_arr.data(), info_arr.size()) != Provider::ok) {
-            ADD_FAILURE() << "HKDF info input failed";
-        }
-
-        ByteArray< output_len> out{};
-        if (Provider::key_derivation_output_bytes(&op, out.data(), out.size()) != Provider::ok) {
-            ADD_FAILURE() << "HKDF output_bytes failed";
-        }
-        (void)Provider::key_derivation_abort(&op);
-        (void)Provider::destroy_key(id);
+        ByteArray<output_len> out{};
+        std::memcpy(out.data(), r->data(), output_len);
         return out;
     };
 
@@ -518,35 +496,18 @@ TEST_F(CrossProviderHkdfTests, HkdfExpandParity) {
     const auto info_arr = make_test_bytes<12>(0x50U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     constexpr std::size_t output_len = sha384_digest_bytes;
 
-    auto run_hkdf_expand = [&]<typename Provider>() -> ByteArray< output_len> {
-        auto attrs = Provider::make_hkdf_expand_derive_attrs(prk_arr.size() * 8U); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-        auto import_r = Provider::import_key(&attrs, prk_arr.data(), prk_arr.size());
-        if (!import_r.has_value()) {
-            ADD_FAILURE() << "HKDF-Expand PRK import failed";
+    auto run_hkdf_expand = [&]<typename Provider>() -> ByteArray<output_len> {
+        auto r = Provider::hkdf_derive(
+            prk_arr.data(), prk_arr.size(),
+            nullptr, 0,
+            info_arr.data(), info_arr.size(),
+            output_len, true);
+        if (!r.has_value()) {
+            ADD_FAILURE() << "HKDF-Expand derivation failed";
             return {};
         }
-        typename Provider::KeyId id = import_r.value();
-
-        auto op = Provider::make_kdf_op();
-        if (Provider::key_derivation_setup(&op, Provider::alg_hkdf_expand()) != Provider::ok) {
-            ADD_FAILURE() << "HKDF-Expand setup failed";
-            (void)Provider::destroy_key(id);
-            return {};
-        }
-        if (Provider::key_derivation_input_key(&op, Provider::kdf_step_secret(), id) != Provider::ok) {
-            ADD_FAILURE() << "HKDF-Expand PRK key input failed";
-        }
-        if (Provider::key_derivation_input_bytes(&op, Provider::kdf_step_info(),
-                                                  info_arr.data(), info_arr.size()) != Provider::ok) {
-            ADD_FAILURE() << "HKDF-Expand info input failed";
-        }
-
-        ByteArray< output_len> out{};
-        if (Provider::key_derivation_output_bytes(&op, out.data(), out.size()) != Provider::ok) {
-            ADD_FAILURE() << "HKDF-Expand output_bytes failed";
-        }
-        (void)Provider::key_derivation_abort(&op);
-        (void)Provider::destroy_key(id);
+        ByteArray<output_len> out{};
+        std::memcpy(out.data(), r->data(), output_len);
         return out;
     };
 

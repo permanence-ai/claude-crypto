@@ -79,18 +79,11 @@ public:
          const CryptoByte*, std::size_t,
          const CryptoByte*, std::size_t,
          CryptoByte*, std::size_t, std::size_t*), ());
-    MOCK_METHOD(psa_status_t, key_derivation_setup,
-        (psa_key_derivation_operation_t*, psa_algorithm_t), ());
-    MOCK_METHOD(psa_status_t, key_derivation_input_key,
-        (psa_key_derivation_operation_t*, psa_key_derivation_step_t,
-         mbedtls_svc_key_id_t), ());
-    MOCK_METHOD(psa_status_t, key_derivation_input_bytes,
-        (psa_key_derivation_operation_t*, psa_key_derivation_step_t,
-         const CryptoByte*, std::size_t), ());
-    MOCK_METHOD(psa_status_t, key_derivation_output_bytes,
-        (psa_key_derivation_operation_t*, CryptoByte*, std::size_t), ());
-    MOCK_METHOD(psa_status_t, key_derivation_abort,
-        (psa_key_derivation_operation_t*), ());
+    MOCK_METHOD(psa_status_t, hkdf_derive,
+        (const CryptoByte*, std::size_t,
+         const CryptoByte*, std::size_t,
+         const CryptoByte*, std::size_t,
+         std::size_t, bool), ());
 };
 
 inline MockPsaOps* g_mock_psa = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
@@ -100,8 +93,6 @@ struct MockPsaBackend {
     using KeyId         = mbedtls_svc_key_id_t;
     using Algorithm     = psa_algorithm_t;
     using KeyAttributes = PsaKeyAttributes;
-    using KdfOperation  = psa_key_derivation_operation_t;
-    using KdfStep       = psa_key_derivation_step_t;
 
     static constexpr Status ok              = PSA_SUCCESS;
     static constexpr Status err_invalid_sig = PSA_ERROR_INVALID_SIGNATURE;
@@ -113,10 +104,6 @@ struct MockPsaBackend {
     }
     static KeyAttributes make_key_attrs() noexcept {
         return {};
-    }
-    static KdfOperation make_kdf_op() noexcept {
-        KdfOperation o = PSA_KEY_DERIVATION_OPERATION_INIT;
-        return o;
     }
 
     static psa_status_t crypto_init() {
@@ -307,30 +294,17 @@ struct MockPsaBackend {
         out.resize(out_len);
         return out;
     }
-    static psa_status_t key_derivation_setup(
-        psa_key_derivation_operation_t* op, const psa_algorithm_t alg)
+    static auto hkdf_derive(
+        const CryptoByte* ikm,  const std::size_t ikm_len,
+        const CryptoByte* salt, const std::size_t salt_len,
+        const CryptoByte* info, const std::size_t info_len,
+        const std::size_t out_len, const bool expand_only)
+        -> std::expected<SecureBuffer, Status>
     {
-        return g_mock_psa->key_derivation_setup(op, alg);
-    }
-    static psa_status_t key_derivation_input_key(
-        psa_key_derivation_operation_t* op, const psa_key_derivation_step_t step,
-        const mbedtls_svc_key_id_t key)
-    {
-        return g_mock_psa->key_derivation_input_key(op, step, key);
-    }
-    static psa_status_t key_derivation_input_bytes(
-        psa_key_derivation_operation_t* op, const psa_key_derivation_step_t step,
-        const CryptoByte* data, const std::size_t data_len)
-    {
-        return g_mock_psa->key_derivation_input_bytes(op, step, data, data_len);
-    }
-    static psa_status_t key_derivation_output_bytes(
-        psa_key_derivation_operation_t* op, CryptoByte* out, const std::size_t out_len)
-    {
-        return g_mock_psa->key_derivation_output_bytes(op, out, out_len);
-    }
-    static psa_status_t key_derivation_abort(psa_key_derivation_operation_t* op) {
-        return g_mock_psa->key_derivation_abort(op);
+        const auto s = g_mock_psa->hkdf_derive(
+            ikm, ikm_len, salt, salt_len, info, info_len, out_len, expand_only);
+        if (s != PSA_SUCCESS) { return std::unexpected(s); }
+        return SecureBuffer(out_len);
     }
 
     // Algorithm constants, key attribute factories, and output size helpers are
@@ -343,8 +317,6 @@ struct MockPsaBackend {
     }
     static constexpr Algorithm alg_ecdsa()             noexcept { return RealPsaBackend::alg_ecdsa(); }
     static constexpr Algorithm alg_ecdh()              noexcept { return RealPsaBackend::alg_ecdh(); }
-    static constexpr Algorithm alg_hkdf()              noexcept { return RealPsaBackend::alg_hkdf(); }
-    static constexpr Algorithm alg_hkdf_expand()       noexcept { return RealPsaBackend::alg_hkdf_expand(); }
     static constexpr Algorithm alg_aes_gcm()           noexcept { return RealPsaBackend::alg_aes_gcm(); }
     static constexpr Algorithm alg_chacha20_poly1305() noexcept { return RealPsaBackend::alg_chacha20_poly1305(); }
     static constexpr Algorithm alg_rsa_oaep()          noexcept { return RealPsaBackend::alg_rsa_oaep(); }
@@ -353,16 +325,6 @@ struct MockPsaBackend {
     static Algorithm alg_ml_dsa(const MlDsaVariant v)   noexcept { return RealPsaBackend::alg_ml_dsa(v); }
     static Algorithm alg_ml_kem(const MlKemVariant v)   noexcept { return RealPsaBackend::alg_ml_kem(v); }
 
-    static constexpr KdfStep kdf_step_secret() noexcept { return RealPsaBackend::kdf_step_secret(); }
-    static constexpr KdfStep kdf_step_salt()   noexcept { return RealPsaBackend::kdf_step_salt(); }
-    static constexpr KdfStep kdf_step_info()   noexcept { return RealPsaBackend::kdf_step_info(); }
-
-    static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
-        return RealPsaBackend::make_hkdf_derive_attrs(key_size_bits);
-    }
-    static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
-        return RealPsaBackend::make_hkdf_expand_derive_attrs(key_size_bits);
-    }
     static KeyAttributes make_hmac_generate_attrs(const ShaVariant v, const std::size_t key_size_bits) noexcept {
         return RealPsaBackend::make_hmac_generate_attrs(v, key_size_bits);
     }

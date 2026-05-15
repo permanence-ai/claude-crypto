@@ -852,34 +852,39 @@ struct IaAsmBackend {
     }
 
     [[nodiscard]]
-    static Status key_derivation_setup(KdfOperation* op, Algorithm alg) {
-        ia_asm::detail::HkdfAlg ha = ia_asm::detail::HkdfAlg::None;
-        if (alg == alg_hkdf())              { ha = ia_asm::detail::HkdfAlg::Hkdf; }
-        else if (alg == alg_hkdf_expand())  { ha = ia_asm::detail::HkdfAlg::HkdfExpand; }
-        else { return err_invalid_arg; }
-        return ia_asm::detail::hkdf_setup(op, ha) == 0 ? ok : err_invalid_arg;
-    }
+    static auto hkdf_derive(
+        const CryptoByte* ikm,     const std::size_t ikm_len,
+        const CryptoByte* salt,    const std::size_t salt_len,
+        const CryptoByte* info,    const std::size_t info_len,
+        const std::size_t out_len, const bool expand_only)
+        -> std::expected<SecureBuffer, Status>
+    {
+        using namespace ia_asm::detail;  // NOLINT(google-build-using-namespace)
+        SecureBuffer output(out_len);
 
-    [[nodiscard]]
-    static Status key_derivation_input_key(KdfOperation* op, KdfStep /*step*/, KeyId id) {
-        return ia_asm::detail::hkdf_input_key(op, id) == 0 ? ok : err_invalid_arg;
-    }
+        if (expand_only) {
+            if (hkdf_expand(ikm, ikm_len, info, info_len,
+                            output.data(), out_len) != 0) {
+                return std::unexpected(err_invalid_arg);
+            }
+            return output;
+        }
 
-    [[nodiscard]]
-    static Status key_derivation_input_bytes(KdfOperation* op, KdfStep step,
-                                             const CryptoByte* data, std::size_t len) {
-        return ia_asm::detail::hkdf_input_bytes(op, step, data, len) == 0 ? ok : err_invalid_arg;
-    }
-
-    [[nodiscard]]
-    static Status key_derivation_output_bytes(KdfOperation* op, CryptoByte* out, std::size_t len) {
-        return ia_asm::detail::hkdf_output_bytes(op, out, len) == 0 ? ok : err_invalid_arg;
-    }
-
-    [[nodiscard]]
-    static Status key_derivation_abort(KdfOperation* op) {
-        if (op != nullptr) { op->zeroize(); }
-        return ok;
+        // Full HKDF: Extract then Expand.
+        FixedSecureBuffer<hkdf_hash_len> prk;
+        if (salt != nullptr && salt_len > 0) {
+            hmac_sha384(salt, salt_len, ikm, ikm_len,
+                        ByteSpan<hkdf_hash_len>{prk.data(), hkdf_hash_len});
+        } else {
+            const FixedSecureBuffer<hkdf_hash_len> zero_salt;
+            hmac_sha384(zero_salt.data(), hkdf_hash_len, ikm, ikm_len,
+                        ByteSpan<hkdf_hash_len>{prk.data(), hkdf_hash_len});
+        }
+        if (hkdf_expand(prk.data(), hkdf_hash_len, info, info_len,
+                        output.data(), out_len) != 0) {
+            return std::unexpected(err_invalid_arg);
+        }
+        return output;
     }
 
     static constexpr Algorithm alg_base_hash = 0x0100U;

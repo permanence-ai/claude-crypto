@@ -72,7 +72,7 @@ struct SigmaIKeys {
 // secret to be used as IKM safely.
 template<CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
-auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complexity)
+auto sigma_i_derive_keys_impl(
     const SecureBuffer& shared_secret)
     -> std::expected<SigmaIKeys, CryptoError>
 {
@@ -90,53 +90,18 @@ auto sigma_i_derive_keys_impl(  // NOLINT(readability-function-cognitive-complex
             "PSA crypto init failed"));
     }
 
-    auto attrs = Provider::make_hkdf_derive_attrs(shared_secret.size() * bits_per_byte);
+    auto kdf_result = Provider::hkdf_derive(
+        shared_secret.data(), shared_secret.size(),
+        nullptr, 0,
+        info.data(), info.size(),
+        total_output, false);
 
-    auto key_result = Provider::import_key(&attrs,
-                        shared_secret.data(), shared_secret.size());
-    if (!key_result.has_value()) {
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KeyImportFailed,
-            "SIGMA-I IKM import failed"));
-    }
-    const PsaKeyHandle<Provider> key_handle(key_result.value());
-
-    auto op = Provider::make_kdf_op();
-
-    if (Provider::key_derivation_setup(&op, Provider::alg_hkdf()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfSetupFailed,
-            "SIGMA-I HKDF setup failed"));
-    }
-
-    if (Provider::key_derivation_input_key(
-            &op, Provider::kdf_step_secret(), key_handle.get()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfInputFailed,
-            "SIGMA-I HKDF secret input failed"));
-    }
-
-    if (Provider::key_derivation_input_bytes(
-            &op, Provider::kdf_step_info(),
-            info.data(), info.size()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::KdfInputFailed,
-            "SIGMA-I HKDF info input failed"));
-    }
-
-    SecureBuffer output(total_output);
-    if (Provider::key_derivation_output_bytes(
-            &op, output.data(), output.size()) != Provider::ok) {
-        (void)Provider::key_derivation_abort(&op);
+    if (!kdf_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KdfOutputFailed,
-            "SIGMA-I HKDF output failed"));
+            "SIGMA-I HKDF derivation failed"));
     }
-
-    (void)Provider::key_derivation_abort(&op);
+    const SecureBuffer& output = kdf_result.value();
 
     auto slice = [&](const std::size_t offset, const std::size_t len) {
         SecureBuffer s(len);

@@ -457,41 +457,64 @@ struct RealPsaBackend {
     }
 
     [[nodiscard]]
-    static Status key_derivation_setup(
-        KdfOperation* operation, const Algorithm alg)
+    static auto hkdf_derive(  // NOLINT(readability-function-cognitive-complexity)
+        const CryptoByte* ikm,     const std::size_t ikm_len,
+        const CryptoByte* salt,    const std::size_t salt_len,
+        const CryptoByte* info,    const std::size_t info_len,
+        const std::size_t out_len, const bool expand_only)
+        -> std::expected<SecureBuffer, Status>
     {
-        return psa_key_derivation_setup(operation, alg);
-    }
+        const Algorithm alg = expand_only ? alg_hkdf_expand() : alg_hkdf();
+        const Algorithm key_alg = expand_only
+            ? PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384)
+            : PSA_ALG_HKDF(PSA_ALG_SHA_384);
 
-    [[nodiscard]]
-    static Status key_derivation_input_key(
-        KdfOperation* operation,
-        const KdfStep step,
-        const KeyId key)
-    {
-        return psa_key_derivation_input_key(operation, step, key);
-    }
+        psa_key_attributes_t a = PSA_KEY_ATTRIBUTES_INIT;
+        psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
+        psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
+        psa_set_key_algorithm(&a, key_alg);
+        psa_set_key_bits(&a, ikm_len * 8U);
 
-    [[nodiscard]]
-    static Status key_derivation_input_bytes(
-        KdfOperation* operation,
-        const KdfStep step,
-        const CryptoByte* data, const std::size_t data_length)
-    {
-        return psa_key_derivation_input_bytes(operation, step, data, data_length);
-    }
+        psa_key_id_t key_id = PSA_KEY_ID_NULL;
+        if (psa_import_key(&a, ikm, ikm_len, &key_id) != PSA_SUCCESS) {
+            return std::unexpected(PSA_ERROR_GENERIC_ERROR);
+        }
+        struct KeyGuard {
+            psa_key_id_t id;
+            ~KeyGuard() { (void)psa_destroy_key(id); }
+        } guard{key_id};
+        (void)guard;
 
-    [[nodiscard]]
-    static Status key_derivation_output_bytes(
-        KdfOperation* operation,
-        CryptoByte* output, const std::size_t output_length)
-    {
-        return psa_key_derivation_output_bytes(operation, output, output_length);
-    }
+        KdfOperation op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
-    [[nodiscard]]
-    static Status key_derivation_abort(KdfOperation* operation) {
-        return psa_key_derivation_abort(operation);
+        if (psa_key_derivation_setup(&op, alg) != PSA_SUCCESS) {
+            (void)psa_key_derivation_abort(&op);
+            return std::unexpected(PSA_ERROR_GENERIC_ERROR);
+        }
+        if (!expand_only && salt != nullptr && salt_len > 0) {
+            if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_SALT,
+                                               salt, salt_len) != PSA_SUCCESS) {
+                (void)psa_key_derivation_abort(&op);
+                return std::unexpected(PSA_ERROR_GENERIC_ERROR);
+            }
+        }
+        if (psa_key_derivation_input_key(&op, PSA_KEY_DERIVATION_INPUT_SECRET,
+                                          key_id) != PSA_SUCCESS) {
+            (void)psa_key_derivation_abort(&op);
+            return std::unexpected(PSA_ERROR_GENERIC_ERROR);
+        }
+        if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
+                                           info, info_len) != PSA_SUCCESS) {
+            (void)psa_key_derivation_abort(&op);
+            return std::unexpected(PSA_ERROR_GENERIC_ERROR);
+        }
+        SecureBuffer output(out_len);
+        if (psa_key_derivation_output_bytes(&op, output.data(), out_len) != PSA_SUCCESS) {
+            (void)psa_key_derivation_abort(&op);
+            return std::unexpected(PSA_ERROR_GENERIC_ERROR);
+        }
+        (void)psa_key_derivation_abort(&op);
+        return output;
     }
 
     // -------------------------------------------------------------------------
