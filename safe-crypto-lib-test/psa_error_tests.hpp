@@ -787,71 +787,9 @@ TEST_F(PsaErrorTests, DeriveKeyInitFailed) {
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
 }
 
-TEST_F(PsaErrorTests, DeriveKeyKeyImportFailed) {
+TEST_F(PsaErrorTests, DeriveKeyKdfFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-
-    const auto result = derive_key_impl<MockPsaBackend>(32, std::optional<SecureBuffer>{make_random_secure_buffer(64)});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
-}
-
-TEST_F(PsaErrorTests, DeriveKeyKdfSetupFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto result = derive_key_impl<MockPsaBackend>(32, std::optional<SecureBuffer>{make_random_secure_buffer(64)});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfSetupFailed);
-}
-
-TEST_F(PsaErrorTests, DeriveKeyKdfInputKeyFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto result = derive_key_impl<MockPsaBackend>(32, std::optional<SecureBuffer>{make_random_secure_buffer(64)});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, DeriveKeyKdfInputInfoFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto result = derive_key_impl<MockPsaBackend>(32, std::optional<SecureBuffer>{make_random_secure_buffer(64)});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, DeriveKeyKdfOutputFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_output_bytes(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
+    EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
     const auto result = derive_key_impl<MockPsaBackend>(32, std::optional<SecureBuffer>{make_random_secure_buffer(64)});
 
@@ -869,75 +807,9 @@ TEST_F(PsaErrorTests, ExpandKeyInitFailed) {
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
 }
 
-TEST_F(PsaErrorTests, ExpandKeyKeyImportFailed) {
+TEST_F(PsaErrorTests, ExpandKeyKdfFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-
-    const auto prk    = make_random_secure_buffer(48);
-    const auto result = expand_key_impl<MockPsaBackend>(32, prk);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
-}
-
-TEST_F(PsaErrorTests, ExpandKeyKdfSetupFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto prk    = make_random_secure_buffer(48);
-    const auto result = expand_key_impl<MockPsaBackend>(32, prk);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfSetupFailed);
-}
-
-TEST_F(PsaErrorTests, ExpandKeyKdfInputKeyFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto prk    = make_random_secure_buffer(48);
-    const auto result = expand_key_impl<MockPsaBackend>(32, prk);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, ExpandKeyKdfInfoFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto prk    = make_random_secure_buffer(48);
-    const auto result = expand_key_impl<MockPsaBackend>(32, prk);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, ExpandKeyKdfOutputFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_output_bytes(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
+    EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
     const auto prk    = make_random_secure_buffer(48);
     const auto result = expand_key_impl<MockPsaBackend>(32, prk);
@@ -1007,75 +879,9 @@ TEST_F(PsaErrorTests, SigmaDeriveKeysInitFailed) {
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
 }
 
-TEST_F(PsaErrorTests, SigmaDeriveKeysImportFailed) {
+TEST_F(PsaErrorTests, SigmaDeriveKeysKdfFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-
-    const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_derive_keys_impl<MockPsaBackend>(secret);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
-}
-
-TEST_F(PsaErrorTests, SigmaDeriveKeysSetupFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_derive_keys_impl<MockPsaBackend>(secret);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfSetupFailed);
-}
-
-TEST_F(PsaErrorTests, SigmaDeriveKeysInputKeyFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_derive_keys_impl<MockPsaBackend>(secret);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, SigmaDeriveKeysInputInfoFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto secret = make_random_secure_buffer(48);
-    const auto result = sigma_derive_keys_impl<MockPsaBackend>(secret);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, SigmaDeriveKeysOutputFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_output_bytes(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
+    EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
     const auto secret = make_random_secure_buffer(48);
     const auto result = sigma_derive_keys_impl<MockPsaBackend>(secret);
@@ -1097,42 +903,9 @@ TEST_F(PsaErrorTests, SigmaIDeriveKeysInitFailed) {
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
 }
 
-TEST_F(PsaErrorTests, SigmaIDeriveKeysImportFailed) {
+TEST_F(PsaErrorTests, SigmaIDeriveKeysKdfFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-
-    const auto secret = make_random_secure_buffer(48);
-    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(secret);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
-}
-
-TEST_F(PsaErrorTests, SigmaIDeriveKeysSetupFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto secret = make_random_secure_buffer(48);
-    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(secret);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfSetupFailed);
-}
-
-TEST_F(PsaErrorTests, SigmaIDeriveKeysOutputFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_output_bytes(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
+    EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
     const auto secret = make_random_secure_buffer(48);
     const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(secret);
@@ -1498,78 +1271,6 @@ TEST_F(PsaErrorTests, DeriveKeyNoIkmRandomFailed) {
     EXPECT_EQ(result.error().code(), CryptoErrorCode::RandomGenerationFailed);
 }
 
-TEST_F(PsaErrorTests, DeriveKeySaltInputFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto result = derive_key_impl<MockPsaBackend>(
-        32,
-        std::optional<SecureBuffer>{make_random_secure_buffer(64)},
-        std::optional<SecureBuffer>{make_random_secure_buffer(16)});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, DeriveKeyNoInfoInputFailed) {
-    // When no info argument is given, derive_key_impl still calls
-    // key_derivation_input_bytes(info, nullptr, 0) — cover that failure path.
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto result = derive_key_impl<MockPsaBackend>(
-        32, std::optional<SecureBuffer>{make_random_secure_buffer(64)});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-
-// ── sigma_i.hpp (sigma_i_derive_keys_impl — input failures) ──────────────────
-
-TEST_F(PsaErrorTests, SigmaIDeriveKeysInputKeyFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(
-        make_random_secure_buffer(48));
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
-
-TEST_F(PsaErrorTests, SigmaIDeriveKeysInputInfoFailed) {
-    EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
-
-    const auto result = detail::sigma_i_derive_keys_impl<MockPsaBackend>(
-        make_random_secure_buffer(48));
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfInputFailed);
-}
 
 
 // ── sigma_i.hpp (sigma_i_deserialize_bundle) ─────────────────────────────────
@@ -1633,15 +1334,10 @@ TEST_F(PsaErrorTests, SigmaResponderRespondSignFailed) {
         .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, import_key(_, _, _, _))
         .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)))  // ecdh_compute
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)))  // sigma_derive_keys
         .WillOnce(Return(GENERIC_ERROR));                                      // ecdsa_sign
     EXPECT_CALL(*mock_, raw_key_agreement(_, _, _, _, _, _, _))
         .WillOnce(DoAll(SetArgPointee<RAW_AGREE_IDX>(SHARED_SECRET_SZ), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_output_bytes(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
+    EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, destroy_key(_)).WillRepeatedly(Return(PSA_SUCCESS));
 
     const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
@@ -1677,16 +1373,11 @@ TEST_F(PsaErrorTests, SigmaResponderRespondMacFailed) {
         .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, import_key(_, _, _, _))
         .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)))  // ecdh_compute
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)))  // sigma_derive_keys
         .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)))  // ecdsa_sign
         .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS))); // hmac_generate
     EXPECT_CALL(*mock_, raw_key_agreement(_, _, _, _, _, _, _))
         .WillOnce(DoAll(SetArgPointee<RAW_AGREE_IDX>(SHARED_SECRET_SZ), Return(PSA_SUCCESS)));
-    EXPECT_CALL(*mock_, key_derivation_setup(_, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_key(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_input_bytes(_, _, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_output_bytes(_, _, _)).WillOnce(Return(PSA_SUCCESS));
-    EXPECT_CALL(*mock_, key_derivation_abort(_)).WillOnce(Return(PSA_SUCCESS));
+    EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, sign_message(_, _, _, _, _, _, _))
         .WillOnce(DoAll(SetArgPointee<SIG_LEN_IDX>(SIG_SZ), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, mac_compute(_, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
@@ -1713,15 +1404,15 @@ TEST_F(PsaErrorTests, SigmaInitiatorFinishDeriveKeysFailed) {
     constexpr std::size_t SIG_SZ           = 64;
     constexpr int         RAW_AGREE_IDX    = 6;
 
-    // ecdh_compute succeeds, sigma_derive_keys fails at import_key.
+    // ecdh_compute succeeds, sigma_derive_keys fails at hkdf_derive.
     EXPECT_CALL(*mock_, crypto_init())
         .WillOnce(Return(PSA_SUCCESS))   // ecdh_compute
         .WillOnce(Return(PSA_SUCCESS));  // sigma_derive_keys
     EXPECT_CALL(*mock_, import_key(_, _, _, _))
-        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)))  // ecdh_compute
-        .WillOnce(Return(GENERIC_ERROR));                                      // sigma_derive_keys
+        .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_ID), Return(PSA_SUCCESS)));  // ecdh_compute
     EXPECT_CALL(*mock_, raw_key_agreement(_, _, _, _, _, _, _))
         .WillOnce(DoAll(SetArgPointee<RAW_AGREE_IDX>(SHARED_SECRET_SZ), Return(PSA_SUCCESS)));
+    EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillRepeatedly(Return(PSA_SUCCESS));
 
     SigmaInitiatorState state{
@@ -1744,7 +1435,7 @@ TEST_F(PsaErrorTests, SigmaInitiatorFinishDeriveKeysFailed) {
         std::move(state), msg2, kp, expected_pub, EcCurve::P256);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfOutputFailed);
 }
 
 

@@ -9,7 +9,7 @@
 //   hash_compute          ✓  EVP_Q_digest
 //   mac_compute/verify    TODO
 //   aead_encrypt/decrypt  TODO
-//   key_derivation_*      TODO
+//   hkdf_derive           ✓  EVP_KDF / EVP_KDF_derive
 //
 // Pending (asymmetric crypto):
 //   sign/verify_message   TODO  EVP_DigestSign / EVP_DigestVerify (ECDSA)
@@ -58,8 +58,6 @@ struct OpenSslBackend {
     // KeyId   — unsigned int; maps to a slot in one of the two key stores.
     // Algorithm — uint32_t tag encoding which algorithm/variant to use.
     // KeyAttributes — lightweight struct carrying key type, size, and usage.
-    // KdfOperation  — opaque struct holding EVP_KDF_CTX* and accumulated params.
-    // KdfStep       — uint8_t tag identifying which HKDF input is being fed.
     // -------------------------------------------------------------------------
 
     using Status = int;
@@ -89,20 +87,6 @@ struct OpenSslBackend {
         };
     };
 
-    struct KdfOperation {
-        EVP_KDF_CTX* ctx{nullptr};
-        // Accumulated HKDF parameters — filled in by key_derivation_input_*.
-        const CryptoByte* secret{nullptr};  std::size_t secret_len{0};
-        const CryptoByte* salt{nullptr};    std::size_t salt_len{0};
-        const CryptoByte* info{nullptr};    std::size_t info_len{0};
-        // Whether a secret key (vs raw bytes) was supplied for the secret step.
-        unsigned int secret_key_id{0};
-        // EVP_KDF HKDF mode: extract+expand (full HKDF) or expand-only.
-        int mode{0};
-    };
-
-    using KdfStep = uint8_t;
-
     // -------------------------------------------------------------------------
     // Status sentinels.
     // -------------------------------------------------------------------------
@@ -127,8 +111,6 @@ struct OpenSslBackend {
     static constexpr Algorithm kAlgHmacSha3_512    = 0x02'000005U;
     static constexpr Algorithm kAlgEcdsa           = 0x03'000000U;
     static constexpr Algorithm kAlgEcdh            = 0x04'000000U;
-    static constexpr Algorithm kAlgHkdf            = 0x05'000000U;
-    static constexpr Algorithm kAlgHkdfExpand      = 0x05'000001U;
     static constexpr Algorithm kAlgAesGcm          = 0x06'000000U;
     static constexpr Algorithm kAlgChaCha20Poly    = 0x07'000000U;
     static constexpr Algorithm kAlgRsaOaep         = 0x08'000000U;
@@ -143,11 +125,6 @@ struct OpenSslBackend {
     // Algorithm category mask (top 8 bits of a 32-bit Algorithm tag).
     static constexpr Algorithm kAlgCategoryMask = 0xFF'000000U;
 
-    // KDF step tags (mirror PSA_KEY_DERIVATION_INPUT_* semantics).
-    static constexpr KdfStep kKdfStepSecret = 0x01U;
-    static constexpr KdfStep kKdfStepSalt   = 0x02U;
-    static constexpr KdfStep kKdfStepInfo   = 0x03U;
-
     // DER SubjectPublicKeyInfo overhead beyond the key bytes.
     static constexpr std::size_t kRsaSpkiDerOverhead = 50U;
 
@@ -159,9 +136,6 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept { return {}; }
-
-    [[nodiscard]]
-    static KdfOperation make_kdf_op() noexcept { return {}; }
 
     // -------------------------------------------------------------------------
     // Algorithm constants — required by the CryptoProvider concept.
@@ -190,8 +164,6 @@ struct OpenSslBackend {
     }
     [[nodiscard]] static constexpr Algorithm alg_ecdsa()              noexcept { return kAlgEcdsa; }
     [[nodiscard]] static constexpr Algorithm alg_ecdh()               noexcept { return kAlgEcdh; }
-    [[nodiscard]] static constexpr Algorithm alg_hkdf()               noexcept { return kAlgHkdf; }
-    [[nodiscard]] static constexpr Algorithm alg_hkdf_expand()        noexcept { return kAlgHkdfExpand; }
     [[nodiscard]] static constexpr Algorithm alg_aes_gcm()            noexcept { return kAlgAesGcm; }
     [[nodiscard]] static constexpr Algorithm alg_chacha20_poly1305()  noexcept { return kAlgChaCha20Poly; }
     [[nodiscard]] static constexpr Algorithm alg_rsa_oaep()           noexcept { return kAlgRsaOaep; }
@@ -210,25 +182,8 @@ struct OpenSslBackend {
     }
 
     // -------------------------------------------------------------------------
-    // KDF step constants.
-    // -------------------------------------------------------------------------
-    [[nodiscard]] static constexpr KdfStep kdf_step_secret() noexcept { return kKdfStepSecret; }
-    [[nodiscard]] static constexpr KdfStep kdf_step_salt()   noexcept { return kKdfStepSalt; }
-    [[nodiscard]] static constexpr KdfStep kdf_step_info()   noexcept { return kKdfStepInfo; }
-
-    // -------------------------------------------------------------------------
     // Key attribute factories.
     // -------------------------------------------------------------------------
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
-        return { .type = KeyAttributes::KeyType::Derive, .bits = key_size_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Derive), .alg = kAlgHkdf };
-    }
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
-        return { .type = KeyAttributes::KeyType::Derive, .bits = key_size_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Derive), .alg = kAlgHkdfExpand };
-    }
     [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(const ShaVariant v, const std::size_t key_size_bits) noexcept {
         return { .type = KeyAttributes::KeyType::Hmac, .bits = key_size_bits,
@@ -1587,118 +1542,60 @@ struct OpenSslBackend {
     }
 
     [[nodiscard]]
-    static Status key_derivation_setup(
-        KdfOperation* operation, const Algorithm alg) noexcept
+    static auto hkdf_derive(  // NOLINT(readability-function-cognitive-complexity)
+        const CryptoByte* ikm,     const std::size_t ikm_len,
+        const CryptoByte* salt,    const std::size_t salt_len,
+        const CryptoByte* info,    const std::size_t info_len,
+        const std::size_t out_len, const bool expand_only) noexcept
+        -> std::expected<SecureBuffer, Status>
     {
-        if (operation == nullptr) { return err_invalid_arg; }
-        if (alg != kAlgHkdf && alg != kAlgHkdfExpand) { return err_invalid_arg; }
-
         EVP_KDF* kdf = EVP_KDF_fetch(nullptr, "HKDF", nullptr);
-        if (kdf == nullptr) { return err_invalid_arg; }
-        operation->ctx = EVP_KDF_CTX_new(kdf);
+        if (kdf == nullptr) { return std::unexpected(err_invalid_arg); }
+        EVP_KDF_CTX* ctx = EVP_KDF_CTX_new(kdf);
         EVP_KDF_free(kdf);
-        if (operation->ctx == nullptr) { return err_invalid_arg; }
+        if (ctx == nullptr) { return std::unexpected(err_invalid_arg); }
+        struct CtxGuard {
+            EVP_KDF_CTX* p;
+            ~CtxGuard() { EVP_KDF_CTX_free(p); }
+        } guard{ctx};
+        (void)guard;
 
-        // Store mode: full HKDF (extract+expand) vs expand-only.
-        operation->mode = (alg == kAlgHkdfExpand)
-                            ? EVP_KDF_HKDF_MODE_EXPAND_ONLY
-                            : EVP_KDF_HKDF_MODE_EXTRACT_AND_EXPAND;
-        return ok;
-    }
+        int mode = expand_only ? EVP_KDF_HKDF_MODE_EXPAND_ONLY
+                               : EVP_KDF_HKDF_MODE_EXTRACT_AND_EXPAND;
 
-    [[nodiscard]]
-    static Status key_derivation_input_key(
-        KdfOperation* operation,
-        const KdfStep step,  // NOLINT(bugprone-easily-swappable-parameters)
-        const KeyId key) noexcept
-    {
-        using namespace openssl_provider::detail;
-        if (operation == nullptr || step != kKdfStepSecret) { return err_invalid_arg; }
-        const OpenSslRawSlot* slot = ossl_raw_store_get(key);
-        if (slot == nullptr) { return err_invalid_arg; }
-        // Store pointer + length; the raw slot outlives this operation.
-        operation->secret     = slot->data.data();
-        operation->secret_len = slot->len;
-        operation->secret_key_id = key;
-        return ok;
-    }
-
-    [[nodiscard]]
-    static Status key_derivation_input_bytes(
-        KdfOperation* operation,
-        const KdfStep step,
-        const CryptoByte* data, const std::size_t data_length) noexcept
-    {
-        if (operation == nullptr) { return err_invalid_arg; }
-        if (step == kKdfStepSalt) {
-            operation->salt     = data;
-            operation->salt_len = data_length;
-            return ok;
-        }
-        if (step == kKdfStepInfo) {
-            operation->info     = data;
-            operation->info_len = data_length;
-            return ok;
-        }
-        return err_invalid_arg;
-    }
-
-    [[nodiscard]]
-    static Status key_derivation_output_bytes(
-        KdfOperation* operation,
-        CryptoByte* output, const std::size_t output_length) noexcept
-    {
-        if (operation == nullptr || operation->ctx == nullptr) { return err_invalid_arg; }
-        if (operation->secret == nullptr) { return err_invalid_arg; }
-
-        // Build the parameter list.  Maximum 6 params + END.
-        static constexpr std::size_t kKdfMaxParams = 7U;  // 6 named params + OSSL_PARAM_END
+        static constexpr std::size_t kKdfMaxParams = 7U;
         OSSL_PARAM params[kKdfMaxParams];  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
         int n = 0;
 
-        // Digest: always SHA2-384 (matching the rest of this library).
         params[n++] = OSSL_PARAM_construct_utf8_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             OSSL_KDF_PARAM_DIGEST,
             const_cast<char*>("SHA2-384"),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
             0);
-
-        // Mode: extract+expand or expand-only.
         params[n++] = OSSL_PARAM_construct_int(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
-            OSSL_KDF_PARAM_MODE, &operation->mode);
-
-        // Key (secret / PRK).
+            OSSL_KDF_PARAM_MODE, &mode);
         params[n++] = OSSL_PARAM_construct_octet_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             OSSL_KDF_PARAM_KEY,
-            const_cast<CryptoByte*>(operation->secret),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
-            operation->secret_len);
-
-        // Salt (optional; omit for expand-only mode).
-        if (operation->salt != nullptr && operation->salt_len > 0) {
+            const_cast<CryptoByte*>(ikm),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+            ikm_len);
+        if (!expand_only && salt != nullptr && salt_len > 0) {
             params[n++] = OSSL_PARAM_construct_octet_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                 OSSL_KDF_PARAM_SALT,
-                const_cast<CryptoByte*>(operation->salt),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
-                operation->salt_len);
+                const_cast<CryptoByte*>(salt),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                salt_len);
         }
-
-        // Info (context, may be zero-length).
         params[n++] = OSSL_PARAM_construct_octet_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             OSSL_KDF_PARAM_INFO,
-            const_cast<CryptoByte*>(operation->info != nullptr ? operation->info // NOLINT(cppcoreguidelines-pro-type-const-cast)
-                                                                : reinterpret_cast<const CryptoByte*>("")), // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-            operation->info_len);
-
+            const_cast<CryptoByte*>(  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                info != nullptr ? info
+                                : reinterpret_cast<const CryptoByte*>("")),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+            info_len);
         params[n] = OSSL_PARAM_END;  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
+        SecureBuffer output(out_len);
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay)
-        return EVP_KDF_derive(operation->ctx, output, output_length, params);
-    }
-
-    [[nodiscard]]
-    static Status key_derivation_abort(KdfOperation* operation) noexcept {
-        if (operation != nullptr && operation->ctx != nullptr) {
-            EVP_KDF_CTX_free(operation->ctx);
-            operation->ctx = nullptr;
+        if (EVP_KDF_derive(ctx, output.data(), out_len, params) <= 0) {
+            return std::unexpected(err_invalid_arg);
         }
-        return ok;
+        return output;
     }
 };

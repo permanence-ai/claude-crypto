@@ -273,30 +273,15 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc1Sha384) {
         "063e25b516dcbf369f394cfab43685f7"
         "48b6457763e4f0204fc5");
 
-    // Import IKM, run full HKDF via the state machine.
-    auto attrs = ArmAsmBackend::make_hkdf_derive_attrs(ikm.size() * 8U);
-    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    auto r = ArmAsmBackend::hkdf_derive(
+        ikm.data(), ikm.size(),
+        salt.data(), salt.size(),
+        info.data(), info.size(),
+        42U, false);
+    ASSERT_TRUE(r.has_value());
 
-    auto op = ArmAsmBackend::make_kdf_op();
-    ASSERT_EQ(ArmAsmBackend::key_derivation_setup(&op, ArmAsmBackend::alg_hkdf()),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(ArmAsmBackend::key_derivation_input_bytes(
-                  &op, ArmAsmBackend::kdf_step_salt(), salt.data(), salt.size()),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(ArmAsmBackend::key_derivation_input_key(
-                  &op, ArmAsmBackend::kdf_step_secret(), id),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(ArmAsmBackend::key_derivation_input_bytes(
-                  &op, ArmAsmBackend::kdf_step_info(), info.data(), info.size()),
-              ArmAsmBackend::ok);
-
-    ByteArray< 42> okm{};
-    ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
-              ArmAsmBackend::ok);
-    (void)ArmAsmBackend::key_derivation_abort(&op);
-    (void)ArmAsmBackend::destroy_key(id);
-
+    ByteArray<42> okm{};
+    std::memcpy(okm.data(), r->data(), 42U);
     for (std::size_t i = 0; i < 42; ++i) {
         EXPECT_EQ(okm[i], expected_okm[i]) << "OKM byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -312,26 +297,15 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc2NoSaltNoInfo) {
         "854062e54c73a7abc743fade9b242daa"
         "cc1cea5670415b52849c");
 
-    auto attrs = ArmAsmBackend::make_hkdf_derive_attrs(ikm.size() * 8U);
-    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    auto r = ArmAsmBackend::hkdf_derive(
+        ikm.data(), ikm.size(),
+        nullptr, 0,
+        nullptr, 0,
+        42U, false);
+    ASSERT_TRUE(r.has_value());
 
-    auto op = ArmAsmBackend::make_kdf_op();
-    ASSERT_EQ(ArmAsmBackend::key_derivation_setup(&op, ArmAsmBackend::alg_hkdf()),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(ArmAsmBackend::key_derivation_input_key(
-                  &op, ArmAsmBackend::kdf_step_secret(), id),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(ArmAsmBackend::key_derivation_input_bytes(
-                  &op, ArmAsmBackend::kdf_step_info(), nullptr, 0),
-              ArmAsmBackend::ok);
-
-    ByteArray< 42> okm{};
-    ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
-              ArmAsmBackend::ok);
-    (void)ArmAsmBackend::key_derivation_abort(&op);
-    (void)ArmAsmBackend::destroy_key(id);
-
+    ByteArray<42> okm{};
+    std::memcpy(okm.data(), r->data(), 42U);
     for (std::size_t i = 0; i < 42; ++i) {
         EXPECT_EQ(okm[i], expected_okm[i]) << "OKM byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
@@ -351,26 +325,15 @@ TEST_F(ArmAsmHkdfTests, SigmaStyleHkdf80Bytes) {
         "98cf5cbad9907f9ad5ca022fce3f4d32"
         "ecf86cf4c0b7a41bb43b21fbffc2ec6e");
 
-    auto attrs = ArmAsmBackend::make_hkdf_derive_attrs(ikm.size() * 8U);
-    ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, ikm.data(), ikm.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    auto r = ArmAsmBackend::hkdf_derive(
+        ikm.data(), ikm.size(),
+        nullptr, 0,
+        info.data(), info.size(),
+        80U, false);
+    ASSERT_TRUE(r.has_value());
 
-    auto op = ArmAsmBackend::make_kdf_op();
-    ASSERT_EQ(ArmAsmBackend::key_derivation_setup(&op, ArmAsmBackend::alg_hkdf()),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(ArmAsmBackend::key_derivation_input_key(
-                  &op, ArmAsmBackend::kdf_step_secret(), id),
-              ArmAsmBackend::ok);
-    ASSERT_EQ(ArmAsmBackend::key_derivation_input_bytes(
-                  &op, ArmAsmBackend::kdf_step_info(), info.data(), info.size()),
-              ArmAsmBackend::ok);
-
-    ByteArray< 80> okm{};
-    ASSERT_EQ(ArmAsmBackend::key_derivation_output_bytes(&op, okm.data(), okm.size()),
-              ArmAsmBackend::ok);
-    (void)ArmAsmBackend::key_derivation_abort(&op);
-    (void)ArmAsmBackend::destroy_key(id);
-
+    ByteArray<80> okm{};
+    std::memcpy(okm.data(), r->data(), 80U);
     for (std::size_t i = 0; i < 48; ++i) {
         EXPECT_EQ(okm[i], expected_mac[i]) << "mac_key byte " << i; // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
