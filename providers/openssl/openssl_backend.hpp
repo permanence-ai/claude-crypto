@@ -9,7 +9,7 @@
 //   hash_compute          ✓  EVP_Q_digest
 //   mac_compute/verify    TODO
 //   aead_encrypt/decrypt  TODO
-//   key_derivation_*      TODO
+//   hkdf_derive           ✓  EVP_KDF / EVP_KDF_derive
 //
 // Pending (asymmetric crypto):
 //   sign/verify_message   TODO  EVP_DigestSign / EVP_DigestVerify (ECDSA)
@@ -58,8 +58,6 @@ struct OpenSslBackend {
     // KeyId   — unsigned int; maps to a slot in one of the two key stores.
     // Algorithm — uint32_t tag encoding which algorithm/variant to use.
     // KeyAttributes — lightweight struct carrying key type, size, and usage.
-    // KdfOperation  — opaque struct holding EVP_KDF_CTX* and accumulated params.
-    // KdfStep       — uint8_t tag identifying which HKDF input is being fed.
     // -------------------------------------------------------------------------
 
     using Status = int;
@@ -89,20 +87,6 @@ struct OpenSslBackend {
         };
     };
 
-    struct KdfOperation {
-        EVP_KDF_CTX* ctx{nullptr};
-        // Accumulated HKDF parameters — filled in by key_derivation_input_*.
-        const CryptoByte* secret{nullptr};  std::size_t secret_len{0};
-        const CryptoByte* salt{nullptr};    std::size_t salt_len{0};
-        const CryptoByte* info{nullptr};    std::size_t info_len{0};
-        // Whether a secret key (vs raw bytes) was supplied for the secret step.
-        unsigned int secret_key_id{0};
-        // EVP_KDF HKDF mode: extract+expand (full HKDF) or expand-only.
-        int mode{0};
-    };
-
-    using KdfStep = uint8_t;
-
     // -------------------------------------------------------------------------
     // Status sentinels.
     // -------------------------------------------------------------------------
@@ -127,8 +111,6 @@ struct OpenSslBackend {
     static constexpr Algorithm kAlgHmacSha3_512    = 0x02'000005U;
     static constexpr Algorithm kAlgEcdsa           = 0x03'000000U;
     static constexpr Algorithm kAlgEcdh            = 0x04'000000U;
-    static constexpr Algorithm kAlgHkdf            = 0x05'000000U;
-    static constexpr Algorithm kAlgHkdfExpand      = 0x05'000001U;
     static constexpr Algorithm kAlgAesGcm          = 0x06'000000U;
     static constexpr Algorithm kAlgChaCha20Poly    = 0x07'000000U;
     static constexpr Algorithm kAlgRsaOaep         = 0x08'000000U;
@@ -143,11 +125,6 @@ struct OpenSslBackend {
     // Algorithm category mask (top 8 bits of a 32-bit Algorithm tag).
     static constexpr Algorithm kAlgCategoryMask = 0xFF'000000U;
 
-    // KDF step tags (mirror PSA_KEY_DERIVATION_INPUT_* semantics).
-    static constexpr KdfStep kKdfStepSecret = 0x01U;
-    static constexpr KdfStep kKdfStepSalt   = 0x02U;
-    static constexpr KdfStep kKdfStepInfo   = 0x03U;
-
     // DER SubjectPublicKeyInfo overhead beyond the key bytes.
     static constexpr std::size_t kRsaSpkiDerOverhead = 50U;
 
@@ -159,9 +136,6 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept { return {}; }
-
-    [[nodiscard]]
-    static KdfOperation make_kdf_op() noexcept { return {}; }
 
     // -------------------------------------------------------------------------
     // Algorithm constants — required by the CryptoProvider concept.
@@ -190,8 +164,6 @@ struct OpenSslBackend {
     }
     [[nodiscard]] static constexpr Algorithm alg_ecdsa()              noexcept { return kAlgEcdsa; }
     [[nodiscard]] static constexpr Algorithm alg_ecdh()               noexcept { return kAlgEcdh; }
-    [[nodiscard]] static constexpr Algorithm alg_hkdf()               noexcept { return kAlgHkdf; }
-    [[nodiscard]] static constexpr Algorithm alg_hkdf_expand()        noexcept { return kAlgHkdfExpand; }
     [[nodiscard]] static constexpr Algorithm alg_aes_gcm()            noexcept { return kAlgAesGcm; }
     [[nodiscard]] static constexpr Algorithm alg_chacha20_poly1305()  noexcept { return kAlgChaCha20Poly; }
     [[nodiscard]] static constexpr Algorithm alg_rsa_oaep()           noexcept { return kAlgRsaOaep; }
@@ -210,25 +182,8 @@ struct OpenSslBackend {
     }
 
     // -------------------------------------------------------------------------
-    // KDF step constants.
-    // -------------------------------------------------------------------------
-    [[nodiscard]] static constexpr KdfStep kdf_step_secret() noexcept { return kKdfStepSecret; }
-    [[nodiscard]] static constexpr KdfStep kdf_step_salt()   noexcept { return kKdfStepSalt; }
-    [[nodiscard]] static constexpr KdfStep kdf_step_info()   noexcept { return kKdfStepInfo; }
-
-    // -------------------------------------------------------------------------
     // Key attribute factories.
     // -------------------------------------------------------------------------
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
-        return { .type = KeyAttributes::KeyType::Derive, .bits = key_size_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Derive), .alg = kAlgHkdf };
-    }
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
-        return { .type = KeyAttributes::KeyType::Derive, .bits = key_size_bits,
-                 .usage = static_cast<uint8_t>(KeyAttributes::Usage::Derive), .alg = kAlgHkdfExpand };
-    }
     [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(const ShaVariant v, const std::size_t key_size_bits) noexcept {
         return { .type = KeyAttributes::KeyType::Hmac, .bits = key_size_bits,

@@ -53,8 +53,6 @@ struct IaAsmBackend {
     using Status       = int;
     using KeyId        = unsigned int;
     using Algorithm    = unsigned int;
-    using KdfOperation = ia_asm::detail::HkdfState;
-    using KdfStep      = unsigned int;
 
     struct KeyAttributes {
         std::size_t key_bytes{0};
@@ -74,8 +72,6 @@ struct IaAsmBackend {
     static KeyId null_key_id() noexcept { return 0U; }
     [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept { return {}; }
-    [[nodiscard]]
-    static KdfOperation  make_kdf_op()    noexcept { return {}; }
 
     [[nodiscard]]
     static Status crypto_init() { return ok; }
@@ -899,10 +895,6 @@ struct IaAsmBackend {
     [[nodiscard]]
     static constexpr Algorithm alg_ecdh()              noexcept { return 0x0502U; }
     [[nodiscard]]
-    static constexpr Algorithm alg_hkdf()              noexcept { return 0x0301U; }
-    [[nodiscard]]
-    static constexpr Algorithm alg_hkdf_expand()       noexcept { return 0x0302U; }
-    [[nodiscard]]
     static constexpr Algorithm alg_aes_gcm()           noexcept { return 0x0401U; }
     [[nodiscard]]
     static constexpr Algorithm alg_chacha20_poly1305() noexcept { return 0x0402U; }
@@ -911,18 +903,7 @@ struct IaAsmBackend {
     [[nodiscard]]
     static constexpr Algorithm alg_rsa_pss()           noexcept { return 0x0602U; }
 
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_secret() noexcept { return 2U; }
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_salt()   noexcept { return 0U; }
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_info()   noexcept { return 1U; }
-
     // NOLINT(readability-named-parameter)
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_derive_attrs(std::size_t bits)              noexcept { return {.key_bytes = bits / 8U}; }
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_expand_derive_attrs(std::size_t bits)       noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(ShaVariant /*v*/, std::size_t bits) noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]

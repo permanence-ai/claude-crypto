@@ -49,8 +49,6 @@ struct ArmAsmBackend {
     using Status       = int;
     using KeyId        = unsigned int;
     using Algorithm    = unsigned int;
-    using KdfOperation = arm_asm::detail::HkdfState;
-    using KdfStep      = unsigned int;
 
     // KeyAttributes carries either symmetric key size, EC curve/kind, RSA key info, or PQC key type.
     // key_bytes == 0 and all others == None means "not applicable".
@@ -72,8 +70,6 @@ struct ArmAsmBackend {
     static KeyId null_key_id() noexcept { return 0U; }
     [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept { return {}; }
-    [[nodiscard]]
-    static KdfOperation  make_kdf_op()    noexcept { return {}; }
 
     [[nodiscard]]
     static Status crypto_init()                                               { return ok; }
@@ -871,10 +867,6 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static constexpr Algorithm alg_ecdh()              noexcept { return 0x0502U; }
     [[nodiscard]]
-    static constexpr Algorithm alg_hkdf()              noexcept { return 0x0301U; }
-    [[nodiscard]]
-    static constexpr Algorithm alg_hkdf_expand()       noexcept { return 0x0302U; }
-    [[nodiscard]]
     static constexpr Algorithm alg_aes_gcm()           noexcept { return 0x0401U; }
     [[nodiscard]]
     static constexpr Algorithm alg_chacha20_poly1305() noexcept { return 0x0402U; }
@@ -883,20 +875,7 @@ struct ArmAsmBackend {
     [[nodiscard]]
     static constexpr Algorithm alg_rsa_pss()           noexcept { return 0x0602U; }
 
-    // kdf_step_secret is ignored (key is implicitly the IKM/PRK from input_key).
-    // kdf_step_salt and kdf_step_info match the constants in hkdf_input_bytes.
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_secret() noexcept { return 2U; }
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_salt()   noexcept { return 0U; }
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_info()   noexcept { return 1U; }
-
     // NOLINT(readability-named-parameter) — stub functions intentionally omit unused parameter names.
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_derive_attrs(std::size_t bits)              noexcept { return {.key_bytes = bits / 8U}; }
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_expand_derive_attrs(std::size_t bits)       noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(ShaVariant /*v*/, std::size_t bits) noexcept { return {.key_bytes = bits / 8U}; }
     [[nodiscard]]

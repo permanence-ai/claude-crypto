@@ -44,8 +44,6 @@ struct RealPsaBackend {
     using KeyId         = mbedtls_svc_key_id_t;
     using Algorithm     = psa_algorithm_t;
     using KeyAttributes = PsaKeyAttributes;
-    using KdfOperation  = psa_key_derivation_operation_t;
-    using KdfStep       = psa_key_derivation_step_t;
 
     // Status sentinels — avoids PSA_SUCCESS / PSA_ERROR_* leaking into generic code.
     static constexpr Status ok              = PSA_SUCCESS;
@@ -61,11 +59,6 @@ struct RealPsaBackend {
     [[nodiscard]]
     static KeyAttributes make_key_attrs() noexcept {
         return {};
-    }
-    [[nodiscard]]
-    static KdfOperation make_kdf_op() noexcept {
-        KdfOperation o = PSA_KEY_DERIVATION_OPERATION_INIT;
-        return o;
     }
 
     [[nodiscard]]
@@ -464,15 +457,14 @@ struct RealPsaBackend {
         const std::size_t out_len, const bool expand_only)
         -> std::expected<SecureBuffer, Status>
     {
-        const Algorithm alg = expand_only ? alg_hkdf_expand() : alg_hkdf();
-        const Algorithm key_alg = expand_only
+        const Algorithm alg = expand_only
             ? PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384)
             : PSA_ALG_HKDF(PSA_ALG_SHA_384);
 
         psa_key_attributes_t a = PSA_KEY_ATTRIBUTES_INIT;
         psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
         psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
-        psa_set_key_algorithm(&a, key_alg);
+        psa_set_key_algorithm(&a, alg);
         psa_set_key_bits(&a, ikm_len * 8U);
 
         psa_key_id_t key_id = PSA_KEY_ID_NULL;
@@ -485,7 +477,7 @@ struct RealPsaBackend {
         } guard{key_id};
         (void)guard;
 
-        KdfOperation op = PSA_KEY_DERIVATION_OPERATION_INIT;
+        psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
         if (psa_key_derivation_setup(&op, alg) != PSA_SUCCESS) {
             (void)psa_key_derivation_abort(&op);
@@ -540,10 +532,6 @@ struct RealPsaBackend {
     [[nodiscard]]
     static constexpr Algorithm alg_ecdh()               noexcept { return PSA_ALG_ECDH; }
     [[nodiscard]]
-    static constexpr Algorithm alg_hkdf()               noexcept { return PSA_ALG_HKDF(PSA_ALG_SHA_384); }
-    [[nodiscard]]
-    static constexpr Algorithm alg_hkdf_expand()        noexcept { return PSA_ALG_HKDF_EXPAND(PSA_ALG_SHA_384); }
-    [[nodiscard]]
     static constexpr Algorithm alg_aes_gcm()            noexcept { return PSA_ALG_GCM; }
     [[nodiscard]]
     static constexpr Algorithm alg_chacha20_poly1305()  noexcept { return PSA_ALG_CHACHA20_POLY1305; }
@@ -553,36 +541,8 @@ struct RealPsaBackend {
     static constexpr Algorithm alg_rsa_pss()            noexcept { return PSA_ALG_RSA_PSS(PSA_ALG_SHA_384); }
 
     // -------------------------------------------------------------------------
-    // KDF step constants.
-    // -------------------------------------------------------------------------
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_secret() noexcept { return PSA_KEY_DERIVATION_INPUT_SECRET; }
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_salt()   noexcept { return PSA_KEY_DERIVATION_INPUT_SALT;   }
-    [[nodiscard]]
-    static constexpr KdfStep kdf_step_info()   noexcept { return PSA_KEY_DERIVATION_INPUT_INFO;   }
-
-    // -------------------------------------------------------------------------
     // Key attribute factories.
     // -------------------------------------------------------------------------
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_derive_attrs(const std::size_t key_size_bits) noexcept {
-        KeyAttributes a{};
-        psa_set_key_type(&a.psa, PSA_KEY_TYPE_DERIVE);
-        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_size_bits));
-        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DERIVE);
-        psa_set_key_algorithm(&a.psa, alg_hkdf());
-        return a;
-    }
-    [[nodiscard]]
-    static KeyAttributes make_hkdf_expand_derive_attrs(const std::size_t key_size_bits) noexcept {
-        KeyAttributes a{};
-        psa_set_key_type(&a.psa, PSA_KEY_TYPE_DERIVE);
-        psa_set_key_bits(&a.psa, static_cast<psa_key_bits_t>(key_size_bits));
-        psa_set_key_usage_flags(&a.psa, PSA_KEY_USAGE_DERIVE);
-        psa_set_key_algorithm(&a.psa, alg_hkdf_expand());
-        return a;
-    }
     [[nodiscard]]
     static KeyAttributes make_hmac_generate_attrs(const ShaVariant v,
                                                   const std::size_t key_size_bits) noexcept {
