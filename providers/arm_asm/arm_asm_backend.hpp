@@ -171,7 +171,7 @@ struct ArmAsmBackend {
                         fe256_to_bytes(s, ByteSpan<p256_scalar_bytes>{sk.data(), p256_scalar_bytes});
                         const KeyId slot = ec_key_store_import(EcCurveId::P256, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return std::unexpected(err_invalid_arg); }
-                        return slot;
+                        return slot; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
                     }
                 }
                 return std::unexpected(err_invalid_arg);
@@ -186,7 +186,7 @@ struct ArmAsmBackend {
                         fe384_to_bytes(s, ByteSpan<p384_scalar_bytes>{sk.data(), p384_scalar_bytes});
                         const KeyId slot = ec_key_store_import(EcCurveId::P384, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return std::unexpected(err_invalid_arg); }
-                        return slot;
+                        return slot; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
                     }
                 }
                 return std::unexpected(err_invalid_arg);
@@ -201,7 +201,7 @@ struct ArmAsmBackend {
                         fe521_to_bytes(s, ByteSpan<p521_scalar_bytes>{sk.data(), p521_scalar_bytes});
                         const KeyId slot = ec_key_store_import(EcCurveId::P521, EcKeyKind::Private, sk.data(), sk_len); // NOLINT(cppcoreguidelines-init-variables)
                         if (slot == 0U) { return std::unexpected(err_invalid_arg); }
-                        return slot;
+                        return slot; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
                     }
                 }
                 return std::unexpected(err_invalid_arg);

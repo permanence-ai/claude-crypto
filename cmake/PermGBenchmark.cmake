@@ -20,9 +20,21 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     string(APPEND CMAKE_CXX_FLAGS " -Wno-maybe-uninitialized")
 endif()
 
+# Homebrew Clang (and recent AppleClang) rejects __COUNTER__ under -pedantic-errors
+# with -Wc2y-extensions.  Suppress it for the dependency build only.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    set(BENCHMARK_CXX_FLAGS_SAVE "${CMAKE_CXX_FLAGS}")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-c2y-extensions")
+endif()
+
 FetchContent_MakeAvailable(googlebenchmark)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_CXX_FLAGS "${BENCHMARK_CXX_FLAGS_SAVE}")
+    unset(BENCHMARK_CXX_FLAGS_SAVE)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     set(CMAKE_CXX_FLAGS "${BENCHMARK_CXX_FLAGS_SAVE}")
     unset(BENCHMARK_CXX_FLAGS_SAVE)
 endif()

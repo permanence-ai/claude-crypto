@@ -128,7 +128,7 @@ struct RealPsaBackend {
         const Status s = psa_import_key(attributes != nullptr ? &attributes->psa : nullptr,
                                         data, data_length, &key);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
-        return key;
+        return key; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
     }
 
     [[nodiscard]]
@@ -204,7 +204,7 @@ struct RealPsaBackend {
         KeyId key = null_key_id();
         const Status s = psa_generate_key(attributes != nullptr ? &attributes->psa : nullptr, &key);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
-        return key;
+        return key; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
     }
 
     [[nodiscard]]
@@ -356,13 +356,14 @@ struct RealPsaBackend {
                 return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
             }
             const std::size_t exact_size = ml_dsa_signature_size(v);
+            SecureBuffer ml_dsa_sig(exact_size);
             if (!liboqs_pqc::ml_dsa_sign(v, kv_sign->data.data(), kv_sign->data.size(),
                                           input, input_length,
-                                          signature.data(), exact_size, &sig_len)) {
+                                          ml_dsa_sig.data(), exact_size, &sig_len)) {
                 return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
             }
-            signature.resize(sig_len);
-            return signature;
+            ml_dsa_sig.resize(sig_len);
+            return ml_dsa_sig;
         }
 #endif
         const auto s = psa_sign_message(key, alg, input, input_length,

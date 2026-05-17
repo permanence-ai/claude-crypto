@@ -650,7 +650,7 @@ struct OpenSslBackend {
                 if (rv_import != ok || pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::EcPublicKey: {
                 // data = uncompressed point: 0x04 || x || y.
@@ -673,7 +673,7 @@ struct OpenSslBackend {
                 if (rv_import != ok || pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::RsaKeyPair: {
                 // Private key in PKCS#1 DER format (from i2d_PrivateKey).
@@ -682,7 +682,7 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::RsaPublicKey: {
                 // Public key in SubjectPublicKeyInfo DER format (from i2d_PublicKey).
@@ -691,7 +691,7 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::SlhDsaKeyPair: {
                 // Raw private key bytes directly (FIPS 205 format).
@@ -702,7 +702,7 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::SlhDsaPublicKey: {
                 // Raw public key bytes directly (FIPS 205 format).
@@ -713,7 +713,7 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::MlDsaKeyPair: {
                 // Raw private key bytes directly (FIPS 204 format).
@@ -724,7 +724,7 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::MlDsaPublicKey: {
                 // Raw public key bytes directly (FIPS 204 format).
@@ -735,7 +735,7 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::MlKemKeyPair: {
                 // Raw private key bytes directly (FIPS 203 format).
@@ -746,7 +746,7 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             case KeyAttributes::KeyType::MlKemPublicKey: {
                 // Raw public key bytes directly (FIPS 203 format).
@@ -757,14 +757,14 @@ struct OpenSslBackend {
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-                return id;
+                return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions) // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
             }
             default: return std::unexpected(err_invalid_arg);
         }
 
         const unsigned int id = ossl_raw_store_import(kind, data, data_length); // NOLINT(cppcoreguidelines-init-variables)
         if (id == 0U) { return std::unexpected(err_invalid_arg); }
-        return id;
+        return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
     }
 
     [[nodiscard]]
@@ -782,7 +782,7 @@ struct OpenSslBackend {
             if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
             const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-            return id;
+            return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
         }
 
         if (attributes->type == KeyAttributes::KeyType::RsaKeyPair) {
@@ -790,7 +790,7 @@ struct OpenSslBackend {
             if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
             const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-            return id;
+            return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
         }
 
         if (attributes->type == KeyAttributes::KeyType::SlhDsaKeyPair) {
@@ -806,7 +806,7 @@ struct OpenSslBackend {
             if (rv_gen != ok || pkey == nullptr) { return std::unexpected(err_invalid_arg); }
             const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-            return id;
+            return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
         }
 
         if (attributes->type == KeyAttributes::KeyType::MlDsaKeyPair) {
@@ -822,7 +822,7 @@ struct OpenSslBackend {
             if (rv_gen != ok || pkey == nullptr) { return std::unexpected(err_invalid_arg); }
             const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-            return id;
+            return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
         }
 
         if (attributes->type == KeyAttributes::KeyType::MlKemKeyPair) {
@@ -838,7 +838,7 @@ struct OpenSslBackend {
             if (rv_gen != ok || pkey == nullptr) { return std::unexpected(err_invalid_arg); }
             const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)
             if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-            return id;
+            return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
         }
 
         return std::unexpected(err_invalid_arg);
