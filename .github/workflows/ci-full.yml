@@ -115,11 +115,17 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   # ---------------------------------------------------------------------------
-  # Linux ARM64 — ARM_ASM, PSA_MBEDTLS, and OPENSSL on ubuntu-24.04-arm.
+  # Linux ARM64 — ARM_ASM and PSA_MBEDTLS on ubuntu-24.04-arm.
   #
-  # Validates that the ARM intrinsics provider and the two portable providers
-  # compile and pass their test suites on a native Linux AArch64 runner.
+  # Validates that the ARM intrinsics provider and the PSA_MBEDTLS portable
+  # provider compile and pass their test suites on a native Linux AArch64 runner.
   # Uses GCC (Ubuntu default) which requires -flto instead of -flto=thin.
+  #
+  # Excluded configurations:
+  #   ARM_ASM-LIBOQS: liboqs AArch64 assembly uses Apple dot-notation mnemonics
+  #     (e.g. ld1.2d, eor3.16b) that GNU assembler rejects; tested on macOS only.
+  #   OPENSSL-NONE: Ubuntu 24.04 ships OpenSSL 3.0.x; SLH-DSA and ML-DSA require
+  #     OpenSSL 3.3+. OPENSSL is tested on macOS with Homebrew openssl@3 (3.4+).
   # ---------------------------------------------------------------------------
   build-test-linux-arm64:
     name: ${{ matrix.config.provider }}-${{ matrix.config.pqc }} / ${{ matrix.build_type }} (Linux ARM64)
@@ -129,9 +135,7 @@ jobs:
       matrix:
         config:
           - { provider: ARM_ASM,     pqc: NONE   }
-          - { provider: ARM_ASM,     pqc: LIBOQS }
           - { provider: PSA_MBEDTLS, pqc: NONE   }
-          - { provider: OPENSSL,     pqc: NONE   }
         build_type: [Debug, Sanitize]
 
     steps:
