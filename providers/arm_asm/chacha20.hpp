@@ -40,6 +40,7 @@
 
 #include "defs.hpp"
 #include "secure_buffer.hpp"
+#include "target_attr.hpp"
 
 
 namespace arm_asm::detail {
@@ -54,7 +55,7 @@ static constexpr uint32_t chacha20_c3 = 0x6b206574U;
 // For n in {7,8,12,16}: compiler uses vsriq_n_u32 + vshlq_n_u32.
 template<int N>
 [[nodiscard]]
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline uint32x4_t rot32(uint32x4_t v) noexcept {
     return vorrq_u32(vshlq_n_u32(v, N), vshrq_n_u32(v, 32 - N));
 }
@@ -62,7 +63,7 @@ static inline uint32x4_t rot32(uint32x4_t v) noexcept {
 // One ChaCha20 quarter-round on four NEON lanes simultaneously.
 // Works for both row-major (single-block) and word-major (four-block) layouts;
 // the arithmetic is identical — only the interpretation of the lanes differs.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline void chacha20_qr(uint32x4_t& a, uint32x4_t& b,
                                 uint32x4_t& c, uint32x4_t& d) noexcept
 {
@@ -93,7 +94,7 @@ static inline void store_le32(uint8_t* p, uint32_t v) noexcept {
 
 // Produce one 64-byte ChaCha20 keystream block into out[64].
 // key: 32 bytes, counter: block counter (1-based for message), nonce: 12 bytes.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 inline void chacha20_block(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter, // NOLINT(bugprone-easily-swappable-parameters)
                             CByteSpan<chacha20_poly1305_nonce_bytes> nonce, ByteSpan<chacha20_block_bytes> out) noexcept
 {
@@ -190,7 +191,7 @@ inline void chacha20_block(CByteSpan<chacha20_key_size_bytes> key, uint32_t coun
 //
 // Used to convert the word-major state produced by the 4-block round loop back
 // into the block-major layout needed for the XOR step.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline void chacha20_transpose4( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     uint32x4_t a0, uint32x4_t a1, uint32x4_t a2, uint32x4_t a3,
     uint32x4_t& b0, uint32x4_t& b1, uint32x4_t& b2, uint32x4_t& b3) noexcept
@@ -221,7 +222,7 @@ static inline void chacha20_transpose4( // NOLINT(readability-function-size,read
 //
 // Initial-state add-back is computed from the scalar key/counter/nonce values
 // already in registers, saving 16 NEON registers vs. an explicit save.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline void chacha20_xor4( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     CByteSpan<chacha20_key_size_bytes> key, uint32_t counter, // NOLINT(bugprone-easily-swappable-parameters)
     CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
@@ -347,7 +348,7 @@ static inline void chacha20_xor4( // NOLINT(readability-function-size,readabilit
 
 // Encrypt or decrypt len bytes at in[] → out[] using ChaCha20.
 // counter_start: 1 for message data; nonce is 12 bytes (RFC 8439 format).
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t counter_start, // NOLINT(bugprone-easily-swappable-parameters)
                             CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
                             const uint8_t* in, uint8_t* out, std::size_t len) noexcept
@@ -391,7 +392,7 @@ inline void chacha20_crypt(CByteSpan<chacha20_key_size_bytes> key, uint32_t coun
 
 // Generate the 32-byte Poly1305 one-time key: first 32 bytes of ChaCha20
 // block with counter=0 (RFC 8439 §2.6).
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 inline void chacha20_poly1305_key(CByteSpan<chacha20_key_size_bytes> key, // NOLINT(bugprone-easily-swappable-parameters)
                                    CByteSpan<chacha20_poly1305_nonce_bytes> nonce,
                                    ByteSpan<poly1305_key_bytes> otk) noexcept

@@ -35,13 +35,14 @@
 #include <cstring>
 
 #include "defs.hpp"
+#include "target_attr.hpp"
 
 
 namespace arm_asm::detail {
 
 // Bit-reflect all bytes in a 128-bit vector.
 [[nodiscard]]
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 static inline uint8x16_t ghash_reflect(uint8x16_t v) noexcept {
     return vrbitq_u8(v);
 }
@@ -49,7 +50,7 @@ static inline uint8x16_t ghash_reflect(uint8x16_t v) noexcept {
 // 128-bit polynomial multiply: returns a 256-bit result packed as three
 // 128-bit values (high, middle, low) following the MbedTLS layout.
 [[nodiscard]]
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 static inline uint8x16x3_t ghash_poly_mult_128(uint8x16_t a, uint8x16_t b) noexcept {
     const poly64x2_t pa = vreinterpretq_p64_u8(a);
     const poly64x2_t pb = vreinterpretq_p64_u8(b);
@@ -69,7 +70,7 @@ static inline uint8x16x3_t ghash_poly_mult_128(uint8x16_t a, uint8x16_t b) noexc
 // Reduce a 256-bit GF(2¹²⁸) value (packed as three 128-bit vectors) modulo
 // the GCM polynomial x¹²⁸ + x⁷ + x² + x + 1 (constant 0x87).
 [[nodiscard]]
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 static inline uint8x16_t ghash_poly_reduce(uint8x16x3_t input) noexcept {
     const uint8x16_t ZERO   = vdupq_n_u8(0);
     // MODULO = 0x87 in byte 0 of each 64-bit lane: vshrq_n_u64(0x87..., 56)
@@ -105,14 +106,14 @@ struct GhashCtx {
     uint8x16_t H;    // NOLINT(misc-non-private-member-variables-in-classes)
 
     // H_block is AES_K(0¹²⁸) — 16 raw bytes; we reflect once here.
-    [[gnu::target("aes,neon")]]
+    [[gnu::target(ARM_TARGET_AES_NEON)]]
     void init(const uint8_t* H_block) noexcept {
         acc = vdupq_n_u8(0);
         H   = ghash_reflect(vld1q_u8(H_block));
     }
 
     // Feed one 16-byte block into the GHASH accumulator.
-    [[gnu::target("aes,neon")]]
+    [[gnu::target(ARM_TARGET_AES_NEON)]]
     void update(const uint8_t* block) noexcept {
         const uint8x16_t b = ghash_reflect(vld1q_u8(block));
         const uint8x16_t x = veorq_u8(acc, b);
@@ -120,7 +121,7 @@ struct GhashCtx {
     }
 
     // Feed a partial block (padded with zeros to 16 bytes).
-    [[gnu::target("aes,neon")]]
+    [[gnu::target(ARM_TARGET_AES_NEON)]]
     void update_partial(const uint8_t* data, std::size_t len) noexcept {
         ByteArray<16> buf{};
         std::memcpy(buf.data(), data, len);
@@ -128,7 +129,7 @@ struct GhashCtx {
     }
 
     // Retrieve the 16-byte GHASH output; un-reflect acc back to GCM byte order.
-    [[gnu::target("aes,neon")]]
+    [[gnu::target(ARM_TARGET_AES_NEON)]]
     void finish(uint8_t* out) const noexcept {
         vst1q_u8(out, ghash_reflect(acc));
     }

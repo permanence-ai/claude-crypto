@@ -34,6 +34,7 @@
 #include <span>
 
 #include "defs.hpp"
+#include "target_attr.hpp"
 
 
 namespace arm_asm::detail {
@@ -124,7 +125,7 @@ inline constexpr std::array<uint64_t, sha512_round_constants> sha512_k = {
 //   <new_gh_target> = vsha512h2q_u64(intermed, <cd>, <ab>)
 //   <cd_complement> += intermed
 // where <ef>,<gh>,<cd>,<ab> rotate through {ef,gh,cd,ab} each step.
-[[gnu::target("sha3,neon")]]
+[[gnu::target(ARM_TARGET_SHA3_NEON)]]
 inline void sha512_compress(std::span<uint64_t, sha512_state_words> state, const uint8_t* block) noexcept // NOLINT(cppcoreguidelines-avoid-non-const-global-variables,readability-function-size,readability-function-cognitive-complexity)
 {
     uint64x2_t ab = vld1q_u64(state.data());

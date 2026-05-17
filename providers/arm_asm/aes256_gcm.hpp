@@ -54,7 +54,7 @@ static inline void gcm_inc_counter(ByteSpan<aes_gcm_tag_bytes> ctr) noexcept {
 // CTR encrypt/decrypt (same operation): XOR plaintext/ciphertext with the
 // AES-CTR keystream starting at counter block ctr[].
 // ctr[] is updated to the counter value after the last full block used.
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 static inline void gcm_ctr_crypt(
     const CryptoByte* in, // NOLINT(bugprone-easily-swappable-parameters)
     CryptoByte* out, // NOLINT(readability-non-const-parameter)
@@ -104,7 +104,7 @@ static inline void gcm_length_block(
 //   H       = AES_K(0)
 //   E_J0    = AES_K(J0)
 //   tag     = GHASH_H(aad_padded ‖ ct_padded ‖ len_block) XOR E_J0
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 static inline void gcm_compute_tag( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte*    aad, // NOLINT(bugprone-easily-swappable-parameters)
     std::size_t          aad_len,
@@ -169,7 +169,7 @@ static inline void gcm_compute_tag( // NOLINT(readability-function-size,readabil
 //   pt       : plaintext
 //   pt_len   : plaintext length
 //   out      : must hold pt_len + 16 bytes (ciphertext + tag)
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* iv,
@@ -204,7 +204,7 @@ inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-
 // AES-256-GCM decrypt.
 //   ct_len includes the 16-byte tag; out must hold ct_len - 16 bytes.
 //   Returns true on successful tag verification; if false, out is zeroed.
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* iv,

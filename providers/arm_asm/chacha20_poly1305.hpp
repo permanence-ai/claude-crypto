@@ -47,7 +47,7 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 // Build the Poly1305 input: aad_padded ‖ ct_padded ‖ len64(aad) ‖ len64(ct).
 // Feeds data into Poly1305 block-by-block without a large stack allocation.
 // Uses 4-block parallel processing via precomputed r^1..r^4 powers.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline void poly1305_feed(const uint8_t* otk, // NOLINT(bugprone-easily-swappable-parameters,misc-unused-parameters)
                                   const uint8_t* aad, std::size_t aad_len,
                                   const uint8_t* ct,  std::size_t ct_len, // NOLINT(bugprone-easily-swappable-parameters)
@@ -127,7 +127,7 @@ static inline void poly1305_feed(const uint8_t* otk, // NOLINT(bugprone-easily-s
 // ChaCha20-Poly1305 encrypt.
 //   key, nonce: 32 and 12 bytes respectively.
 //   out: must hold pt_len + 16 bytes.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* nonce, // NOLINT(bugprone-easily-swappable-parameters)
@@ -155,7 +155,7 @@ inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,reada
 // ChaCha20-Poly1305 decrypt.
 //   ct_len includes the 16-byte tag.
 //   Returns true on successful tag verification; on failure out is zeroized.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* nonce, // NOLINT(bugprone-easily-swappable-parameters)
