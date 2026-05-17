@@ -15,14 +15,14 @@
 //   [[gnu::target(ARM_TARGET_SHA2_NEON)]]   void h() { ... }
 //   [[gnu::target(ARM_TARGET_SHA3_NEON)]]   void k() { ... }
 
-#if defined(__apple_build_version__)
-#  define ARM_TARGET_AES_NEON  "aes,neon"
-#  define ARM_TARGET_NEON      "neon"
-#  define ARM_TARGET_SHA2_NEON "sha2,neon"
-#  define ARM_TARGET_SHA3_NEON "sha3,neon"
+#ifdef __apple_build_version__
+#  define ARM_TARGET_AES_NEON  "aes,neon"   // NOLINT(cppcoreguidelines-macro-usage)
+#  define ARM_TARGET_NEON      "neon"        // NOLINT(cppcoreguidelines-macro-usage)
+#  define ARM_TARGET_SHA2_NEON "sha2,neon"  // NOLINT(cppcoreguidelines-macro-usage)
+#  define ARM_TARGET_SHA3_NEON "sha3,neon"  // NOLINT(cppcoreguidelines-macro-usage)
 #else
-#  define ARM_TARGET_AES_NEON  "+aes"
-#  define ARM_TARGET_NEON      "+simd"
-#  define ARM_TARGET_SHA2_NEON "+sha2"
-#  define ARM_TARGET_SHA3_NEON "+sha3"
+#  define ARM_TARGET_AES_NEON  "+aes"   // NOLINT(cppcoreguidelines-macro-usage)
+#  define ARM_TARGET_NEON      "+simd"  // NOLINT(cppcoreguidelines-macro-usage)
+#  define ARM_TARGET_SHA2_NEON "+sha2"  // NOLINT(cppcoreguidelines-macro-usage)
+#  define ARM_TARGET_SHA3_NEON "+sha3"  // NOLINT(cppcoreguidelines-macro-usage)
 #endif
