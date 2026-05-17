@@ -261,7 +261,7 @@ TEST_F(IaAsmEcdsaSigDecodeTests, P256OffCurvePublicKeyRejectsVerify) {
     ASSERT_NE(priv_id, IaAsmBackend::null_key_id());
     // Export the public key, flip last byte of y to make it off-curve, re-import.
     // EC key validation now rejects off-curve points at import time.
-    const auto pk_result = IaAsmBackend::export_public_key(pub_id);
+    auto pk_result = IaAsmBackend::export_public_key(pub_id);
     ASSERT_TRUE(pk_result.has_value());
     SecureBuffer pk_buf = std::move(*pk_result);
     pk_buf[p256_public_key_bytes - 1U] ^= 0x01U;
