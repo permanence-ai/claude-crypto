@@ -69,7 +69,8 @@ TEST_F(MlDsaTests, Dsa44_SignVerifyRoundTrip) {
         .public_key = std::move(kp->public_key)
     };
     const auto verify_r = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 TEST_F(MlDsaTests, Dsa44_VerifyRejectsTamperedSignature) {
@@ -86,8 +87,8 @@ TEST_F(MlDsaTests, Dsa44_VerifyRejectsTamperedSignature) {
         .public_key = std::move(kp->public_key)
     };
     const auto result = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(pub, msg, *sig);
-    EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::VerificationFailed);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
 }
 
 TEST_F(MlDsaTests, Dsa44_VerifyRejectsTamperedMessage) {
@@ -105,7 +106,8 @@ TEST_F(MlDsaTests, Dsa44_VerifyRejectsTamperedMessage) {
         .public_key = std::move(kp->public_key)
     };
     const auto result = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(pub, tampered, *sig);
-    EXPECT_FALSE(result.has_value());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
 }
 
 TEST_F(MlDsaTests, Dsa44_SignRejectsPrivateKeyWithTrailingByte) {
@@ -181,7 +183,8 @@ TEST_F(MlDsaTests, Dsa44_ExportImportRoundTrip) {
 
     const MlDsaPublicKey<MlDsaVariant::Dsa44> pub{ .public_key = std::move(pub_copy) };
     const auto verify_r = ml_dsa_verify_impl<MlDsaVariant::Dsa44, MlDsaBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 
@@ -200,7 +203,8 @@ TEST_F(MlDsaTests, Dsa65_SignVerifyRoundTrip) {
 
     const MlDsaPublicKey<MlDsaVariant::Dsa65> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = ml_dsa_verify_impl<MlDsaVariant::Dsa65, MlDsaBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 
@@ -219,7 +223,8 @@ TEST_F(MlDsaTests, Dsa87_SignVerifyRoundTrip) {
 
     const MlDsaPublicKey<MlDsaVariant::Dsa87> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = ml_dsa_verify_impl<MlDsaVariant::Dsa87, MlDsaBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 // --- Variant mismatch rejection ---

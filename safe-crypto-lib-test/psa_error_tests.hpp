@@ -384,7 +384,7 @@ TEST_F(PsaErrorTests, ChaCha20DecryptAeadDecryptFailed) {
 TEST_F(PsaErrorTests, EcdsaGenerateKeyInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const auto result = ecdsa_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdsa_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -394,7 +394,7 @@ TEST_F(PsaErrorTests, EcdsaGenerateKeyGenerateFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, generate_key(_, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const auto result = ecdsa_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdsa_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyGenerationFailed);
@@ -407,7 +407,7 @@ TEST_F(PsaErrorTests, EcdsaGenerateKeyExportPrivateFailed) {
     EXPECT_CALL(*mock_, export_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto result = ecdsa_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdsa_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyExportFailed);
@@ -423,7 +423,7 @@ TEST_F(PsaErrorTests, EcdsaGenerateKeyExportPublicFailed) {
     EXPECT_CALL(*mock_, export_public_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto result = ecdsa_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdsa_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyExportFailed);
@@ -432,9 +432,9 @@ TEST_F(PsaErrorTests, EcdsaGenerateKeyExportPublicFailed) {
 TEST_F(PsaErrorTests, EcdsaSignInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
     const auto msg    = make_random_secure_buffer(32);
-    const auto result = ecdsa_sign_impl<MockPsaBackend>(kp, EcCurve::P256, msg);
+    const auto result = ecdsa_sign_impl<MockPsaBackend>(kp, msg);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -444,9 +444,9 @@ TEST_F(PsaErrorTests, EcdsaSignKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
     const auto msg    = make_random_secure_buffer(32);
-    const auto result = ecdsa_sign_impl<MockPsaBackend>(kp, EcCurve::P256, msg);
+    const auto result = ecdsa_sign_impl<MockPsaBackend>(kp, msg);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -459,9 +459,9 @@ TEST_F(PsaErrorTests, EcdsaSignSignMessageFailed) {
     EXPECT_CALL(*mock_, sign_message(_, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
     const auto msg    = make_random_secure_buffer(32);
-    const auto result = ecdsa_sign_impl<MockPsaBackend>(kp, EcCurve::P256, msg);
+    const auto result = ecdsa_sign_impl<MockPsaBackend>(kp, msg);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::SigningFailed);
@@ -470,10 +470,10 @@ TEST_F(PsaErrorTests, EcdsaSignSignMessageFailed) {
 TEST_F(PsaErrorTests, EcdsaVerifyInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EcPublicKey pub{ .public_key_der = make_random_secure_buffer(65) };
+    const EcPublicKey<EcCurve::P256> pub{ .public_key_der = make_random_secure_buffer(65) };
     const auto msg = make_random_secure_buffer(32);
     const auto sig = make_random_secure_buffer(64);
-    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, EcCurve::P256, msg, sig);
+    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, msg, sig);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -483,10 +483,10 @@ TEST_F(PsaErrorTests, EcdsaVerifyKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const EcPublicKey pub{ .public_key_der = make_random_secure_buffer(65) };
+    const EcPublicKey<EcCurve::P256> pub{ .public_key_der = make_random_secure_buffer(65) };
     const auto msg = make_random_secure_buffer(32);
     const auto sig = make_random_secure_buffer(64);
-    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, EcCurve::P256, msg, sig);
+    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, msg, sig);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -499,10 +499,10 @@ TEST_F(PsaErrorTests, EcdsaVerifyMessageFailed) {
     EXPECT_CALL(*mock_, verify_message(_, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const EcPublicKey pub{ .public_key_der = make_random_secure_buffer(65) };
+    const EcPublicKey<EcCurve::P256> pub{ .public_key_der = make_random_secure_buffer(65) };
     const auto msg = make_random_secure_buffer(32);
     const auto sig = make_random_secure_buffer(64);
-    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, EcCurve::P256, msg, sig);
+    const auto result = ecdsa_verify_impl<MockPsaBackend>(pub, msg, sig);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::VerificationFailed);
@@ -514,7 +514,7 @@ TEST_F(PsaErrorTests, EcdsaVerifyMessageFailed) {
 TEST_F(PsaErrorTests, EcdhGenerateKeyInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const auto result = ecdh_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdh_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -524,7 +524,7 @@ TEST_F(PsaErrorTests, EcdhGenerateKeyGenerateFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, generate_key(_, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const auto result = ecdh_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdh_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyGenerationFailed);
@@ -537,7 +537,7 @@ TEST_F(PsaErrorTests, EcdhGenerateKeyExportPrivateFailed) {
     EXPECT_CALL(*mock_, export_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto result = ecdh_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdh_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyExportFailed);
@@ -553,7 +553,7 @@ TEST_F(PsaErrorTests, EcdhGenerateKeyExportPublicFailed) {
     EXPECT_CALL(*mock_, export_public_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const auto result = ecdh_generate_key_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = ecdh_generate_key_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyExportFailed);
@@ -562,9 +562,9 @@ TEST_F(PsaErrorTests, EcdhGenerateKeyExportPublicFailed) {
 TEST_F(PsaErrorTests, EcdhComputeSharedSecretInitFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
     const auto peer   = make_random_secure_buffer(65);
-    const auto result = ecdh_compute_shared_secret_impl<MockPsaBackend>(kp, EcCurve::P256, peer);
+    const auto result = ecdh_compute_shared_secret_impl<MockPsaBackend>(kp, peer);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -574,9 +574,9 @@ TEST_F(PsaErrorTests, EcdhComputeSharedSecretKeyImportFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, import_key(_, _, _, _)).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
     const auto peer   = make_random_secure_buffer(65);
-    const auto result = ecdh_compute_shared_secret_impl<MockPsaBackend>(kp, EcCurve::P256, peer);
+    const auto result = ecdh_compute_shared_secret_impl<MockPsaBackend>(kp, peer);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -589,9 +589,9 @@ TEST_F(PsaErrorTests, EcdhComputeSharedSecretAgreementFailed) {
     EXPECT_CALL(*mock_, raw_key_agreement(_, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(32), .public_key_der = SecureBuffer(0) };
     const auto peer   = make_random_secure_buffer(65);
-    const auto result = ecdh_compute_shared_secret_impl<MockPsaBackend>(kp, EcCurve::P256, peer);
+    const auto result = ecdh_compute_shared_secret_impl<MockPsaBackend>(kp, peer);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyAgreementFailed);
@@ -1007,7 +1007,7 @@ TEST_F(PsaErrorTests, SigmaIAesGcmDecryptAeadFailed) {
 TEST_F(PsaErrorTests, SigmaInitiatorBeginEcdhFailed) {
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const auto result = sigma_initiator_begin_impl<MockPsaBackend>(EcCurve::P256);
+    const auto result = sigma_initiator_begin_impl<EcCurve::P256, MockPsaBackend>();
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1021,11 +1021,11 @@ TEST_F(PsaErrorTests, SigmaResponderRespondEcdhGenerateFailed) {
     constexpr std::size_t PUB_KEY_SZ  = 65;
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const EccKeyPair<EcCurve::P256> responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                               .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
     const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
-    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
-        msg1, responder, EcCurve::P256);
+    const auto result = sigma_responder_respond_impl<EcCurve::P256, MockPsaBackend>(
+        msg1, responder);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1047,11 +1047,11 @@ TEST_F(PsaErrorTests, SigmaResponderRespondEcdhComputeFailed) {
         .WillOnce(DoAll(SetArgPointee<3>(FAKE_KEY_BYTES), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, destroy_key(_)).WillOnce(Return(PSA_SUCCESS));
 
-    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const EccKeyPair<EcCurve::P256> responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                               .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
     const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
-    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
-        msg1, responder, EcCurve::P256);
+    const auto result = sigma_responder_respond_impl<EcCurve::P256, MockPsaBackend>(
+        msg1, responder);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1080,11 +1080,11 @@ TEST_F(PsaErrorTests, SigmaResponderRespondDeriveKeysFailed) {
         .WillOnce(DoAll(SetArgPointee<RAW_KEY_AGREE_OUT_IDX>(SHARED_SECRET_SZ), Return(PSA_SUCCESS)));
     EXPECT_CALL(*mock_, destroy_key(_)).WillRepeatedly(Return(PSA_SUCCESS));
 
-    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const EccKeyPair<EcCurve::P256> responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                               .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
     const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
-    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
-        msg1, responder, EcCurve::P256);
+    const auto result = sigma_responder_respond_impl<EcCurve::P256, MockPsaBackend>(
+        msg1, responder);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1099,10 +1099,10 @@ TEST_F(PsaErrorTests, SigmaInitiatorFinishEcdhComputeFailed) {
     constexpr std::size_t SIG_SZ      = 64;
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                         .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
-    SigmaInitiatorState state{
-        .ephemeral_key_pair = EccKeyPair{
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                        .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    SigmaInitiatorState<EcCurve::P256> state{
+        .ephemeral_key_pair = EccKeyPair<EcCurve::P256>{
             .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
             .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ),
         },
@@ -1115,8 +1115,8 @@ TEST_F(PsaErrorTests, SigmaInitiatorFinishEcdhComputeFailed) {
         .mac_r           = {},
     };
     const SecureBuffer expected_pub = make_random_secure_buffer(65);
-    const auto result = sigma_initiator_finish_impl<MockPsaBackend>(
-        std::move(state), msg2, kp, expected_pub, EcCurve::P256);
+    const auto result = sigma_initiator_finish_impl<EcCurve::P256, MockPsaBackend>(
+        std::move(state), msg2, kp, expected_pub);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1157,8 +1157,8 @@ TEST_F(PsaErrorTests, SigmaResponderFinishHmacVerifyFailed) {
         .mac_r           = {},
     };
 
-    const auto result = sigma_responder_finish_impl<MockPsaBackend>(
-        msg3, session_keys, msg1, msg2, expected_pub, EcCurve::P256);
+    const auto result = sigma_responder_finish_impl<EcCurve::P256, MockPsaBackend>(
+        msg3, session_keys, msg1, msg2, expected_pub);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1172,11 +1172,11 @@ TEST_F(PsaErrorTests, SigmaIResponderRespondEcdhGenerateFailed) {
     constexpr std::size_t PUB_KEY_SZ  = 65;
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const EccKeyPair<EcCurve::P256> responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                               .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
     const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
-    const auto result = sigma_i_responder_respond_impl<MockPsaBackend>(
-        msg1, responder, EcCurve::P256);
+    const auto result = sigma_i_responder_respond_impl<EcCurve::P256, MockPsaBackend>(
+        msg1, responder);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1191,10 +1191,10 @@ TEST_F(PsaErrorTests, SigmaIInitiatorFinishEcdhComputeFailed) {
     constexpr std::size_t BUNDLE_CT_SZ = 80;
     EXPECT_CALL(*mock_, crypto_init()).WillOnce(Return(GENERIC_ERROR));
 
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                         .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
-    SigmaInitiatorState state{
-        .ephemeral_key_pair = EccKeyPair{
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                        .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    SigmaInitiatorState<EcCurve::P256> state{
+        .ephemeral_key_pair = EccKeyPair<EcCurve::P256>{
             .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
             .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ),
         },
@@ -1205,8 +1205,8 @@ TEST_F(PsaErrorTests, SigmaIInitiatorFinishEcdhComputeFailed) {
         .bundle_r        = SigmaIBundle{ .iv = {}, .ciphertext = make_random_secure_buffer(BUNDLE_CT_SZ) },
     };
     const SecureBuffer expected_pub = make_random_secure_buffer(65);
-    const auto result = sigma_i_initiator_finish_impl<MockPsaBackend>(
-        std::move(state), msg2, kp, expected_pub, EcCurve::P256);
+    const auto result = sigma_i_initiator_finish_impl<EcCurve::P256, MockPsaBackend>(
+        std::move(state), msg2, kp, expected_pub);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);
@@ -1249,8 +1249,8 @@ TEST_F(PsaErrorTests, SigmaIResponderFinishHmacVerifyFailed) {
     };
     const SecureBuffer expected_pub = make_random_secure_buffer(PUB_KEY_SZ);
 
-    const auto result = sigma_i_responder_finish_impl<MockPsaBackend>(
-        msg3, responder_state, msg1, msg2, expected_pub, EcCurve::P256);
+    const auto result = sigma_i_responder_finish_impl<EcCurve::P256, MockPsaBackend>(
+        msg3, responder_state, msg1, msg2, expected_pub);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);
@@ -1340,11 +1340,11 @@ TEST_F(PsaErrorTests, SigmaResponderRespondSignFailed) {
     EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(PSA_SUCCESS));
     EXPECT_CALL(*mock_, destroy_key(_)).WillRepeatedly(Return(PSA_SUCCESS));
 
-    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const EccKeyPair<EcCurve::P256> responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                               .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
     const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
-    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
-        msg1, responder, EcCurve::P256);
+    const auto result = sigma_responder_respond_impl<EcCurve::P256, MockPsaBackend>(
+        msg1, responder);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KeyImportFailed);
@@ -1383,11 +1383,11 @@ TEST_F(PsaErrorTests, SigmaResponderRespondMacFailed) {
     EXPECT_CALL(*mock_, mac_compute(_, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillRepeatedly(Return(PSA_SUCCESS));
 
-    const EccKeyPair responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                                .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const EccKeyPair<EcCurve::P256> responder{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                               .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
     const SigmaMsg1 msg1{ .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ) };
-    const auto result = sigma_responder_respond_impl<MockPsaBackend>(
-        msg1, responder, EcCurve::P256);
+    const auto result = sigma_responder_respond_impl<EcCurve::P256, MockPsaBackend>(
+        msg1, responder);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::MacGenerationFailed);
@@ -1415,15 +1415,15 @@ TEST_F(PsaErrorTests, SigmaInitiatorFinishDeriveKeysFailed) {
     EXPECT_CALL(*mock_, hkdf_derive(_, _, _, _, _, _, _, _)).WillOnce(Return(GENERIC_ERROR));
     EXPECT_CALL(*mock_, destroy_key(_)).WillRepeatedly(Return(PSA_SUCCESS));
 
-    SigmaInitiatorState state{
-        .ephemeral_key_pair = EccKeyPair{
+    SigmaInitiatorState<EcCurve::P256> state{
+        .ephemeral_key_pair = EccKeyPair<EcCurve::P256>{
             .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
             .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ),
         },
         .ephemeral_pub_i = make_random_secure_buffer(PUB_KEY_SZ),
     };
-    const EccKeyPair kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
-                         .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
+    const EccKeyPair<EcCurve::P256> kp{ .private_key_der = make_random_secure_buffer(PRIV_KEY_SZ),
+                                        .public_key_der  = make_random_secure_buffer(PUB_KEY_SZ) };
     const SigmaMsg2 msg2{
         .ephemeral_pub_r = make_random_secure_buffer(PUB_KEY_SZ),
         .identity_pub_r  = make_random_secure_buffer(PUB_KEY_SZ),
@@ -1431,8 +1431,8 @@ TEST_F(PsaErrorTests, SigmaInitiatorFinishDeriveKeysFailed) {
         .mac_r           = {},
     };
     const SecureBuffer expected_pub = make_random_secure_buffer(FAKE_KEY_BYTES);
-    const auto result = sigma_initiator_finish_impl<MockPsaBackend>(
-        std::move(state), msg2, kp, expected_pub, EcCurve::P256);
+    const auto result = sigma_initiator_finish_impl<EcCurve::P256, MockPsaBackend>(
+        std::move(state), msg2, kp, expected_pub);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::KdfOutputFailed);
@@ -1480,8 +1480,8 @@ TEST_F(PsaErrorTests, SigmaResponderFinishSigVerifyFailed) {
         .mac_r           = {},
     };
 
-    const auto result = sigma_responder_finish_impl<MockPsaBackend>(
-        msg3, session_keys, msg1, msg2, expected_pub, EcCurve::P256);
+    const auto result = sigma_responder_finish_impl<EcCurve::P256, MockPsaBackend>(
+        msg3, session_keys, msg1, msg2, expected_pub);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InitFailed);

@@ -186,3 +186,17 @@ template<MlKemVariant V, SecureBufferLike Ciphertext>
 [[nodiscard]] auto ml_kem_decapsulate(const MlKemKeyPair<V>& kp, const Ciphertext& ct) {
     return ml_kem_decapsulate_impl<V>(kp, ct);
 }
+
+
+// Zero-parameter wrappers using NIST-recommended parameter sets.
+// ML-KEM-768 (security level 3, 192-bit) is the recommended general-purpose choice.
+[[nodiscard]] inline auto ml_kem_generate_key() { return ml_kem_generate_key_impl<MlKemVariant::Kem768>(); }
+
+[[nodiscard]] inline auto ml_kem_encapsulate(const MlKemPublicKey<MlKemVariant::Kem768>& pk) {
+    return ml_kem_encapsulate_impl<MlKemVariant::Kem768>(pk);
+}
+
+template<SecureBufferLike Ciphertext>
+[[nodiscard]] auto ml_kem_decapsulate(const MlKemKeyPair<MlKemVariant::Kem768>& kp, const Ciphertext& ct) {
+    return ml_kem_decapsulate_impl<MlKemVariant::Kem768>(kp, ct);
+}

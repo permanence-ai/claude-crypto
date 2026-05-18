@@ -362,21 +362,20 @@ inline auto sigma_i_aes_gcm_decrypt(
 
 
 // Step 2 (Responder): receive Msg1, run ECDH, derive keys, encrypt identity bundle.
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const SigmaMsg1&  msg1,
-    const EccKeyPair& responder_identity,
-    const EcCurve     curve)
+    const SigmaMsg1&     msg1,
+    const EccKeyPair<C>& responder_identity)
     -> std::expected<SigmaIResponderRespondResult, CryptoError>
 {
-    auto eph_r = ecdh_generate_key_impl<Provider>(curve);
+    auto eph_r = ecdh_generate_key_impl<C, Provider>();
     if (!eph_r.has_value()) {
         return std::unexpected(eph_r.error());
     }
 
     auto shared_secret = ecdh_compute_shared_secret_impl<Provider>(
-        *eph_r, curve, msg1.ephemeral_pub_i);
+        *eph_r, msg1.ephemeral_pub_i);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
@@ -388,7 +387,7 @@ auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-c
 
     // Sign eph_pub_i ‖ eph_pub_r.
     const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
-    auto sig_r = ecdsa_sign_impl<Provider>(responder_identity, curve, sign_input);
+    auto sig_r = ecdsa_sign_impl<Provider>(responder_identity, sign_input);
     if (!sig_r.has_value()) {
         return std::unexpected(sig_r.error());
     }
@@ -426,30 +425,29 @@ auto sigma_i_responder_respond_impl(  // NOLINT(readability-function-cognitive-c
     };
 }
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto sigma_i_responder_respond(
-    const SigmaMsg1&  msg1,
-    const EccKeyPair& responder_identity,
-    const EcCurve     curve)
+auto sigma_i_responder_respond(
+    const SigmaMsg1&     msg1,
+    const EccKeyPair<C>& responder_identity)
     -> std::expected<SigmaIResponderRespondResult, CryptoError>
 {
-    return sigma_i_responder_respond_impl(msg1, responder_identity, curve);
+    return sigma_i_responder_respond_impl<C>(msg1, responder_identity);
 }
 
 
 // Step 3 (Initiator): decrypt and verify Msg2, encrypt own identity bundle.
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
-    SigmaInitiatorState        state,
+    SigmaInitiatorState<C>     state,
     const SigmaIMsg2&          msg2,
-    const EccKeyPair&          initiator_identity,
-    const SecureBuffer&        expected_responder_pub,
-    const EcCurve              curve)
+    const EccKeyPair<C>&       initiator_identity,
+    const SecureBuffer&        expected_responder_pub)
     -> std::expected<SigmaIInitiatorFinishResult, CryptoError>
 {
     auto shared_secret = ecdh_compute_shared_secret_impl<Provider>(
-        state.ephemeral_key_pair, curve, msg2.ephemeral_pub_r);
+        state.ephemeral_key_pair, msg2.ephemeral_pub_r);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
@@ -494,8 +492,8 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     const auto sign_input = detail::concat_buffers(state.ephemeral_pub_i, msg2.ephemeral_pub_r);
     SecureBuffer responder_pub_copy(bundle_r->identity_pub.size());
     std::ranges::copy(bundle_r->identity_pub, responder_pub_copy.begin());
-    const EcPublicKey responder_pub_only{ .public_key_der = std::move(responder_pub_copy) };
-    auto sig_ok = ecdsa_verify_impl<Provider>(responder_pub_only, curve, sign_input, bundle_r->signature);
+    const EcPublicKey<C> responder_pub_only{ .public_key_der = std::move(responder_pub_copy) };
+    auto sig_ok = ecdsa_verify_impl<Provider>(responder_pub_only, sign_input, bundle_r->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
@@ -506,7 +504,7 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     }
 
     // Sign and MAC for the initiator bundle.
-    auto sig_i = ecdsa_sign_impl<Provider>(initiator_identity, curve, sign_input);
+    auto sig_i = ecdsa_sign_impl<Provider>(initiator_identity, sign_input);
     if (!sig_i.has_value()) {
         return std::unexpected(sig_i.error());
     }
@@ -534,30 +532,29 @@ auto sigma_i_initiator_finish_impl(  // NOLINT(readability-function-cognitive-co
     };
 }
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto sigma_i_initiator_finish(
-    SigmaInitiatorState        state,
+auto sigma_i_initiator_finish(
+    SigmaInitiatorState<C>     state,
     const SigmaIMsg2&          msg2,
-    const EccKeyPair&          initiator_identity,
-    const SecureBuffer&        expected_responder_pub,
-    const EcCurve              curve)
+    const EccKeyPair<C>&       initiator_identity,
+    const SecureBuffer&        expected_responder_pub)
     -> std::expected<SigmaIInitiatorFinishResult, CryptoError>
 {
-    return sigma_i_initiator_finish_impl(
-        std::move(state), msg2, initiator_identity, expected_responder_pub, curve);
+    return sigma_i_initiator_finish_impl<C>(
+        std::move(state), msg2, initiator_identity, expected_responder_pub);
 }
 
 
 // Step 4 (Responder): decrypt and verify Msg3.
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaIMsg3&           msg3,
     const SigmaIResponderState& responder_state,
     const SigmaMsg1&            msg1,
     const SigmaIMsg2&           msg2,
-    const SecureBuffer&         expected_initiator_pub,
-    const EcCurve               curve)
+    const SecureBuffer&         expected_initiator_pub)
     -> std::expected<bool, CryptoError>
 {
     // Decrypt the initiator bundle with K_enc_i.
@@ -591,8 +588,8 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
     const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, msg2.ephemeral_pub_r);
     SecureBuffer initiator_pub_copy(bundle_i->identity_pub.size());
     std::ranges::copy(bundle_i->identity_pub, initiator_pub_copy.begin());
-    const EcPublicKey initiator_pub_only{ .public_key_der = std::move(initiator_pub_copy) };
-    auto sig_ok = ecdsa_verify_impl<Provider>(initiator_pub_only, curve, sign_input, bundle_i->signature);
+    const EcPublicKey<C> initiator_pub_only{ .public_key_der = std::move(initiator_pub_copy) };
+    auto sig_ok = ecdsa_verify_impl<Provider>(initiator_pub_only, sign_input, bundle_i->signature);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
@@ -600,16 +597,16 @@ auto sigma_i_responder_finish_impl(  // NOLINT(readability-function-cognitive-co
     return *sig_ok;
 }
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto sigma_i_responder_finish(
+auto sigma_i_responder_finish(
     const SigmaIMsg3&           msg3,
     const SigmaIResponderState& responder_state,
     const SigmaMsg1&            msg1,
     const SigmaIMsg2&           msg2,
-    const SecureBuffer&         expected_initiator_pub,
-    const EcCurve               curve)
+    const SecureBuffer&         expected_initiator_pub)
     -> std::expected<bool, CryptoError>
 {
-    return sigma_i_responder_finish_impl(
-        msg3, responder_state, msg1, msg2, expected_initiator_pub, curve);
+    return sigma_i_responder_finish_impl<C>(
+        msg3, responder_state, msg1, msg2, expected_initiator_pub);
 }

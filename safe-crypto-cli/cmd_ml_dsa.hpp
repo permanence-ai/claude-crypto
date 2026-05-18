@@ -142,7 +142,7 @@ inline void register_ml_dsa(CLI::App& app)
             std::copy(sig_buf->begin(), sig_buf->end(), sig.begin());
 
             auto result = ml_dsa_verify<V>(pk, msg, sig);
-            if (!result) { std::exit(1); }
+            if (!result.has_value() || !*result) { std::exit(1); }
         };
 
         if      (variant_str == "44") { run.template operator()<MlDsaVariant::Dsa44>(); }

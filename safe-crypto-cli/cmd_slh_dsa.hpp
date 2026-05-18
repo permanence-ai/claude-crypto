@@ -148,7 +148,7 @@ inline void register_slh_dsa(CLI::App& app)
             std::copy(sig_buf->begin(), sig_buf->end(), sig.begin());
 
             auto result = slh_dsa_verify<V>(pk, msg, sig);
-            if (!result) { std::exit(1); }
+            if (!result.has_value() || !*result) { std::exit(1); }
         };
 
         if      (variant_str == "sha2-128s") { run.template operator()<SlhDsaVariant::Sha2_128s>(); }

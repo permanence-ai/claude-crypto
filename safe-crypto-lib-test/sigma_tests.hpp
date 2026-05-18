@@ -24,18 +24,18 @@ struct HandshakeResult {
     SigmaSessionKeys responder_keys;
 };
 
+template<EcCurve C>
 [[nodiscard]]
 static auto run_handshake(
-    const EccKeyPair& initiator_identity,
-    const EccKeyPair& responder_identity,
-    const EcCurve     curve)
+    const EccKeyPair<C>& initiator_identity,
+    const EccKeyPair<C>& responder_identity)
     -> HandshakeResult
 {
-    auto init_result = sigma_initiator_begin(curve);
+    auto init_result = sigma_initiator_begin<C>();
     EXPECT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, responder_identity, curve);
+        init_result->msg1, responder_identity);
     EXPECT_TRUE(resp_result.has_value());
 
     SecureBuffer expected_resp_pub(responder_identity.public_key_der.size());
@@ -45,20 +45,18 @@ static auto run_handshake(
         std::move(init_result->state),
         resp_result->msg2,
         initiator_identity,
-        expected_resp_pub,
-        curve);
+        expected_resp_pub);
     EXPECT_TRUE(finish_result.has_value());
 
     SecureBuffer expected_init_pub(initiator_identity.public_key_der.size());
     std::ranges::copy(initiator_identity.public_key_der, expected_init_pub.begin());
 
-    auto verify_result = sigma_responder_finish(
+    auto verify_result = sigma_responder_finish<C>(
         finish_result->msg3,
         resp_result->session_keys,
         init_result->msg1,
         resp_result->msg2,
-        expected_init_pub,
-        curve);
+        expected_init_pub);
     EXPECT_TRUE(verify_result.has_value());
     EXPECT_TRUE(*verify_result);
 
@@ -70,12 +68,12 @@ static auto run_handshake(
 
 
 TEST_F(SigmaTests, P256HandshakeSucceeds) {
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    const auto result = run_handshake(*initiator, *responder, EcCurve::P256);
+    const auto result = run_handshake(*initiator, *responder);
 
     EXPECT_FALSE(result.initiator_keys.session_key.empty());
     EXPECT_FALSE(result.responder_keys.session_key.empty());
@@ -83,12 +81,12 @@ TEST_F(SigmaTests, P256HandshakeSucceeds) {
 
 
 TEST_F(SigmaTests, P384HandshakeSucceeds) {
-    const auto initiator = ecdsa_generate_key(EcCurve::P384);
-    const auto responder = ecdsa_generate_key(EcCurve::P384);
+    const auto initiator = ecdsa_generate_key<EcCurve::P384>();
+    const auto responder = ecdsa_generate_key<EcCurve::P384>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    const auto result = run_handshake(*initiator, *responder, EcCurve::P384);
+    const auto result = run_handshake(*initiator, *responder);
 
     EXPECT_FALSE(result.initiator_keys.session_key.empty());
     EXPECT_FALSE(result.responder_keys.session_key.empty());
@@ -96,12 +94,12 @@ TEST_F(SigmaTests, P384HandshakeSucceeds) {
 
 
 TEST_F(SigmaTests, P521HandshakeSucceeds) {
-    const auto initiator = ecdsa_generate_key(EcCurve::P521);
-    const auto responder = ecdsa_generate_key(EcCurve::P521);
+    const auto initiator = ecdsa_generate_key<EcCurve::P521>();
+    const auto responder = ecdsa_generate_key<EcCurve::P521>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    const auto result = run_handshake(*initiator, *responder, EcCurve::P521);
+    const auto result = run_handshake(*initiator, *responder);
 
     EXPECT_FALSE(result.initiator_keys.session_key.empty());
     EXPECT_FALSE(result.responder_keys.session_key.empty());
@@ -109,12 +107,12 @@ TEST_F(SigmaTests, P521HandshakeSucceeds) {
 
 
 TEST_F(SigmaTests, BothSidesDeriveIdenticalSessionKeys) {
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    const auto result = run_handshake(*initiator, *responder, EcCurve::P256);
+    const auto result = run_handshake(*initiator, *responder);
 
     ASSERT_EQ(result.initiator_keys.session_key.size(),
               result.responder_keys.session_key.size());
@@ -135,18 +133,18 @@ TEST_F(SigmaTests, BothSidesDeriveIdenticalSessionKeys) {
 
 
 TEST_F(SigmaTests, InitiatorRejectsWrongResponderIdentity) {
-    const auto initiator     = ecdsa_generate_key(EcCurve::P256);
-    const auto responder     = ecdsa_generate_key(EcCurve::P256);
-    const auto wrong_resp    = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator     = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder     = ecdsa_generate_key<EcCurve::P256>();
+    const auto wrong_resp    = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
     ASSERT_TRUE(wrong_resp.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     ASSERT_TRUE(resp_result.has_value());
 
     // Present the wrong public key as the expected responder.
@@ -157,8 +155,7 @@ TEST_F(SigmaTests, InitiatorRejectsWrongResponderIdentity) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        wrong_pub,
-        EcCurve::P256);
+        wrong_pub);
 
     ASSERT_FALSE(finish.has_value());
     EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
@@ -168,16 +165,16 @@ TEST_F(SigmaTests, InitiatorRejectsWrongResponderIdentity) {
 TEST_F(SigmaTests, InitiatorRejectsTamperedResponderMac) {
     constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     ASSERT_TRUE(resp_result.has_value());
 
     resp_result->msg2.mac_r[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
@@ -189,8 +186,7 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedResponderMac) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        expected_pub,
-        EcCurve::P256);
+        expected_pub);
 
     ASSERT_FALSE(finish.has_value());
     EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
@@ -200,16 +196,16 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedResponderMac) {
 TEST_F(SigmaTests, InitiatorRejectsTamperedResponderSignature) {
     constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     ASSERT_TRUE(resp_result.has_value());
 
     resp_result->msg2.signature_r[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
@@ -221,8 +217,7 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedResponderSignature) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        expected_pub,
-        EcCurve::P256);
+        expected_pub);
 
     ASSERT_FALSE(finish.has_value());
     EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
@@ -230,18 +225,18 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedResponderSignature) {
 
 
 TEST_F(SigmaTests, ResponderRejectsWrongInitiatorIdentity) {
-    const auto initiator  = ecdsa_generate_key(EcCurve::P256);
-    const auto responder  = ecdsa_generate_key(EcCurve::P256);
-    const auto wrong_init = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator  = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder  = ecdsa_generate_key<EcCurve::P256>();
+    const auto wrong_init = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
     ASSERT_TRUE(wrong_init.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     ASSERT_TRUE(resp_result.has_value());
 
     SecureBuffer expected_resp_pub(responder->public_key_der.size());
@@ -251,21 +246,19 @@ TEST_F(SigmaTests, ResponderRejectsWrongInitiatorIdentity) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        expected_resp_pub,
-        EcCurve::P256);
+        expected_resp_pub);
     ASSERT_TRUE(finish_result.has_value());
 
     // Supply a different identity as the expected initiator.
     SecureBuffer wrong_pub(wrong_init->public_key_der.size());
     std::ranges::copy(wrong_init->public_key_der, wrong_pub.begin());
 
-    const auto verify = sigma_responder_finish(
+    const auto verify = sigma_responder_finish<EcCurve::P256>(
         finish_result->msg3,
         resp_result->session_keys,
         init_result->msg1,
         resp_result->msg2,
-        wrong_pub,
-        EcCurve::P256);
+        wrong_pub);
 
     ASSERT_TRUE(verify.has_value());
     EXPECT_FALSE(*verify);
@@ -275,16 +268,16 @@ TEST_F(SigmaTests, ResponderRejectsWrongInitiatorIdentity) {
 TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorMac) {
     constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     ASSERT_TRUE(resp_result.has_value());
 
     SecureBuffer expected_resp_pub(responder->public_key_der.size());
@@ -294,8 +287,7 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorMac) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        expected_resp_pub,
-        EcCurve::P256);
+        expected_resp_pub);
     ASSERT_TRUE(finish_result.has_value());
 
     finish_result->msg3.mac_i[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
@@ -303,13 +295,12 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorMac) {
     SecureBuffer expected_init_pub(initiator->public_key_der.size());
     std::ranges::copy(initiator->public_key_der, expected_init_pub.begin());
 
-    const auto verify = sigma_responder_finish(
+    const auto verify = sigma_responder_finish<EcCurve::P256>(
         finish_result->msg3,
         resp_result->session_keys,
         init_result->msg1,
         resp_result->msg2,
-        expected_init_pub,
-        EcCurve::P256);
+        expected_init_pub);
 
     ASSERT_TRUE(verify.has_value());
     EXPECT_FALSE(*verify);
@@ -319,16 +310,16 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorMac) {
 TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorSignature) {
     constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     ASSERT_TRUE(resp_result.has_value());
 
     SecureBuffer expected_resp_pub(responder->public_key_der.size());
@@ -338,8 +329,7 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorSignature) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        expected_resp_pub,
-        EcCurve::P256);
+        expected_resp_pub);
     ASSERT_TRUE(finish_result.has_value());
 
     finish_result->msg3.signature_i[0] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
@@ -347,13 +337,12 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorSignature) {
     SecureBuffer expected_init_pub(initiator->public_key_der.size());
     std::ranges::copy(initiator->public_key_der, expected_init_pub.begin());
 
-    const auto verify = sigma_responder_finish(
+    const auto verify = sigma_responder_finish<EcCurve::P256>(
         finish_result->msg3,
         resp_result->session_keys,
         init_result->msg1,
         resp_result->msg2,
-        expected_init_pub,
-        EcCurve::P256);
+        expected_init_pub);
 
     ASSERT_TRUE(verify.has_value());
     EXPECT_FALSE(*verify);
@@ -366,19 +355,19 @@ TEST_F(SigmaTests, ResponderRejectsTamperedInitiatorSignature) {
 TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg1) {
     constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     // Corrupt the ephemeral public key before the responder sees it.
     init_result->msg1.ephemeral_pub_i[1] ^= TAMPER_BYTE;  // NOLINT(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     // Responder may fail immediately (bad point) or succeed with a wrong shared secret.
     if (!resp_result.has_value()) { return; }
 
@@ -389,8 +378,7 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg1) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        expected_pub,
-        EcCurve::P256);
+        expected_pub);
 
     // Initiator must reject: MAC verification will fail because the two
     // parties derived their keys from different shared secrets.
@@ -404,16 +392,16 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg1) {
 TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg2) {
     constexpr CryptoByte TAMPER_BYTE = 0xFF;
 
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    auto init_result = sigma_initiator_begin(EcCurve::P256);
+    auto init_result = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_result.has_value());
 
     auto resp_result = sigma_responder_respond(
-        init_result->msg1, *responder, EcCurve::P256);
+        init_result->msg1, *responder);
     ASSERT_TRUE(resp_result.has_value());
 
     // Corrupt the responder's ephemeral public key.
@@ -426,8 +414,7 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg2) {
         std::move(init_result->state),
         resp_result->msg2,
         *initiator,
-        expected_pub,
-        EcCurve::P256);
+        expected_pub);
 
     ASSERT_FALSE(finish.has_value());
     EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
@@ -437,12 +424,12 @@ TEST_F(SigmaTests, InitiatorRejectsTamperedEphemeralPubInMsg2) {
 // After a successful handshake the session keys on both sides are identical,
 // so data encrypted by one party can be decrypted by the other.
 TEST_F(SigmaTests, SessionKeyCanBeUsedToEncryptAndDecrypt) {
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    const auto result = run_handshake(*initiator, *responder, EcCurve::P256);
+    const auto result = run_handshake(*initiator, *responder);
 
     // Copy session keys into fixed-size buffers required by the AES-GCM API.
     ASSERT_EQ(result.initiator_keys.session_key.size(), aes256_key_size_bytes);
@@ -473,19 +460,19 @@ TEST_F(SigmaTests, SessionKeyCanBeUsedToEncryptAndDecrypt) {
 // different ephemeral private key) must be rejected: the initiator computes
 // ECDH over a different shared secret, so the MAC in Msg2 won't verify.
 TEST_F(SigmaTests, InitiatorRejectsReplayedMsg2FromDifferentSession) {
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
     // Session A: run only up through Msg2.
-    auto init_a = sigma_initiator_begin(EcCurve::P256);
+    auto init_a = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_a.has_value());
-    auto resp_a = sigma_responder_respond(init_a->msg1, *responder, EcCurve::P256);
+    auto resp_a = sigma_responder_respond(init_a->msg1, *responder);
     ASSERT_TRUE(resp_a.has_value());
 
     // Session B: a fresh initiator state with a different ephemeral key pair.
-    auto init_b = sigma_initiator_begin(EcCurve::P256);
+    auto init_b = sigma_initiator_begin<EcCurve::P256>();
     ASSERT_TRUE(init_b.has_value());
 
     SecureBuffer expected_pub(responder->public_key_der.size());
@@ -496,8 +483,7 @@ TEST_F(SigmaTests, InitiatorRejectsReplayedMsg2FromDifferentSession) {
         std::move(init_b->state),
         resp_a->msg2,
         *initiator,
-        expected_pub,
-        EcCurve::P256);
+        expected_pub);
 
     ASSERT_FALSE(finish.has_value());
     EXPECT_EQ(finish.error().code(), CryptoErrorCode::SigmaAuthFailed);
@@ -507,13 +493,13 @@ TEST_F(SigmaTests, InitiatorRejectsReplayedMsg2FromDifferentSession) {
 // Two independent handshakes use different ephemeral key pairs and therefore
 // derive different session keys.
 TEST_F(SigmaTests, FreshHandshakesProduceDifferentSessionKeys) {
-    const auto initiator = ecdsa_generate_key(EcCurve::P256);
-    const auto responder = ecdsa_generate_key(EcCurve::P256);
+    const auto initiator = ecdsa_generate_key<EcCurve::P256>();
+    const auto responder = ecdsa_generate_key<EcCurve::P256>();
     ASSERT_TRUE(initiator.has_value());
     ASSERT_TRUE(responder.has_value());
 
-    const auto result1 = run_handshake(*initiator, *responder, EcCurve::P256);
-    const auto result2 = run_handshake(*initiator, *responder, EcCurve::P256);
+    const auto result1 = run_handshake(*initiator, *responder);
+    const auto result2 = run_handshake(*initiator, *responder);
 
     ASSERT_EQ(result1.initiator_keys.session_key.size(),
               result2.initiator_keys.session_key.size());

@@ -33,23 +33,22 @@ inline void register_ecdh(CLI::App& app)
     keygen->callback([keygen, keygen_curve, keygen_out_priv, keygen_out_pub]() {
         const std::string curve_val = keygen_curve->as<std::string>();
 
-        EcCurve curve{};
-        if      (curve_val == "p256") { curve = EcCurve::P256; }
-        else if (curve_val == "p384") { curve = EcCurve::P384; }
-        else if (curve_val == "p521") { curve = EcCurve::P521; }
-        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
-
-        const auto kp = ecdh_generate_key(curve);
-        if (!kp.has_value()) { die(kp.error()); }
-
         const std::string priv_spec = keygen_out_priv->count() > 0U ? keygen_out_priv->as<std::string>() : "";
         const std::string pub_spec  = keygen_out_pub->count()  > 0U ? keygen_out_pub->as<std::string>()  : "";
 
-        const auto out_priv = write_secret_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
-        if (!out_priv.has_value()) { die(out_priv.error()); }
+        auto do_keygen = [&]<EcCurve C>() {
+            const auto kp = ecdh_generate_key<C>();
+            if (!kp.has_value()) { die(kp.error()); }
+            const auto out_priv = write_secret_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
+            if (!out_priv.has_value()) { die(out_priv.error()); }
+            const auto out_pub = write_output(pub_spec, std::span<const CryptoByte>(kp->public_key_der.data(), kp->public_key_der.size()));
+            if (!out_pub.has_value()) { die(out_pub.error()); }
+        };
 
-        const auto out_pub = write_output(pub_spec, std::span<const CryptoByte>(kp->public_key_der.data(), kp->public_key_der.size()));
-        if (!out_pub.has_value()) { die(out_pub.error()); }
+        if      (curve_val == "p256") { do_keygen.template operator()<EcCurve::P256>(); }
+        else if (curve_val == "p384") { do_keygen.template operator()<EcCurve::P384>(); }
+        else if (curve_val == "p521") { do_keygen.template operator()<EcCurve::P521>(); }
+        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
         (void)keygen;
     });
@@ -68,29 +67,28 @@ inline void register_ecdh(CLI::App& app)
     compute->callback([compute, compute_curve, compute_key, compute_peer, compute_output]() {
         const std::string curve_val = compute_curve->as<std::string>();
 
-        EcCurve curve{};
-        if      (curve_val == "p256") { curve = EcCurve::P256; }
-        else if (curve_val == "p384") { curve = EcCurve::P384; }
-        else if (curve_val == "p521") { curve = EcCurve::P521; }
-        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
-
         const auto key_buf  = read_input_bounded(compute_key->as<std::string>(), cli_key_max_bytes);
         if (!key_buf.has_value())  { die(key_buf.error()); }
         const auto peer_buf = read_input_bounded(compute_peer->as<std::string>(), cli_key_max_bytes);
         if (!peer_buf.has_value()) { die(peer_buf.error()); }
 
-        EccKeyPair our_kp{
-            .private_key_der = SecureBuffer(key_buf->size()),
-            .public_key_der  = SecureBuffer(0),
+        auto do_compute = [&]<EcCurve C>() {
+            EccKeyPair<C> our_kp{
+                .private_key_der = SecureBuffer(key_buf->size()),
+                .public_key_der  = SecureBuffer(0),
+            };
+            std::copy(key_buf->begin(), key_buf->end(), our_kp.private_key_der.data());
+            const auto secret = ecdh_compute_shared_secret(our_kp, *peer_buf);
+            if (!secret.has_value()) { die(secret.error()); }
+            const std::string output_val = compute_output->count() > 0U ? compute_output->as<std::string>() : "";
+            const auto out = write_secret_output(output_val, std::span<const CryptoByte>(secret->data(), secret->size()));
+            if (!out.has_value()) { die(out.error()); }
         };
-        std::copy(key_buf->data(), key_buf->data() + key_buf->size(), our_kp.private_key_der.data());
 
-        const auto secret = ecdh_compute_shared_secret(our_kp, curve, *peer_buf);
-        if (!secret.has_value()) { die(secret.error()); }
-
-        const std::string output_val = compute_output->count() > 0U ? compute_output->as<std::string>() : "";
-        const auto out = write_secret_output(output_val, std::span<const CryptoByte>(secret->data(), secret->size()));
-        if (!out.has_value()) { die(out.error()); }
+        if      (curve_val == "p256") { do_compute.template operator()<EcCurve::P256>(); }
+        else if (curve_val == "p384") { do_compute.template operator()<EcCurve::P384>(); }
+        else if (curve_val == "p521") { do_compute.template operator()<EcCurve::P521>(); }
+        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
         (void)compute;
     });
