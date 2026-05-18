@@ -119,7 +119,8 @@ auto slh_dsa_sign_impl(
 }
 
 
-// Verify an SLH-DSA signature.  Returns an error if the signature is invalid.
+// Verify an SLH-DSA signature.  Returns false for an invalid signature,
+// or an unexpected error only for processing failures (key import, init).
 template<SlhDsaVariant V, CryptoProvider Provider = DefaultProvider,
          SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
@@ -127,7 +128,7 @@ auto slh_dsa_verify_impl(
     const SlhDsaPublicKey<V>& public_key,
     const Message& message,
     const Signature& signature)
-    -> std::expected<void, CryptoError>
+    -> std::expected<bool, CryptoError>
 {
     if (public_key.public_key.size() != slh_dsa_public_key_size(V)) {
         return std::unexpected(CryptoError(
@@ -163,16 +164,14 @@ auto slh_dsa_verify_impl(
         CByteVSpan{signature.data(), signature.size()});
 
     if (status == Provider::err_invalid_sig) {
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::VerificationFailed,
-            "SLH-DSA signature verification failed"));
+        return false;
     }
     if (status != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::VerificationFailed,
             "SLH-DSA verify error"));
     }
-    return {};
+    return true;
 }
 
 
@@ -188,6 +187,21 @@ template<SlhDsaVariant V, SecureBufferLike Message>
 template<SlhDsaVariant V, SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]] auto slh_dsa_verify(const SlhDsaPublicKey<V>& pk, const Message& msg, const Signature& sig) {
     return slh_dsa_verify_impl<V>(pk, msg, sig);
+}
+
+
+// Zero-parameter wrappers using NIST-recommended parameter sets.
+// SLH-DSA-SHA2-128s (security level 1, small signatures) is the recommended general-purpose choice.
+[[nodiscard]] inline auto slh_dsa_generate_key() { return slh_dsa_generate_key_impl<SlhDsaVariant::Sha2_128s>(); }
+
+template<SecureBufferLike Message>
+[[nodiscard]] auto slh_dsa_sign(const SlhDsaKeyPair<SlhDsaVariant::Sha2_128s>& kp, const Message& msg) {
+    return slh_dsa_sign_impl<SlhDsaVariant::Sha2_128s>(kp, msg);
+}
+
+template<SecureBufferLike Message, SecureBufferLike Signature>
+[[nodiscard]] auto slh_dsa_verify(const SlhDsaPublicKey<SlhDsaVariant::Sha2_128s>& pk, const Message& msg, const Signature& sig) {
+    return slh_dsa_verify_impl<SlhDsaVariant::Sha2_128s>(pk, msg, sig);
 }
 
 
@@ -295,7 +309,8 @@ auto ml_dsa_sign_impl(
 }
 
 
-// Verify an ML-DSA signature.  Returns an error if the signature is invalid.
+// Verify an ML-DSA signature.  Returns false for an invalid signature,
+// or an unexpected error only for processing failures (key import, init).
 template<MlDsaVariant V, CryptoProvider Provider = DefaultProvider,
          SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
@@ -303,7 +318,7 @@ auto ml_dsa_verify_impl(
     const MlDsaPublicKey<V>& public_key,
     const Message& message,
     const Signature& signature)
-    -> std::expected<void, CryptoError>
+    -> std::expected<bool, CryptoError>
 {
     if (public_key.public_key.size() != ml_dsa_public_key_size(V)) {
         return std::unexpected(CryptoError(
@@ -339,16 +354,14 @@ auto ml_dsa_verify_impl(
         CByteVSpan{signature.data(), signature.size()});
 
     if (status == Provider::err_invalid_sig) {
-        return std::unexpected(CryptoError(
-            CryptoErrorCode::VerificationFailed,
-            "ML-DSA signature verification failed"));
+        return false;
     }
     if (status != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::VerificationFailed,
             "ML-DSA verify error"));
     }
-    return {};
+    return true;
 }
 
 
@@ -364,4 +377,19 @@ template<MlDsaVariant V, SecureBufferLike Message>
 template<MlDsaVariant V, SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]] auto ml_dsa_verify(const MlDsaPublicKey<V>& pk, const Message& msg, const Signature& sig) {
     return ml_dsa_verify_impl<V>(pk, msg, sig);
+}
+
+
+// Zero-parameter wrappers using NIST-recommended parameter sets.
+// ML-DSA-65 (security level 3, 192-bit) is the recommended general-purpose choice.
+[[nodiscard]] inline auto ml_dsa_generate_key() { return ml_dsa_generate_key_impl<MlDsaVariant::Dsa65>(); }
+
+template<SecureBufferLike Message>
+[[nodiscard]] auto ml_dsa_sign(const MlDsaKeyPair<MlDsaVariant::Dsa65>& kp, const Message& msg) {
+    return ml_dsa_sign_impl<MlDsaVariant::Dsa65>(kp, msg);
+}
+
+template<SecureBufferLike Message, SecureBufferLike Signature>
+[[nodiscard]] auto ml_dsa_verify(const MlDsaPublicKey<MlDsaVariant::Dsa65>& pk, const Message& msg, const Signature& sig) {
+    return ml_dsa_verify_impl<MlDsaVariant::Dsa65>(pk, msg, sig);
 }

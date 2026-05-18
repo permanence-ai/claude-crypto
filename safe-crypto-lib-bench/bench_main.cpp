@@ -399,10 +399,10 @@ BENCHMARK_TEMPLATE(BM_RandomBytes, NativeAsmBackend)
 template<EcCurve Curve, typename Provider>
 void BM_EcdsaSign(benchmark::State& state) {
     // Generate key once; sign in the loop.
-    auto kp = ecdsa_generate_key_impl<Provider>(Curve);
+    auto kp = ecdsa_generate_key_impl<Curve, Provider>();
     const auto msg = make_payload(64);
     for (auto _ : state) {
-        auto result = ecdsa_sign_impl<Provider>(kp.value(), Curve, msg);
+        auto result = ecdsa_sign_impl<Provider>(kp.value(), msg);
         benchmark::DoNotOptimize(result);
     }
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
@@ -410,12 +410,12 @@ void BM_EcdsaSign(benchmark::State& state) {
 
 template<EcCurve Curve, typename Provider>
 void BM_EcdsaVerify(benchmark::State& state) {
-    auto kp  = ecdsa_generate_key_impl<Provider>(Curve);
+    auto kp  = ecdsa_generate_key_impl<Curve, Provider>();
     const auto msg = make_payload(64);
-    auto sig = ecdsa_sign_impl<Provider>(kp.value(), Curve, msg);
-    const EcPublicKey pub_only{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
+    auto sig = ecdsa_sign_impl<Provider>(kp.value(), msg);
+    const EcPublicKey<Curve> pub_only{ .public_key_der = [&]{ SecureBuffer b(kp->public_key_der.size()); std::memcpy(b.data(), kp->public_key_der.data(), b.size()); return b; }() };
     for (auto _ : state) {
-        auto result = ecdsa_verify_impl<Provider>(pub_only, Curve, msg, sig.value());
+        auto result = ecdsa_verify_impl<Provider>(pub_only, msg, sig.value());
         benchmark::DoNotOptimize(result);
     }
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
@@ -447,10 +447,10 @@ BENCHMARK_TEMPLATE(BM_EcdsaVerify, EcCurve::P521, NativeAsmBackend) ->Unit(bench
 template<EcCurve Curve, typename Provider>
 void BM_Ecdh(benchmark::State& state) {
     // Generate two key pairs once; compute shared secret in the loop.
-    auto kp_a = ecdh_generate_key_impl<Provider>(Curve);
-    auto kp_b = ecdh_generate_key_impl<Provider>(Curve);
+    auto kp_a = ecdh_generate_key_impl<Curve, Provider>();
+    auto kp_b = ecdh_generate_key_impl<Curve, Provider>();
     for (auto _ : state) {
-        auto result = ecdh_compute_shared_secret_impl<Provider>(kp_a.value(), Curve, kp_b->public_key_der);
+        auto result = ecdh_compute_shared_secret_impl<Provider>(kp_a.value(), kp_b->public_key_der);
         benchmark::DoNotOptimize(result);
     }
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));

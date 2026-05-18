@@ -53,7 +53,8 @@ TEST_F(SlhDsaTests, Sha2_128s_SignVerifyRoundTrip) {
         .public_key = std::move(kp->public_key)
     };
     const auto verify_ok = slh_dsa_verify_impl<SlhDsaVariant::Sha2_128s, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_ok.has_value());
+    ASSERT_TRUE(verify_ok.has_value());
+    EXPECT_TRUE(*verify_ok);
 }
 
 TEST_F(SlhDsaTests, Sha2_128s_VerifyRejectsTamperedSignature) {
@@ -70,8 +71,8 @@ TEST_F(SlhDsaTests, Sha2_128s_VerifyRejectsTamperedSignature) {
         .public_key = std::move(kp->public_key)
     };
     const auto result = slh_dsa_verify_impl<SlhDsaVariant::Sha2_128s, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code(), CryptoErrorCode::VerificationFailed);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
 }
 
 TEST_F(SlhDsaTests, Sha2_128s_VerifyRejectsTamperedMessage) {
@@ -90,7 +91,8 @@ TEST_F(SlhDsaTests, Sha2_128s_VerifyRejectsTamperedMessage) {
         .public_key = std::move(kp->public_key)
     };
     const auto result = slh_dsa_verify_impl<SlhDsaVariant::Sha2_128s, OpenSslBackend>(pub, tampered, *sig);
-    EXPECT_FALSE(result.has_value());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(*result);
 }
 
 TEST_F(SlhDsaTests, Sha2_128s_ExportImportRoundTrip) {
@@ -111,7 +113,8 @@ TEST_F(SlhDsaTests, Sha2_128s_ExportImportRoundTrip) {
 
     const SlhDsaPublicKey<SlhDsaVariant::Sha2_128s> pub{ .public_key = std::move(pub_copy) };
     const auto verify_r = slh_dsa_verify_impl<SlhDsaVariant::Sha2_128s, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 
@@ -130,7 +133,8 @@ TEST_F(SlhDsaTests, Sha2_128f_SignVerifyRoundTrip) {
 
     const SlhDsaPublicKey<SlhDsaVariant::Sha2_128f> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = slh_dsa_verify_impl<SlhDsaVariant::Sha2_128f, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 
@@ -149,7 +153,8 @@ TEST_F(SlhDsaTests, Sha2_192s_SignVerifyRoundTrip) {
 
     const SlhDsaPublicKey<SlhDsaVariant::Sha2_192s> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = slh_dsa_verify_impl<SlhDsaVariant::Sha2_192s, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 
@@ -166,7 +171,8 @@ TEST_F(SlhDsaTests, Sha2_192f_SignVerifyRoundTrip) {
 
     const SlhDsaPublicKey<SlhDsaVariant::Sha2_192f> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = slh_dsa_verify_impl<SlhDsaVariant::Sha2_192f, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 
@@ -183,7 +189,8 @@ TEST_F(SlhDsaTests, Sha2_256s_SignVerifyRoundTrip) {
 
     const SlhDsaPublicKey<SlhDsaVariant::Sha2_256s> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = slh_dsa_verify_impl<SlhDsaVariant::Sha2_256s, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 
@@ -200,7 +207,8 @@ TEST_F(SlhDsaTests, Sha2_256f_SignVerifyRoundTrip) {
 
     const SlhDsaPublicKey<SlhDsaVariant::Sha2_256f> pub{ .public_key = std::move(kp->public_key) };
     const auto verify_r = slh_dsa_verify_impl<SlhDsaVariant::Sha2_256f, OpenSslBackend>(pub, msg, *sig);
-    EXPECT_TRUE(verify_r.has_value());
+    ASSERT_TRUE(verify_r.has_value());
+    EXPECT_TRUE(*verify_r);
 }
 
 #endif  // SAFE_CRYPTO_PROVIDER_OPENSSL

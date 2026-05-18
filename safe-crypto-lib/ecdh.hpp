@@ -17,11 +17,11 @@ constexpr std::size_t ecdh_p384_shared_secret_bytes = 48;
 constexpr std::size_t ecdh_p521_shared_secret_bytes = 66;
 
 
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const EcCurve curve)
-    -> std::expected<EccKeyPair, CryptoError>
+    )
+    -> std::expected<EccKeyPair<C>, CryptoError>
 {
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
@@ -29,7 +29,7 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
             "PSA crypto init failed"));
     }
 
-    const auto key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = ec_curve_key_bits(C);
 
     auto attrs = Provider::make_ecdh_generate_attrs(key_bits);
 
@@ -57,18 +57,17 @@ auto ecdh_generate_key_impl(  // NOLINT(readability-function-cognitive-complexit
     }
     SecureBuffer public_key_der = std::move(pub_result).value();
 
-    return EccKeyPair{
+    return EccKeyPair<C>{
         .private_key_der = std::move(private_key_der),
         .public_key_der  = std::move(public_key_der),
     };
 }
 
 
-template<CryptoProvider Provider = DefaultProvider, SecureBufferLike PeerPublicKey>
+template<CryptoProvider Provider = DefaultProvider, EcCurve C, SecureBufferLike PeerPublicKey>
 [[nodiscard]]
 auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const EccKeyPair& our_key_pair,
-    const EcCurve     curve,
+    const EccKeyPair<C>& our_key_pair,
     const PeerPublicKey& peer_public_key_der)
     -> std::expected<SecureBuffer, CryptoError>
 {
@@ -78,7 +77,7 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
             "PSA crypto init failed"));
     }
 
-    const auto key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = ec_curve_key_bits(C);
 
     auto attrs = Provider::make_ecdh_agree_attrs(key_bits);
 
@@ -107,21 +106,21 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
 }
 
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto ecdh_generate_key(const EcCurve curve)
-    -> std::expected<EccKeyPair, CryptoError>
+auto ecdh_generate_key()
+    -> std::expected<EccKeyPair<C>, CryptoError>
 {
-    return ecdh_generate_key_impl(curve);
+    return ecdh_generate_key_impl<C>();
 }
 
-template<SecureBufferLike PeerPublicKey>
+template<EcCurve C, SecureBufferLike PeerPublicKey>
 [[nodiscard]]
 auto ecdh_compute_shared_secret(
-    const EccKeyPair& our_key_pair,
-    const EcCurve     curve,
+    const EccKeyPair<C>& our_key_pair,
     const PeerPublicKey& peer_public_key_der)
     -> std::expected<SecureBuffer, CryptoError>
 {
     return ecdh_compute_shared_secret_impl<DefaultProvider>(
-        our_key_pair, curve, peer_public_key_der);
+        our_key_pair, peer_public_key_der);
 }

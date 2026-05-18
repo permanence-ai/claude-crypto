@@ -31,21 +31,25 @@ constexpr auto ec_curve_key_bits(const EcCurve curve) -> std::size_t {
     }
 }
 
+template<EcCurve C>
 struct EcPublicKey {
+    static constexpr EcCurve curve = C;
     SecureBuffer public_key_der;
 };
 
+template<EcCurve C>
 struct EccKeyPair {
+    static constexpr EcCurve curve = C;
     SecureBuffer private_key_der;
     SecureBuffer public_key_der;
 };
 
 
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const EcCurve curve)
-    -> std::expected<EccKeyPair, CryptoError>
+    )
+    -> std::expected<EccKeyPair<C>, CryptoError>
 {
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
@@ -53,7 +57,7 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
             "PSA crypto init failed"));
     }
 
-    const auto key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = ec_curve_key_bits(C);
 
     auto attrs = Provider::make_ecdsa_generate_attrs(key_bits);
 
@@ -81,18 +85,17 @@ auto ecdsa_generate_key_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     SecureBuffer public_key_der = std::move(pub_result).value();
 
-    return EccKeyPair{
+    return EccKeyPair<C>{
         .private_key_der = std::move(private_key_der),
         .public_key_der  = std::move(public_key_der),
     };
 }
 
 
-template<CryptoProvider Provider = DefaultProvider, SecureBufferLike Message>
+template<CryptoProvider Provider = DefaultProvider, EcCurve C, SecureBufferLike Message>
 [[nodiscard]]
 auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const EccKeyPair& key_pair,
-    const EcCurve curve,
+    const EccKeyPair<C>& key_pair,
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
@@ -102,7 +105,7 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    const auto key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = ec_curve_key_bits(C);
 
     auto attrs = Provider::make_ecdsa_sign_attrs(key_bits);
 
@@ -132,11 +135,10 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
 
 
 template<CryptoProvider Provider = DefaultProvider,
-         SecureBufferLike Message, SecureBufferLike Signature>
+         EcCurve C, SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
 auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const EcPublicKey& public_key,
-    const EcCurve curve,
+    const EcPublicKey<C>& public_key,
     const Message& message,
     const Signature& signature)
     -> std::expected<bool, CryptoError>
@@ -147,7 +149,7 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
             "PSA crypto init failed"));
     }
 
-    const auto key_bits = ec_curve_key_bits(curve);
+    const auto key_bits = ec_curve_key_bits(C);
 
     auto attrs = Provider::make_ecdsa_verify_attrs(key_bits);
 
@@ -180,32 +182,31 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 }
 
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto ecdsa_generate_key(const EcCurve curve)
-    -> std::expected<EccKeyPair, CryptoError>
+auto ecdsa_generate_key()
+    -> std::expected<EccKeyPair<C>, CryptoError>
 {
-    return ecdsa_generate_key_impl(curve);
+    return ecdsa_generate_key_impl<C>();
 }
 
-template<SecureBufferLike Message>
+template<EcCurve C, SecureBufferLike Message>
 [[nodiscard]]
 auto ecdsa_sign(
-    const EccKeyPair& key_pair,
-    const EcCurve curve,
+    const EccKeyPair<C>& key_pair,
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return ecdsa_sign_impl<DefaultProvider>(key_pair, curve, message);
+    return ecdsa_sign_impl<DefaultProvider>(key_pair, message);
 }
 
-template<SecureBufferLike Message, SecureBufferLike Signature>
+template<EcCurve C, SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]]
 auto ecdsa_verify(
-    const EcPublicKey& public_key,
-    const EcCurve curve,
+    const EcPublicKey<C>& public_key,
     const Message& message,
     const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
-    return ecdsa_verify_impl<DefaultProvider>(public_key, curve, message, signature);
+    return ecdsa_verify_impl<DefaultProvider>(public_key, message, signature);
 }

@@ -44,14 +44,16 @@ struct SigmaSessionKeys {
 
 // Opaque initiator state carried between sigma_initiator_init and sigma_initiator_finish.
 // Holds the ephemeral private key — non-copyable.
+template<EcCurve C>
 struct SigmaInitiatorState {
-    EccKeyPair   ephemeral_key_pair;
-    SecureBuffer ephemeral_pub_i;
+    EccKeyPair<C> ephemeral_key_pair;
+    SecureBuffer  ephemeral_pub_i;
 };
 
+template<EcCurve C>
 struct SigmaInitiatorInitResult {
-    SigmaMsg1           msg1;
-    SigmaInitiatorState state;
+    SigmaMsg1              msg1;
+    SigmaInitiatorState<C> state;
 };
 
 struct SigmaResponderRespondResult {
@@ -132,12 +134,12 @@ inline auto sigma_derive_keys(const SecureBuffer& shared_secret)
 
 
 // Step 1 (Initiator): generate ephemeral key pair, produce Msg1.
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
-auto sigma_initiator_begin_impl(const EcCurve curve)
-    -> std::expected<SigmaInitiatorInitResult, CryptoError>
+auto sigma_initiator_begin_impl()
+    -> std::expected<SigmaInitiatorInitResult<C>, CryptoError>
 {
-    auto eph = ecdh_generate_key_impl<Provider>(curve);
+    auto eph = ecdh_generate_key_impl<C, Provider>();
     if (!eph.has_value()) {
         return std::unexpected(eph.error());
     }
@@ -148,41 +150,41 @@ auto sigma_initiator_begin_impl(const EcCurve curve)
     std::ranges::copy(eph->public_key_der, pub_for_msg.begin());
     std::ranges::copy(eph->public_key_der, pub_for_state.begin());
 
-    return SigmaInitiatorInitResult{
+    return SigmaInitiatorInitResult<C>{
         .msg1  = SigmaMsg1{ .ephemeral_pub_i = std::move(pub_for_msg) },
-        .state = SigmaInitiatorState{
+        .state = SigmaInitiatorState<C>{
             .ephemeral_key_pair = std::move(*eph),
             .ephemeral_pub_i    = std::move(pub_for_state),
         },
     };
 }
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto sigma_initiator_begin(const EcCurve curve)
-    -> std::expected<SigmaInitiatorInitResult, CryptoError>
+auto sigma_initiator_begin()
+    -> std::expected<SigmaInitiatorInitResult<C>, CryptoError>
 {
-    return sigma_initiator_begin_impl(curve);
+    return sigma_initiator_begin_impl<C>();
 }
 
 
 // Step 2 (Responder): receive Msg1, run ECDH, sign, MAC, produce Msg2 + session keys.
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_responder_respond_impl(  // NOLINT(readability-function-cognitive-complexity)
-    const SigmaMsg1&  msg1,
-    const EccKeyPair& responder_identity,
-    const EcCurve     curve)
+    const SigmaMsg1&    msg1,
+    const EccKeyPair<C>& responder_identity)
     -> std::expected<SigmaResponderRespondResult, CryptoError>
 {
     // Generate responder ephemeral key pair.
-    auto eph_r = ecdh_generate_key_impl<Provider>(curve);
+    auto eph_r = ecdh_generate_key_impl<C, Provider>();
     if (!eph_r.has_value()) {
         return std::unexpected(eph_r.error());
     }
 
     // ECDH with initiator's ephemeral public key.
     auto shared_secret = ecdh_compute_shared_secret_impl<Provider>(
-        *eph_r, curve, msg1.ephemeral_pub_i);
+        *eph_r, msg1.ephemeral_pub_i);
     if (!shared_secret.has_value()) {
         return std::unexpected(shared_secret.error());
     }
@@ -195,7 +197,7 @@ auto sigma_responder_respond_impl(  // NOLINT(readability-function-cognitive-com
 
     // Sign eph_pub_i ‖ eph_pub_r with responder long-term identity key.
     const auto sign_input = detail::concat_buffers(msg1.ephemeral_pub_i, eph_r->public_key_der);
-    auto sig_r = ecdsa_sign_impl<Provider>(responder_identity, curve, sign_input);
+    auto sig_r = ecdsa_sign_impl<Provider>(responder_identity, sign_input);
     if (!sig_r.has_value()) {
         return std::unexpected(sig_r.error());
     }
@@ -224,31 +226,30 @@ auto sigma_responder_respond_impl(  // NOLINT(readability-function-cognitive-com
     };
 }
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto sigma_responder_respond(
-    const SigmaMsg1&  msg1,
-    const EccKeyPair& responder_identity,
-    const EcCurve     curve)
+auto sigma_responder_respond(
+    const SigmaMsg1&    msg1,
+    const EccKeyPair<C>& responder_identity)
     -> std::expected<SigmaResponderRespondResult, CryptoError>
 {
-    return sigma_responder_respond_impl(msg1, responder_identity, curve);
+    return sigma_responder_respond_impl<C>(msg1, responder_identity);
 }
 
 
 // Step 3 (Initiator): verify Msg2, sign, MAC, produce Msg3 + session keys.
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
-    SigmaInitiatorState        state,
+    SigmaInitiatorState<C>     state,
     const SigmaMsg2&           msg2,
-    const EccKeyPair&          initiator_identity,
-    const SecureBuffer&        expected_responder_pub,
-    const EcCurve              curve)
+    const EccKeyPair<C>&       initiator_identity,
+    const SecureBuffer&        expected_responder_pub)
     -> std::expected<SigmaInitiatorFinishResult, CryptoError>
 {
     // ECDH with responder's ephemeral public key.
     auto shared_secret = ecdh_compute_shared_secret_impl<Provider>(
-        state.ephemeral_key_pair, curve, msg2.ephemeral_pub_r);
+        state.ephemeral_key_pair, msg2.ephemeral_pub_r);
     if (!shared_secret.has_value()) {
         // A key-agreement failure (invalid/tampered point) is an auth failure.
         // Other errors (init, import) propagate as-is.
@@ -290,9 +291,9 @@ auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-comp
 
     SecureBuffer responder_pub_copy(msg2.identity_pub_r.size());
     std::ranges::copy(msg2.identity_pub_r, responder_pub_copy.begin());
-    const EcPublicKey responder_pub_only{ .public_key_der = std::move(responder_pub_copy) };
+    const EcPublicKey<C> responder_pub_only{ .public_key_der = std::move(responder_pub_copy) };
 
-    auto sig_ok = ecdsa_verify_impl<Provider>(responder_pub_only, curve, sign_input, msg2.signature_r);
+    auto sig_ok = ecdsa_verify_impl<Provider>(responder_pub_only, sign_input, msg2.signature_r);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
@@ -303,7 +304,7 @@ auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-comp
     }
 
     // Sign eph_pub_i ‖ eph_pub_r with initiator long-term identity key.
-    auto sig_i = ecdsa_sign_impl<Provider>(initiator_identity, curve, sign_input);
+    auto sig_i = ecdsa_sign_impl<Provider>(initiator_identity, sign_input);
     if (!sig_i.has_value()) {
         return std::unexpected(sig_i.error());
     }
@@ -328,30 +329,29 @@ auto sigma_initiator_finish_impl(  // NOLINT(readability-function-cognitive-comp
     };
 }
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto sigma_initiator_finish(
-    SigmaInitiatorState        state,
+auto sigma_initiator_finish(
+    SigmaInitiatorState<C>     state,
     const SigmaMsg2&           msg2,
-    const EccKeyPair&          initiator_identity,
-    const SecureBuffer&        expected_responder_pub,
-    const EcCurve              curve)
+    const EccKeyPair<C>&       initiator_identity,
+    const SecureBuffer&        expected_responder_pub)
     -> std::expected<SigmaInitiatorFinishResult, CryptoError>
 {
-    return sigma_initiator_finish_impl(
-        std::move(state), msg2, initiator_identity, expected_responder_pub, curve);
+    return sigma_initiator_finish_impl<C>(
+        std::move(state), msg2, initiator_identity, expected_responder_pub);
 }
 
 
 // Step 4 (Responder): verify Msg3. Returns false on auth failure, error on fault.
-template<CryptoProvider Provider = DefaultProvider>
+template<EcCurve C, CryptoProvider Provider = DefaultProvider>
 [[nodiscard]]
 auto sigma_responder_finish_impl(  // NOLINT(readability-function-cognitive-complexity)
     const SigmaMsg3&         msg3,
     const SigmaSessionKeys&  session_keys,
     const SigmaMsg1&         msg1,
     const SigmaMsg2&         msg2,
-    const SecureBuffer&      expected_initiator_pub,
-    const EcCurve            curve)
+    const SecureBuffer&      expected_initiator_pub)
     -> std::expected<bool, CryptoError>
 {
     // Verify initiator identity matches expected.
@@ -375,9 +375,9 @@ auto sigma_responder_finish_impl(  // NOLINT(readability-function-cognitive-comp
 
     SecureBuffer initiator_pub_copy(msg3.identity_pub_i.size());
     std::ranges::copy(msg3.identity_pub_i, initiator_pub_copy.begin());
-    const EcPublicKey initiator_pub_only{ .public_key_der = std::move(initiator_pub_copy) };
+    const EcPublicKey<C> initiator_pub_only{ .public_key_der = std::move(initiator_pub_copy) };
 
-    auto sig_ok = ecdsa_verify_impl<Provider>(initiator_pub_only, curve, sign_input, msg3.signature_i);
+    auto sig_ok = ecdsa_verify_impl<Provider>(initiator_pub_only, sign_input, msg3.signature_i);
     if (!sig_ok.has_value()) {
         return std::unexpected(sig_ok.error());
     }
@@ -385,16 +385,16 @@ auto sigma_responder_finish_impl(  // NOLINT(readability-function-cognitive-comp
     return *sig_ok;
 }
 
+template<EcCurve C>
 [[nodiscard]]
-inline auto sigma_responder_finish(
+auto sigma_responder_finish(
     const SigmaMsg3&         msg3,
     const SigmaSessionKeys&  session_keys,
     const SigmaMsg1&         msg1,
     const SigmaMsg2&         msg2,
-    const SecureBuffer&      expected_initiator_pub,
-    const EcCurve            curve)
+    const SecureBuffer&      expected_initiator_pub)
     -> std::expected<bool, CryptoError>
 {
-    return sigma_responder_finish_impl(
-        msg3, session_keys, msg1, msg2, expected_initiator_pub, curve);
+    return sigma_responder_finish_impl<C>(
+        msg3, session_keys, msg1, msg2, expected_initiator_pub);
 }

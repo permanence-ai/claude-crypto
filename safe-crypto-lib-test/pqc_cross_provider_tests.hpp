@@ -102,7 +102,9 @@ static void run_ml_dsa_cross_verify(const char* label) {
         // Import public key into OpenSSL backend and verify.
         const MlDsaPublicKey<V> ossl_pub{ .public_key = pqc_copy(arm_pub) };
         const auto verify_r = ml_dsa_verify_impl<V, OpenSslBackend>(ossl_pub, msg, arm_sig);
-        EXPECT_TRUE(verify_r.has_value())
+        ASSERT_TRUE(verify_r.has_value())
+            << label << " OpenSSL ML-DSA verify returned error";
+        EXPECT_TRUE(*verify_r)
             << label << " OpenSSL rejected ARM ASM ML-DSA signature";
     }
 }

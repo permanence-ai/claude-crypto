@@ -33,23 +33,22 @@ inline void register_ecdsa(CLI::App& app)
     keygen->callback([keygen, keygen_curve, keygen_out_priv, keygen_out_pub]() {
         const std::string curve_val = keygen_curve->as<std::string>();
 
-        EcCurve curve{};
-        if      (curve_val == "p256") { curve = EcCurve::P256; }
-        else if (curve_val == "p384") { curve = EcCurve::P384; }
-        else if (curve_val == "p521") { curve = EcCurve::P521; }
-        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
-
-        const auto kp = ecdsa_generate_key(curve);
-        if (!kp.has_value()) { die(kp.error()); }
-
         const std::string priv_spec = keygen_out_priv->count() > 0U ? keygen_out_priv->as<std::string>() : "";
         const std::string pub_spec  = keygen_out_pub->count()  > 0U ? keygen_out_pub->as<std::string>()  : "";
 
-        const auto out_priv = write_secret_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
-        if (!out_priv.has_value()) { die(out_priv.error()); }
+        auto do_keygen = [&]<EcCurve C>() {
+            const auto kp = ecdsa_generate_key<C>();
+            if (!kp.has_value()) { die(kp.error()); }
+            const auto out_priv = write_secret_output(priv_spec, std::span<const CryptoByte>(kp->private_key_der.data(), kp->private_key_der.size()));
+            if (!out_priv.has_value()) { die(out_priv.error()); }
+            const auto out_pub = write_output(pub_spec, std::span<const CryptoByte>(kp->public_key_der.data(), kp->public_key_der.size()));
+            if (!out_pub.has_value()) { die(out_pub.error()); }
+        };
 
-        const auto out_pub = write_output(pub_spec, std::span<const CryptoByte>(kp->public_key_der.data(), kp->public_key_der.size()));
-        if (!out_pub.has_value()) { die(out_pub.error()); }
+        if      (curve_val == "p256") { do_keygen.template operator()<EcCurve::P256>(); }
+        else if (curve_val == "p384") { do_keygen.template operator()<EcCurve::P384>(); }
+        else if (curve_val == "p521") { do_keygen.template operator()<EcCurve::P521>(); }
+        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
         (void)keygen;
     });
@@ -68,29 +67,28 @@ inline void register_ecdsa(CLI::App& app)
     sign_sub->callback([sign_sub, sign_curve, sign_key, sign_input, sign_output]() {
         const std::string curve_val = sign_curve->as<std::string>();
 
-        EcCurve curve{};
-        if      (curve_val == "p256") { curve = EcCurve::P256; }
-        else if (curve_val == "p384") { curve = EcCurve::P384; }
-        else if (curve_val == "p521") { curve = EcCurve::P521; }
-        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
-
         const auto key_buf = read_input_bounded(sign_key->as<std::string>(), cli_key_max_bytes);
         if (!key_buf.has_value()) { die(key_buf.error()); }
         const auto msg_buf = read_input_bounded(sign_input->as<std::string>(), cli_message_max_bytes);
         if (!msg_buf.has_value()) { die(msg_buf.error()); }
 
-        EccKeyPair kp{
-            .private_key_der = SecureBuffer(key_buf->size()),
-            .public_key_der  = SecureBuffer(0),
+        auto do_sign = [&]<EcCurve C>() {
+            EccKeyPair<C> kp{
+                .private_key_der = SecureBuffer(key_buf->size()),
+                .public_key_der  = SecureBuffer(0),
+            };
+            std::copy(key_buf->begin(), key_buf->end(), kp.private_key_der.data());
+            const auto sig = ecdsa_sign(kp, *msg_buf);
+            if (!sig.has_value()) { die(sig.error()); }
+            const std::string output_val = sign_output->count() > 0U ? sign_output->as<std::string>() : "";
+            const auto out = write_output(output_val, std::span<const CryptoByte>(sig->data(), sig->size()));
+            if (!out.has_value()) { die(out.error()); }
         };
-        std::copy(key_buf->data(), key_buf->data() + key_buf->size(), kp.private_key_der.data());
 
-        const auto sig = ecdsa_sign(kp, curve, *msg_buf);
-        if (!sig.has_value()) { die(sig.error()); }
-
-        const std::string output_val = sign_output->count() > 0U ? sign_output->as<std::string>() : "";
-        const auto out = write_output(output_val, std::span<const CryptoByte>(sig->data(), sig->size()));
-        if (!out.has_value()) { die(out.error()); }
+        if      (curve_val == "p256") { do_sign.template operator()<EcCurve::P256>(); }
+        else if (curve_val == "p384") { do_sign.template operator()<EcCurve::P384>(); }
+        else if (curve_val == "p521") { do_sign.template operator()<EcCurve::P521>(); }
+        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
         (void)sign_sub;
     });
@@ -109,12 +107,6 @@ inline void register_ecdsa(CLI::App& app)
     verify_sub->callback([verify_sub, verify_curve, verify_key, verify_input, verify_sig]() {
         const std::string curve_val = verify_curve->as<std::string>();
 
-        EcCurve curve{};
-        if      (curve_val == "p256") { curve = EcCurve::P256; }
-        else if (curve_val == "p384") { curve = EcCurve::P384; }
-        else if (curve_val == "p521") { curve = EcCurve::P521; }
-        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
-
         const auto key_buf = read_input_bounded(verify_key->as<std::string>(), cli_key_max_bytes);
         if (!key_buf.has_value()) { die(key_buf.error()); }
         const auto msg_buf = read_input_bounded(verify_input->as<std::string>(), cli_message_max_bytes);
@@ -122,15 +114,21 @@ inline void register_ecdsa(CLI::App& app)
         const auto sig_buf = read_input_bounded(verify_sig->as<std::string>(), cli_signature_max_bytes);
         if (!sig_buf.has_value()) { die(sig_buf.error()); }
 
-        EcPublicKey pub_key{.public_key_der = SecureBuffer(key_buf->size())};
-        std::copy(key_buf->data(), key_buf->data() + key_buf->size(), pub_key.public_key_der.data());
+        auto do_verify = [&]<EcCurve C>() {
+            EcPublicKey<C> pub_key{.public_key_der = SecureBuffer(key_buf->size())};
+            std::copy(key_buf->begin(), key_buf->end(), pub_key.public_key_der.data());
+            const auto result = ecdsa_verify(pub_key, *msg_buf, *sig_buf);
+            if (!result.has_value()) { die(result.error()); }
+            if (!*result) {
+                std::cerr << "signature invalid\n";
+                std::exit(1);  // NOLINT(concurrency-mt-unsafe)
+            }
+        };
 
-        const auto result = ecdsa_verify(pub_key, curve, *msg_buf, *sig_buf);
-        if (!result.has_value()) { die(result.error()); }
-        if (!*result) {
-            std::cerr << "signature invalid\n";
-            std::exit(1);  // NOLINT(concurrency-mt-unsafe)
-        }
+        if      (curve_val == "p256") { do_verify.template operator()<EcCurve::P256>(); }
+        else if (curve_val == "p384") { do_verify.template operator()<EcCurve::P384>(); }
+        else if (curve_val == "p521") { do_verify.template operator()<EcCurve::P521>(); }
+        else { die("unknown --curve '" + curve_val + "'; valid: p256 p384 p521"); }
 
         (void)verify_sub;
     });
