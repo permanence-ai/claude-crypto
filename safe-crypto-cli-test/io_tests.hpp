@@ -509,13 +509,17 @@ TEST_F(IoTests, BoundedInput_ExactCapBase64Key_NotRejectedBySizeGuard) {
 // neither pipe fills and deadlocks when the child writes more than one pipe
 // buffer (~65 KiB on macOS/Linux) of output.
 
-// Write 128 KiB of random bytes to stdout (raw binary via --output -).
-// The output exceeds the typical pipe buffer; sequential draining would deadlock.
+// Write 128 KiB of random bytes to a file (via --output <path>).
+// run_scli drains both pipes concurrently; this test verifies the child does not
+// deadlock when producing more than one pipe buffer of output on any channel.
+// Using --output <file> avoids a false-negative: run_scli strips a trailing '\n'
+// from stdout, which would corrupt the size check when the last byte is 0x0A.
 TEST_F(IoTests, PipeDrain_LargeStdoutDoesNotDeadlock) {
     constexpr std::size_t kLen = 128U * 1024U;  // 2× typical pipe buffer
-    const auto r = run_scli(scli(), {"random", "--length", std::to_string(kLen), "--output", "-"});
+    const auto out_path = tmp("pipe_drain_large.bin");
+    const auto r = run_scli(scli(), {"random", "--length", std::to_string(kLen), "--output", out_path});
     EXPECT_EQ(r.exit_code, 0);
-    EXPECT_EQ(r.stdout_text.size(), kLen);
+    EXPECT_EQ(std::filesystem::file_size(out_path), kLen);
 }
 
 // Pass a key file larger than 64 KiB; the CLI writes a long error to stderr.
