@@ -97,8 +97,8 @@ auto ml_kem_encapsulate_impl(const MlKemPublicKey<V>& public_key)
 
     auto attrs = Provider::make_ml_kem_encap_attrs(V);
     auto key_result = Provider::import_key(&attrs,
-                             public_key.public_key.data(),
-                             public_key.public_key.size());
+                             CByteVSpan{public_key.public_key.data(),
+                                        public_key.public_key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,

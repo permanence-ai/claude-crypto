@@ -1957,16 +1957,17 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptPtLenOverflowReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     // pt_len near SIZE_MAX would overflow when adding tag bytes.
     const std::size_t huge = SIZE_MAX - 8U;
+    static const CryptoByte dummy_pt = 0;
     const auto r_gcm = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
                                                    CByteVSpan{nonce.data(), nonce.size()},
                                                    CByteVSpan{},
-                                                   CByteVSpan{nullptr, huge});
+                                                   CByteVSpan{&dummy_pt, huge});
     EXPECT_FALSE(r_gcm.has_value());
     if (!r_gcm.has_value()) { EXPECT_EQ(r_gcm.error(), ArmAsmBackend::err_invalid_arg); }
     const auto r_cc20 = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
                                                     CByteVSpan{nonce.data(), nonce.size()},
                                                     CByteVSpan{},
-                                                    CByteVSpan{nullptr, huge});
+                                                    CByteVSpan{&dummy_pt, huge});
     EXPECT_FALSE(r_cc20.has_value());
     if (!r_cc20.has_value()) { EXPECT_EQ(r_cc20.error(), ArmAsmBackend::err_invalid_arg); }
 }
