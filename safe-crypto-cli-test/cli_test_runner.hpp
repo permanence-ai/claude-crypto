@@ -32,9 +32,12 @@ struct RunResult {
 // Stdout and stderr are drained concurrently via poll() to prevent pipe-buffer deadlocks:
 // if the child fills the stderr pipe while the parent is blocked reading stdout EOF (or vice
 // versa), both sides would hang without concurrent draining.
-// Trailing newlines on stdout_text and stderr_text are stripped.
+// When strip_trailing_newline is true (default), a single trailing '\n' is removed from
+// stdout_text and stderr_text.  Pass false when checking raw binary output so that a last
+// byte of 0x0A is not silently dropped.
 [[nodiscard]]
-inline auto run_scli(const std::string& scli_path, std::vector<std::string> args) -> RunResult
+inline auto run_scli(const std::string& scli_path, std::vector<std::string> args,
+                     bool strip_trailing_newline = true) -> RunResult
 {
     // Build argv: scli_path as argv[0], then each element of args, then nullptr.
     std::vector<const char*> argv_ptrs;
@@ -115,9 +118,11 @@ inline auto run_scli(const std::string& scli_path, std::vector<std::string> args
     ::waitpid(pid, &status, 0);
     const int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;  // NOLINT(hicpp-signed-bitwise)
 
-    // Strip single trailing newline if present.
-    if (!out.empty() && out.back() == '\n') { out.pop_back(); }
-    if (!err.empty() && err.back() == '\n') { err.pop_back(); }
+    // Strip single trailing newline if present (suppressed for raw binary captures).
+    if (strip_trailing_newline) {
+        if (!out.empty() && out.back() == '\n') { out.pop_back(); }
+        if (!err.empty() && err.back() == '\n') { err.pop_back(); }
+    }
 
     return {out, err, code};
 }
