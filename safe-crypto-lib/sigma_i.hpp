@@ -91,9 +91,9 @@ auto sigma_i_derive_keys_impl(
     }
 
     auto kdf_result = Provider::hkdf_derive(
-        shared_secret.data(), shared_secret.size(),
-        nullptr, 0,
-        info.data(), info.size(),
+        CByteVSpan{shared_secret.data(), shared_secret.size()},
+        CByteVSpan{},
+        CByteVSpan{info.data(), info.size()},
         total_output, false);
 
     if (!kdf_result.has_value()) {
@@ -275,7 +275,7 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     auto attrs = Provider::make_aes256_gcm_encrypt_attrs();
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -285,9 +285,9 @@ auto sigma_i_aes_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     auto ct_result = Provider::aead_encrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
-        iv->data(), iv->size(),
-        nullptr, 0,
-        plaintext.data(), plaintext.size());
+        CByteVSpan{iv->data(), iv->size()},
+        CByteVSpan{},
+        CByteVSpan{plaintext.data(), plaintext.size()});
 
     if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -326,7 +326,7 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     auto attrs = Provider::make_aes256_gcm_decrypt_attrs();
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -336,9 +336,9 @@ auto sigma_i_aes_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-com
 
     auto pt_result = Provider::aead_decrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
-        bundle.iv.data(), bundle.iv.size(),
-        nullptr, 0,
-        bundle.ciphertext.data(), bundle.ciphertext.size());
+        CByteVSpan{bundle.iv.data(), bundle.iv.size()},
+        CByteVSpan{},
+        CByteVSpan{bundle.ciphertext.data(), bundle.ciphertext.size()});
 
     if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(

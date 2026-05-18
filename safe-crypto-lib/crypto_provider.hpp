@@ -41,7 +41,7 @@ concept CryptoProvider = requires(
     T::KeyId           key,
     T::Algorithm       alg,
     CryptoByte*        buf,
-    const CryptoByte*  cbuf,
+    CByteVSpan         span,
     std::size_t        len,
     bool               bool_v,
     ShaVariant         sha_v,
@@ -126,24 +126,24 @@ concept CryptoProvider = requires(
     // Low-level crypto operations
     { T::crypto_init() }                                        -> std::same_as<typename T::Status>;
     { T::generate_random(len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::import_key(attrs, cbuf, len) }  -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
-    { T::generate_key(attrs) }           -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
+    { T::import_key(attrs, span) }  -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
+    { T::generate_key(attrs) }      -> std::same_as<std::expected<typename T::KeyId, typename T::Status>>;
     { T::destroy_key(key) }                                     -> std::same_as<typename T::Status>;
     { T::export_key(key) }        -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
     { T::export_public_key(key) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::sign_message(key, alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::verify_message(key, alg, cbuf, len, cbuf, len) }       -> std::same_as<typename T::Status>;
-    { T::mac_compute(key, alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::mac_verify(key, alg, cbuf, len, cbuf, len) }           -> std::same_as<typename T::Status>;
-    { T::aead_encrypt(key, alg, cbuf, len, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::aead_decrypt(key, alg, cbuf, len, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::asymmetric_encrypt(key, alg, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::asymmetric_decrypt(key, alg, cbuf, len, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::raw_key_agreement(alg, key, cbuf, len) }              -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::kem_encapsulate(key, alg) }                           -> std::same_as<std::expected<KemEncapsulateResult, typename T::Status>>;
-    { T::kem_decapsulate(key, alg, cbuf, len) }                -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::hash_compute(alg, cbuf, len) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
-    { T::hkdf_derive(cbuf, len, cbuf, len, cbuf, len, len, bool_v) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::sign_message(key, alg, span) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::verify_message(key, alg, span, span) }       -> std::same_as<typename T::Status>;
+    { T::mac_compute(key, alg, span) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::mac_verify(key, alg, span, span) }           -> std::same_as<typename T::Status>;
+    { T::aead_encrypt(key, alg, span, span, span) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::aead_decrypt(key, alg, span, span, span) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::asymmetric_encrypt(key, alg, span, span) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::asymmetric_decrypt(key, alg, span, span) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::raw_key_agreement(alg, key, span) }        -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::kem_encapsulate(key, alg) }                -> std::same_as<std::expected<KemEncapsulateResult, typename T::Status>>;
+    { T::kem_decapsulate(key, alg, span) }          -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::hash_compute(alg, span) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
+    { T::hkdf_derive(span, span, span, len, bool_v) } -> std::same_as<std::expected<SecureBuffer, typename T::Status>>;
 };
 
 

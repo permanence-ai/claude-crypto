@@ -95,8 +95,8 @@ auto slh_dsa_sign_impl(
 
     auto attrs = Provider::make_slh_dsa_sign_attrs(V);
     auto key_result = Provider::import_key(&attrs,
-                             key_pair.private_key.data(),
-                             key_pair.private_key.size());
+                             CByteVSpan{key_pair.private_key.data(),
+                                        key_pair.private_key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -107,7 +107,7 @@ auto slh_dsa_sign_impl(
     auto sig_result = Provider::sign_message(
         key_handle.get(),
         Provider::alg_slh_dsa(V),
-        message.data(), message.size());
+        CByteVSpan{message.data(), message.size()});
 
     if (!sig_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -147,8 +147,8 @@ auto slh_dsa_verify_impl(
 
     auto attrs = Provider::make_slh_dsa_verify_attrs(V);
     auto key_result = Provider::import_key(&attrs,
-                             public_key.public_key.data(),
-                             public_key.public_key.size());
+                             CByteVSpan{public_key.public_key.data(),
+                                        public_key.public_key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -159,8 +159,8 @@ auto slh_dsa_verify_impl(
     const auto status = Provider::verify_message(
         key_handle.get(),
         Provider::alg_slh_dsa(V),
-        message.data(), message.size(),
-        signature.data(), signature.size());
+        CByteVSpan{message.data(), message.size()},
+        CByteVSpan{signature.data(), signature.size()});
 
     if (status == Provider::err_invalid_sig) {
         return std::unexpected(CryptoError(
@@ -271,8 +271,8 @@ auto ml_dsa_sign_impl(
 
     auto attrs = Provider::make_ml_dsa_sign_attrs(V);
     auto key_result = Provider::import_key(&attrs,
-                             key_pair.private_key.data(),
-                             key_pair.private_key.size());
+                             CByteVSpan{key_pair.private_key.data(),
+                                        key_pair.private_key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -283,7 +283,7 @@ auto ml_dsa_sign_impl(
     auto sig_result = Provider::sign_message(
         key_handle.get(),
         Provider::alg_ml_dsa(V),
-        message.data(), message.size());
+        CByteVSpan{message.data(), message.size()});
 
     if (!sig_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -323,8 +323,8 @@ auto ml_dsa_verify_impl(
 
     auto attrs = Provider::make_ml_dsa_verify_attrs(V);
     auto key_result = Provider::import_key(&attrs,
-                             public_key.public_key.data(),
-                             public_key.public_key.size());
+                             CByteVSpan{public_key.public_key.data(),
+                                        public_key.public_key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -335,8 +335,8 @@ auto ml_dsa_verify_impl(
     const auto status = Provider::verify_message(
         key_handle.get(),
         Provider::alg_ml_dsa(V),
-        message.data(), message.size(),
-        signature.data(), signature.size());
+        CByteVSpan{message.data(), message.size()},
+        CByteVSpan{signature.data(), signature.size()});
 
     if (status == Provider::err_invalid_sig) {
         return std::unexpected(CryptoError(

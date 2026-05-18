@@ -226,7 +226,7 @@ TEST_F(MlKemTests, Kem512_EncapRejectsAlgorithmVariantMismatch) {
 
     auto attrs = MlKemBackend::make_ml_kem_encap_attrs(MlKemVariant::Kem512);
     MlKemBackend::KeyId raw_id = MlKemBackend::null_key_id();
-    { auto r_ = MlKemBackend::import_key(&attrs, kp->public_key.data(), kp->public_key.size()); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
+    { auto r_ = MlKemBackend::import_key(&attrs, CByteVSpan{kp->public_key.data(), kp->public_key.size()}); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
 
     // Pass the Kem768 algorithm ID but the key was imported as Kem512 — must fail.
     const auto result = MlKemBackend::kem_encapsulate(
@@ -247,12 +247,12 @@ TEST_F(MlKemTests, Kem512_DecapRejectsAlgorithmVariantMismatch) {
 
     auto attrs = MlKemBackend::make_ml_kem_decap_attrs(MlKemVariant::Kem512);
     MlKemBackend::KeyId raw_id = MlKemBackend::null_key_id();
-    { auto r_ = MlKemBackend::import_key(&attrs, kp->private_key.data(), kp->private_key.size()); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
+    { auto r_ = MlKemBackend::import_key(&attrs, CByteVSpan{kp->private_key.data(), kp->private_key.size()}); ASSERT_TRUE(r_.has_value()); raw_id = r_.value(); }
 
     // Pass the Kem768 algorithm ID but the key was imported as Kem512 — must fail.
     const auto result = MlKemBackend::kem_decapsulate(
         raw_id, MlKemBackend::alg_ml_kem(MlKemVariant::Kem768),
-        encap->ciphertext.data(), encap->ciphertext.size());
+        CByteVSpan{encap->ciphertext.data(), encap->ciphertext.size()});
     EXPECT_FALSE(result.has_value());
 
     EXPECT_EQ(MlKemBackend::destroy_key(raw_id), MlKemBackend::ok);

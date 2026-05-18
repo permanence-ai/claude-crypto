@@ -81,13 +81,13 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto hash_compute(
         const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length)
+        const CByteVSpan input)
         -> std::expected<SecureBuffer, Status>
     {
         const std::size_t hash_size = PSA_HASH_MAX_SIZE;
         SecureBuffer hash(hash_size);
         std::size_t hash_length = 0;
-        const auto s = psa_hash_compute(alg, input, input_length, hash.data(), hash_size, &hash_length);
+        const auto s = psa_hash_compute(alg, input.data(), input.size(), hash.data(), hash_size, &hash_length);
         if (s != PSA_SUCCESS) {
             return std::unexpected(s);
         }
@@ -98,7 +98,7 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto import_key(
         const KeyAttributes* attributes,
-        const CryptoByte* data, const std::size_t data_length)
+        const CByteVSpan data)
         -> std::expected<KeyId, Status>
     {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -107,10 +107,10 @@ struct RealPsaBackend {
             using psa_mbedtls::detail::PqcKeyType;
             const bool is_private = (attributes->pqc_type == PqcKeyType::MlKemPrivate ||
                                      attributes->pqc_type == PqcKeyType::MlDsaPrivate);
-            const CryptoByte* priv = is_private ? data : nullptr;
-            const std::size_t priv_sz = is_private ? data_length : 0U;
-            const CryptoByte* pub = is_private ? nullptr : data;
-            const std::size_t pub_sz = is_private ? 0U : data_length;
+            const CryptoByte* priv = is_private ? data.data() : nullptr;
+            const std::size_t priv_sz = is_private ? data.size() : 0U;
+            const CryptoByte* pub = is_private ? nullptr : data.data();
+            const std::size_t pub_sz = is_private ? 0U : data.size();
             const unsigned int slot = psa_mbedtls::detail::pqc_key_store_import(
                 attributes->pqc_type, attributes->pqc_variant, priv, priv_sz, pub, pub_sz);
             if (slot == 0U) { return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT)); }
@@ -119,7 +119,7 @@ struct RealPsaBackend {
 #endif
         KeyId key = null_key_id();
         const Status s = psa_import_key(attributes != nullptr ? &attributes->psa : nullptr,
-                                        data, data_length, &key);
+                                        data.data(), data.size(), &key);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
         return key; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
     }
@@ -258,13 +258,13 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto mac_compute(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length)
+        const CByteVSpan input)
         -> std::expected<SecureBuffer, Status>
     {
         const std::size_t mac_size = PSA_MAC_MAX_SIZE;
         SecureBuffer mac(mac_size);
         std::size_t mac_length = 0;
-        const auto s = psa_mac_compute(key, alg, input, input_length, mac.data(), mac_size, &mac_length);
+        const auto s = psa_mac_compute(key, alg, input.data(), input.size(), mac.data(), mac_size, &mac_length);
         if (s != PSA_SUCCESS) {
             return std::unexpected(s);
         }
@@ -275,28 +275,28 @@ struct RealPsaBackend {
     [[nodiscard]]
     static Status mac_verify(
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* mac, const std::size_t mac_length)
+        const CByteVSpan input,
+        const CByteVSpan mac)
     {
-        return psa_mac_verify(key, alg, input, input_length, mac, mac_length);
+        return psa_mac_verify(key, alg, input.data(), input.size(), mac.data(), mac.size());
     }
 
     [[nodiscard]]
     static auto aead_encrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* nonce, const std::size_t nonce_length,
-        const CryptoByte* additional_data, const std::size_t additional_data_length,
-        const CryptoByte* plaintext, const std::size_t plaintext_length)
+        const CByteVSpan nonce,
+        const CByteVSpan additional_data,
+        const CByteVSpan plaintext)
         -> std::expected<SecureBuffer, Status>
     {
-        const std::size_t ct_max = PSA_AEAD_ENCRYPT_OUTPUT_MAX_SIZE(plaintext_length);
+        const std::size_t ct_max = PSA_AEAD_ENCRYPT_OUTPUT_MAX_SIZE(plaintext.size());
         SecureBuffer ciphertext(ct_max);
         std::size_t ciphertext_length = 0;
         const Status s = psa_aead_encrypt(
             key, alg,
-            nonce, nonce_length,
-            additional_data, additional_data_length,
-            plaintext, plaintext_length,
+            nonce.data(), nonce.size(),
+            additional_data.data(), additional_data.size(),
+            plaintext.data(), plaintext.size(),
             ciphertext.data(), ct_max, &ciphertext_length);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
         ciphertext.resize(ciphertext_length);
@@ -306,19 +306,19 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto aead_decrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* nonce, const std::size_t nonce_length,
-        const CryptoByte* additional_data, const std::size_t additional_data_length,
-        const CryptoByte* ciphertext, const std::size_t ciphertext_length)
+        const CByteVSpan nonce,
+        const CByteVSpan additional_data,
+        const CByteVSpan ciphertext)
         -> std::expected<SecureBuffer, Status>
     {
-        // Plaintext is always at most ciphertext_length bytes (tag is removed).
-        SecureBuffer plaintext(ciphertext_length);
+        // Plaintext is always at most ciphertext.size() bytes (tag is removed).
+        SecureBuffer plaintext(ciphertext.size());
         std::size_t plaintext_length = 0;
         const Status s = psa_aead_decrypt(
             key, alg,
-            nonce, nonce_length,
-            additional_data, additional_data_length,
-            ciphertext, ciphertext_length,
+            nonce.data(), nonce.size(),
+            additional_data.data(), additional_data.size(),
+            ciphertext.data(), ciphertext.size(),
             plaintext.data(), plaintext.size(), &plaintext_length);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
         plaintext.resize(plaintext_length);
@@ -328,7 +328,7 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto sign_message(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length)
+        const CByteVSpan input)
         -> std::expected<SecureBuffer, Status>
     {
         const std::size_t sig_max = PSA_SIGNATURE_MAX_SIZE;
@@ -351,7 +351,7 @@ struct RealPsaBackend {
             const std::size_t exact_size = ml_dsa_signature_size(v);
             SecureBuffer ml_dsa_sig(exact_size);
             if (!liboqs_pqc::ml_dsa_sign(v, kv_sign->data.data(), kv_sign->data.size(),
-                                          input, input_length,
+                                          input.data(), input.size(),
                                           ml_dsa_sig.data(), exact_size, &sig_len)) {
                 return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
             }
@@ -359,7 +359,7 @@ struct RealPsaBackend {
             return ml_dsa_sig;
         }
 #endif
-        const auto s = psa_sign_message(key, alg, input, input_length,
+        const auto s = psa_sign_message(key, alg, input.data(), input.size(),
                                          signature.data(), sig_max, &sig_len);
         if (s != PSA_SUCCESS) {
             return std::unexpected(s);
@@ -371,8 +371,8 @@ struct RealPsaBackend {
     [[nodiscard]]
     static Status verify_message(
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* signature, const std::size_t signature_length)
+        const CByteVSpan input,
+        const CByteVSpan signature)
     {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
         if ((alg & kPqcAlgCategoryMask) == kAlgMlDsaBase) {
@@ -387,27 +387,27 @@ struct RealPsaBackend {
             const auto v = static_cast<MlDsaVariant>(kv_ver->variant);
             if (alg != alg_ml_dsa(v)) { return PSA_ERROR_INVALID_ARGUMENT; }
             return liboqs_pqc::ml_dsa_verify(v, kv_ver->data.data(), kv_ver->data.size(),
-                                              input, input_length,
-                                              signature, signature_length)
+                                              input.data(), input.size(),
+                                              signature.data(), signature.size())
                 ? PSA_SUCCESS : PSA_ERROR_INVALID_SIGNATURE;
         }
 #endif
         return psa_verify_message(
-            key, alg, input, input_length, signature, signature_length);
+            key, alg, input.data(), input.size(), signature.data(), signature.size());
     }
 
     [[nodiscard]]
     static auto raw_key_agreement(  // NOLINT(readability-function-size)
         const Algorithm alg,
         const KeyId private_key,
-        const CryptoByte* peer_key, const std::size_t peer_key_length)
+        const CByteVSpan peer_key)
         -> std::expected<SecureBuffer, Status>
     {
         const std::size_t max_size = PSA_RAW_KEY_AGREEMENT_OUTPUT_MAX_SIZE;
         SecureBuffer output(max_size);
         std::size_t output_length = 0;
         const Status s = psa_raw_key_agreement(
-            alg, private_key, peer_key, peer_key_length,
+            alg, private_key, peer_key.data(), peer_key.size(),
             output.data(), max_size, &output_length);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
         output.resize(output_length);
@@ -417,15 +417,15 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto asymmetric_encrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* salt, const std::size_t salt_length)
+        const CByteVSpan input,
+        const CByteVSpan salt)
         -> std::expected<SecureBuffer, Status>
     {
         const std::size_t max_size = PSA_ASYMMETRIC_ENCRYPT_OUTPUT_MAX_SIZE;
         SecureBuffer output(max_size);
         std::size_t output_length = 0;
         const Status s = psa_asymmetric_encrypt(
-            key, alg, input, input_length, salt, salt_length,
+            key, alg, input.data(), input.size(), salt.data(), salt.size(),
             output.data(), max_size, &output_length);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
         output.resize(output_length);
@@ -435,15 +435,15 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto asymmetric_decrypt(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* salt, const std::size_t salt_length)
+        const CByteVSpan input,
+        const CByteVSpan salt)
         -> std::expected<SecureBuffer, Status>
     {
         const std::size_t max_size = PSA_ASYMMETRIC_DECRYPT_OUTPUT_MAX_SIZE;
         SecureBuffer output(max_size);
         std::size_t output_length = 0;
         const Status s = psa_asymmetric_decrypt(
-            key, alg, input, input_length, salt, salt_length,
+            key, alg, input.data(), input.size(), salt.data(), salt.size(),
             output.data(), max_size, &output_length);
         if (s != PSA_SUCCESS) { return std::unexpected(s); }
         output.resize(output_length);
@@ -452,9 +452,9 @@ struct RealPsaBackend {
 
     [[nodiscard]]
     static auto hkdf_derive(  // NOLINT(readability-function-cognitive-complexity)
-        const CryptoByte* ikm,     const std::size_t ikm_len,
-        const CryptoByte* salt,    const std::size_t salt_len,
-        const CryptoByte* info,    const std::size_t info_len,
+        const CByteVSpan ikm,
+        const CByteVSpan salt,
+        const CByteVSpan info,
         const std::size_t out_len, const bool expand_only)
         -> std::expected<SecureBuffer, Status>
     {
@@ -466,10 +466,10 @@ struct RealPsaBackend {
         psa_set_key_type(&a, PSA_KEY_TYPE_DERIVE);
         psa_set_key_usage_flags(&a, PSA_KEY_USAGE_DERIVE);
         psa_set_key_algorithm(&a, alg);
-        psa_set_key_bits(&a, ikm_len * 8U);
+        psa_set_key_bits(&a, ikm.size() * 8U);
 
         psa_key_id_t key_id = PSA_KEY_ID_NULL;
-        if (psa_import_key(&a, ikm, ikm_len, &key_id) != PSA_SUCCESS) {
+        if (psa_import_key(&a, ikm.data(), ikm.size(), &key_id) != PSA_SUCCESS) {
             return std::unexpected(PSA_ERROR_GENERIC_ERROR);
         }
         struct KeyGuard {
@@ -484,9 +484,9 @@ struct RealPsaBackend {
             (void)psa_key_derivation_abort(&op);
             return std::unexpected(PSA_ERROR_GENERIC_ERROR);
         }
-        if (!expand_only && salt != nullptr && salt_len > 0) {
+        if (!expand_only && !salt.empty()) {
             if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_SALT,
-                                               salt, salt_len) != PSA_SUCCESS) {
+                                               salt.data(), salt.size()) != PSA_SUCCESS) {
                 (void)psa_key_derivation_abort(&op);
                 return std::unexpected(PSA_ERROR_GENERIC_ERROR);
             }
@@ -497,7 +497,7 @@ struct RealPsaBackend {
             return std::unexpected(PSA_ERROR_GENERIC_ERROR);
         }
         if (psa_key_derivation_input_bytes(&op, PSA_KEY_DERIVATION_INPUT_INFO,
-                                           info, info_len) != PSA_SUCCESS) {
+                                           info.data(), info.size()) != PSA_SUCCESS) {
             (void)psa_key_derivation_abort(&op);
             return std::unexpected(PSA_ERROR_GENERIC_ERROR);
         }
@@ -958,7 +958,7 @@ struct RealPsaBackend {
     [[nodiscard]]
     static auto kem_decapsulate( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* const ciphertext, const std::size_t ciphertext_len) // NOLINT(bugprone-easily-swappable-parameters)
+        const CByteVSpan ciphertext)
         -> std::expected<SecureBuffer, Status>
     {
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -980,14 +980,14 @@ struct RealPsaBackend {
         const std::size_t ss_size = ml_kem_shared_secret_size(v);
         SecureBuffer shared_secret(ss_size);
         if (!liboqs_pqc::ml_kem_decaps(v, kv_decaps->data.data(), kv_decaps->data.size(),
-                                        ciphertext, ciphertext_len,
+                                        ciphertext.data(), ciphertext.size(),
                                         shared_secret.data(), ss_size)) {
             return std::unexpected(static_cast<Status>(PSA_ERROR_INVALID_ARGUMENT));
         }
         return shared_secret;
 #else
         (void)key; (void)alg;
-        (void)ciphertext; (void)ciphertext_len;
+        (void)ciphertext;
         return std::unexpected(err_invalid_arg);
 #endif
     }

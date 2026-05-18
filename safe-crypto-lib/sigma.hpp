@@ -97,9 +97,9 @@ auto sigma_derive_keys_impl(
     }
 
     auto result = Provider::hkdf_derive(
-        shared_secret.data(), shared_secret.size(),
-        nullptr, 0,
-        info.data(), info.size(),
+        CByteVSpan{shared_secret.data(), shared_secret.size()},
+        CByteVSpan{},
+        CByteVSpan{info.data(), info.size()},
         total_output, false);
 
     if (!result.has_value()) {

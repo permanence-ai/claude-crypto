@@ -245,7 +245,7 @@ TEST_F(MlDsaTests, Dsa44_SignRejectsAlgorithmVariantMismatch) {
 
     auto attrs = MlDsaBackend::make_ml_dsa_sign_attrs(MlDsaVariant::Dsa44);
     const auto key_result = MlDsaBackend::import_key(&attrs,
-                                                      kp->private_key.data(), kp->private_key.size());
+                                                      CByteVSpan{kp->private_key.data(), kp->private_key.size()});
     ASSERT_TRUE(key_result.has_value());
     const auto raw_id = key_result.value();
 
@@ -254,7 +254,7 @@ TEST_F(MlDsaTests, Dsa44_SignRejectsAlgorithmVariantMismatch) {
     // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
     const auto sign_result = MlDsaBackend::sign_message(
         raw_id, MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
-        msg.data(), msg.size());
+        CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(sign_result.has_value());
 
     EXPECT_EQ(MlDsaBackend::destroy_key(raw_id), MlDsaBackend::ok);
@@ -270,15 +270,15 @@ TEST_F(MlDsaTests, Dsa44_VerifyRejectsAlgorithmVariantMismatch) {
 
     auto attrs = MlDsaBackend::make_ml_dsa_verify_attrs(MlDsaVariant::Dsa44);
     const auto key_result = MlDsaBackend::import_key(&attrs,
-                                                      kp->public_key.data(), kp->public_key.size());
+                                                      CByteVSpan{kp->public_key.data(), kp->public_key.size()});
     ASSERT_TRUE(key_result.has_value());
     const auto raw_id = key_result.value();
 
     // Pass the Dsa65 algorithm ID but the key was imported as Dsa44 — must fail.
     const auto status = MlDsaBackend::verify_message(
         raw_id, MlDsaBackend::alg_ml_dsa(MlDsaVariant::Dsa65),
-        msg.data(), msg.size(),
-        sig->data(), sig->size());
+        CByteVSpan{msg.data(), msg.size()},
+        CByteVSpan{sig->data(), sig->size()});
     EXPECT_NE(status, MlDsaBackend::ok);
 
     EXPECT_EQ(MlDsaBackend::destroy_key(raw_id), MlDsaBackend::ok);

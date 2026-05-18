@@ -55,15 +55,10 @@ auto derive_key_impl(  // NOLINT(readability-function-cognitive-complexity)
     }
     const SecureBuffer& ikm_ref = ikm.has_value() ? *ikm : *generated_ikm;
 
-    const CryptoByte* salt_ptr  = salt.has_value() ? salt->data() : nullptr;
-    const std::size_t salt_size = salt.has_value() ? salt->size() : 0;
-    const CryptoByte* info_ptr  = info.has_value() ? info->data() : nullptr;
-    const std::size_t info_size = info.has_value() ? info->size() : 0;
-
     auto result = Provider::hkdf_derive(
-        ikm_ref.data(), ikm_ref.size(),
-        salt_ptr, salt_size,
-        info_ptr, info_size,
+        CByteVSpan{ikm_ref.data(), ikm_ref.size()},
+        salt.has_value() ? CByteVSpan{salt->data(), salt->size()} : CByteVSpan{},
+        info.has_value() ? CByteVSpan{info->data(), info->size()} : CByteVSpan{},
         output_length, false);
 
     if (!result.has_value()) {
@@ -97,13 +92,10 @@ auto expand_key_impl(
             "PSA crypto init failed"));
     }
 
-    const CryptoByte* info_ptr  = info.has_value() ? info->data() : nullptr;
-    const std::size_t info_size = info.has_value() ? info->size() : 0;
-
     auto result = Provider::hkdf_derive(
-        prk.data(), prk.size(),
-        nullptr, 0,
-        info_ptr, info_size,
+        CByteVSpan{prk.data(), prk.size()},
+        CByteVSpan{},
+        info.has_value() ? CByteVSpan{info->data(), info->size()} : CByteVSpan{},
         output_length, true);
 
     if (!result.has_value()) {

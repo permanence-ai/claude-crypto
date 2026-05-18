@@ -25,7 +25,7 @@ auto sha_impl(const Input& input)
 
     auto result = Provider::hash_compute(
         Provider::alg_sha(V),
-        input.data(), input.size());
+        CByteVSpan{input.data(), input.size()});
 
     if (!result.has_value()) {
         return std::unexpected(CryptoError(
