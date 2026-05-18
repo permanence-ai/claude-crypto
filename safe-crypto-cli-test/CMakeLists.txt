@@ -26,9 +26,12 @@ target_link_libraries(${EXE_NAME} PRIVATE
 )
 
 # Inject the path to the scli binary as a compile-time string constant.
+# add_dependencies ensures scli is built before the test runs, so a scli build
+# failure is reported as a build error rather than a runtime test failure.
 target_compile_definitions(${EXE_NAME} PRIVATE
         SCLI_PATH="$<TARGET_FILE:scli>"
 )
+add_dependencies(${EXE_NAME} scli)
 
 # Propagate provider/PQC feature macros so test guards match the build.
 target_link_libraries(${EXE_NAME} PRIVATE safe_crypto_lib)
