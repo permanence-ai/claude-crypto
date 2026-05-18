@@ -66,7 +66,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
       - name: Verify CLI tests ran
-        run: ctest --test-dir build --output-on-failure --no-tests=error -R "^safe_crypto_cli"
+        run: ctest --test-dir build --output-on-failure --no-tests=error -R "^CLI\."
 
   # ---------------------------------------------------------------------------
   # IA_ASM build and test on native x86-64 Linux.
