@@ -27,3 +27,4 @@ default.profraw
 .idea/
 Testing/
 a.out
+build-pipe-drain/
