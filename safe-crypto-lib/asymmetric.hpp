@@ -49,8 +49,8 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     auto attrs = Provider::make_rsa_oaep_encrypt_attrs(key_bits_val);
 
     auto key_result = Provider::import_key(&attrs,
-                        public_key.public_key_der.data(),
-                        public_key.public_key_der.size());
+                        CByteVSpan{public_key.public_key_der.data(),
+                                   public_key.public_key_der.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -58,14 +58,11 @@ auto rsa_oaep_encrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
-    const std::size_t   label_size = label.has_value() ? label->size() : 0;
-
     auto ct_result = Provider::asymmetric_encrypt(
         key_handle.get(),
         Provider::alg_rsa_oaep(),
-        plaintext.data(), plaintext.size(),
-        label_ptr, label_size);
+        CByteVSpan{plaintext.data(), plaintext.size()},
+        label.has_value() ? CByteVSpan{label->data(), label->size()} : CByteVSpan{});
 
     if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -96,8 +93,8 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     auto attrs = Provider::make_rsa_oaep_decrypt_attrs(key_bits_val);
 
     auto key_result = Provider::import_key(&attrs,
-                        key_pair.private_key_der.data(),
-                        key_pair.private_key_der.size());
+                        CByteVSpan{key_pair.private_key_der.data(),
+                                   key_pair.private_key_der.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -105,14 +102,11 @@ auto rsa_oaep_decrypt_impl(  // NOLINT(readability-function-cognitive-complexity
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    const CryptoByte* label_ptr  = label.has_value() ? label->data() : nullptr;
-    const std::size_t   label_size = label.has_value() ? label->size() : 0;
-
     auto pt_result = Provider::asymmetric_decrypt(
         key_handle.get(),
         Provider::alg_rsa_oaep(),
-        ciphertext.data(), ciphertext.size(),
-        label_ptr, label_size);
+        CByteVSpan{ciphertext.data(), ciphertext.size()},
+        label.has_value() ? CByteVSpan{label->data(), label->size()} : CByteVSpan{});
 
     if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -142,8 +136,8 @@ auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto attrs = Provider::make_rsa_pss_sign_attrs(key_bits_val);
 
     auto key_result = Provider::import_key(&attrs,
-                        key_pair.private_key_der.data(),
-                        key_pair.private_key_der.size());
+                        CByteVSpan{key_pair.private_key_der.data(),
+                                   key_pair.private_key_der.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -154,7 +148,7 @@ auto rsa_pss_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto sig_result = Provider::sign_message(
         key_handle.get(),
         Provider::alg_rsa_pss(),
-        message.data(), message.size());
+        CByteVSpan{message.data(), message.size()});
 
     if (!sig_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -186,8 +180,8 @@ auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto attrs = Provider::make_rsa_pss_verify_attrs(key_bits_val);
 
     auto key_result = Provider::import_key(&attrs,
-                        public_key.public_key_der.data(),
-                        public_key.public_key_der.size());
+                        CByteVSpan{public_key.public_key_der.data(),
+                                   public_key.public_key_der.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -198,8 +192,8 @@ auto rsa_pss_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     const auto status = Provider::verify_message(
         key_handle.get(),
         Provider::alg_rsa_pss(),
-        message.data(), message.size(),
-        signature.data(), signature.size());
+        CByteVSpan{message.data(), message.size()},
+        CByteVSpan{signature.data(), signature.size()});
 
     if (status == Provider::err_invalid_sig || status == Provider::err_invalid_arg) {
         return false;

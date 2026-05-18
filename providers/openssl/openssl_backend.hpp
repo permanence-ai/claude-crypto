@@ -572,11 +572,11 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto import_key( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyAttributes* attributes,
-        const CryptoByte* data, const std::size_t data_length) noexcept
+        const CByteVSpan data) noexcept
         -> std::expected<KeyId, Status>
     {
         using namespace openssl_provider::detail;
-        if (attributes == nullptr || data == nullptr) { return std::unexpected(err_invalid_arg); }
+        if (attributes == nullptr || data.empty()) { return std::unexpected(err_invalid_arg); }
 
         OpenSslKeyKind kind = OpenSslKeyKind::None;
         switch (attributes->type) {
@@ -592,7 +592,7 @@ struct OpenSslBackend {
                     OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
                         const_cast<char*>(curve), 0),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
                     OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_PRIV_KEY,
-                        const_cast<CryptoByte*>(data), data_length),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                        const_cast<CryptoByte*>(data.data()), data.size()),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
                     OSSL_PARAM_END
                 };
                 EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr);
@@ -615,7 +615,7 @@ struct OpenSslBackend {
                     OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
                         const_cast<char*>(curve), 0),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
                     OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
-                        const_cast<CryptoByte*>(data), data_length),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                        const_cast<CryptoByte*>(data.data()), data.size()),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
                     OSSL_PARAM_END
                 };
                 EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_from_name(nullptr, "EC", nullptr);
@@ -632,8 +632,8 @@ struct OpenSslBackend {
             }
             case KeyAttributes::KeyType::RsaKeyPair: {
                 // Private key in PKCS#1 DER format (from i2d_PrivateKey).
-                const CryptoByte* p = data;
-                EVP_PKEY* pkey = d2i_PrivateKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
+                const CryptoByte* p = data.data();
+                EVP_PKEY* pkey = d2i_PrivateKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data.size()));
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -641,8 +641,8 @@ struct OpenSslBackend {
             }
             case KeyAttributes::KeyType::RsaPublicKey: {
                 // Public key in SubjectPublicKeyInfo DER format (from i2d_PublicKey).
-                const CryptoByte* p = data;
-                EVP_PKEY* pkey = d2i_PublicKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data_length));
+                const CryptoByte* p = data.data();
+                EVP_PKEY* pkey = d2i_PublicKey(EVP_PKEY_RSA, nullptr, &p, static_cast<long>(data.size()));
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -653,7 +653,7 @@ struct OpenSslBackend {
                 const char* alg_name = slh_dsa_name_from_alg(attributes->alg);
                 if (alg_name == nullptr) { return std::unexpected(err_invalid_arg); }
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
-                    nullptr, alg_name, nullptr, data, data_length);
+                    nullptr, alg_name, nullptr, data.data(), data.size());
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -664,7 +664,7 @@ struct OpenSslBackend {
                 const char* alg_name = slh_dsa_name_from_alg(attributes->alg);
                 if (alg_name == nullptr) { return std::unexpected(err_invalid_arg); }
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
-                    nullptr, alg_name, nullptr, data, data_length);
+                    nullptr, alg_name, nullptr, data.data(), data.size());
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -675,7 +675,7 @@ struct OpenSslBackend {
                 const char* alg_name = ml_dsa_name_from_alg(attributes->alg);
                 if (alg_name == nullptr) { return std::unexpected(err_invalid_arg); }
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
-                    nullptr, alg_name, nullptr, data, data_length);
+                    nullptr, alg_name, nullptr, data.data(), data.size());
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -686,7 +686,7 @@ struct OpenSslBackend {
                 const char* alg_name = ml_dsa_name_from_alg(attributes->alg);
                 if (alg_name == nullptr) { return std::unexpected(err_invalid_arg); }
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
-                    nullptr, alg_name, nullptr, data, data_length);
+                    nullptr, alg_name, nullptr, data.data(), data.size());
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -697,7 +697,7 @@ struct OpenSslBackend {
                 const char* alg_name = ml_kem_name_from_alg(attributes->alg);
                 if (alg_name == nullptr) { return std::unexpected(err_invalid_arg); }
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_private_key_ex(
-                    nullptr, alg_name, nullptr, data, data_length);
+                    nullptr, alg_name, nullptr, data.data(), data.size());
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -708,7 +708,7 @@ struct OpenSslBackend {
                 const char* alg_name = ml_kem_name_from_alg(attributes->alg);
                 if (alg_name == nullptr) { return std::unexpected(err_invalid_arg); }
                 EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key_ex(
-                    nullptr, alg_name, nullptr, data, data_length);
+                    nullptr, alg_name, nullptr, data.data(), data.size());
                 if (pkey == nullptr) { return std::unexpected(err_invalid_arg); }
                 const unsigned int id = ossl_asym_store_import(pkey, attributes->alg);  // NOLINT(cppcoreguidelines-init-variables)  // NOLINT(cppcoreguidelines-init-variables)
                 if (id == 0U) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -717,7 +717,7 @@ struct OpenSslBackend {
             default: return std::unexpected(err_invalid_arg);
         }
 
-        const unsigned int id = ossl_raw_store_import(kind, data, data_length); // NOLINT(cppcoreguidelines-init-variables)
+        const unsigned int id = ossl_raw_store_import(kind, data.data(), data.size()); // NOLINT(cppcoreguidelines-init-variables)
         if (id == 0U) { return std::unexpected(err_invalid_arg); }
         return id; // NOLINT(bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions)
     }
@@ -930,7 +930,7 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto hash_compute(
         const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length) noexcept
+        const CByteVSpan input) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         const char* name = digest_name(alg);
@@ -938,7 +938,7 @@ struct OpenSslBackend {
         SecureBuffer hash(sha512_digest_bytes);
         std::size_t len = sha512_digest_bytes;
         const Status rv = EVP_Q_digest(nullptr, name, nullptr,
-                                       input, input_length,
+                                       input.data(), input.size(),
                                        hash.data(), &len);
         if (rv != ok) { return std::unexpected(err_invalid_arg); }
         hash.resize(len);
@@ -981,12 +981,12 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto mac_compute(  // NOLINT(readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* input, const std::size_t input_length) noexcept
+        const CByteVSpan input) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         SecureBuffer mac(sha512_digest_bytes);
         std::size_t mac_length = 0;
-        const auto s = mac_compute_raw(key, alg, input, input_length,
+        const auto s = mac_compute_raw(key, alg, input.data(), input.size(),
                                        mac.data(), sha512_digest_bytes, &mac_length);
         if (s != ok) {
             return std::unexpected(s);
@@ -998,20 +998,20 @@ struct OpenSslBackend {
     [[nodiscard]]
     static Status mac_verify(
         const KeyId key, const Algorithm alg,
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* mac, const std::size_t mac_length) noexcept
+        const CByteVSpan input,
+        const CByteVSpan mac) noexcept
     {
         // Compute a fresh MAC and compare in constant time.
         ByteArray<sha512_digest_bytes> computed{};  // large enough for any HMAC output
         std::size_t computed_len = 0;
         const Status rv = mac_compute_raw(key, alg,
-                                         input, input_length,
+                                         input.data(), input.size(),
                                          computed.data(), computed.size(),
                                          &computed_len);
         if (rv != ok) { return err_invalid_arg; }
-        if (computed_len != mac_length) { return err_invalid_sig; }
+        if (computed_len != mac.size()) { return err_invalid_sig; }
         // CRYPTO_memcmp is OpenSSL's constant-time compare.
-        return CRYPTO_memcmp(computed.data(), mac, mac_length) == 0 ? ok : err_invalid_sig;
+        return CRYPTO_memcmp(computed.data(), mac.data(), mac.size()) == 0 ? ok : err_invalid_sig;
     }
 
     // Internal helper.
@@ -1070,18 +1070,18 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto aead_encrypt(
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* nonce, const std::size_t nonce_length,
-        const CryptoByte* additional_data, const std::size_t additional_data_length,
-        const CryptoByte* plaintext, const std::size_t plaintext_length) noexcept
+        const CByteVSpan nonce,
+        const CByteVSpan additional_data,
+        const CByteVSpan plaintext) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         constexpr std::size_t kAeadOverhead = 32U;
-        const std::size_t max_ct = plaintext_length + kAeadOverhead;
+        const std::size_t max_ct = plaintext.size() + kAeadOverhead;
         SecureBuffer buf(max_ct);
         std::size_t ct_len = 0;
-        const auto s = aead_encrypt_raw(key, alg, nonce, nonce_length,
-                                        additional_data, additional_data_length,
-                                        plaintext, plaintext_length,
+        const auto s = aead_encrypt_raw(key, alg, nonce.data(), nonce.size(),
+                                        additional_data.data(), additional_data.size(),
+                                        plaintext.data(), plaintext.size(),
                                         buf.data(), max_ct, &ct_len);
         if (s != ok) { return std::unexpected(s); }
         buf.resize(ct_len);
@@ -1149,17 +1149,17 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto aead_decrypt(
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* nonce, const std::size_t nonce_length,
-        const CryptoByte* additional_data, const std::size_t additional_data_length,
-        const CryptoByte* ciphertext, const std::size_t ciphertext_length) noexcept
+        const CByteVSpan nonce,
+        const CByteVSpan additional_data,
+        const CByteVSpan ciphertext) noexcept
         -> std::expected<SecureBuffer, Status>
     {
-        SecureBuffer buf(ciphertext_length);
+        SecureBuffer buf(ciphertext.size());
         std::size_t pt_len = 0;
-        const auto s = aead_decrypt_raw(key, alg, nonce, nonce_length,
-                                        additional_data, additional_data_length,
-                                        ciphertext, ciphertext_length,
-                                        buf.data(), ciphertext_length, &pt_len);
+        const auto s = aead_decrypt_raw(key, alg, nonce.data(), nonce.size(),
+                                        additional_data.data(), additional_data.size(),
+                                        ciphertext.data(), ciphertext.size(),
+                                        buf.data(), ciphertext.size(), &pt_len);
         if (s != ok) { return std::unexpected(s); }
         buf.resize(pt_len);
         return buf;
@@ -1208,12 +1208,12 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto sign_message(  // NOLINT(readability-function-cognitive-complexity,readability-function-size)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* input, const std::size_t input_length) noexcept
+        const CByteVSpan input) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         SecureBuffer signature(slh_dsa_256f_sig_bytes);
         std::size_t sig_len = 0;
-        const auto s = sign_message_raw(key, alg, input, input_length,
+        const auto s = sign_message_raw(key, alg, input.data(), input.size(),
                                         signature.data(), slh_dsa_256f_sig_bytes, &sig_len);
         if (s != ok) {
             return std::unexpected(s);
@@ -1225,8 +1225,8 @@ struct OpenSslBackend {
     [[nodiscard]]
     static Status verify_message( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* signature, const std::size_t signature_length) noexcept
+        const CByteVSpan input,
+        const CByteVSpan signature) noexcept
     {
         using namespace openssl_provider::detail;
         const bool is_pqc_v = ((alg & kAlgCategoryMask) == kAlgSlhDsaBase) ||
@@ -1249,8 +1249,8 @@ struct OpenSslBackend {
                 if (EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PSS_PADDING) != ok) { break; }
                 if (EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, RSA_PSS_SALTLEN_DIGEST) != ok) { break; }
             }
-            const int r = EVP_DigestVerify(ctx, signature, signature_length,
-                                           input, input_length);
+            const int r = EVP_DigestVerify(ctx, signature.data(), signature.size(),
+                                           input.data(), input.size());
             if (r == 1)  { rv = ok; break; }
             if (r == 0)  { rv = err_invalid_sig; break; }
             rv = err_invalid_arg;
@@ -1322,13 +1322,13 @@ struct OpenSslBackend {
     static auto raw_key_agreement(
         const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
         const KeyId private_key,
-        const CryptoByte* peer_key, const std::size_t peer_key_length) noexcept
+        const CByteVSpan peer_key) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         constexpr std::size_t kMaxEcdhOutputBytes = 66U;  // P-521 max
         SecureBuffer buf(kMaxEcdhOutputBytes);
         std::size_t out_len = 0;
-        const auto s = raw_key_agreement_raw(alg, private_key, peer_key, peer_key_length,
+        const auto s = raw_key_agreement_raw(alg, private_key, peer_key.data(), peer_key.size(),
                                              buf.data(), kMaxEcdhOutputBytes, &out_len);
         if (s != ok) { return std::unexpected(s); }
         buf.resize(out_len);
@@ -1382,14 +1382,14 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto asymmetric_encrypt(
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* salt, const std::size_t salt_length) noexcept
+        const CByteVSpan input,
+        const CByteVSpan salt) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         constexpr std::size_t kMaxRsaOutputBytes = 512U;  // RSA-4096 = 512 bytes
         SecureBuffer buf(kMaxRsaOutputBytes);
         std::size_t out_len = 0;
-        const auto s = asymmetric_encrypt_raw(key, alg, input, input_length, salt, salt_length,
+        const auto s = asymmetric_encrypt_raw(key, alg, input.data(), input.size(), salt.data(), salt.size(),
                                               buf.data(), kMaxRsaOutputBytes, &out_len);
         if (s != ok) { return std::unexpected(s); }
         buf.resize(out_len);
@@ -1442,14 +1442,14 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto asymmetric_decrypt(
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* input, const std::size_t input_length,
-        const CryptoByte* salt, const std::size_t salt_length) noexcept
+        const CByteVSpan input,
+        const CByteVSpan salt) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         constexpr std::size_t kMaxRsaOutputBytes = 512U;  // RSA-4096 = 512 bytes
         SecureBuffer buf(kMaxRsaOutputBytes);
         std::size_t out_len = 0;
-        const auto s = asymmetric_decrypt_raw(key, alg, input, input_length, salt, salt_length,
+        const auto s = asymmetric_decrypt_raw(key, alg, input.data(), input.size(), salt.data(), salt.size(),
                                               buf.data(), kMaxRsaOutputBytes, &out_len);
         if (s != ok) { return std::unexpected(s); }
         buf.resize(out_len);
@@ -1528,13 +1528,13 @@ struct OpenSslBackend {
     [[nodiscard]]
     static auto kem_decapsulate(
         const KeyId key, const Algorithm alg,  // NOLINT(bugprone-easily-swappable-parameters)
-        const CryptoByte* ciphertext, const std::size_t ciphertext_length) noexcept
+        const CByteVSpan ciphertext) noexcept
         -> std::expected<SecureBuffer, Status>
     {
         constexpr std::size_t kMlKemSharedSecretBytes = ml_kem_shared_secret_bytes;
         SecureBuffer buf(kMlKemSharedSecretBytes);
         std::size_t ss_len = 0;
-        const auto s = kem_decapsulate_raw(key, alg, ciphertext, ciphertext_length,
+        const auto s = kem_decapsulate_raw(key, alg, ciphertext.data(), ciphertext.size(),
                                            buf.data(), kMlKemSharedSecretBytes, &ss_len);
         if (s != ok) { return std::unexpected(s); }
         buf.resize(ss_len);
@@ -1543,9 +1543,9 @@ struct OpenSslBackend {
 
     [[nodiscard]]
     static auto hkdf_derive(  // NOLINT(readability-function-cognitive-complexity)
-        const CryptoByte* ikm,     const std::size_t ikm_len,
-        const CryptoByte* salt,    const std::size_t salt_len,
-        const CryptoByte* info,    const std::size_t info_len,
+        const CByteVSpan ikm,
+        const CByteVSpan salt,
+        const CByteVSpan info,
         const std::size_t out_len, const bool expand_only) noexcept
         -> std::expected<SecureBuffer, Status>
     {
@@ -1575,20 +1575,20 @@ struct OpenSslBackend {
             OSSL_KDF_PARAM_MODE, &mode);
         params[n++] = OSSL_PARAM_construct_octet_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             OSSL_KDF_PARAM_KEY,
-            const_cast<CryptoByte*>(ikm),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
-            ikm_len);
-        if (!expand_only && salt != nullptr && salt_len > 0) {
+            const_cast<CryptoByte*>(ikm.data()),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+            ikm.size());
+        if (!expand_only && !salt.empty()) {
             params[n++] = OSSL_PARAM_construct_octet_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
                 OSSL_KDF_PARAM_SALT,
-                const_cast<CryptoByte*>(salt),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
-                salt_len);
+                const_cast<CryptoByte*>(salt.data()),  // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                salt.size());
         }
+        static constexpr CryptoByte kEmptyInfo = 0U;
         params[n++] = OSSL_PARAM_construct_octet_string(  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
             OSSL_KDF_PARAM_INFO,
             const_cast<CryptoByte*>(  // NOLINT(cppcoreguidelines-pro-type-const-cast)
-                info != nullptr ? info
-                                : reinterpret_cast<const CryptoByte*>("")),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-            info_len);
+                info.empty() ? &kEmptyInfo : info.data()),
+            info.size());
         params[n] = OSSL_PARAM_END;  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
 
         SecureBuffer output(out_len);

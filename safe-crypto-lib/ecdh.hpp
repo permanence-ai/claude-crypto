@@ -83,8 +83,8 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     auto attrs = Provider::make_ecdh_agree_attrs(key_bits);
 
     auto key_result = Provider::import_key(&attrs,
-                        our_key_pair.private_key_der.data(),
-                        our_key_pair.private_key_der.size());
+                        CByteVSpan{our_key_pair.private_key_der.data(),
+                                   our_key_pair.private_key_der.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -95,7 +95,7 @@ auto ecdh_compute_shared_secret_impl(  // NOLINT(readability-function-cognitive-
     auto ss_result = Provider::raw_key_agreement(
         Provider::alg_ecdh(),
         key_handle.get(),
-        peer_public_key_der.data(), peer_public_key_der.size());
+        CByteVSpan{peer_public_key_der.data(), peer_public_key_der.size()});
 
     if (!ss_result.has_value()) {
         return std::unexpected(CryptoError(

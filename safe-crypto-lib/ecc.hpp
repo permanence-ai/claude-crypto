@@ -107,8 +107,8 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto attrs = Provider::make_ecdsa_sign_attrs(key_bits);
 
     auto key_result = Provider::import_key(&attrs,
-                        key_pair.private_key_der.data(),
-                        key_pair.private_key_der.size());
+                        CByteVSpan{key_pair.private_key_der.data(),
+                                   key_pair.private_key_der.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -119,7 +119,7 @@ auto ecdsa_sign_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto sig_result = Provider::sign_message(
         key_handle.get(),
         Provider::alg_ecdsa(),
-        message.data(), message.size());
+        CByteVSpan{message.data(), message.size()});
 
     if (!sig_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -152,8 +152,8 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     auto attrs = Provider::make_ecdsa_verify_attrs(key_bits);
 
     auto key_result = Provider::import_key(&attrs,
-                        public_key.public_key_der.data(),
-                        public_key.public_key_der.size());
+                        CByteVSpan{public_key.public_key_der.data(),
+                                   public_key.public_key_der.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -164,8 +164,8 @@ auto ecdsa_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     const auto status = Provider::verify_message(
         key_handle.get(),
         Provider::alg_ecdsa(),
-        message.data(), message.size(),
-        signature.data(), signature.size());
+        CByteVSpan{message.data(), message.size()},
+        CByteVSpan{signature.data(), signature.size()});
 
     if (status == Provider::err_invalid_sig || status == Provider::err_invalid_arg) {
         return false;

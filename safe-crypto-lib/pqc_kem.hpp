@@ -149,8 +149,8 @@ auto ml_kem_decapsulate_impl(
 
     auto attrs = Provider::make_ml_kem_decap_attrs(V);
     auto key_result = Provider::import_key(&attrs,
-                             key_pair.private_key.data(),
-                             key_pair.private_key.size());
+                             CByteVSpan{key_pair.private_key.data(),
+                                        key_pair.private_key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -161,7 +161,7 @@ auto ml_kem_decapsulate_impl(
     auto ss_result = Provider::kem_decapsulate(
         key_handle.get(),
         Provider::alg_ml_kem(V),
-        ciphertext.data(), ciphertext.size());
+        CByteVSpan{ciphertext.data(), ciphertext.size()});
 
     if (!ss_result.has_value()) {
         return std::unexpected(CryptoError(

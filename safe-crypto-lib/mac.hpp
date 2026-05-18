@@ -29,7 +29,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_hmac_generate_attrs(V, key.size() * bits_per_byte);
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -39,7 +39,7 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto result = Provider::mac_compute(
         key_handle.get(), Provider::alg_hmac(V),
-        message.data(), message.size());
+        CByteVSpan{message.data(), message.size()});
 
     if (!result.has_value()) {
         return std::unexpected(CryptoError(
@@ -70,7 +70,7 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     auto attrs = Provider::make_hmac_verify_attrs(V, key.size() * bits_per_byte);
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -80,8 +80,8 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
 
     const auto status = Provider::mac_verify(
         key_handle.get(), Provider::alg_hmac(V),
-        message.data(), message.size(),
-        mac.data(), mac.size());
+        CByteVSpan{message.data(), message.size()},
+        CByteVSpan{mac.data(), mac.size()});
 
     if (status == Provider::err_invalid_sig) {
         return false;

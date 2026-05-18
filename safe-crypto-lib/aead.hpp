@@ -50,7 +50,7 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 
     auto attrs = Provider::make_aes256_gcm_encrypt_attrs();
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -58,14 +58,11 @@ auto aes256_gcm_encrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
-
     auto ct_result = Provider::aead_encrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
-        iv->data(), iv->size(),
-        aad_ptr, aad_size,
-        plaintext.data(), plaintext.size());
+        CByteVSpan{iv->data(), iv->size()},
+        aad.has_value() ? CByteVSpan{aad->data(), aad->size()} : CByteVSpan{},
+        CByteVSpan{plaintext.data(), plaintext.size()});
 
     if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -96,7 +93,7 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
 
     auto attrs = Provider::make_aes256_gcm_decrypt_attrs();
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -104,14 +101,11 @@ auto aes256_gcm_decrypt_impl(  // NOLINT(readability-function-cognitive-complexi
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t  aad_size = aad.has_value() ? aad->size() : 0;
-
     auto pt_result = Provider::aead_decrypt(
         key_handle.get(), Provider::alg_aes_gcm(),
-        ciphertext.iv.data(), ciphertext.iv.size(),
-        aad_ptr, aad_size,
-        ciphertext.ciphertext.data(), ciphertext.ciphertext.size());
+        CByteVSpan{ciphertext.iv.data(), ciphertext.iv.size()},
+        aad.has_value() ? CByteVSpan{aad->data(), aad->size()} : CByteVSpan{},
+        CByteVSpan{ciphertext.ciphertext.data(), ciphertext.ciphertext.size()});
 
     if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -144,7 +138,7 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
 
     auto attrs = Provider::make_chacha20_poly1305_encrypt_attrs();
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -152,14 +146,11 @@ auto chacha20_poly1305_encrypt_impl(  // NOLINT(readability-function-cognitive-c
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
-
     auto ct_result = Provider::aead_encrypt(
         key_handle.get(), Provider::alg_chacha20_poly1305(),
-        iv->data(), iv->size(),
-        aad_ptr, aad_size,
-        plaintext.data(), plaintext.size());
+        CByteVSpan{iv->data(), iv->size()},
+        aad.has_value() ? CByteVSpan{aad->data(), aad->size()} : CByteVSpan{},
+        CByteVSpan{plaintext.data(), plaintext.size()});
 
     if (!ct_result.has_value()) {
         return std::unexpected(CryptoError(
@@ -190,7 +181,7 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
 
     auto attrs = Provider::make_chacha20_poly1305_decrypt_attrs();
 
-    auto key_result = Provider::import_key(&attrs, key.data(), key.size());
+    auto key_result = Provider::import_key(&attrs, CByteVSpan{key.data(), key.size()});
     if (!key_result.has_value()) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::KeyImportFailed,
@@ -198,14 +189,11 @@ auto chacha20_poly1305_decrypt_impl(  // NOLINT(readability-function-cognitive-c
     }
     const PsaKeyHandle<Provider> key_handle(key_result.value());
 
-    const CryptoByte* aad_ptr  = aad.has_value() ? aad->data() : nullptr;
-    const std::size_t aad_size = aad.has_value() ? aad->size() : 0;
-
     auto pt_result = Provider::aead_decrypt(
         key_handle.get(), Provider::alg_chacha20_poly1305(),
-        ciphertext.iv.data(), ciphertext.iv.size(),
-        aad_ptr, aad_size,
-        ciphertext.ciphertext.data(), ciphertext.ciphertext.size());
+        CByteVSpan{ciphertext.iv.data(), ciphertext.iv.size()},
+        aad.has_value() ? CByteVSpan{aad->data(), aad->size()} : CByteVSpan{},
+        CByteVSpan{ciphertext.ciphertext.data(), ciphertext.ciphertext.size()});
 
     if (!pt_result.has_value()) {
         return std::unexpected(CryptoError(
