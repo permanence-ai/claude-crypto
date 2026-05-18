@@ -108,7 +108,7 @@ auto expand_key_impl(
 
 
 [[nodiscard]]
-inline auto derive_key(
+inline auto hkdf_derive(
     const std::size_t output_length, // NOLINT(bugprone-easily-swappable-parameters)
     const std::optional<SecureBuffer>& ikm  = std::nullopt, // NOLINT(bugprone-easily-swappable-parameters)
     const std::optional<SecureBuffer>& salt = std::nullopt,
@@ -119,7 +119,7 @@ inline auto derive_key(
 }
 
 [[nodiscard]]
-inline auto expand_key(
+inline auto hkdf_expand(
     const std::size_t output_length,
     const SecureBuffer& prk,
     const std::optional<SecureBuffer>& info = std::nullopt)

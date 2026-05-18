@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "mac.hpp"
+#include "sha_variant.hpp"
 #include "test_utils.hpp"
 
 
@@ -217,4 +218,30 @@ TEST_F(MacTests, VerifyWithTamperedMacFails) {
 
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(*result);
+}
+
+
+TEST_F(MacTests, GenerateRejectsKeyTooShort) {
+    const auto short_key = make_random_secure_buffer(sha_output_size(ShaVariant::Sha384) - 1);
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+
+    const auto result = hmac_generate<ShaVariant::Sha384>(short_key, message);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
+}
+
+
+TEST_F(MacTests, VerifyRejectsKeyTooShort) {
+    const auto key       = make_random_secure_buffer(KEY_SIZE_BYTES);
+    const auto short_key = make_random_secure_buffer(sha_output_size(ShaVariant::Sha384) - 1);
+    const auto message   = make_random_secure_buffer(MESSAGE_SIZE_BYTES);
+
+    const auto mac = hmac_generate<ShaVariant::Sha384>(key, message);
+    ASSERT_TRUE(mac.has_value());
+
+    const auto result = hmac_verify<ShaVariant::Sha384>(short_key, message, *mac);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
 }

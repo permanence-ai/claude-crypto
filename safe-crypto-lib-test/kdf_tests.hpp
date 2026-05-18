@@ -18,32 +18,32 @@ class KdfTests : public ::testing::Test {
 };
 
 
-TEST_F(KdfTests, DeriveKeyProducesExpectedSize) {
+TEST_F(KdfTests, HkdfDeriveProducesExpectedSize) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
 
-    const auto result = derive_key(OUTPUT_LENGTH);
+    const auto result = hkdf_derive(OUTPUT_LENGTH);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->size(), OUTPUT_LENGTH);
 }
 
 
-TEST_F(KdfTests, DeriveKeyWithIkmRoundTrip) {
+TEST_F(KdfTests, HkdfDeriveWithIkmRoundTrip) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
     auto ikm = make_random_secure_buffer(OUTPUT_LENGTH * 2);
 
-    const auto result = derive_key(OUTPUT_LENGTH, std::optional<SecureBuffer>(std::move(ikm)));
+    const auto result = hkdf_derive(OUTPUT_LENGTH, std::optional<SecureBuffer>(std::move(ikm)));
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->size(), OUTPUT_LENGTH);
 }
 
 
-TEST_F(KdfTests, DeriveKeyWithIkmTooShortFails) {
+TEST_F(KdfTests, HkdfDeriveWithIkmTooShortFails) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
     auto ikm = make_random_secure_buffer((OUTPUT_LENGTH * 2) - 1);
 
-    const auto result = derive_key(OUTPUT_LENGTH, std::optional<SecureBuffer>(std::move(ikm)));
+    const auto result = hkdf_derive(OUTPUT_LENGTH, std::optional<SecureBuffer>(std::move(ikm)));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
@@ -51,13 +51,13 @@ TEST_F(KdfTests, DeriveKeyWithIkmTooShortFails) {
 }
 
 
-TEST_F(KdfTests, DeriveKeyWithSaltSucceeds) {
+TEST_F(KdfTests, HkdfDeriveWithSaltSucceeds) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
     constexpr std::size_t SALT_SIZE     = 32;
     auto ikm  = make_random_secure_buffer(OUTPUT_LENGTH * 2);
     auto salt = std::optional<SecureBuffer>(make_random_secure_buffer(SALT_SIZE));
 
-    const auto result = derive_key(OUTPUT_LENGTH,
+    const auto result = hkdf_derive(OUTPUT_LENGTH,
                                    std::optional<SecureBuffer>(std::move(ikm)),
                                    salt);
 
@@ -66,37 +66,37 @@ TEST_F(KdfTests, DeriveKeyWithSaltSucceeds) {
 }
 
 
-TEST_F(KdfTests, DeriveKeyWithIkmExactMinimumSucceeds) {
+TEST_F(KdfTests, HkdfDeriveWithIkmExactMinimumSucceeds) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
     auto ikm = make_random_secure_buffer(OUTPUT_LENGTH * 2);
 
-    const auto result = derive_key(OUTPUT_LENGTH, std::optional<SecureBuffer>(std::move(ikm)));
+    const auto result = hkdf_derive(OUTPUT_LENGTH, std::optional<SecureBuffer>(std::move(ikm)));
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->size(), OUTPUT_LENGTH);
 }
 
 
-TEST_F(KdfTests, ExpandKeyProducesExpectedSize) {
+TEST_F(KdfTests, HkdfExpandProducesExpectedSize) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
     constexpr std::size_t PRK_SIZE      = 48;
 
     const auto prk    = make_random_secure_buffer(PRK_SIZE);
-    const auto result = expand_key(OUTPUT_LENGTH, prk);
+    const auto result = hkdf_expand(OUTPUT_LENGTH, prk);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->size(), OUTPUT_LENGTH);
 }
 
 
-TEST_F(KdfTests, ExpandKeyWithInfoProducesExpectedSize) {
+TEST_F(KdfTests, HkdfExpandWithInfoProducesExpectedSize) {
     constexpr std::size_t OUTPUT_LENGTH = 64;
     constexpr std::size_t PRK_SIZE      = 48;
     constexpr std::size_t INFO_SIZE     = 16;
 
     const auto prk  = make_random_secure_buffer(PRK_SIZE);
     auto info       = make_random_secure_buffer(INFO_SIZE);
-    const auto result = expand_key(OUTPUT_LENGTH, prk,
+    const auto result = hkdf_expand(OUTPUT_LENGTH, prk,
                                    std::optional<SecureBuffer>(std::move(info)));
 
     ASSERT_TRUE(result.has_value());
@@ -104,14 +104,14 @@ TEST_F(KdfTests, ExpandKeyWithInfoProducesExpectedSize) {
 }
 
 
-TEST_F(KdfTests, DeriveKeyLargeOutputWithAdequateIkmSucceeds) {
+TEST_F(KdfTests, HkdfDeriveLargeOutputWithAdequateIkmSucceeds) {
     // Use output_length = 128 so that the required IKM is exactly 256 bytes —
     // the smallest raw-key cap across all providers (OpenSSL: 256 bytes).
     // This confirms our output-length guard does not false-reject legal inputs.
     constexpr std::size_t kOutputLen = 128;
     auto ikm = make_random_secure_buffer(kOutputLen * 2);
 
-    const auto result = derive_key(kOutputLen,
+    const auto result = hkdf_derive(kOutputLen,
                                    std::optional<SecureBuffer>(std::move(ikm)));
 
     ASSERT_TRUE(result.has_value());
@@ -119,45 +119,45 @@ TEST_F(KdfTests, DeriveKeyLargeOutputWithAdequateIkmSucceeds) {
 }
 
 
-TEST_F(KdfTests, DeriveKeyAboveMaxOutputLengthFails) {
-    const auto result = derive_key(hkdf_sha384_max_output_bytes + 1);
+TEST_F(KdfTests, HkdfDeriveAboveMaxOutputLengthFails) {
+    const auto result = hkdf_derive(hkdf_sha384_max_output_bytes + 1);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
 }
 
 
-TEST_F(KdfTests, DeriveKeyOverflowSizeFails) {
-    const auto result = derive_key(SIZE_MAX);
+TEST_F(KdfTests, HkdfDeriveOverflowSizeFails) {
+    const auto result = hkdf_derive(SIZE_MAX);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
 }
 
 
-TEST_F(KdfTests, ExpandKeyAboveMaxOutputLengthFails) {
+TEST_F(KdfTests, HkdfExpandAboveMaxOutputLengthFails) {
     constexpr std::size_t PRK_SIZE = 48;
     const auto prk = make_random_secure_buffer(PRK_SIZE);
 
-    const auto result = expand_key(hkdf_sha384_max_output_bytes + 1, prk);
+    const auto result = hkdf_expand(hkdf_sha384_max_output_bytes + 1, prk);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
 }
 
 
-TEST_F(KdfTests, ExpandKeyOverflowSizeFails) {
+TEST_F(KdfTests, HkdfExpandOverflowSizeFails) {
     constexpr std::size_t PRK_SIZE = 48;
     const auto prk = make_random_secure_buffer(PRK_SIZE);
 
-    const auto result = expand_key(SIZE_MAX, prk);
+    const auto result = hkdf_expand(SIZE_MAX, prk);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().code(), CryptoErrorCode::InvalidArgument);
 }
 
 
-TEST_F(KdfTests, ExpandKeyDifferentInfoProducesDifferentOutput) {
+TEST_F(KdfTests, HkdfExpandDifferentInfoProducesDifferentOutput) {
     constexpr std::size_t OUTPUT_LENGTH = 32;
     constexpr std::size_t PRK_SIZE      = 48;
     constexpr std::size_t INFO_SIZE     = 16;
@@ -166,9 +166,9 @@ TEST_F(KdfTests, ExpandKeyDifferentInfoProducesDifferentOutput) {
     auto info_a      = make_random_secure_buffer(INFO_SIZE);
     auto info_b      = make_random_secure_buffer(INFO_SIZE);
 
-    const auto result_a = expand_key(OUTPUT_LENGTH, prk,
+    const auto result_a = hkdf_expand(OUTPUT_LENGTH, prk,
                                      std::optional<SecureBuffer>(std::move(info_a)));
-    const auto result_b = expand_key(OUTPUT_LENGTH, prk,
+    const auto result_b = hkdf_expand(OUTPUT_LENGTH, prk,
                                      std::optional<SecureBuffer>(std::move(info_b)));
 
     ASSERT_TRUE(result_a.has_value());

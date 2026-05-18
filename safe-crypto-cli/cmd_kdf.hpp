@@ -82,7 +82,7 @@ inline void register_kdf(CLI::App& app)
             info_opt = std::move(*buf);
         }
 
-        const auto result = derive_key(out_len, ikm_opt, salt_opt, info_opt);
+        const auto result = hkdf_derive(out_len, ikm_opt, salt_opt, info_opt);
         if (!result.has_value()) { die(result.error()); }
 
         const std::string out_spec = drv_output->count() > 0U ? drv_output->as<std::string>() : "";
@@ -128,7 +128,7 @@ inline void register_kdf(CLI::App& app)
             info_opt = std::move(*buf);
         }
 
-        const auto result = expand_key(out_len, *prk_buf, info_opt);
+        const auto result = hkdf_expand(out_len, *prk_buf, info_opt);
         if (!result.has_value()) { die(result.error()); }
 
         const std::string out_spec = exp_output->count() > 0U ? exp_output->as<std::string>() : "";
