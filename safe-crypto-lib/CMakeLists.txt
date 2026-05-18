@@ -34,11 +34,14 @@ target_include_directories(${LIB_NAME} INTERFACE
 )
 
 # Propagate the selected provider's library and compile definition to all consumers.
+# ARM_ASM and IA_ASM also link safe_crypto_lib_psa_mbedtls so that provider.hpp's
+# PSA fallback branch (used when ASM extensions are unavailable, e.g. on x86_64)
+# can find psa_mbedtls_backend.hpp.
 if(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "ARM_ASM")
-    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_arm_asm)
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_arm_asm safe_crypto_lib_psa_mbedtls)
     target_compile_definitions(${LIB_NAME} INTERFACE SAFE_CRYPTO_PROVIDER_ARM_ASM)
 elseif(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "IA_ASM")
-    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_ia_asm)
+    target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_ia_asm safe_crypto_lib_psa_mbedtls)
     target_compile_definitions(${LIB_NAME} INTERFACE SAFE_CRYPTO_PROVIDER_IA_ASM)
 elseif(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "OPENSSL")
     target_link_libraries(${LIB_NAME} INTERFACE safe_crypto_lib_openssl)
