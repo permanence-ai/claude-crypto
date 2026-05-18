@@ -16,8 +16,13 @@ protected:
         return path;
     }
 
-    // A fixed 32-byte key (base64) for deterministic tests.
-    static constexpr const char* kKey = "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    // Keys sized to each algorithm's minimum (= hash output length).
+    // SHA-256: 32 bytes, SHA-384: 48 bytes, SHA-512: 64 bytes.
+    static constexpr const char* kKey32 = "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    static constexpr const char* kKey48 = "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    static constexpr const char* kKey64 = "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+    // Alias for the default SHA-256 tests.
+    static constexpr const char* kKey = kKey32;
 };
 
 TEST_F(MacTests, GenerateProducesNonEmptyOutput) {
@@ -66,16 +71,23 @@ TEST_F(MacTests, VerifyFailsWithWrongKey) {
 
 TEST_F(MacTests, Sha384Variant) {
     const auto r = run_scli(scli(),
-        {"mac", "--algo", "sha384", "--key", kKey, "--input", "base64:aGVsbG8="});
+        {"mac", "--algo", "sha384", "--key", kKey48, "--input", "base64:aGVsbG8="});
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_FALSE(r.stdout_text.empty());
 }
 
 TEST_F(MacTests, Sha512Variant) {
     const auto r = run_scli(scli(),
-        {"mac", "--algo", "sha512", "--key", kKey, "--input", "base64:aGVsbG8="});
+        {"mac", "--algo", "sha512", "--key", kKey64, "--input", "base64:aGVsbG8="});
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_FALSE(r.stdout_text.empty());
+}
+
+TEST_F(MacTests, UndersizedKeyExitsNonZero) {
+    // 32-byte key is too short for SHA-384 (requires ≥ 48 bytes).
+    const auto r = run_scli(scli(),
+        {"mac", "--algo", "sha384", "--key", kKey32, "--input", "base64:aGVsbG8="});
+    EXPECT_NE(r.exit_code, 0);
 }
 
 TEST_F(MacTests, UnknownAlgoExitsNonZero) {
