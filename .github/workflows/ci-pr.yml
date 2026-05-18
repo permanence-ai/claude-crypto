@@ -140,11 +140,13 @@ jobs:
         # from those entry points (--header-filter only affects included headers,
         # not primary translation units passed on the command line).
         run: |
+          SDK=$(xcrun --show-sdk-path)
           jq -r '.[].file' build-lint-${{ matrix.label }}/compile_commands.json \
             | grep 'safe-crypto-lib-test/main\.cpp$' \
             | xargs "$(brew --prefix llvm)/bin/clang-tidy" \
                 -p build-lint-${{ matrix.label }} \
-                "--header-filter=${{ matrix.header_filter }}"
+                "--header-filter=${{ matrix.header_filter }}" \
+                "--extra-arg=-isysroot${SDK}"
 
   # ---------------------------------------------------------------------------
   # ThreadSanitizer — PSA_MBEDTLS for a fast PR-gate check.

@@ -65,9 +65,7 @@ static void run_ml_dsa_cross_verify(const char* label) {
         // Import public key into ARM ASM backend.
         auto arm_pub_attrs = ArmAsmBackend::make_ml_dsa_verify_attrs(V);
         ArmAsmBackend::KeyId arm_pub_id = ArmAsmBackend::null_key_id();
-        ASSERT_EQ(ArmAsmBackend::import_key(
-            &arm_pub_attrs, ossl_kp->public_key.data(), ossl_kp->public_key.size(), &arm_pub_id),
-            ArmAsmBackend::ok) << label << " ARM public key import failed (OpenSSL→ARM)";
+        { auto r_ = ArmAsmBackend::import_key(&arm_pub_attrs, ossl_kp->public_key.data(), ossl_kp->public_key.size()); ASSERT_TRUE(r_.has_value()) << label << " ARM public key import failed (OpenSSL→ARM)"; arm_pub_id = r_.value(); }
 
         EXPECT_EQ(ArmAsmBackend::verify_message(
             arm_pub_id, ArmAsmBackend::alg_ml_dsa(V),

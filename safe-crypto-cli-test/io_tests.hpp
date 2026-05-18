@@ -520,13 +520,22 @@ TEST_F(IoTests, PipeDrain_LargeStdoutDoesNotDeadlock) {
 
 // Pass a key file larger than 64 KiB; the CLI writes a long error to stderr.
 // The stdout is empty, confirming stderr-only output is captured correctly.
+// The oversized data is written to a temp file rather than a command-line
+// argument to avoid the Linux MAX_ARG_STRLEN (128 KiB) per-argument limit.
 TEST_F(IoTests, PipeDrain_LargeStderrDoesNotDeadlock) {
-    // Build a base64 string that decodes to 128 KiB — well above cli_key_max_bytes.
-    // Each 'A' group of 4 decodes to 3 zero bytes; 128*1024/3 = 43691 groups → 131073 bytes.
-    const std::string big_b64(43692U * 4U, 'A');  // decodes to ~131072 bytes
+    // Write 128 KiB of zero bytes — well above cli_key_max_bytes (64 KiB).
+    const auto dir = tmp_dir("pipe_drain");
+    std::filesystem::create_directory(dir);
+    const auto key_path = dir / "big_key.bin";
+    {
+        std::ofstream f(key_path, std::ios::binary);
+        constexpr std::size_t kKeySize = 128U * 1024U;
+        const std::vector<char> zeros(kKeySize, '\0');
+        f.write(zeros.data(), static_cast<std::streamsize>(kKeySize));
+    }
     const auto r = run_scli(scli(),
         {"mac", "--algo", "sha256",
-         "--key", "base64:" + big_b64,
+         "--key", key_path.string(),
          "--input", "base64:" + std::string(kHelloB64)});
     EXPECT_NE(r.exit_code, 0);
     EXPECT_NE(r.stderr_text.find("exceeds"), std::string::npos);
