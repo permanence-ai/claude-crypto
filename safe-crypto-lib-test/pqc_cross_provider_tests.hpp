@@ -65,12 +65,12 @@ static void run_ml_dsa_cross_verify(const char* label) {
         // Import public key into ARM ASM backend.
         auto arm_pub_attrs = ArmAsmBackend::make_ml_dsa_verify_attrs(V);
         ArmAsmBackend::KeyId arm_pub_id = ArmAsmBackend::null_key_id();
-        { auto r_ = ArmAsmBackend::import_key(&arm_pub_attrs, ossl_kp->public_key.data(), ossl_kp->public_key.size()); ASSERT_TRUE(r_.has_value()) << label << " ARM public key import failed (OpenSSL→ARM)"; arm_pub_id = r_.value(); }
+        { auto r_ = ArmAsmBackend::import_key(&arm_pub_attrs, CByteVSpan{ossl_kp->public_key.data(), ossl_kp->public_key.size()}); ASSERT_TRUE(r_.has_value()) << label << " ARM public key import failed (OpenSSL→ARM)"; arm_pub_id = r_.value(); }
 
         EXPECT_EQ(ArmAsmBackend::verify_message(
             arm_pub_id, ArmAsmBackend::alg_ml_dsa(V),
-            msg.data(), msg.size(),
-            sig->data(), sig->size()), ArmAsmBackend::ok)
+            CByteVSpan{msg.data(), msg.size()},
+            CByteVSpan{sig->data(), sig->size()}), ArmAsmBackend::ok)
             << label << " ARM rejected OpenSSL ML-DSA signature";
 
         (void)ArmAsmBackend::destroy_key(arm_pub_id);
@@ -94,7 +94,7 @@ static void run_ml_dsa_cross_verify(const char* label) {
         // Sign with ARM ASM.
         auto arm_sig_result = ArmAsmBackend::sign_message(
             arm_priv_id, ArmAsmBackend::alg_ml_dsa(V),
-            msg.data(), msg.size());
+            CByteVSpan{msg.data(), msg.size()});
         ASSERT_TRUE(arm_sig_result.has_value()) << label << " ARM sign failed";
         SecureBuffer arm_sig = std::move(arm_sig_result).value();
         (void)ArmAsmBackend::destroy_key(arm_priv_id);
@@ -122,7 +122,7 @@ static void run_ml_kem_cross_encap(const char* label) {
         // Import OpenSSL public key into ARM ASM backend for encapsulation.
         auto arm_pub_attrs = ArmAsmBackend::make_ml_kem_encap_attrs(V);
         ArmAsmBackend::KeyId arm_pub_id = ArmAsmBackend::null_key_id();
-        { auto r_ = ArmAsmBackend::import_key(&arm_pub_attrs, ossl_kp->public_key.data(), ossl_kp->public_key.size()); ASSERT_TRUE(r_.has_value()) << label << " ARM public key import failed (OpenSSL→ARM)"; arm_pub_id = r_.value(); }
+        { auto r_ = ArmAsmBackend::import_key(&arm_pub_attrs, CByteVSpan{ossl_kp->public_key.data(), ossl_kp->public_key.size()}); ASSERT_TRUE(r_.has_value()) << label << " ARM public key import failed (OpenSSL→ARM)"; arm_pub_id = r_.value(); }
 
         // ARM ASM encapsulate.
         const auto encap_result = ArmAsmBackend::kem_encapsulate(arm_pub_id, ArmAsmBackend::alg_ml_kem(V));
@@ -159,7 +159,7 @@ static void run_ml_kem_cross_encap(const char* label) {
         // ARM ASM decapsulate.
         const auto ss_result = ArmAsmBackend::kem_decapsulate(
             arm_priv_id, ArmAsmBackend::alg_ml_kem(V),
-            ossl_encap->ciphertext.data(), ossl_encap->ciphertext.size());
+            CByteVSpan{ossl_encap->ciphertext.data(), ossl_encap->ciphertext.size()});
         ASSERT_TRUE(ss_result.has_value()) << label << " ARM decapsulate failed (OpenSSL ct)";
         const SecureBuffer& arm_ss = *ss_result;
         (void)ArmAsmBackend::destroy_key(arm_priv_id);

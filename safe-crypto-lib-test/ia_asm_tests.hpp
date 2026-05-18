@@ -56,7 +56,7 @@ TEST_F(IaAsmEcdhValidationTests, P256ValidPeerSucceeds) {
     auto peer = export_public(id, p256_public_key_bytes);
     ASSERT_EQ(peer.size(), 65U);
     EXPECT_TRUE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                peer.data(), peer.size()).has_value());
+                                                CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(IaAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
@@ -65,7 +65,7 @@ TEST_F(IaAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
     ByteArray< p256_public_key_bytes> peer{};
     peer[0] = 0x04U;
     EXPECT_FALSE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(IaAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
@@ -75,7 +75,7 @@ TEST_F(IaAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 65U);
     peer[p256_public_key_bytes - 1U] ^= 0x01U;
     EXPECT_FALSE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 // P-384
@@ -86,7 +86,7 @@ TEST_F(IaAsmEcdhValidationTests, P384ValidPeerSucceeds) {
     auto peer = export_public(id, p384_public_key_bytes);
     ASSERT_EQ(peer.size(), 97U);
     EXPECT_TRUE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                peer.data(), peer.size()).has_value());
+                                                CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(IaAsmEcdhValidationTests, P384AllZeroPeerReturnsInvalidArg) {
@@ -95,7 +95,7 @@ TEST_F(IaAsmEcdhValidationTests, P384AllZeroPeerReturnsInvalidArg) {
     ByteArray< p384_public_key_bytes> peer{};
     peer[0] = 0x04U;
     EXPECT_FALSE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(IaAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
@@ -105,7 +105,7 @@ TEST_F(IaAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 97U);
     peer[p384_public_key_bytes - 1U] ^= 0x01U;
     EXPECT_FALSE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 // P-521
@@ -116,7 +116,7 @@ TEST_F(IaAsmEcdhValidationTests, P521ValidPeerSucceeds) {
     auto peer = export_public(id, p521_public_key_bytes);
     ASSERT_EQ(peer.size(), 133U);
     EXPECT_TRUE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                peer.data(), peer.size()).has_value());
+                                                CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(IaAsmEcdhValidationTests, P521AllZeroPeerReturnsInvalidArg) {
@@ -125,7 +125,7 @@ TEST_F(IaAsmEcdhValidationTests, P521AllZeroPeerReturnsInvalidArg) {
     ByteArray< p521_public_key_bytes> peer{};
     peer[0] = 0x04U;
     EXPECT_FALSE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(IaAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
@@ -135,7 +135,7 @@ TEST_F(IaAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 133U);
     peer[p521_public_key_bytes - 1U] ^= 0x01U;
     EXPECT_FALSE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(IaAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
@@ -145,7 +145,7 @@ TEST_F(IaAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 133U);
     peer[1] |= 0x80U; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     EXPECT_FALSE(IaAsmBackend::raw_key_agreement(IaAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 
@@ -187,7 +187,7 @@ protected:
     static std::vector<CryptoByte> sign(IaAsmBackend::KeyId priv_id, std::size_t /*sig_len*/) {
         static constexpr ByteArray< sha512_digest_bytes> kMsg{};
         const auto result = IaAsmBackend::sign_message(priv_id, IaAsmBackend::alg_ecdsa(),
-                                                        kMsg.data(), kMsg.size());
+                                                        CByteVSpan{kMsg.data(), kMsg.size()});
         if (!result.has_value()) {
             return {};
         }
@@ -198,8 +198,8 @@ protected:
                                        const std::vector<CryptoByte>& sig) {
         static constexpr ByteArray< sha512_digest_bytes> kMsg{};
         return IaAsmBackend::verify_message(pub_id, IaAsmBackend::alg_ecdsa(),
-                                            kMsg.data(), kMsg.size(),
-                                            sig.data(), sig.size());
+                                            CByteVSpan{kMsg.data(), kMsg.size()},
+                                            CByteVSpan{sig.data(), sig.size()});
     }
 };
 

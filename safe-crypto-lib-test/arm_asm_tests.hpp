@@ -274,9 +274,9 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc1Sha384) {
         "48b6457763e4f0204fc5");
 
     auto r = ArmAsmBackend::hkdf_derive(
-        ikm.data(), ikm.size(),
-        salt.data(), salt.size(),
-        info.data(), info.size(),
+        CByteVSpan{ikm.data(), ikm.size()},
+        CByteVSpan{salt.data(), salt.size()},
+        CByteVSpan{info.data(), info.size()},
         42U, false);
     ASSERT_TRUE(r.has_value());
 
@@ -298,9 +298,9 @@ TEST_F(ArmAsmHkdfTests, Rfc5869Tc2NoSaltNoInfo) {
         "cc1cea5670415b52849c");
 
     auto r = ArmAsmBackend::hkdf_derive(
-        ikm.data(), ikm.size(),
-        nullptr, 0,
-        nullptr, 0,
+        CByteVSpan{ikm.data(), ikm.size()},
+        CByteVSpan{},
+        CByteVSpan{},
         42U, false);
     ASSERT_TRUE(r.has_value());
 
@@ -326,9 +326,9 @@ TEST_F(ArmAsmHkdfTests, SigmaStyleHkdf80Bytes) {
         "ecf86cf4c0b7a41bb43b21fbffc2ec6e");
 
     auto r = ArmAsmBackend::hkdf_derive(
-        ikm.data(), ikm.size(),
-        nullptr, 0,
-        info.data(), info.size(),
+        CByteVSpan{ikm.data(), ikm.size()},
+        CByteVSpan{},
+        CByteVSpan{info.data(), info.size()},
         80U, false);
     ASSERT_TRUE(r.has_value());
 
@@ -399,9 +399,9 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
                                          0x21,0x0a,0x00,0x00};
     const auto ct_result = ArmAsmBackend::aead_encrypt(
         enc_id, ArmAsmBackend::alg_aes_gcm(),
-        iv.data(), iv.size(),
-        nullptr, 0,
-        pt.data(), pt.size());
+        CByteVSpan{iv.data(), iv.size()},
+        CByteVSpan{},
+        CByteVSpan{pt.data(), pt.size()});
     ASSERT_TRUE(ct_result.has_value());
     const auto& ct = *ct_result;
     EXPECT_EQ(ct.size(), 32U);
@@ -409,9 +409,9 @@ TEST_F(ArmAsmKeyMgmtTests, GenerateAes256GcmKeyAndRoundTrip) {
     // Decrypt with the same key.
     const auto recovered_result = ArmAsmBackend::aead_decrypt(
         enc_id, ArmAsmBackend::alg_aes_gcm(),
-        iv.data(), iv.size(),
-        nullptr, 0,
-        ct.data(), ct.size());
+        CByteVSpan{iv.data(), iv.size()},
+        CByteVSpan{},
+        CByteVSpan{ct.data(), ct.size()});
     ASSERT_TRUE(recovered_result.has_value());
     const auto& recovered = *recovered_result;
     EXPECT_EQ(recovered.size(), pt.size());
@@ -432,7 +432,7 @@ TEST_F(ArmAsmKeyMgmtTests, ExportImportedKeyReturnsOriginalBytes) {
     };
     ArmAsmBackend::KeyAttributes attrs = ArmAsmBackend::make_aes256_gcm_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, original.data(), original.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    { auto r_ = ArmAsmBackend::import_key(&attrs, CByteVSpan{original.data(), original.size()}); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     const auto exported_result = ArmAsmBackend::export_key(id);
     ASSERT_TRUE(exported_result.has_value());
@@ -787,13 +787,13 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282EncryptWithAad) {
     // Import key.
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    { auto r_ = ArmAsmBackend::import_key(&attrs, CByteVSpan{key.data(), key.size()}); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     const auto out_result = ArmAsmBackend::aead_encrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
-                  nonce.data(), nonce.size(),
-                  aad.data(), aad.size(),
-                  pt.data(), pt.size());
+                  CByteVSpan{nonce.data(), nonce.size()},
+                  CByteVSpan{aad.data(), aad.size()},
+                  CByteVSpan{pt.data(), pt.size()});
     ASSERT_TRUE(out_result.has_value());
     const auto& out = *out_result;
     ASSERT_EQ(out.size(), 114U + 16U);
@@ -849,13 +849,13 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, Rfc8439Section282DecryptWithAad) {
 
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_decrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    { auto r_ = ArmAsmBackend::import_key(&attrs, CByteVSpan{key.data(), key.size()}); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     const auto pt_result = ArmAsmBackend::aead_decrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
-                  nonce.data(), nonce.size(),
-                  aad.data(), aad.size(),
-                  ct_tag.data(), ct_tag.size());
+                  CByteVSpan{nonce.data(), nonce.size()},
+                  CByteVSpan{aad.data(), aad.size()},
+                  CByteVSpan{ct_tag.data(), ct_tag.size()});
     ASSERT_TRUE(pt_result.has_value());
     const auto& pt = *pt_result;
     ASSERT_EQ(pt.size(), 114U);
@@ -880,14 +880,14 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, ShortVectorRoundTrip) {
 
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    { auto r_ = ArmAsmBackend::import_key(&attrs, CByteVSpan{key.data(), key.size()}); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     // Encrypt.
     const auto out_result = ArmAsmBackend::aead_encrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
-                  nonce.data(), nonce.size(),
-                  aad.data(), aad.size(),
-                  pt.data(), pt.size());
+                  CByteVSpan{nonce.data(), nonce.size()},
+                  CByteVSpan{aad.data(), aad.size()},
+                  CByteVSpan{pt.data(), pt.size()});
     ASSERT_TRUE(out_result.has_value());
     const auto& out = *out_result;
     ASSERT_EQ(out.size(), 32U);
@@ -901,9 +901,9 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, ShortVectorRoundTrip) {
     // Decrypt.
     const auto recovered_result = ArmAsmBackend::aead_decrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
-                  nonce.data(), nonce.size(),
-                  aad.data(), aad.size(),
-                  out.data(), out.size());
+                  CByteVSpan{nonce.data(), nonce.size()},
+                  CByteVSpan{aad.data(), aad.size()},
+                  CByteVSpan{out.data(), out.size()});
     ASSERT_TRUE(recovered_result.has_value());
     const auto& recovered = *recovered_result;
     ASSERT_EQ(recovered.size(), 16U);
@@ -922,13 +922,13 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
 
     auto attrs = ArmAsmBackend::make_chacha20_poly1305_encrypt_attrs();
     ArmAsmBackend::KeyId id = ArmAsmBackend::null_key_id();
-    { auto r_ = ArmAsmBackend::import_key(&attrs, key.data(), key.size()); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
+    { auto r_ = ArmAsmBackend::import_key(&attrs, CByteVSpan{key.data(), key.size()}); ASSERT_TRUE(r_.has_value()); id = r_.value(); }
 
     const auto encrypt_result = ArmAsmBackend::aead_encrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
-                  nonce.data(), nonce.size(),
-                  nullptr, 0,
-                  pt.data(), pt.size());
+                  CByteVSpan{nonce.data(), nonce.size()},
+                  CByteVSpan{},
+                  CByteVSpan{pt.data(), pt.size()});
     ASSERT_TRUE(encrypt_result.has_value());
     std::vector<CryptoByte> ct_tag(encrypt_result->data(),
                                    encrypt_result->data() + encrypt_result->size());
@@ -937,9 +937,9 @@ TEST_F(ArmAsmChaCha20Poly1305Tests, TamperedTagRejected) {
 
     const auto decrypt_result = ArmAsmBackend::aead_decrypt(
                   id, ArmAsmBackend::alg_chacha20_poly1305(),
-                  nonce.data(), nonce.size(),
-                  nullptr, 0,
-                  ct_tag.data(), ct_tag.size());
+                  CByteVSpan{nonce.data(), nonce.size()},
+                  CByteVSpan{},
+                  CByteVSpan{ct_tag.data(), ct_tag.size()});
     EXPECT_FALSE(decrypt_result.has_value());
     (void)ArmAsmBackend::destroy_key(id);
 }
@@ -1650,7 +1650,7 @@ protected:
 
 TEST_F(ArmAsmBackendErrorTests, HashComputeUnknownAlgReturnsInvalidArg) {
     const ByteArray< 4> msg{};
-    const auto result = ArmAsmBackend::hash_compute(0xFFFFU, msg.data(), msg.size());
+    const auto result = ArmAsmBackend::hash_compute(0xFFFFU, CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -1664,7 +1664,7 @@ TEST_F(ArmAsmBackendErrorTests, ImportKeyEcOversizedReturnsInvalidArg) {
     ArmAsmBackend::KeyAttributes attrs;
     attrs.ec_curve = arm_asm::detail::EcCurveId::P256;
     attrs.ec_kind  = arm_asm::detail::EcKeyKind::Private;
-    auto r_ = ArmAsmBackend::import_key(&attrs, buf.data(), oversize);
+    auto r_ = ArmAsmBackend::import_key(&attrs, CByteVSpan{buf.data(), oversize});
     EXPECT_FALSE(r_.has_value());
     if (!r_.has_value()) { EXPECT_EQ(r_.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1674,7 +1674,7 @@ TEST_F(ArmAsmBackendErrorTests, ImportKeySymOversizedReturnsInvalidArg) {
     std::vector<CryptoByte> buf(oversize, 0x01U);
     ArmAsmBackend::KeyAttributes attrs;
     attrs.key_bytes = oversize;
-    auto r_ = ArmAsmBackend::import_key(&attrs, buf.data(), oversize);
+    auto r_ = ArmAsmBackend::import_key(&attrs, CByteVSpan{buf.data(), oversize});
     EXPECT_FALSE(r_.has_value());
     if (!r_.has_value()) { EXPECT_EQ(r_.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1766,7 +1766,7 @@ TEST_F(ArmAsmBackendErrorTests, ExportPublicKeyEcPublicDirectCopyOutputTooSmall)
 TEST_F(ArmAsmBackendErrorTests, MacComputeInvalidIdReturnsInvalidArg) {
     const ByteArray< 4> msg{};
     const auto result = ArmAsmBackend::mac_compute(0U, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
-                                                    msg.data(), msg.size());
+                                                    CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -1775,7 +1775,7 @@ TEST_F(ArmAsmBackendErrorTests, MacComputeUnknownAlgReturnsInvalidArg) {
     const unsigned int id = import_sym(32);
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
-    const auto result = ArmAsmBackend::mac_compute(id, 0xFFFFU, msg.data(), msg.size());
+    const auto result = ArmAsmBackend::mac_compute(id, 0xFFFFU, CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -1787,7 +1787,7 @@ TEST_F(ArmAsmBackendErrorTests, MacVerifyMacLenMismatchReturnsInvalidSig) {
     ByteArray< 32> mac{};
     // mac_len=1 vs expected 32 for SHA-256.
     EXPECT_EQ(ArmAsmBackend::mac_verify(id, ArmAsmBackend::alg_hmac(ShaVariant::Sha256),
-                                         msg.data(), msg.size(), mac.data(), 1U),
+                                         CByteVSpan{msg.data(), msg.size()}, CByteVSpan{mac.data(), 1U}),
               ArmAsmBackend::err_invalid_sig);
 }
 
@@ -1798,9 +1798,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptInvalidIdReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     const ByteArray< 4> pt{};
     const auto r = ArmAsmBackend::aead_encrypt(0U, ArmAsmBackend::alg_aes_gcm(),
-                                               nonce.data(), nonce.size(),
-                                               nullptr, 0,
-                                               pt.data(), pt.size());
+                                               CByteVSpan{nonce.data(), nonce.size()},
+                                               CByteVSpan{},
+                                               CByteVSpan{pt.data(), pt.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1812,9 +1812,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptKeyLenNot32ReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     const ByteArray< 4> pt{};
     const auto r = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                               nonce.data(), nonce.size(),
-                                               nullptr, 0,
-                                               pt.data(), pt.size());
+                                               CByteVSpan{nonce.data(), nonce.size()},
+                                               CByteVSpan{},
+                                               CByteVSpan{pt.data(), pt.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1827,14 +1827,14 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptOutputTooSmallReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     const ByteArray< 4> pt{};
     const auto r_gcm = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                                   nonce.data(), nonce.size(),
-                                                   nullptr, 0,
-                                                   pt.data(), pt.size());
+                                                   CByteVSpan{nonce.data(), nonce.size()},
+                                                   CByteVSpan{},
+                                                   CByteVSpan{pt.data(), pt.size()});
     EXPECT_TRUE(r_gcm.has_value());
     const auto r_cc20 = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
-                                                    nonce.data(), nonce.size(),
-                                                    nullptr, 0,
-                                                    pt.data(), pt.size());
+                                                    CByteVSpan{nonce.data(), nonce.size()},
+                                                    CByteVSpan{},
+                                                    CByteVSpan{pt.data(), pt.size()});
     EXPECT_TRUE(r_cc20.has_value());
 }
 
@@ -1844,9 +1844,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptUnknownAlgReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     const ByteArray< 4> pt{};
     const auto r = ArmAsmBackend::aead_encrypt(id, 0xFFFFU,
-                                               nonce.data(), nonce.size(),
-                                               nullptr, 0,
-                                               pt.data(), pt.size());
+                                               CByteVSpan{nonce.data(), nonce.size()},
+                                               CByteVSpan{},
+                                               CByteVSpan{pt.data(), pt.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1858,9 +1858,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptInvalidIdReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     const ByteArray< 20> ct{};
     const auto r = ArmAsmBackend::aead_decrypt(0U, ArmAsmBackend::alg_aes_gcm(),
-                                               nonce.data(), nonce.size(),
-                                               nullptr, 0,
-                                               ct.data(), ct.size());
+                                               CByteVSpan{nonce.data(), nonce.size()},
+                                               CByteVSpan{},
+                                               CByteVSpan{ct.data(), ct.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1871,9 +1871,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptKeyLenNot32ReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     const ByteArray< 20> ct{};
     const auto r = ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                               nonce.data(), nonce.size(),
-                                               nullptr, 0,
-                                               ct.data(), ct.size());
+                                               CByteVSpan{nonce.data(), nonce.size()},
+                                               CByteVSpan{},
+                                               CByteVSpan{ct.data(), ct.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1884,15 +1884,15 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptCiphertextTooShortReturnsInvalidArg) 
     const ByteArray< 12> nonce{};
     ByteArray< 4> ct{};   // < 16-byte tag for both AES-GCM and ChaCha20
     const auto r_gcm = ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                                   nonce.data(), nonce.size(),
-                                                   nullptr, 0,
-                                                   ct.data(), ct.size());
+                                                   CByteVSpan{nonce.data(), nonce.size()},
+                                                   CByteVSpan{},
+                                                   CByteVSpan{ct.data(), ct.size()});
     EXPECT_FALSE(r_gcm.has_value());
     if (!r_gcm.has_value()) { EXPECT_EQ(r_gcm.error(), ArmAsmBackend::err_invalid_arg); }
     const auto r_cc20 = ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
-                                                    nonce.data(), nonce.size(),
-                                                    nullptr, 0,
-                                                    ct.data(), ct.size());
+                                                    CByteVSpan{nonce.data(), nonce.size()},
+                                                    CByteVSpan{},
+                                                    CByteVSpan{ct.data(), ct.size()});
     EXPECT_FALSE(r_cc20.has_value());
     if (!r_cc20.has_value()) { EXPECT_EQ(r_cc20.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1903,9 +1903,9 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptUnknownAlgReturnsInvalidArg) {
     const ByteArray< 12> nonce{};
     const ByteArray< 20> ct{};
     const auto r = ArmAsmBackend::aead_decrypt(id, 0xFFFFU,
-                                               nonce.data(), nonce.size(),
-                                               nullptr, 0,
-                                               ct.data(), ct.size());
+                                               CByteVSpan{nonce.data(), nonce.size()},
+                                               CByteVSpan{},
+                                               CByteVSpan{ct.data(), ct.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1919,15 +1919,15 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptShortNonceReturnsInvalidArg) {
     const ByteArray< 8> short_nonce{};  // 8 < 12
     const ByteArray< 4> pt{};
     const auto r_gcm = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                                   short_nonce.data(), short_nonce.size(),
-                                                   nullptr, 0,
-                                                   pt.data(), pt.size());
+                                                   CByteVSpan{short_nonce.data(), short_nonce.size()},
+                                                   CByteVSpan{},
+                                                   CByteVSpan{pt.data(), pt.size()});
     EXPECT_FALSE(r_gcm.has_value());
     if (!r_gcm.has_value()) { EXPECT_EQ(r_gcm.error(), ArmAsmBackend::err_invalid_arg); }
     const auto r_cc20 = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
-                                                    short_nonce.data(), short_nonce.size(),
-                                                    nullptr, 0,
-                                                    pt.data(), pt.size());
+                                                    CByteVSpan{short_nonce.data(), short_nonce.size()},
+                                                    CByteVSpan{},
+                                                    CByteVSpan{pt.data(), pt.size()});
     EXPECT_FALSE(r_cc20.has_value());
     if (!r_cc20.has_value()) { EXPECT_EQ(r_cc20.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1938,15 +1938,15 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptLongNonceReturnsInvalidArg) {
     const ByteArray< 16> long_nonce{};  // 16 > 12
     const ByteArray< 4> pt{};
     const auto r_gcm = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                                   long_nonce.data(), long_nonce.size(),
-                                                   nullptr, 0,
-                                                   pt.data(), pt.size());
+                                                   CByteVSpan{long_nonce.data(), long_nonce.size()},
+                                                   CByteVSpan{},
+                                                   CByteVSpan{pt.data(), pt.size()});
     EXPECT_FALSE(r_gcm.has_value());
     if (!r_gcm.has_value()) { EXPECT_EQ(r_gcm.error(), ArmAsmBackend::err_invalid_arg); }
     const auto r_cc20 = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
-                                                    long_nonce.data(), long_nonce.size(),
-                                                    nullptr, 0,
-                                                    pt.data(), pt.size());
+                                                    CByteVSpan{long_nonce.data(), long_nonce.size()},
+                                                    CByteVSpan{},
+                                                    CByteVSpan{pt.data(), pt.size()});
     EXPECT_FALSE(r_cc20.has_value());
     if (!r_cc20.has_value()) { EXPECT_EQ(r_cc20.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1958,15 +1958,15 @@ TEST_F(ArmAsmBackendErrorTests, AeadEncryptPtLenOverflowReturnsInvalidArg) {
     // pt_len near SIZE_MAX would overflow when adding tag bytes.
     const std::size_t huge = SIZE_MAX - 8U;
     const auto r_gcm = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                                   nonce.data(), nonce.size(),
-                                                   nullptr, 0,
-                                                   nullptr, huge);
+                                                   CByteVSpan{nonce.data(), nonce.size()},
+                                                   CByteVSpan{},
+                                                   CByteVSpan{nullptr, huge});
     EXPECT_FALSE(r_gcm.has_value());
     if (!r_gcm.has_value()) { EXPECT_EQ(r_gcm.error(), ArmAsmBackend::err_invalid_arg); }
     const auto r_cc20 = ArmAsmBackend::aead_encrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
-                                                    nonce.data(), nonce.size(),
-                                                    nullptr, 0,
-                                                    nullptr, huge);
+                                                    CByteVSpan{nonce.data(), nonce.size()},
+                                                    CByteVSpan{},
+                                                    CByteVSpan{nullptr, huge});
     EXPECT_FALSE(r_cc20.has_value());
     if (!r_cc20.has_value()) { EXPECT_EQ(r_cc20.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -1977,15 +1977,15 @@ TEST_F(ArmAsmBackendErrorTests, AeadDecryptShortNonceReturnsInvalidArg) {
     const ByteArray< 8> short_nonce{};
     const ByteArray< 20> ct{};
     const auto r_gcm = ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_aes_gcm(),
-                                                   short_nonce.data(), short_nonce.size(),
-                                                   nullptr, 0,
-                                                   ct.data(), ct.size());
+                                                   CByteVSpan{short_nonce.data(), short_nonce.size()},
+                                                   CByteVSpan{},
+                                                   CByteVSpan{ct.data(), ct.size()});
     EXPECT_FALSE(r_gcm.has_value());
     if (!r_gcm.has_value()) { EXPECT_EQ(r_gcm.error(), ArmAsmBackend::err_invalid_arg); }
     const auto r_cc20 = ArmAsmBackend::aead_decrypt(id, ArmAsmBackend::alg_chacha20_poly1305(),
-                                                    short_nonce.data(), short_nonce.size(),
-                                                    nullptr, 0,
-                                                    ct.data(), ct.size());
+                                                    CByteVSpan{short_nonce.data(), short_nonce.size()},
+                                                    CByteVSpan{},
+                                                    CByteVSpan{ct.data(), ct.size()});
     EXPECT_FALSE(r_cc20.has_value());
     if (!r_cc20.has_value()) { EXPECT_EQ(r_cc20.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2005,7 +2005,7 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageUnknownAlgReturnsInvalidArg) {
                                        arm_asm::detail::EcKeyKind::Private, 32);
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
-    const auto result = ArmAsmBackend::sign_message(id, 0xFFFFU, msg.data(), msg.size());
+    const auto result = ArmAsmBackend::sign_message(id, 0xFFFFU, CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -2015,7 +2015,7 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaNonEcIdReturnsInvalidArg) {
     ASSERT_NE(sym_id, 0U);
     const ByteArray< 4> msg{};
     const auto result = ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_ecdsa(),
-                                                     msg.data(), msg.size());
+                                                     CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -2027,7 +2027,7 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageEcdsaPublicKeyReturnsInvalidArg) {
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
     const auto result = ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_ecdsa(),
-                                                     msg.data(), msg.size());
+                                                     CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -2037,7 +2037,7 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageRsaNonRsaIdReturnsInvalidArg) {
     ASSERT_NE(sym_id, 0U);
     const ByteArray< 4> msg{};
     const auto result = ArmAsmBackend::sign_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
-                                                     msg.data(), msg.size());
+                                                     CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -2051,7 +2051,7 @@ TEST_F(ArmAsmBackendErrorTests, SignMessageRsaPublicKeyReturnsInvalidArg) {
     ASSERT_NE(id, 0U);
     const ByteArray< 4> msg{};
     const auto result = ArmAsmBackend::sign_message(id, ArmAsmBackend::alg_rsa_pss(),
-                                                     msg.data(), msg.size());
+                                                     CByteVSpan{msg.data(), msg.size()});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ArmAsmBackend::err_invalid_arg);
 }
@@ -2066,8 +2066,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageUnknownAlgReturnsInvalidArg) {
     const ByteArray< 4> msg{};
     ByteArray< 64> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(id, 0xFFFFU,
-                                             msg.data(), msg.size(),
-                                             sig.data(), sig.size()),
+                                             CByteVSpan{msg.data(), msg.size()},
+                                             CByteVSpan{sig.data(), sig.size()}),
               ArmAsmBackend::err_invalid_arg);
 }
 
@@ -2077,8 +2077,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageEcdsaNonEcIdReturnsInvalidArg) {
     const ByteArray< 4> msg{};
     ByteArray< 64> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(sym_id, ArmAsmBackend::alg_ecdsa(),
-                                             msg.data(), msg.size(),
-                                             sig.data(), sig.size()),
+                                             CByteVSpan{msg.data(), msg.size()},
+                                             CByteVSpan{sig.data(), sig.size()}),
               ArmAsmBackend::err_invalid_arg);
 }
 
@@ -2090,8 +2090,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageEcdsaPrivateKeyReturnsInvalidArg) {
     const ByteArray< 4> msg{};
     ByteArray< 64> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(id, ArmAsmBackend::alg_ecdsa(),
-                                             msg.data(), msg.size(),
-                                             sig.data(), sig.size()),
+                                             CByteVSpan{msg.data(), msg.size()},
+                                             CByteVSpan{sig.data(), sig.size()}),
               ArmAsmBackend::err_invalid_arg);
 }
 
@@ -2101,8 +2101,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageRsaNonRsaIdReturnsInvalidArg) {
     const ByteArray< 4> msg{};
     ByteArray< 384> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(sym_id, ArmAsmBackend::alg_rsa_pss(),
-                                             msg.data(), msg.size(),
-                                             sig.data(), sig.size()),
+                                             CByteVSpan{msg.data(), msg.size()},
+                                             CByteVSpan{sig.data(), sig.size()}),
               ArmAsmBackend::err_invalid_arg);
 }
 
@@ -2116,8 +2116,8 @@ TEST_F(ArmAsmBackendErrorTests, VerifyMessageRsaPrivateKeyReturnsInvalidArg) {
     const ByteArray< 4> msg{};
     ByteArray< 384> sig{};
     EXPECT_EQ(ArmAsmBackend::verify_message(id, ArmAsmBackend::alg_rsa_pss(),
-                                             msg.data(), msg.size(),
-                                             sig.data(), sig.size()),
+                                             CByteVSpan{msg.data(), msg.size()},
+                                             CByteVSpan{sig.data(), sig.size()}),
               ArmAsmBackend::err_invalid_arg);
 }
 
@@ -2131,7 +2131,7 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementUnknownAlgReturnsInvalidArg) {
     ByteArray< 65> peer{};
     peer[0] = 0x04U;
     const auto r = ArmAsmBackend::raw_key_agreement(0xFFFFU, id,
-                                                    peer.data(), peer.size());
+                                                    CByteVSpan{peer.data(), peer.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2142,7 +2142,7 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementNonEcIdReturnsInvalidArg) {
     ByteArray< 65> peer{};
     peer[0] = 0x04U;
     const auto r = ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), sym_id,
-                                                    peer.data(), peer.size());
+                                                    CByteVSpan{peer.data(), peer.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2154,7 +2154,7 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementPublicKeyKindReturnsInvalidArg) {
     ByteArray< 65> peer{};
     peer[0] = 0x04U;
     const auto r = ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                    peer.data(), peer.size());
+                                                    CByteVSpan{peer.data(), peer.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2165,7 +2165,7 @@ TEST_F(ArmAsmBackendErrorTests, RawKeyAgreementWrongPeerLenReturnsInvalidArg) {
     ASSERT_NE(id, 0U);
     ByteArray< 32> peer{};  // wrong: P-256 peer must be 65 bytes
     const auto r = ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                    peer.data(), peer.size());
+                                                    CByteVSpan{peer.data(), peer.size()});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2179,8 +2179,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptWrongAlgReturnsInvalidArg) {
     ASSERT_NE(id, 0U);
     ByteArray< 4> pt{};
     const auto r = ArmAsmBackend::asymmetric_encrypt(id, 0xFFFFU,
-                                                     pt.data(), pt.size(),
-                                                     nullptr, 0);
+                                                     CByteVSpan{pt.data(), pt.size()},
+                                                     CByteVSpan{});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2191,8 +2191,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptNonRsaIdReturnsInvalidArg) {
     ASSERT_NE(ec_id, 0U);
     ByteArray< 4> pt{};
     const auto r = ArmAsmBackend::asymmetric_encrypt(ec_id, ArmAsmBackend::alg_rsa_oaep(),
-                                                     pt.data(), pt.size(),
-                                                     nullptr, 0);
+                                                     CByteVSpan{pt.data(), pt.size()},
+                                                     CByteVSpan{});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2206,8 +2206,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricEncryptPrivateKeyReturnsInvalidArg) {
     ASSERT_NE(id, 0U);
     ByteArray< 4> pt{};
     const auto r = ArmAsmBackend::asymmetric_encrypt(id, ArmAsmBackend::alg_rsa_oaep(),
-                                                     pt.data(), pt.size(),
-                                                     nullptr, 0);
+                                                     CByteVSpan{pt.data(), pt.size()},
+                                                     CByteVSpan{});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2219,8 +2219,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptWrongAlgReturnsInvalidArg) {
     ASSERT_NE(id, 0U);
     ByteArray< 32> ct{};
     const auto r = ArmAsmBackend::asymmetric_decrypt(id, 0xFFFFU,
-                                                     ct.data(), ct.size(),
-                                                     nullptr, 0);
+                                                     CByteVSpan{ct.data(), ct.size()},
+                                                     CByteVSpan{});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2231,8 +2231,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptNonRsaIdReturnsInvalidArg) {
     ASSERT_NE(ec_id, 0U);
     ByteArray< 32> ct{};
     const auto r = ArmAsmBackend::asymmetric_decrypt(ec_id, ArmAsmBackend::alg_rsa_oaep(),
-                                                     ct.data(), ct.size(),
-                                                     nullptr, 0);
+                                                     CByteVSpan{ct.data(), ct.size()},
+                                                     CByteVSpan{});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2246,8 +2246,8 @@ TEST_F(ArmAsmBackendErrorTests, AsymmetricDecryptPublicKeyReturnsInvalidArg) {
     ASSERT_NE(id, 0U);
     ByteArray< 32> ct{};
     const auto r = ArmAsmBackend::asymmetric_decrypt(id, ArmAsmBackend::alg_rsa_oaep(),
-                                                     ct.data(), ct.size(),
-                                                     nullptr, 0);
+                                                     CByteVSpan{ct.data(), ct.size()},
+                                                     CByteVSpan{});
     EXPECT_FALSE(r.has_value());
     if (!r.has_value()) { EXPECT_EQ(r.error(), ArmAsmBackend::err_invalid_arg); }
 }
@@ -2390,7 +2390,7 @@ TEST_F(ArmAsmSha3Tests, BackendSha3_256Dispatch) {
     const ByteArray< 3> msg = { 0x61, 0x62, 0x63 };
     const auto result = ArmAsmBackend::hash_compute(
         ArmAsmBackend::alg_sha(ShaVariant::Sha3_256),
-        msg.data(), msg.size());
+        CByteVSpan{msg.data(), msg.size()});
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->size(), 32U);
     for (std::size_t i = 0; i < 32U; ++i) {
@@ -2443,7 +2443,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256ValidPeerSucceeds) {
     auto peer = export_public(id, p256_public_key_bytes);
     ASSERT_EQ(peer.size(), 65U);
     const auto ss_result = ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                            peer.data(), peer.size());
+                                                            CByteVSpan{peer.data(), peer.size()});
     EXPECT_TRUE(ss_result.has_value());
 }
 
@@ -2454,7 +2454,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256WrongPrefixReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 65U);
     peer[0] = 0x02U;  // compressed-point prefix is invalid here
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(ArmAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
@@ -2463,7 +2463,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256AllZeroPeerReturnsInvalidArg) {
     ByteArray< 65> peer{};
     peer[0] = 0x04U;  // prefix ok, but x=0, y=0 is the point at infinity
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(ArmAsmEcdhValidationTests, P256CoordinateEqualToPReturnsInvalidArg) {
@@ -2483,7 +2483,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256CoordinateEqualToPReturnsInvalidArg) {
     peer[29] = 0xFFU; peer[30] = 0xFFU; peer[31] = 0xFFU; peer[32] = 0xFFU; // NOLINT
     // y can be anything — range check on x alone should reject.
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(ArmAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
@@ -2494,7 +2494,7 @@ TEST_F(ArmAsmEcdhValidationTests, P256OffCurvePeerReturnsInvalidArg) {
     // Flip the last byte of y to make the point off-curve.
     peer[p256_public_key_bytes - 1U] ^= 0x01U;
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 // P-384 tests.
@@ -2505,7 +2505,7 @@ TEST_F(ArmAsmEcdhValidationTests, P384ValidPeerSucceeds) {
     auto peer = export_public(id, p384_public_key_bytes);
     ASSERT_EQ(peer.size(), 97U);
     const auto ss_result = ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                            peer.data(), peer.size());
+                                                            CByteVSpan{peer.data(), peer.size()});
     EXPECT_TRUE(ss_result.has_value());
 }
 
@@ -2515,7 +2515,7 @@ TEST_F(ArmAsmEcdhValidationTests, P384AllZeroPeerReturnsInvalidArg) {
     ByteArray< p384_public_key_bytes> peer{};
     peer[0] = 0x04U;
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(ArmAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
@@ -2525,7 +2525,7 @@ TEST_F(ArmAsmEcdhValidationTests, P384OffCurvePeerReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 97U);
     peer[p384_public_key_bytes - 1U] ^= 0x01U;
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 // P-521 tests.
@@ -2536,7 +2536,7 @@ TEST_F(ArmAsmEcdhValidationTests, P521ValidPeerSucceeds) {
     auto peer = export_public(id, p521_public_key_bytes);
     ASSERT_EQ(peer.size(), 133U);
     const auto ss_result = ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                            peer.data(), peer.size());
+                                                            CByteVSpan{peer.data(), peer.size()});
     EXPECT_TRUE(ss_result.has_value());
 }
 
@@ -2546,7 +2546,7 @@ TEST_F(ArmAsmEcdhValidationTests, P521AllZeroPeerReturnsInvalidArg) {
     ByteArray< p521_public_key_bytes> peer{};
     peer[0] = 0x04U;
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(ArmAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
@@ -2556,7 +2556,7 @@ TEST_F(ArmAsmEcdhValidationTests, P521OffCurvePeerReturnsInvalidArg) {
     ASSERT_EQ(peer.size(), 133U);
     peer[p521_public_key_bytes - 1U] ^= 0x01U;
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 TEST_F(ArmAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
@@ -2568,7 +2568,7 @@ TEST_F(ArmAsmEcdhValidationTests, P521NonCanonicalHighBitsReturnsInvalidArg) {
     // A valid P-521 x coordinate has at most 1 bit set in byte[0], so bit 7 must be 0.
     peer[1] |= 0x80U;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     EXPECT_FALSE(ArmAsmBackend::raw_key_agreement(ArmAsmBackend::alg_ecdh(), id,
-                                                  peer.data(), peer.size()).has_value());
+                                                  CByteVSpan{peer.data(), peer.size()}).has_value());
 }
 
 
@@ -2613,7 +2613,7 @@ protected:
     static std::vector<CryptoByte> sign(ArmAsmBackend::KeyId priv_id, std::size_t /*sig_len*/) {
         static constexpr ByteArray< 64> kMsg{};
         const auto result = ArmAsmBackend::sign_message(priv_id, ArmAsmBackend::alg_ecdsa(),
-                                                         kMsg.data(), kMsg.size());
+                                                         CByteVSpan{kMsg.data(), kMsg.size()});
         if (!result.has_value()) {
             return {};
         }
@@ -2625,8 +2625,8 @@ protected:
                                         const std::vector<CryptoByte>& sig) {
         static constexpr ByteArray< 64> kMsg{};
         return ArmAsmBackend::verify_message(pub_id, ArmAsmBackend::alg_ecdsa(),
-                                             kMsg.data(), kMsg.size(),
-                                             sig.data(), sig.size());
+                                             CByteVSpan{kMsg.data(), kMsg.size()},
+                                             CByteVSpan{sig.data(), sig.size()});
     }
 };
 
