@@ -43,4 +43,4 @@ if(SAFE_CRYPTO_PQC STREQUAL "LIBOQS")
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(${EXE_NAME})
+gtest_discover_tests(${EXE_NAME} TEST_PREFIX "CLI.")

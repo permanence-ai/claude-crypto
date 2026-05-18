@@ -8,10 +8,12 @@ jobs:
   # ---------------------------------------------------------------------------
   # Fast build and test subset for PR checks.
   #
-  # PSA_MBEDTLS (Debug + Sanitize) and OPENSSL (Debug) — all PQC=NONE.
-  # ARM_ASM is excluded here: its test suite takes too long to block PR merges.
-  # It runs in ci-full.yml on every push to main.
-  # IA_ASM is excluded: cross-compiled only, cannot run under Rosetta 2.
+  # PSA_MBEDTLS (Debug + Sanitize), OPENSSL (Debug), and ARM_ASM (Debug) —
+  # all PQC=NONE.  ARM_ASM/Debug catches regressions in the native crypto
+  # provider before they land on main; Sanitize and LIBOQS variants run in
+  # ci-full.yml on every push to main.
+  # IA_ASM is excluded from build-test: cross-compiled only, cannot run under
+  # Rosetta 2.  A compile-check job below verifies IA_ASM still builds.
   # Full matrix (all PQC variants, all build types) runs in ci-full.yml.
   # ---------------------------------------------------------------------------
   build-test:
@@ -24,6 +26,7 @@ jobs:
           - { provider: PSA_MBEDTLS, build_type: Debug     }
           - { provider: PSA_MBEDTLS, build_type: Sanitize  }
           - { provider: OPENSSL,     build_type: Debug     }
+          - { provider: ARM_ASM,     build_type: Debug     }
 
     steps:
       - name: Checkout
@@ -63,13 +66,55 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      - name: Verify CLI tests ran
+        run: ctest --test-dir build --output-on-failure --no-tests=error -R "^CLI\."
+
+  # ---------------------------------------------------------------------------
+  # IA_ASM compile-check on native x86-64 Linux.
+  #
+  # IA_ASM cannot run tests under Rosetta 2, but we still want to catch build
+  # errors on PR.  This job compiles only — no test execution.
+  # ---------------------------------------------------------------------------
+  build-ia-asm:
+    name: IA_ASM / Debug (Linux x86-64, compile only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y cmake ninja-build libssl-dev python3-jsonschema python3-jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-pr-linux-IA_ASM-NONE-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: fetchcontent-pr-linux-IA_ASM-NONE-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DSAFE_CRYPTO_IA_ASM_SHA_NI=OFF \
+            -DSAFE_CRYPTO_IA_ASM_AES_NI=OFF \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build
+
   # ---------------------------------------------------------------------------
   # Clang-tidy lint — per-provider matrix (same as full CI).
+  # Blocking: lint failures prevent PR merge.
   # ---------------------------------------------------------------------------
   lint:
     name: clang-tidy / ${{ matrix.label }}
     runs-on: macos-15
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
