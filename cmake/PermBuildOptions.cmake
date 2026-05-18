@@ -118,8 +118,14 @@ target_compile_options(safe_crypto_warnings INTERFACE
 # ---------------------------------------------------------------------------
 add_library(safe_crypto_optimize INTERFACE)
 
-# Clang/GCC LTO flag
-set(_lto -flto=thin)
+# LTO flag — Clang supports thin LTO; GCC only supports fat LTO (-flto).
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    set(_lto -flto=thin)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(_lto -flto)
+else()
+    set(_lto "")
+endif()
 
 # Hardening flags applied to Release and MinSizeRel.
 # _FORTIFY_SOURCE=3 requires at least -O1.

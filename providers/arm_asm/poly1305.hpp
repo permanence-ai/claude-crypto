@@ -47,6 +47,7 @@
 
 #include "defs.hpp"
 #include "secure_buffer.hpp"
+#include "target_attr.hpp"
 
 
 namespace arm_asm::detail {
@@ -138,7 +139,7 @@ static inline Poly1305Precomp make_precomp(const Poly1305Limbs& r) noexcept {
 
 // Multiply accumulator h by precomputed r^k, reduce mod 2^130-5.
 // Uses 9 __uint128_t products (→ MUL+UMULH pairs on AArch64).
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
                                               const Poly1305Precomp& p) noexcept {
     using u128 = unsigned __int128;
@@ -215,7 +216,7 @@ static inline void poly1305_finish(const Poly1305Limbs& h_in, // NOLINT(bugprone
 struct Poly1305Powers {
     Poly1305Precomp p1, p2, p3, p4; // r^1..r^4 // NOLINT(misc-non-private-member-variables-in-classes)
 
-    [[gnu::target("neon")]]
+    [[gnu::target(ARM_TARGET_NEON)]]
     static Poly1305Powers build(const Poly1305Limbs& r) noexcept {
         Poly1305Powers pw;
         pw.p1 = make_precomp(r);
@@ -234,7 +235,7 @@ struct Poly1305Powers {
 // Three right-hand terms independent of h → OoO pipeline issues all
 // four multiply chains simultaneously.
 // -----------------------------------------------------------------------
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline void poly1305_process_quad( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     Poly1305Limbs& h,
     uint64_t m0lo, uint64_t m0hi, // NOLINT(bugprone-easily-swappable-parameters)
@@ -270,7 +271,7 @@ static inline void poly1305_process_quad( // NOLINT(readability-function-size,re
 }
 
 // Two-block parallel: h = (h + m1)*r² + m2*r
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 static inline void poly1305_process_pair(
     Poly1305Limbs& h,
     uint64_t m1lo, uint64_t m1hi, // NOLINT(bugprone-easily-swappable-parameters)
@@ -294,7 +295,7 @@ static inline void poly1305_process_pair(
 
 // Compute a Poly1305 tag over msg[] using the 32-byte one-time key.
 // key[0..15] = r, key[16..31] = s.
-[[gnu::target("neon")]]
+[[gnu::target(ARM_TARGET_NEON)]]
 inline void poly1305_mac(CByteSpan<poly1305_key_bytes> key, const CryptoByte* msg, // NOLINT(bugprone-easily-swappable-parameters)
                           std::size_t msg_len, ByteSpan<poly1305_tag_bytes> tag) noexcept // NOLINT(bugprone-easily-swappable-parameters)
 {

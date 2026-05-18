@@ -16,6 +16,7 @@
 #include <span>
 
 #include "defs.hpp"
+#include "target_attr.hpp"
 
 
 namespace arm_asm::detail {
@@ -61,7 +62,7 @@ inline constexpr std::array<uint32_t, sha256_round_constants> sha256_k = {
 //     3. vsha256h + vsha256h2 using tmp
 //     4. su1(wa_prev, wc, wd)  → completes the schedule 1 group behind
 //   Groups 12-15 (rounds 48-63) skip su0; group 12 completes the last su1.
-[[gnu::target("sha2,neon")]]
+[[gnu::target(ARM_TARGET_SHA2_NEON)]]
 inline void sha256_compress(std::span<uint32_t, sha256_state_words> state, const uint8_t* block) noexcept // NOLINT(cppcoreguidelines-avoid-non-const-global-variables,readability-function-size,readability-function-cognitive-complexity)
 {
     uint32x4_t abcd = vld1q_u32(state.data());

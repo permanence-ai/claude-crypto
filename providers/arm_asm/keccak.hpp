@@ -22,6 +22,7 @@
 #include <span>
 
 #include "defs.hpp"
+#include "target_attr.hpp"
 
 
 namespace arm_asm::detail {
@@ -66,7 +67,7 @@ static inline uint64_t krotl(uint64_t x) noexcept {
 // Pure scalar: all 25 state lanes stay in uint64_t named registers.
 // ρ+π is fully unrolled with compile-time rotation constants (one ROR each).
 // χ uses scalar bitwise NOT-AND: a ^ (~b & c).
-[[gnu::target("sha3,neon")]]
+[[gnu::target(ARM_TARGET_SHA3_NEON)]]
 inline void keccak_f1600(std::span<uint64_t, keccak_num_lanes> state) noexcept // NOLINT(cppcoreguidelines-avoid-non-const-global-variables,readability-function-cognitive-complexity,readability-function-size)
 {
     for (const uint64_t rc : keccak_rc) {

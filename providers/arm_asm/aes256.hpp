@@ -25,6 +25,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+
+#include "target_attr.hpp"
 #include <span>
 
 #include "defs.hpp"
@@ -41,7 +43,7 @@ using Aes256Schedule = std::array<uint8_t, aes256_schedule_bytes>;
 
 
 [[nodiscard]]
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 inline uint32_t aes_sub_word(uint32_t w) noexcept {
     // Apply SubBytes to each byte of w using vaeseq_u8 on a zero block.
     // vaeseq_u8 does AddRoundKey(zero) + SubBytes + ShiftRows.
@@ -61,7 +63,7 @@ static inline uint32_t aes_rot_word(uint32_t w) noexcept {
 
 // Expand a 256-bit key into the AES-256 round-key schedule.
 // key must point to 32 bytes; out receives 15 × 16 bytes (aes256_schedule_bytes).
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 inline void aes256_key_expand(CByteSpan<aes256_key_size_bytes> key, Aes256Schedule& sched) noexcept
 {
 
@@ -99,7 +101,7 @@ inline void aes256_key_expand(CByteSpan<aes256_key_size_bytes> key, Aes256Schedu
 // Encrypt a single 16-byte block under the pre-expanded AES-256 schedule.
 // The result is written back to block.
 [[nodiscard]]
-[[gnu::target("aes,neon")]]
+[[gnu::target(ARM_TARGET_AES_NEON)]]
 inline uint8x16_t aes256_encrypt_block(uint8x16_t block,
                                        const Aes256Schedule& sched) noexcept
 {

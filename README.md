@@ -83,7 +83,7 @@ The `safe-crypto-lib` INTERFACE target has zero dependency on MbedTLS headers. P
 
 ### ARM ASM provider
 
-`providers/arm_asm/` targets ARMv8.2-A+crypto+sha3 (Apple Silicon M1 and later). Most operations are header-only intrinsics — no MbedTLS dependency. When the LIBOQS supplement is enabled, `dilithium_ntt_neon.cpp` is added as an OBJECT library that overrides liboqs's scalar Dilithium NTT via link-order interposition. Compiled with `-march=armv8.2-a+crypto+sha3`.
+`providers/arm_asm/` targets ARMv8.2-A+crypto+sha3 (Apple Silicon M1 and later; Linux ARM64 on Graviton 2/3/4, Neoverse N1/N2, Raspberry Pi 5). Most operations are header-only intrinsics — no MbedTLS dependency. When the LIBOQS supplement is enabled, `dilithium_ntt_neon.cpp` is added as an OBJECT library that overrides liboqs's scalar Dilithium NTT via link-order interposition. Compiled with `-march=armv8.2-a+crypto+sha3`. Requires the `crypto` and `sha3` extensions; ARMv8.0-A hardware (Graviton 1, Raspberry Pi 3/4) is not supported.
 
 **Implemented operations:**
 
@@ -449,7 +449,7 @@ The active backend is controlled by the `SAFE_CRYPTO_ACTIVE_PROVIDER` CMake cach
 | Value | Backend | Status |
 |---|---|---|
 | `PSA_MBEDTLS` *(default)* | MbedTLS 4.1 PSA Crypto API | Production |
-| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096 (pure C++, no MbedTLS), key management |
+| `ARM_ASM` | ARMv8.2-A+crypto intrinsics (Apple Silicon; Linux ARM64 Graviton 2+, Neoverse N1/N2, Raspberry Pi 5) | Full — hashing, HMAC, AES-256-GCM, ChaCha20-Poly1305, HKDF, ECDSA/ECDH P-256/384/521, RSA-OAEP/PSS 3072/4096 (pure C++, no MbedTLS), key management |
 | `OPENSSL` | OpenSSL 3.x EVP API | Full + SLH-DSA (FIPS 205, all 6 SHA2 variants) + ML-DSA (FIPS 204, parameter sets 44/65/87) + ML-KEM (FIPS 203, parameter sets 512/768/1024) — 249 tests; requires OpenSSL 3.0+ (`find_package(OpenSSL 3.0 REQUIRED)`) |
 | `IA_ASM` | x86-64 SHA-NI + AES-NI + PCLMULQDQ + SSE2/SSSE3 | Full — hash/HMAC/HKDF/AEAD via x86 intrinsics; EC/RSA/PQC/random reuse arm_asm pure-C++ bignum (x86-portable); cross-compiled on Apple Silicon via `-DCMAKE_OSX_ARCHITECTURES=x86_64`, runs under Rosetta 2 (SHA-NI not emulated) |
 

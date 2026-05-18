@@ -2,8 +2,12 @@
 
 ## Target
 
-ARMv8-A / AArch64 — Apple Silicon (M-series) and compatible ARM64 hardware.
-Built and tested on macOS with Apple clang or Homebrew LLVM.
+ARMv8.2-A+crypto+sha3 / AArch64 — Apple Silicon (M-series) and Linux ARM64
+(Graviton 2/3/4, Neoverse N1/N2, Raspberry Pi 5).
+Built and tested on macOS (Apple Clang / Homebrew LLVM) and Linux ARM64 (GCC / Clang).
+
+**Minimum hardware:** Requires the `crypto` and `sha3` extensions (NEON AES, SHA-256,
+SHA-512, PMULL, SHA-3). ARMv8.0-A hardware (Graviton 1, Raspberry Pi 3/4) is not supported.
 
 ## Requirements
 

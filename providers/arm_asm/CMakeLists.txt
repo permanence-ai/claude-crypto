@@ -26,6 +26,7 @@ target_sources(${LIB_NAME} INTERFACE
         sha256.hpp
         sha3.hpp
         sha512.hpp
+        target_attr.hpp
 )
 
 target_include_directories(${LIB_NAME} INTERFACE
