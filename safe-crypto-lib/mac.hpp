@@ -21,6 +21,11 @@ auto hmac_generate_impl(  // NOLINT(readability-function-cognitive-complexity)
     const Message& message)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
+    if (key.size() < sha_output_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "HMAC key must be at least as long as the hash output"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,
@@ -62,6 +67,11 @@ auto hmac_verify_impl(  // NOLINT(readability-function-cognitive-complexity)
     const FixedSecureBuffer<sha_output_size(V)>& mac)
     -> std::expected<bool, CryptoError>
 {
+    if (key.size() < sha_output_size(V)) {
+        return std::unexpected(CryptoError(
+            CryptoErrorCode::InvalidArgument,
+            "HMAC key must be at least as long as the hash output"));
+    }
     if (Provider::crypto_init() != Provider::ok) {
         return std::unexpected(CryptoError(
             CryptoErrorCode::InitFailed,

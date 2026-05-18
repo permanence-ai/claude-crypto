@@ -246,3 +246,28 @@ inline auto chacha20_poly1305_decrypt(
 {
     return chacha20_poly1305_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
 }
+
+
+// Zero-algorithm-choice wrappers — AES-256-GCM is the recommended default.
+// Use these when you don't need to choose between AES-GCM and ChaCha20-Poly1305.
+
+template<SecureBufferLike Plaintext>
+[[nodiscard]]
+auto symmetric_encrypt(
+    const FixedSecureBuffer<aes256_key_size_bytes>& key,
+    const Plaintext& plaintext,
+    const std::optional<SecureBuffer>& aad = std::nullopt)
+    -> std::expected<AesGcmResult, CryptoError>
+{
+    return aes256_gcm_encrypt_impl<DefaultProvider>(key, plaintext, aad);
+}
+
+[[nodiscard]]
+inline auto symmetric_decrypt(
+    const FixedSecureBuffer<aes256_key_size_bytes>& key,
+    const AesGcmResult& ciphertext,
+    const std::optional<SecureBuffer>& aad = std::nullopt)
+    -> std::expected<SecureBuffer, CryptoError>
+{
+    return aes256_gcm_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
+}

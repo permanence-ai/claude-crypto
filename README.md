@@ -26,7 +26,7 @@ This project serves as an ongoing experiment in AI-driven software development: 
 | Signatures | ECDSA P-256/384/521, RSA-PSS (3072, 4096-bit), SLH-DSA SHA2-128s/128f/192s/192f/256s/256f (FIPS 205), ML-DSA-44/65/87 (FIPS 204) |
 | Key encapsulation | ML-KEM-512/768/1024 (FIPS 203) |
 | Key agreement | ECDH P-256/384/521 |
-| Key derivation | HKDF, HKDF-Expand (SHA-384) |
+| Key derivation | HKDF (`hkdf_derive`), HKDF-Expand (`hkdf_expand`) (SHA-384) |
 | Key exchange protocols | SIGMA, SIGMA-I (identity-hiding) |
 | Random | Cryptographically secure random bytes |
 
@@ -60,7 +60,7 @@ Contracts are used at all points where a violated precondition indicates a bug r
 | `SecureBuffer::resize` | `new_size <= data_.size()` (shrink-only) |
 | `PsaKeyHandle::get()` | handle is valid (not moved-from) |
 | `sigma_i_serialize_bundle` | both length fields fit in `uint16_t` |
-| `derive_key_impl`, `expand_key_impl` | `output_length > 0` |
+| `derive_key_impl`, `expand_key_impl` | `output_length > 0` (`hkdf_derive` / `hkdf_expand` in the public API) |
 | `random_bytes_impl` | `length > 0` |
 
 The companion macro `SAFE_CRYPTO_CONTRACTS_ENFORCED` is defined when contracts produce runtime checks. Test death-assertions are gated on this macro so they only run on compilers that actually enforce contracts.
@@ -148,7 +148,7 @@ providers/
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
 safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, kdf, mac, ml-dsa, ml-kem, random, rsa, slh-dsa subcommands; CLI11 v2.6.2
 safe-crypto-cli-test/     # GoogleTest suite for scli — 89 subprocess-based tests; validates stdout and exit codes
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (249 tests in OpenSSL build; 226 in IA_ASM; 450 in ARM_ASM; 475 in ARM_ASM+LIBOQS; 255 in OPENSSL+LIBOQS; 239 in PSA_MBEDTLS+LIBOQS)
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (253 tests in OpenSSL build; 230 in IA_ASM; 454 in ARM_ASM; 479 in ARM_ASM+LIBOQS; 259 in OPENSSL+LIBOQS; 243 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
 cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
 ```
@@ -213,8 +213,8 @@ This covers every error branch in the library without needing to induce real PSA
 These run against the active provider (default: `RealPsaBackend`) and verify correct output for the full public API:
 
 - **Digests** — SHA-256/384/512, SHA3-256/384/512: output length checks and known round-trip sanity.
-- **MAC** — HMAC with all SHA variants: NIST HMAC test vectors; verify/reject paths.
-- **AEAD** — AES-256-GCM: NIST SP 800-38D test vectors (with and without AAD); tag-tamper rejection.
+- **MAC** — HMAC with all SHA variants: NIST HMAC test vectors; verify/reject paths; minimum key size enforcement (key ≥ hash output length).
+- **AEAD** — AES-256-GCM: NIST SP 800-38D test vectors (with and without AAD); tag-tamper rejection; `symmetric_encrypt`/`symmetric_decrypt` zero-choice wrappers (AES-256-GCM).
 - **ChaCha20-Poly1305** — RFC 8439 test vectors; tag-tamper rejection; cross-decrypt (encrypt with one provider, decrypt with the other).
 - **KDF** — HKDF and HKDF-Expand (SHA-384): RFC 5869 test vectors; state-machine error paths.
 - **ECC / ECDH** — P-256/384/521 key generation, ECDSA sign/verify, ECDH shared-secret agreement.
@@ -260,7 +260,7 @@ Verify `SecureBuffer` and `FixedSecureBuffer<N>` behaviour: index operator reads
 
 LLVM source-based coverage measured against the `safe-crypto-lib/` headers for each provider build (Debug + `-fprofile-instr-generate -fcoverage-mapping`, run against the full test suite). Branch coverage is per-file; the TOTAL row includes all instrumented code in the binary (provider implementation headers, test utilities, etc.) which lowers the overall branch %.
 
-### PSA/MbedTLS provider — 226 tests
+### PSA/MbedTLS provider — 230 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
@@ -283,7 +283,7 @@ LLVM source-based coverage measured against the `safe-crypto-lib/` headers for e
 
 `ml_dsa_variant.hpp`, `ml_kem_variant.hpp`, and `slh_dsa_variant.hpp` show 0% because PSA/MbedTLS has no PQC implementation — those headers are only instantiated when `SAFE_CRYPTO_PQC=LIBOQS` or via the OpenSSL provider.
 
-### ARM ASM provider — 446 tests
+### ARM ASM provider — 450 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|
@@ -304,7 +304,7 @@ LLVM source-based coverage measured against the `safe-crypto-lib/` headers for e
 | `sigma_i.hpp` | 387 | 81.7% | 15 | 100% | 84 | 69.1% |
 | `slh_dsa_variant.hpp` | 30 | 0% | 3 | 0% | 0 | — |
 
-### OpenSSL provider — 255 tests
+### OpenSSL provider — 259 tests
 
 | File | Lines | Line % | Functions | Fn % | Branches | Branch % |
 |---|---|---|---|---|---|---|

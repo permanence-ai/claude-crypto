@@ -128,3 +128,35 @@ TEST_F(AeadTests, DecryptWithWrongAadFails) {
 
     EXPECT_FALSE(decrypted.has_value());
 }
+
+
+TEST_F(AeadTests, SymmetricEncryptDecryptRoundTrip) {
+    constexpr std::size_t PLAINTEXT_SIZE_BYTES = 64;
+
+    const auto key       = make_random_fixed_secure_buffer<KEY_SIZE_BYTES>();
+    const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
+
+    const auto encrypted = symmetric_encrypt(key, plaintext);
+    ASSERT_TRUE(encrypted.has_value());
+
+    const auto decrypted = symmetric_decrypt(key, *encrypted);
+    ASSERT_TRUE(decrypted.has_value());
+
+    EXPECT_TRUE(std::ranges::equal(
+        std::span(plaintext.data(), plaintext.size()),
+        std::span(decrypted->data(), decrypted->size())));
+}
+
+
+TEST_F(AeadTests, SymmetricEncryptProducesExpectedSizes) {
+    constexpr std::size_t PLAINTEXT_SIZE_BYTES = 64;
+
+    const auto key       = make_random_fixed_secure_buffer<KEY_SIZE_BYTES>();
+    const auto plaintext = make_random_secure_buffer(PLAINTEXT_SIZE_BYTES);
+
+    const auto result = symmetric_encrypt(key, plaintext);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->iv.size(), IV_SIZE_BYTES);
+    EXPECT_EQ(result->ciphertext.size(), plaintext.size() + GCM_TAG_SIZE_BYTES);
+}
