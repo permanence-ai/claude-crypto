@@ -65,6 +65,9 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      - name: Verify CLI tests ran
+        run: ctest --test-dir build --output-on-failure --no-tests=error -R "^safe_crypto_cli"
+
   # ---------------------------------------------------------------------------
   # IA_ASM build and test on native x86-64 Linux.
   #
@@ -341,7 +344,7 @@ jobs:
           "$(brew --prefix llvm)/bin/llvm-cov" report \
             build-cov/safe-crypto-lib-test/safe_crypto_lib_test \
             -instr-profile=build-cov/coverage.profdata \
-            -ignore-filename-regex='(_deps|safe-crypto-lib-test|safe-crypto-lib-bench|providers)' \
+            -ignore-filename-regex='(_deps|safe-crypto-lib-test|safe-crypto-lib-bench)' \
             2>&1 | tee build-cov/coverage-summary.txt
 
       - name: Generate HTML report
@@ -349,7 +352,7 @@ jobs:
           "$(brew --prefix llvm)/bin/llvm-cov" show \
             build-cov/safe-crypto-lib-test/safe_crypto_lib_test \
             -instr-profile=build-cov/coverage.profdata \
-            -ignore-filename-regex='(_deps|safe-crypto-lib-test|safe-crypto-lib-bench|providers)' \
+            -ignore-filename-regex='(_deps|safe-crypto-lib-test|safe-crypto-lib-bench)' \
             -format=html \
             -output-dir=build-cov/coverage-html
 
@@ -462,6 +465,77 @@ jobs:
         run: ctest --test-dir build-lsan --output-on-failure
 
   # ---------------------------------------------------------------------------
+  # Smoke-test — CLI round-trips and benchmark sanity check.
+  #
+  # Runs against ARM_ASM/Debug on macOS to verify the scli binary and benchmark
+  # entry points don't crash.  Uses --benchmark_min_time=0s to cap runtime.
+  # ---------------------------------------------------------------------------
+  smoke-test:
+    name: smoke-test / ARM_ASM
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-cmake-ninja-openssl3-${{ runner.os }}
+
+      - name: Install toolchain
+        run: |
+          brew install cmake ninja openssl@3
+          pip3 install --break-system-packages jsonschema jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build-smoke/_deps
+          key: fetchcontent-smoke-ARM_ASM-NONE-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: fetchcontent-smoke-ARM_ASM-NONE-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build-smoke \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=ARM_ASM \
+            -DSAFE_CRYPTO_PQC=NONE \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build-smoke
+
+      - name: CLI smoke-test
+        run: |
+          SCLI=build-smoke/safe-crypto-cli/scli
+
+          # random
+          $SCLI random --length 32
+
+          # digest round-trip
+          echo -n "hello" | $SCLI digest --algo sha256 --input -
+
+          # HMAC generate + verify round-trip
+          KEY=$($SCLI random --length 64)
+          MAC=$($SCLI mac --algo sha256 --key "base64:${KEY}" --input "base64:aGVsbG8=")
+          $SCLI mac --algo sha256 --key "base64:${KEY}" --input "base64:aGVsbG8=" --verify "base64:${MAC}"
+
+          # AEAD encrypt + decrypt round-trip
+          KEY=$($SCLI random --length 32)
+          CT=$($SCLI aead --algo aes256-gcm --op encrypt --key "base64:${KEY}" --input "base64:aGVsbG8gd29ybGQ=")
+          PT=$($SCLI aead --algo aes256-gcm --op decrypt --key "base64:${KEY}" --input "base64:${CT}")
+          [ "$PT" = "aGVsbG8gd29ybGQ=" ] || (echo "AEAD round-trip mismatch" && exit 1)
+
+      - name: Benchmark smoke-test
+        run: |
+          build-smoke/safe-crypto-lib-bench/safe_crypto_lib_bench \
+            --benchmark_min_time=0s \
+            --benchmark_filter="SHA256" \
+            2>&1 | grep -q "SHA256"
+
+  # ---------------------------------------------------------------------------
   # Summary — runs after all other jobs (pass or fail) and writes a Markdown
   # report to the GitHub Actions job summary page.
   # ---------------------------------------------------------------------------
@@ -469,7 +543,7 @@ jobs:
     name: Summary
     runs-on: ubuntu-latest
     if: always()
-    needs: [build-test, build-test-ia-asm, build-test-linux-arm64, lint, coverage, sanitize-tsan, sanitize-lsan]
+    needs: [build-test, build-test-ia-asm, build-test-linux-arm64, lint, coverage, sanitize-tsan, sanitize-lsan, smoke-test]
 
     steps:
       - name: Write job summary
@@ -481,6 +555,7 @@ jobs:
           COVERAGE_RESULT:      ${{ needs.coverage.result }}
           TSAN_RESULT:          ${{ needs.sanitize-tsan.result }}
           LSAN_RESULT:          ${{ needs.sanitize-lsan.result }}
+          SMOKE_RESULT:         ${{ needs.smoke-test.result }}
           RUN_URL:              ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TRIGGER:              ${{ github.event_name }}
           REF:                  ${{ github.ref_name }}
@@ -497,7 +572,7 @@ jobs:
           }
 
           overall="success"
-          for r in "$BUILD_TEST_RESULT" "$IA_ASM_RESULT" "$LINUX_ARM64_RESULT" "$COVERAGE_RESULT" "$TSAN_RESULT" "$LSAN_RESULT"; do
+          for r in "$BUILD_TEST_RESULT" "$IA_ASM_RESULT" "$LINUX_ARM64_RESULT" "$COVERAGE_RESULT" "$TSAN_RESULT" "$LSAN_RESULT" "$SMOKE_RESULT"; do
             [ "$r" = "success" ] || overall="failure"
           done
           [ "$overall" = "success" ] && overall_icon="✅ Passed" || overall_icon="❌ Failed"
@@ -514,6 +589,7 @@ jobs:
           | $(status_icon "$COVERAGE_RESULT") | coverage (PSA / ARM / OpenSSL) | ${COVERAGE_RESULT} |
           | $(status_icon "$TSAN_RESULT") | sanitize-tsan (ThreadSanitizer) | ${TSAN_RESULT} |
           | $(status_icon "$LSAN_RESULT") | sanitize-lsan (LeakSanitizer) | ${LSAN_RESULT} |
+          | $(status_icon "$SMOKE_RESULT") | smoke-test (CLI + benchmark) | ${SMOKE_RESULT} |
 
           **Trigger:** \`${TRIGGER}\` · **Ref:** \`${REF}\` · **Commit:** \`${SHA:0:8}\`
 
