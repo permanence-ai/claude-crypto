@@ -132,12 +132,14 @@ endif()
 # mbranch-protection=standard enables PAC (pointer authentication for return
 # addresses) + BTI (branch target identification) on ARMv8.3+; Apple Silicon
 # is ARMv8.5-a with PAC hardware so this is a real runtime protection.
+# This flag is ARM-only; GCC 12+ rejects it on x86-64 with a hard error.
 # fstack-clash-protection is x86-only; it is silently ignored on AArch64 by
 # both Apple Clang and upstream LLVM, so it is intentionally omitted.
-set(_harden
-    -fstack-protector-strong
-    -mbranch-protection=standard
-)
+set(_harden -fstack-protector-strong)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$" OR
+   (APPLE AND (NOT CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)arm64($|;)")))
+    list(APPEND _harden -mbranch-protection=standard)
+endif()
 set(_harden_defs -D_FORTIFY_SOURCE=3)
 
 target_compile_options(safe_crypto_optimize INTERFACE

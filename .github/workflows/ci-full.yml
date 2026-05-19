@@ -118,6 +118,62 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   # ---------------------------------------------------------------------------
+  # Linux x86-64 — PSA_MBEDTLS and OPENSSL on ubuntu-latest.
+  #
+  # Completes the Linux x86-64 provider coverage. IA_ASM is already covered by
+  # build-test-ia-asm above. ARM_ASM is excluded: arm_neon.h is not available
+  # on x86-64 and the CMake guard in providers/arm_asm/CMakeLists.txt will
+  # emit FATAL_ERROR if it is selected on a non-AArch64 target.
+  # OPENSSL-LIBOQS requires OpenSSL ≥ 3.3 for SLH-DSA and ML-DSA; Ubuntu 24.04
+  # ships OpenSSL 3.0.x so that combination is excluded here (tracked: #174).
+  # ---------------------------------------------------------------------------
+  build-test-linux-x86:
+    name: ${{ matrix.config.provider }}-${{ matrix.config.pqc }} / ${{ matrix.build_type }} (Linux x86-64)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { provider: PSA_MBEDTLS, pqc: NONE   }
+          - { provider: PSA_MBEDTLS, pqc: LIBOQS }
+          - { provider: OPENSSL,     pqc: NONE   }
+        build_type: [Debug, Sanitize]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y cmake ninja-build libssl-dev python3-jsonschema python3-jinja2
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: fetchcontent-linux-x86-${{ matrix.config.provider }}-${{ matrix.config.pqc }}-${{ hashFiles('CMakeLists.txt', 'providers/**/CMakeLists.txt') }}
+          restore-keys: |
+            fetchcontent-linux-x86-${{ matrix.config.provider }}-${{ matrix.config.pqc }}-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DSAFE_CRYPTO_ACTIVE_PROVIDER=${{ matrix.config.provider }} \
+            -DSAFE_CRYPTO_PQC=${{ matrix.config.pqc }} \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Verify CLI tests ran
+        run: ctest --test-dir build --output-on-failure --no-tests=error -R "^CLI\."
+
+  # ---------------------------------------------------------------------------
   # Linux ARM64 — ARM_ASM and PSA_MBEDTLS on ubuntu-24.04-arm.
   #
   # Validates that the ARM intrinsics provider and the PSA_MBEDTLS portable
@@ -543,13 +599,14 @@ jobs:
     name: Summary
     runs-on: ubuntu-latest
     if: always()
-    needs: [build-test, build-test-ia-asm, build-test-linux-arm64, lint, coverage, sanitize-tsan, sanitize-lsan, smoke-test]
+    needs: [build-test, build-test-ia-asm, build-test-linux-x86, build-test-linux-arm64, lint, coverage, sanitize-tsan, sanitize-lsan, smoke-test]
 
     steps:
       - name: Write job summary
         env:
           BUILD_TEST_RESULT:    ${{ needs.build-test.result }}
           IA_ASM_RESULT:        ${{ needs.build-test-ia-asm.result }}
+          LINUX_X86_RESULT:     ${{ needs.build-test-linux-x86.result }}
           LINUX_ARM64_RESULT:   ${{ needs.build-test-linux-arm64.result }}
           LINT_RESULT:          ${{ needs.lint.result }}
           COVERAGE_RESULT:      ${{ needs.coverage.result }}
@@ -572,7 +629,7 @@ jobs:
           }
 
           overall="success"
-          for r in "$BUILD_TEST_RESULT" "$IA_ASM_RESULT" "$LINUX_ARM64_RESULT" "$COVERAGE_RESULT" "$TSAN_RESULT" "$LSAN_RESULT" "$SMOKE_RESULT"; do
+          for r in "$BUILD_TEST_RESULT" "$IA_ASM_RESULT" "$LINUX_X86_RESULT" "$LINUX_ARM64_RESULT" "$COVERAGE_RESULT" "$TSAN_RESULT" "$LSAN_RESULT" "$SMOKE_RESULT"; do
             [ "$r" = "success" ] || overall="failure"
           done
           [ "$overall" = "success" ] && overall_icon="✅ Passed" || overall_icon="❌ Failed"
@@ -583,7 +640,8 @@ jobs:
           | | Job | Result |
           |---|---|---|
           | $(status_icon "$BUILD_TEST_RESULT") | build-test (macOS matrix) | ${BUILD_TEST_RESULT} |
-          | $(status_icon "$IA_ASM_RESULT") | build-test-ia-asm (Linux x86-64) | ${IA_ASM_RESULT} |
+          | $(status_icon "$IA_ASM_RESULT") | build-test-ia-asm (Linux x86-64, IA_ASM) | ${IA_ASM_RESULT} |
+          | $(status_icon "$LINUX_X86_RESULT") | build-test-linux-x86 (Linux x86-64, PSA/OPENSSL) | ${LINUX_X86_RESULT} |
           | $(status_icon "$LINUX_ARM64_RESULT") | build-test-linux-arm64 (Linux ARM64) | ${LINUX_ARM64_RESULT} |
           | $(status_icon "$LINT_RESULT") | lint (clang-tidy, non-blocking) | ${LINT_RESULT} |
           | $(status_icon "$COVERAGE_RESULT") | coverage (PSA / ARM / OpenSSL) | ${COVERAGE_RESULT} |

@@ -1,4 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
+
+# Guard: ARM_ASM requires an AArch64 target.  Fail early with a clear message
+# rather than letting the build fail deep in arm_neon.h inclusion on x86-64.
+if(SAFE_CRYPTO_ACTIVE_PROVIDER STREQUAL "ARM_ASM" AND NOT SAFE_CRYPTO_ARM_ASM_AVAILABLE)
+    message(FATAL_ERROR
+        "ARM_ASM provider requires an AArch64 target. "
+        "On x86-64 use -DSAFE_CRYPTO_ACTIVE_PROVIDER=IA_ASM instead.")
+endif()
+
 set(LIB_NAME safe_crypto_lib_arm_asm)
 
 add_library(${LIB_NAME} INTERFACE)
