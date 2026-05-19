@@ -511,9 +511,12 @@ TEST_F(IoTests, BoundedInput_ExactCapBase64Key_NotRejectedBySizeGuard) {
 
 // Write 128 KiB of random bytes to stdout (raw binary via --output -).
 // The output exceeds the typical pipe buffer; sequential draining would deadlock.
+// strip_trailing_newline=false prevents run_scli from removing a trailing 0x0A
+// byte that would otherwise corrupt the exact-size assertion.
 TEST_F(IoTests, PipeDrain_LargeStdoutDoesNotDeadlock) {
     constexpr std::size_t kLen = 128U * 1024U;  // 2× typical pipe buffer
-    const auto r = run_scli(scli(), {"random", "--length", std::to_string(kLen), "--output", "-"});
+    const auto r = run_scli(scli(), {"random", "--length", std::to_string(kLen), "--output", "-"},
+                            /*strip_trailing_newline=*/false);
     EXPECT_EQ(r.exit_code, 0);
     EXPECT_EQ(r.stdout_text.size(), kLen);
 }
