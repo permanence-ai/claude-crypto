@@ -136,8 +136,17 @@ endif()
 # fstack-clash-protection is x86-only; it is silently ignored on AArch64 by
 # both Apple Clang and upstream LLVM, so it is intentionally omitted.
 set(_harden -fstack-protector-strong)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$" OR
-   (APPLE AND (NOT CMAKE_OSX_ARCHITECTURES OR CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)arm64($|;)")))
+# Determine whether the actual compile target is AArch64.
+# On Apple, CMAKE_OSX_ARCHITECTURES is authoritative when set (it can override
+# CMAKE_SYSTEM_PROCESSOR, e.g. -DCMAKE_OSX_ARCHITECTURES=x86_64 on Apple Silicon).
+# We emit -mbranch-protection=standard only when every target arch is arm64.
+if(APPLE AND CMAKE_OSX_ARCHITECTURES)
+    # explicit arch list: emit iff it contains arm64 and not x86_64
+    if(CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)arm64($|;)" AND
+       NOT CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)x86_64($|;)")
+        list(APPEND _harden -mbranch-protection=standard)
+    endif()
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
     list(APPEND _harden -mbranch-protection=standard)
 endif()
 set(_harden_defs -D_FORTIFY_SOURCE=3)
