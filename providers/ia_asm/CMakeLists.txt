@@ -31,16 +31,24 @@ target_include_directories(${LIB_NAME} INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/../arm_asm
 )
 
-# x86-64 baseline + AES-NI, SHA-NI, PCLMULQDQ.
-# Apple Clang requires feature flags as separate -m options rather than
-# the +ext suffix that GCC/upstream-LLVM accept on micro-arch level names.
-target_compile_options(${LIB_NAME} INTERFACE
-        -march=x86-64-v2
-        -maes
-        -msha
-        -mpclmul
-        -mssse3
-)
+# x86-64 ISA feature flags.
+# GCC/Clang: -march=x86-64-v2 sets the baseline; separate -m flags enable
+#   each extension. Apple Clang requires these as separate -m options rather
+#   than the +ext suffix that GCC/upstream-LLVM accept.
+# MSVC: /arch:AVX2 is the closest level that enables SSE4.x, AES-NI, PCLMUL,
+#   and SHA-NI. MSVC exposes all intrinsics for the target arch without needing
+#   per-extension flags, so a single /arch: flag suffices.
+if(MSVC)
+    target_compile_options(${LIB_NAME} INTERFACE /arch:AVX2)
+else()
+    target_compile_options(${LIB_NAME} INTERFACE
+            -march=x86-64-v2
+            -maes
+            -msha
+            -mpclmul
+            -mssse3
+    )
+endif()
 
 # SHA-NI is the Intel hardware SHA-256 acceleration path.
 # Set to OFF to fall back to a portable scalar implementation (e.g. to work
