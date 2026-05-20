@@ -63,7 +63,7 @@ static inline uint64_t krotl(uint64_t x) noexcept {
 // Pure scalar: all 25 state lanes stay in uint64_t named registers.
 // ρ+π is fully unrolled with compile-time rotation constants (one ROR each).
 // χ uses scalar bitwise NOT-AND: a ^ (~b & c).
-[[gnu::target("aes,sha")]]
+IA_TARGET("aes,sha")
 inline void keccak_f1600(std::span<uint64_t, keccak_num_lanes> state) noexcept // NOLINT(readability-function-size)
 {
     for (const uint64_t rc : keccak_rc) {

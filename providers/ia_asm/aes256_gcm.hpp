@@ -38,7 +38,7 @@ static inline void gcm_inc_counter(ByteSpan<aes_gcm_tag_bytes> ctr) noexcept {
 
 // CTR encrypt/decrypt (same operation): XOR plaintext/ciphertext with the
 // AES-CTR keystream starting at counter block ctr[].
-[[gnu::target("aes,ssse3")]]
+IA_TARGET("aes,ssse3")
 static inline void gcm_ctr_crypt( // NOLINT(readability-function-size)
     const CryptoByte* in,  // NOLINT(bugprone-easily-swappable-parameters)
     CryptoByte* out,       // NOLINT(bugprone-easily-swappable-parameters,readability-non-const-parameter)
@@ -85,7 +85,7 @@ static inline void gcm_length_block(
 
 
 // Compute the 16-byte GHASH authentication tag.
-[[gnu::target("aes,pclmul,ssse3")]]
+IA_TARGET("aes,pclmul,ssse3")
 static inline void gcm_compute_tag( // NOLINT(readability-function-size)
     const CryptoByte*    aad, // NOLINT(bugprone-easily-swappable-parameters)
     std::size_t          aad_len,
@@ -138,7 +138,7 @@ static inline void gcm_compute_tag( // NOLINT(readability-function-size)
 
 
 // AES-256-GCM encrypt.
-[[gnu::target("aes,pclmul,ssse3")]]
+IA_TARGET("aes,pclmul,ssse3")
 inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* iv,
@@ -170,7 +170,7 @@ inline void aes256_gcm_encrypt( // NOLINT(readability-function-size,readability-
 // AES-256-GCM decrypt.
 // ct_len includes the 16-byte tag; out must hold ct_len - 16 bytes.
 // Returns true on successful tag verification; if false, out is zeroed.
-[[gnu::target("aes,pclmul,ssse3")]]
+IA_TARGET("aes,pclmul,ssse3")
 inline bool aes256_gcm_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* iv,

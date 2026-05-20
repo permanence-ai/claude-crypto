@@ -39,7 +39,7 @@
 namespace ia_asm::detail {
 
 // Load a 16-byte GCM block and byte-reverse it for PCLMULQDQ polynomial order.
-[[gnu::target("pclmul,ssse3")]]
+IA_TARGET("pclmul,ssse3")
 static inline __m128i ghash_load(const uint8_t* block) noexcept {
     const __m128i bswap = _mm_set_epi8(
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
@@ -47,7 +47,7 @@ static inline __m128i ghash_load(const uint8_t* block) noexcept {
     return _mm_shuffle_epi8(_mm_loadu_si128(reinterpret_cast<const __m128i*>(block)), bswap); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 
-[[gnu::target("pclmul,ssse3")]]
+IA_TARGET("pclmul,ssse3")
 static inline void ghash_store(uint8_t* out, __m128i v) noexcept {
     const __m128i bswap = _mm_set_epi8(
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
@@ -57,7 +57,7 @@ static inline void ghash_store(uint8_t* out, __m128i v) noexcept {
 
 
 // 128-bit carry-less multiply: a * b → lo:hi (256-bit result).
-[[gnu::target("pclmul,ssse3")]]
+IA_TARGET("pclmul,ssse3")
 static inline void ghash_clmul256(__m128i a, __m128i b, // NOLINT(bugprone-easily-swappable-parameters)
                                    __m128i& lo, __m128i& hi) noexcept { // NOLINT(bugprone-easily-swappable-parameters)
     const __m128i lo_lo = _mm_clmulepi64_si128(a, b, 0x00);
@@ -74,7 +74,7 @@ static inline void ghash_clmul256(__m128i a, __m128i b, // NOLINT(bugprone-easil
 
 
 // CLMUL-WP Algorithm 5 Step 1: shift the 256-bit product one bit left.
-[[gnu::target("pclmul,ssse3")]]
+IA_TARGET("pclmul,ssse3")
 static inline void ghash_shift(__m128i& lo, __m128i& hi) noexcept {
     const __m128i lo_hi = _mm_srli_epi64(lo, 63);
     const __m128i hi_hi = _mm_srli_epi64(hi, 63);
@@ -88,7 +88,7 @@ static inline void ghash_shift(__m128i& lo, __m128i& hi) noexcept {
 
 
 // CLMUL-WP Algorithm 5 Step 2: first reduction pass on the low 128 bits.
-[[gnu::target("pclmul,ssse3")]]
+IA_TARGET("pclmul,ssse3")
 static inline __m128i ghash_reduce(__m128i xx) noexcept {
     const __m128i aa = _mm_slli_epi64(xx, 63);
     const __m128i bb = _mm_slli_epi64(xx, 62);
@@ -100,7 +100,7 @@ static inline __m128i ghash_reduce(__m128i xx) noexcept {
 
 
 // CLMUL-WP Algorithm 5 Steps 3-4: second reduction pass (mix).
-[[gnu::target("pclmul,ssse3")]]
+IA_TARGET("pclmul,ssse3")
 static inline __m128i ghash_mix(__m128i dx) noexcept {
     const __m128i ee = _mm_srli_epi64(dx, 1);
     const __m128i ff = _mm_srli_epi64(dx, 2);
@@ -118,13 +118,13 @@ struct GhashCtx {
     __m128i acc; // NOLINT(misc-non-private-member-variables-in-classes)
     __m128i H;   // NOLINT(misc-non-private-member-variables-in-classes)
 
-    [[gnu::target("pclmul,ssse3")]]
+    IA_TARGET("pclmul,ssse3")
     void init(const uint8_t* H_block) noexcept {
         acc = _mm_setzero_si128();
         H   = ghash_load(H_block);
     }
 
-    [[gnu::target("pclmul,ssse3")]]
+    IA_TARGET("pclmul,ssse3")
     void update(const uint8_t* block) noexcept {
         const __m128i b = ghash_load(block);
         const __m128i x = _mm_xor_si128(acc, b);
@@ -137,14 +137,14 @@ struct GhashCtx {
         acc = _mm_xor_si128(xh, hi);
     }
 
-    [[gnu::target("pclmul,ssse3")]]
+    IA_TARGET("pclmul,ssse3")
     void update_partial(const uint8_t* data, std::size_t len) noexcept {
         ByteArray<16> buf{};
         std::memcpy(buf.data(), data, len);
         update(buf.data());
     }
 
-    [[gnu::target("pclmul,ssse3")]]
+    IA_TARGET("pclmul,ssse3")
     void finish(uint8_t* out) const noexcept {
         ghash_store(out, acc);
     }

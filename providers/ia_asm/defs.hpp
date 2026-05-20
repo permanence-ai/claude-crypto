@@ -14,3 +14,14 @@
 #ifdef __GNUC__
 #pragma GCC target("aes,sha,pclmul,ssse3,sse4.1")
 #endif
+
+// IA_TARGET(features): per-function ISA annotation.
+// On GCC/Clang this expands to [[gnu::target(features)]], enabling the listed
+// ISA extensions for that function even when the TU baseline is lower.
+// On MSVC the whole-TU /arch:AVX2 flag (set in CMake) already enables all
+// required intrinsics, so the per-function attribute is a no-op.
+#ifdef _MSC_VER
+#  define IA_TARGET(...) /* MSVC: ISA enabled project-wide via /arch:AVX2 */
+#else
+#  define IA_TARGET(...) [[gnu::target(__VA_ARGS__)]]
+#endif
