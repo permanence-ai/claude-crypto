@@ -7,6 +7,7 @@
 
 
 enum class CryptoErrorCode : std::uint8_t {
+    InternalError,
     InitFailed,
     InvalidArgument,
     RandomGenerationFailed,

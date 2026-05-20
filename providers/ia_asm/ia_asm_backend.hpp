@@ -307,27 +307,19 @@ struct IaAsmBackend {
         -> std::expected<SecureBuffer, Status>
     {
         if (arm_asm::detail::rsa_key_id_is_rsa(id)) {
-            using namespace arm_asm::detail;
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
-            const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
-            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-            if (kind != RsaKeyKind::Private) { return std::unexpected(err_invalid_arg); }
-            SecureBuffer out(key_len);
-            std::memcpy(out.data(), key, key_len);
+            const auto kv = arm_asm::detail::rsa_key_store_get(id);
+            if (!kv) { return std::unexpected(err_invalid_arg); }
+            if (kv->kind != arm_asm::detail::RsaKeyKind::Private) { return std::unexpected(err_invalid_arg); }
+            SecureBuffer out(kv->len);
+            std::memcpy(out.data(), kv->data.data(), kv->len);
             return out;
         }
         if (arm_asm::detail::ec_key_id_is_ec(id)) {
-            using namespace arm_asm::detail;
-            EcCurveId curve = EcCurveId::None;
-            EcKeyKind kind  = EcKeyKind::None;
-            const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
-            if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-            if (kind != EcKeyKind::Private) { return std::unexpected(err_invalid_arg); }
-            SecureBuffer out(key_len);
-            std::memcpy(out.data(), key, key_len);
+            const auto kv = arm_asm::detail::ec_key_store_get(id);
+            if (!kv) { return std::unexpected(err_invalid_arg); }
+            if (kv->kind != arm_asm::detail::EcKeyKind::Private) { return std::unexpected(err_invalid_arg); }
+            SecureBuffer out(kv->len);
+            std::memcpy(out.data(), kv->data.data(), kv->len);
             return out;
         }
         if (arm_asm::detail::pqc_key_id_is_pqc(id)) {
@@ -337,11 +329,10 @@ struct IaAsmBackend {
             std::memcpy(out.data(), kv->data.data(), kv->data.size());
             return out;
         }
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ia_asm::detail::key_store_get(id, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-        SecureBuffer out(key_len);
-        std::memcpy(out.data(), key, key_len);
+        const auto kv = ia_asm::detail::key_store_get(id);
+        if (!kv) { return std::unexpected(err_invalid_arg); }
+        SecureBuffer out(kv->len);
+        std::memcpy(out.data(), kv->data.data(), kv->len);
         return out;
     }
 
@@ -351,15 +342,12 @@ struct IaAsmBackend {
     {
         using namespace arm_asm::detail;
         if (rsa_key_id_is_rsa(id)) {
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
-            const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
-            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-            if (kind != RsaKeyKind::Private) { return std::unexpected(err_invalid_arg); }
-            SecureBuffer out(rsa_public_key_export_size(bits));
+            const auto kv = rsa_key_store_get(id);
+            if (!kv) { return std::unexpected(err_invalid_arg); }
+            if (kv->kind != RsaKeyKind::Private) { return std::unexpected(err_invalid_arg); }
+            SecureBuffer out(rsa_public_key_export_size(kv->bits));
             std::size_t out_len = 0;
-            if (!rsa_derive_public_key_der(key, key_len, out.data(), out.size(), &out_len)) {
+            if (!rsa_derive_public_key_der(kv->data.data(), kv->len, out.data(), out.size(), &out_len)) {
                 return std::unexpected(err_invalid_arg);
             }
             out.resize(out_len);
@@ -373,35 +361,32 @@ struct IaAsmBackend {
             return out;
         }
         if (!ec_key_id_is_ec(id)) { return std::unexpected(err_invalid_arg); }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-        if (kind == EcKeyKind::Public) {
-            SecureBuffer out(key_len);
-            std::memcpy(out.data(), key, key_len);
+        const auto ec_kv = ec_key_store_get(id);
+        if (!ec_kv) { return std::unexpected(err_invalid_arg); }
+        if (ec_kv->kind == EcKeyKind::Public) {
+            SecureBuffer out(ec_kv->len);
+            std::memcpy(out.data(), ec_kv->data.data(), ec_kv->len);
             return out;
         }
-        if (kind != EcKeyKind::Private) { return std::unexpected(err_invalid_arg); }
-        if (curve == EcCurveId::P256) {
+        if (ec_kv->kind != EcKeyKind::Private) { return std::unexpected(err_invalid_arg); }
+        if (ec_kv->curve == EcCurveId::P256) {
             constexpr std::size_t pk_len = p256_public_key_bytes;
             SecureBuffer out(pk_len);
-            p256_compute_public_key(CByteSpan<p256_scalar_bytes>{key, p256_scalar_bytes},
+            p256_compute_public_key(CByteSpan<p256_scalar_bytes>{ec_kv->data.data(), p256_scalar_bytes},
                                     ByteSpan<p256_public_key_bytes>{out.data(), p256_public_key_bytes});
             return out;
         }
-        if (curve == EcCurveId::P384) {
+        if (ec_kv->curve == EcCurveId::P384) {
             constexpr std::size_t pk_len = p384_public_key_bytes;
             SecureBuffer out(pk_len);
-            p384_compute_public_key(CByteSpan<p384_scalar_bytes>{key, p384_scalar_bytes},
+            p384_compute_public_key(CByteSpan<p384_scalar_bytes>{ec_kv->data.data(), p384_scalar_bytes},
                                     ByteSpan<p384_public_key_bytes>{out.data(), p384_public_key_bytes});
             return out;
         }
-        if (curve == EcCurveId::P521) {
+        if (ec_kv->curve == EcCurveId::P521) {
             constexpr std::size_t pk_len = p521_public_key_bytes;
             SecureBuffer out(pk_len);
-            p521_compute_public_key(CByteSpan<p521_scalar_bytes>{key, p521_scalar_bytes},
+            p521_compute_public_key(CByteSpan<p521_scalar_bytes>{ec_kv->data.data(), p521_scalar_bytes},
                                     ByteSpan<p521_public_key_bytes>{out.data(), p521_public_key_bytes});
             return out;
         }
@@ -414,9 +399,10 @@ struct IaAsmBackend {
                               KeyId id, Algorithm alg, // NOLINT(bugprone-easily-swappable-parameters)
                               const CryptoByte* msg, std::size_t msg_len,
                               CryptoByte* out, std::size_t out_size, std::size_t* out_len) {
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ia_asm::detail::key_store_get(id, &key, &key_len)) { return err_invalid_arg; }
+        const auto kv = ia_asm::detail::key_store_get(id);
+        if (!kv) { return err_invalid_arg; }
+        const CryptoByte* key = kv->data.data();
+        const std::size_t key_len = kv->len;
         if (alg == alg_hmac(ShaVariant::Sha256)) {
             if (out_size < sha256_size_bytes) { return err_invalid_arg; }
             ia_asm::detail::hmac_sha256(key, key_len, msg, msg_len, ByteSpan<sha256_digest_bytes>{out, sha256_digest_bytes});
@@ -495,10 +481,10 @@ struct IaAsmBackend {
                                const CByteVSpan pt)
         -> std::expected<SecureBuffer, Status>
     {
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ia_asm::detail::key_store_get(id, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-        if (key_len != 32) { return std::unexpected(err_invalid_arg); }
+        const auto kv_enc = ia_asm::detail::key_store_get(id);
+        if (!kv_enc) { return std::unexpected(err_invalid_arg); }
+        if (kv_enc->len != 32) { return std::unexpected(err_invalid_arg); }
+        const CryptoByte* key = kv_enc->data.data();
         if (alg == alg_aes_gcm()) {
             if (nonce.size() != ia_asm::detail::aes_gcm_iv_bytes) { return std::unexpected(err_invalid_arg); }
             if (pt.size() > SIZE_MAX - ia_asm::detail::aes_gcm_tag_bytes) { return std::unexpected(err_invalid_arg); }
@@ -524,10 +510,10 @@ struct IaAsmBackend {
                                const CByteVSpan ct)
         -> std::expected<SecureBuffer, Status>
     {
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ia_asm::detail::key_store_get(id, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-        if (key_len != 32) { return std::unexpected(err_invalid_arg); }
+        const auto kv_dec = ia_asm::detail::key_store_get(id);
+        if (!kv_dec) { return std::unexpected(err_invalid_arg); }
+        if (kv_dec->len != 32) { return std::unexpected(err_invalid_arg); }
+        const CryptoByte* key = kv_dec->data.data();
         if (alg == alg_aes_gcm()) {
             if (nonce.size() != ia_asm::detail::aes_gcm_iv_bytes) { return std::unexpected(err_invalid_arg); }
             if (ct.size() < ia_asm::detail::aes_gcm_tag_bytes) { return std::unexpected(err_invalid_arg); }
@@ -562,13 +548,9 @@ struct IaAsmBackend {
         using namespace arm_asm::detail;
         if (alg == alg_rsa_pss()) {
             if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
-            const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
-            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
-            if (kind != RsaKeyKind::Private) { return err_invalid_arg; }
-            if (!rsa_pss_sign(bits, key, key_len, msg, msg_len, sig, sig_size, sig_len)) {
+            const auto kv = rsa_key_store_get(id);
+            if (!kv || kv->kind != RsaKeyKind::Private) { return err_invalid_arg; }
+            if (!rsa_pss_sign(kv->bits, kv->data.data(), kv->len, msg, msg_len, sig, sig_size, sig_len)) {
                 return err_invalid_arg;
             }
             return ok;
@@ -589,12 +571,11 @@ struct IaAsmBackend {
 #endif
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
-        if (kind != EcKeyKind::Private) { return err_invalid_arg; }
+        const auto ec_kv_sign = ec_key_store_get(id);
+        if (!ec_kv_sign || ec_kv_sign->kind != EcKeyKind::Private) { return err_invalid_arg; }
+        const EcCurveId curve = ec_kv_sign->curve;
+        const CryptoByte* key = ec_kv_sign->data.data();
+        const std::size_t key_len = ec_kv_sign->len;
         if (curve == EcCurveId::P256) {
             constexpr std::size_t hash_len = 32;
             constexpr std::size_t sig_len_expected = 64;
@@ -663,13 +644,9 @@ struct IaAsmBackend {
         using namespace arm_asm::detail;
         if (alg == alg_rsa_pss()) {
             if (!rsa_key_id_is_rsa(id)) { return err_invalid_arg; }
-            RsaKeyKind kind = RsaKeyKind::None;
-            std::size_t bits = 0;
-            const CryptoByte* key = nullptr;
-            std::size_t key_len = 0;
-            if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return err_invalid_arg; }
-            if (kind != RsaKeyKind::Public) { return err_invalid_arg; }
-            return rsa_pss_verify(bits, key, key_len, msg.data(), msg.size(), sig.data(), sig.size())
+            const auto kv = rsa_key_store_get(id);
+            if (!kv || kv->kind != RsaKeyKind::Public) { return err_invalid_arg; }
+            return rsa_pss_verify(kv->bits, kv->data.data(), kv->len, msg.data(), msg.size(), sig.data(), sig.size())
                 ? ok : err_invalid_sig;
         }
 #ifdef SAFE_CRYPTO_PQC_LIBOQS
@@ -685,12 +662,11 @@ struct IaAsmBackend {
 #endif
         if (alg != alg_ecdsa()) { return err_invalid_arg; }
         if (!ec_key_id_is_ec(id)) { return err_invalid_arg; }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return err_invalid_arg; }
-        if (kind != EcKeyKind::Public) { return err_invalid_arg; }
+        const auto ec_kv_ver = ec_key_store_get(id);
+        if (!ec_kv_ver || ec_kv_ver->kind != EcKeyKind::Public) { return err_invalid_arg; }
+        const EcCurveId curve = ec_kv_ver->curve;
+        const CryptoByte* key = ec_kv_ver->data.data();
+        const std::size_t key_len = ec_kv_ver->len;
         if (curve == EcCurveId::P256) {
             constexpr std::size_t hash_len = 32;
             constexpr std::size_t expected_sig_len = 64;
@@ -739,12 +715,11 @@ struct IaAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_ecdh()) { return std::unexpected(err_invalid_arg); }
         if (!ec_key_id_is_ec(id)) { return std::unexpected(err_invalid_arg); }
-        EcCurveId curve = EcCurveId::None;
-        EcKeyKind kind  = EcKeyKind::None;
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!ec_key_store_get(id, &curve, &kind, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-        if (kind != EcKeyKind::Private) { return std::unexpected(err_invalid_arg); }
+        const auto ec_kv_dh = ec_key_store_get(id);
+        if (!ec_kv_dh || ec_kv_dh->kind != EcKeyKind::Private) { return std::unexpected(err_invalid_arg); }
+        const EcCurveId curve = ec_kv_dh->curve;
+        const CryptoByte* key = ec_kv_dh->data.data();
+        const std::size_t key_len = ec_kv_dh->len;
         if (curve == EcCurveId::P256) {
             constexpr std::size_t pk_len = 65;
             constexpr std::size_t ss_len = 32;
@@ -805,16 +780,12 @@ struct IaAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_rsa_oaep()) { return std::unexpected(err_invalid_arg); }
         if (!rsa_key_id_is_rsa(id)) { return std::unexpected(err_invalid_arg); }
-        RsaKeyKind kind = RsaKeyKind::None;
-        std::size_t bits = 0;
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-        if (kind != RsaKeyKind::Public) { return std::unexpected(err_invalid_arg); }
+        const auto kv_enc = rsa_key_store_get(id);
+        if (!kv_enc || kv_enc->kind != RsaKeyKind::Public) { return std::unexpected(err_invalid_arg); }
         constexpr std::size_t max_out = 512;
         SecureBuffer out(max_out);
         std::size_t out_len = 0;
-        if (!rsa_oaep_encrypt(bits, key, key_len, pt.data(), pt.size(), salt.data(), salt.size(), out.data(), out.size(), &out_len)) {
+        if (!rsa_oaep_encrypt(kv_enc->bits, kv_enc->data.data(), kv_enc->len, pt.data(), pt.size(), salt.data(), salt.size(), out.data(), out.size(), &out_len)) {
             return std::unexpected(err_invalid_arg);
         }
         out.resize(out_len);
@@ -831,16 +802,12 @@ struct IaAsmBackend {
         using namespace arm_asm::detail;
         if (alg != alg_rsa_oaep()) { return std::unexpected(err_invalid_arg); }
         if (!rsa_key_id_is_rsa(id)) { return std::unexpected(err_invalid_arg); }
-        RsaKeyKind kind = RsaKeyKind::None;
-        std::size_t bits = 0;
-        const CryptoByte* key = nullptr;
-        std::size_t key_len = 0;
-        if (!rsa_key_store_get(id, &kind, &bits, &key, &key_len)) { return std::unexpected(err_invalid_arg); }
-        if (kind != RsaKeyKind::Private) { return std::unexpected(err_invalid_arg); }
+        const auto kv_dec = rsa_key_store_get(id);
+        if (!kv_dec || kv_dec->kind != RsaKeyKind::Private) { return std::unexpected(err_invalid_arg); }
         constexpr std::size_t max_out = 512;
         SecureBuffer out(max_out);
         std::size_t out_len = 0;
-        if (!rsa_oaep_decrypt(bits, key, key_len, ct.data(), ct.size(), salt.data(), salt.size(), out.data(), out.size(), &out_len)) {
+        if (!rsa_oaep_decrypt(kv_dec->bits, kv_dec->data.data(), kv_dec->len, ct.data(), ct.size(), salt.data(), salt.size(), out.data(), out.size(), &out_len)) {
             return std::unexpected(err_invalid_arg);
         }
         out.resize(out_len);
