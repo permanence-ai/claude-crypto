@@ -28,3 +28,4 @@ default.profraw
 Testing/
 a.out
 build-pipe-drain/
+build-issue69-check/
