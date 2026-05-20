@@ -13,9 +13,21 @@
 #include <string_view>
 #include <vector>
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#  include <aclapi.h>
+#  include <sddl.h>
+#else
+#  include <fcntl.h>
+#  include <sys/stat.h>
+#  include <unistd.h>
+#endif
 
 #include "cli_base64.hpp"
 
@@ -165,8 +177,8 @@ inline auto write_output(
 // specified by `spec`:
 //   ""  / "base64"   — base64-encode and print to stdout with trailing newline
 //   "-"              — write raw binary to stdout
-//   <path>           — create a new file with mode 0600, fail if it already
-//                      exists or if `spec` is a symlink (O_EXCL|O_NOFOLLOW)
+//   <path>           — create a new file accessible only by the current user,
+//                      fail if it already exists or if `spec` is a symlink
 [[nodiscard]]
 inline auto write_secret_output(
     std::string_view spec,
@@ -177,6 +189,111 @@ inline auto write_secret_output(
     if (spec.empty() || spec == "base64" || spec == "-") {
         return write_output(spec, data);
     }
+
+#ifdef _WIN32
+    // Windows: CreateFileW with CREATE_NEW (exclusive, no follow-on-reparse)
+    // plus an owner-only DACL equivalent to Unix mode 0600.
+
+    // Convert UTF-8 path to wide string.
+    const int wlen = MultiByteToWideChar(CP_UTF8, 0, spec.data(),
+                                         static_cast<int>(spec.size()), nullptr, 0);
+    if (wlen <= 0) {
+        return std::unexpected("invalid path encoding: " + std::string(spec));
+    }
+    std::wstring wpath(static_cast<std::size_t>(wlen), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, spec.data(), static_cast<int>(spec.size()),
+                        wpath.data(), wlen);
+
+    // Reject symlinks (reparse points) before creating the file.
+    const DWORD attrs = GetFileAttributesW(wpath.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES &&
+        (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+        return std::unexpected("secret output path is a symlink: " + std::string(spec));
+    }
+
+    // Build owner-only DACL: look up the current user's SID.
+    HANDLE htoken = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &htoken)) {
+        return std::unexpected("cannot query process token for: " + std::string(spec));
+    }
+
+    DWORD token_info_size = 0;
+    GetTokenInformation(htoken, TokenUser, nullptr, 0, &token_info_size);
+    std::vector<BYTE> token_info(token_info_size);
+    const BOOL got_user = GetTokenInformation(htoken, TokenUser,
+                                               token_info.data(), token_info_size,
+                                               &token_info_size);
+    CloseHandle(htoken);
+    if (!got_user) {
+        return std::unexpected("cannot get token user for: " + std::string(spec));
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    const PSID user_sid = reinterpret_cast<TOKEN_USER*>(token_info.data())->User.Sid;
+
+    // Grant read+write to the current user only.
+    EXPLICIT_ACCESSW ea{};
+    ea.grfAccessPermissions = GENERIC_READ | GENERIC_WRITE;
+    ea.grfAccessMode        = SET_ACCESS;
+    ea.grfInheritance       = NO_INHERITANCE;
+    ea.Trustee.TrusteeForm  = TRUSTEE_IS_SID;
+    ea.Trustee.TrusteeType  = TRUSTEE_IS_USER;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    ea.Trustee.ptstrName    = reinterpret_cast<LPWSTR>(user_sid);
+
+    PACL dacl = nullptr;
+    if (SetEntriesInAclW(1, &ea, nullptr, &dacl) != ERROR_SUCCESS) {
+        return std::unexpected("cannot build DACL for: " + std::string(spec));
+    }
+
+    SECURITY_DESCRIPTOR sd{};
+    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
+    SetSecurityDescriptorDacl(&sd, TRUE, dacl, FALSE);
+
+    SECURITY_ATTRIBUTES sa{};
+    sa.nLength              = sizeof(sa);
+    sa.lpSecurityDescriptor = &sd;
+    sa.bInheritHandle       = FALSE;
+
+    // CREATE_NEW fails with ERROR_FILE_EXISTS if the file already exists.
+    // FILE_FLAG_OPEN_REPARSE_POINT prevents following reparse points on open.
+    HANDLE hfile = CreateFileW(wpath.c_str(),
+                               GENERIC_WRITE,
+                               0,        // no sharing
+                               &sa,
+                               CREATE_NEW,
+                               FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+                               nullptr);
+    LocalFree(dacl);
+
+    if (hfile == INVALID_HANDLE_VALUE) {
+        const DWORD err = GetLastError();
+        if (err == ERROR_FILE_EXISTS) {
+            return std::unexpected("secret output file already exists: " + std::string(spec));
+        }
+        return std::unexpected("cannot create secret output file: " + std::string(spec));
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    const auto* ptr = reinterpret_cast<const char*>(data.data());
+    std::size_t remaining = data.size();
+    while (remaining > 0) {
+        const DWORD to_write = static_cast<DWORD>(
+            remaining > MAXDWORD ? MAXDWORD : remaining);
+        DWORD written = 0;
+        if (!WriteFile(hfile, ptr + (data.size() - remaining), to_write, &written, nullptr)
+            || written == 0) {
+            CloseHandle(hfile);
+            return std::unexpected("write failed to: " + std::string(spec));
+        }
+        remaining -= static_cast<std::size_t>(written);
+    }
+    CloseHandle(hfile);
+    return {};
+
+#else
+    // POSIX: open with O_CREAT|O_EXCL|O_NOFOLLOW for exclusive creation
+    // without following symlinks; S_IRUSR|S_IWUSR = mode 0600.
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg)
     const int fd = ::open(std::string(spec).c_str(),
@@ -208,6 +325,7 @@ inline auto write_secret_output(
     }
     ::close(fd);
     return {};
+#endif
 }
 
 }  // namespace scli
