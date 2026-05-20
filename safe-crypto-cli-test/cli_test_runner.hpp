@@ -253,10 +253,10 @@ inline auto run_scli(const std::string& scli_path, std::vector<std::string> args
             }
         };
 
-        const bool had_data_before = (out.size() + err.size()) > 0;
+        const auto before = out.size() + err.size();
         drain_pipe(stdout_rd, out, stdout_open);
         drain_pipe(stderr_rd, err, stderr_open);
-        const bool has_new_data = (out.size() + err.size()) > (had_data_before ? out.size() + err.size() - 1U : 0U);
+        const bool has_new_data = out.size() + err.size() > before;
 
         // If both pipes had nothing available, yield briefly so we don't spin.
         if (!has_new_data && (stdout_open || stderr_open)) {
