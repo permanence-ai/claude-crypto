@@ -15,8 +15,16 @@
 #include <string>
 #include <vector>
 
-#include <sys/stat.h>
-#include <unistd.h>
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
+#  include <aclapi.h>
+#else
+#  include <sys/stat.h>
+#  include <unistd.h>
+#endif
 
 #include <gtest/gtest.h>
 
@@ -321,9 +329,28 @@ TEST_F(IoTests, SecretOutput_PrivateKeyFile_HasMode0600) {
          "--out-private", priv_path, "--out-public", pub_path});
     ASSERT_EQ(r.exit_code, 0);
 
+#ifdef _WIN32
+    // On Windows verify that only the current user (owner) has access.
+    // Obtain the DACL and check that no non-owner ACEs grant access.
+    PSECURITY_DESCRIPTOR psd = nullptr;
+    PACL pacl = nullptr;
+    const DWORD rc = GetNamedSecurityInfoA(
+        priv_path.c_str(), SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION, nullptr, nullptr, &pacl, nullptr, &psd);
+    ASSERT_EQ(rc, ERROR_SUCCESS);
+    if (psd) {
+        ACL_SIZE_INFORMATION acl_info{};
+        if (pacl && GetAclInformation(pacl, &acl_info, sizeof(acl_info), AclSizeInformation)) {
+            // Expect exactly one ACE (owner full-control) — no world/group ACEs.
+            EXPECT_LE(acl_info.AceCount, 1U);
+        }
+        LocalFree(psd);
+    }
+#else
     struct stat st{};
     ASSERT_EQ(::stat(priv_path.c_str(), &st), 0);
     EXPECT_EQ(st.st_mode & 0777U, 0600U);  // NOLINT(cppcoreguidelines-avoid-magic-numbers)
+#endif
 }
 
 TEST_F(IoTests, SecretOutput_PublicKeyFile_HasDefaultUmaskMode) {
@@ -335,11 +362,13 @@ TEST_F(IoTests, SecretOutput_PublicKeyFile_HasDefaultUmaskMode) {
          "--out-private", priv_path, "--out-public", pub_path});
     ASSERT_EQ(r.exit_code, 0);
 
-    // Public key uses write_output (std::ofstream), so mode is set by umask —
-    // just verify the file is readable (not locked down to 0000).
+    // Public key uses write_output (std::ofstream) — just verify the file is readable.
+    EXPECT_TRUE(std::filesystem::exists(pub_path));
+#ifndef _WIN32
     struct stat st{};
     ASSERT_EQ(::stat(pub_path.c_str(), &st), 0);
     EXPECT_NE(st.st_mode & S_IRUSR, 0U);  // NOLINT(hicpp-signed-bitwise)
+#endif
 }
 
 TEST_F(IoTests, SecretOutput_RejectsExistingFile) {
@@ -369,7 +398,18 @@ TEST_F(IoTests, SecretOutput_RejectsSymlink) {
 
     // Create an empty file and a symlink pointing to it.
     { std::ofstream f(real_path); }
+#ifdef _WIN32
+    // CreateSymbolicLinkW requires SE_CREATE_SYMBOLIC_LINK_NAME privilege or
+    // Developer Mode; skip the test if symlink creation fails.
+    const std::wstring real_w(real_path.begin(), real_path.end());
+    const std::wstring link_w(link_path.begin(), link_path.end());
+    if (!CreateSymbolicLinkW(link_w.c_str(), real_w.c_str(), 0)) {
+        std::filesystem::remove(real_path);
+        GTEST_SKIP() << "CreateSymbolicLinkW failed (insufficient privilege or Developer Mode off)";
+    }
+#else
     ::symlink(real_path.c_str(), link_path.c_str());
+#endif
 
     // Attempt to write private key through the symlink must fail.
     const auto r = run_scli(scli(),
@@ -389,9 +429,25 @@ TEST_F(IoTests, SecretOutput_KdfDeriveOutputFile_HasMode0600) {
          "--output", out_path});
     ASSERT_EQ(r.exit_code, 0);
 
+#ifdef _WIN32
+    PSECURITY_DESCRIPTOR psd = nullptr;
+    PACL pacl = nullptr;
+    const DWORD rc = GetNamedSecurityInfoA(
+        out_path.c_str(), SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION, nullptr, nullptr, &pacl, nullptr, &psd);
+    ASSERT_EQ(rc, ERROR_SUCCESS);
+    if (psd) {
+        ACL_SIZE_INFORMATION acl_info{};
+        if (pacl && GetAclInformation(pacl, &acl_info, sizeof(acl_info), AclSizeInformation)) {
+            EXPECT_LE(acl_info.AceCount, 1U);
+        }
+        LocalFree(psd);
+    }
+#else
     struct stat st{};
     ASSERT_EQ(::stat(out_path.c_str(), &st), 0);
     EXPECT_EQ(st.st_mode & 0777U, 0600U);  // NOLINT(cppcoreguidelines-avoid-magic-numbers)
+#endif
 }
 
 TEST_F(IoTests, SecretOutput_KdfDeriveOutputFile_RejectsExistingPath) {

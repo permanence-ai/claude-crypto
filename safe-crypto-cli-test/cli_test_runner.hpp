@@ -12,10 +12,21 @@
 #include <fstream>
 #include <iterator>
 #include <string>
-#include <sys/wait.h>
-#include <poll.h>
-#include <unistd.h>
 #include <vector>
+
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#else
+#  include <poll.h>
+#  include <sys/wait.h>
+#  include <unistd.h>
+#endif
 
 #include "defs.hpp"
 
@@ -27,6 +38,11 @@ struct RunResult {
     std::string stderr_text;
     int         exit_code{};
 };
+
+// ---------------------------------------------------------------------------
+// POSIX implementation — fork/pipe/poll/execv
+// ---------------------------------------------------------------------------
+#ifndef _WIN32
 
 // Run scli_path with the given argv tokens and return captured stdout, stderr, and exit code.
 // Stdout and stderr are drained concurrently via poll() to prevent pipe-buffer deadlocks:
@@ -126,6 +142,157 @@ inline auto run_scli(const std::string& scli_path, std::vector<std::string> args
 
     return {out, err, code};
 }
+
+#else  // _WIN32
+
+// ---------------------------------------------------------------------------
+// Windows implementation — CreateProcess / CreatePipe / ReadFile
+// ---------------------------------------------------------------------------
+
+// Run scli_path with the given argv tokens and return captured stdout, stderr, and exit code.
+// Stdout and stderr are piped through anonymous pipes and drained by reading both handles
+// in a loop to avoid pipe-buffer deadlocks when the child writes more than one buffer of output.
+// When strip_trailing_newline is true (default), a single trailing '\n' is removed from
+// stdout_text and stderr_text.
+[[nodiscard]]
+inline auto run_scli(const std::string& scli_path, std::vector<std::string> args,
+                     bool strip_trailing_newline = true) -> RunResult
+{
+    // Build a single command-line string: quote each argument that contains spaces.
+    auto quote_arg = [](const std::string& s) -> std::string {
+        if (s.find(' ') == std::string::npos && s.find('"') == std::string::npos) {
+            return s;
+        }
+        std::string q = "\"";
+        for (const char c : s) {
+            if (c == '"') { q += '\\'; }
+            q += c;
+        }
+        q += '"';
+        return q;
+    };
+
+    std::string cmdline = quote_arg(scli_path);
+    for (const auto& a : args) {
+        cmdline += ' ';
+        cmdline += quote_arg(a);
+    }
+
+    // Create pipes: stdout and stderr each get their own read/write handle pair.
+    SECURITY_ATTRIBUTES sa{};
+    sa.nLength              = sizeof(sa);
+    sa.bInheritHandle       = TRUE;  // child inherits the write ends
+    sa.lpSecurityDescriptor = nullptr;
+
+    HANDLE stdout_rd = nullptr, stdout_wr = nullptr;
+    HANDLE stderr_rd = nullptr, stderr_wr = nullptr;
+    if (!CreatePipe(&stdout_rd, &stdout_wr, &sa, 0) ||
+        !CreatePipe(&stderr_rd, &stderr_wr, &sa, 0)) {
+        return {"", "", 127};
+    }
+
+    // Parent's read handles must NOT be inheritable.
+    SetHandleInformation(stdout_rd, HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(stderr_rd, HANDLE_FLAG_INHERIT, 0);
+
+    STARTUPINFOA si{};
+    si.cb          = sizeof(si);
+    si.dwFlags     = STARTF_USESTDHANDLES;
+    si.hStdOutput  = stdout_wr;
+    si.hStdError   = stderr_wr;
+    si.hStdInput   = GetStdHandle(STD_INPUT_HANDLE);
+
+    PROCESS_INFORMATION pi{};
+    const BOOL ok = CreateProcessA(
+        nullptr,
+        cmdline.data(),  // lpCommandLine must be writable
+        nullptr, nullptr,
+        TRUE,            // inherit handles
+        0, nullptr, nullptr,
+        &si, &pi);
+
+    // Close write ends in the parent immediately after spawning.
+    CloseHandle(stdout_wr);
+    CloseHandle(stderr_wr);
+
+    if (!ok) {
+        CloseHandle(stdout_rd);
+        CloseHandle(stderr_rd);
+        return {"", "", 127};
+    }
+    CloseHandle(pi.hThread);
+
+    // Drain both pipes concurrently.  We alternate between stdout and stderr
+    // using PeekNamedPipe to avoid blocking on an empty pipe while the other
+    // fills.  This prevents the child from deadlocking when it writes more
+    // than one pipe buffer on either channel.
+    std::string out;
+    std::string err;
+    std::array<char, 4096> buf{};
+
+    bool stdout_open = true;
+    bool stderr_open = true;
+
+    while (stdout_open || stderr_open) {
+        auto drain_pipe = [&](HANDLE h, std::string& sink, bool& pipe_open) {
+            if (!pipe_open) { return; }
+            DWORD avail = 0;
+            if (!PeekNamedPipe(h, nullptr, 0, nullptr, &avail, nullptr)) {
+                pipe_open = false;
+                return;
+            }
+            if (avail == 0) { return; }
+            DWORD nread = 0;
+            const BOOL read_ok = ReadFile(h, buf.data(),
+                                          static_cast<DWORD>(buf.size()),
+                                          &nread, nullptr);
+            if (!read_ok || nread == 0) {
+                pipe_open = false;
+            } else {
+                sink.append(buf.data(), static_cast<std::size_t>(nread));
+            }
+        };
+
+        const bool had_data_before = (out.size() + err.size()) > 0;
+        drain_pipe(stdout_rd, out, stdout_open);
+        drain_pipe(stderr_rd, err, stderr_open);
+        const bool has_new_data = (out.size() + err.size()) > (had_data_before ? out.size() + err.size() - 1U : 0U);
+
+        // If both pipes had nothing available, yield briefly so we don't spin.
+        if (!has_new_data && (stdout_open || stderr_open)) {
+            // Check whether the process has exited; if so, do a final drain.
+            if (WaitForSingleObject(pi.hProcess, 0) == WAIT_OBJECT_0) {
+                // Process done — drain whatever remains then exit loop.
+                DWORD nread = 0;
+                while (ReadFile(stdout_rd, buf.data(), static_cast<DWORD>(buf.size()), &nread, nullptr) && nread > 0) {
+                    out.append(buf.data(), static_cast<std::size_t>(nread));
+                }
+                while (ReadFile(stderr_rd, buf.data(), static_cast<DWORD>(buf.size()), &nread, nullptr) && nread > 0) {
+                    err.append(buf.data(), static_cast<std::size_t>(nread));
+                }
+                break;
+            }
+            Sleep(1);
+        }
+    }
+
+    CloseHandle(stdout_rd);
+    CloseHandle(stderr_rd);
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    DWORD exit_code = 127;
+    GetExitCodeProcess(pi.hProcess, &exit_code);
+    CloseHandle(pi.hProcess);
+
+    if (strip_trailing_newline) {
+        if (!out.empty() && out.back() == '\n') { out.pop_back(); }
+        if (!err.empty() && err.back() == '\n') { err.pop_back(); }
+    }
+
+    return {out, err, static_cast<int>(exit_code)};
+}
+
+#endif  // _WIN32
 
 // Write raw bytes to a temp file; returns the path.
 [[nodiscard]]
