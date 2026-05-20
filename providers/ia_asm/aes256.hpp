@@ -36,7 +36,7 @@ using Aes256Schedule = std::array<uint8_t, aes256_schedule_bytes>;
 
 // Helper: given xmm_rcon = _mm_aeskeygenassist_si128(prev, rcon), extract
 // the KeyGenAssist result (lane 3 broadcast) and XOR with the previous word chain.
-[[gnu::target("aes,sse4.1")]]
+IA_TARGET("aes,sse4.1")
 static inline __m128i aes256_keygen_helper(__m128i key, __m128i keygen_result) noexcept {
     // Broadcast lane 3 (the SubWord(RotWord(w)) result) to all lanes.
     keygen_result = _mm_shuffle_epi32(keygen_result, 0xFF);
@@ -47,7 +47,7 @@ static inline __m128i aes256_keygen_helper(__m128i key, __m128i keygen_result) n
 }
 
 // Helper for the "odd" AES-256 round keys (those derived from SubWord without RotWord).
-[[gnu::target("aes,sse4.1")]]
+IA_TARGET("aes,sse4.1")
 static inline __m128i aes256_keygen_helper2(__m128i key, __m128i keygen_result) noexcept {
     keygen_result = _mm_shuffle_epi32(keygen_result, 0xAA); // lane 2
     key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
@@ -58,7 +58,7 @@ static inline __m128i aes256_keygen_helper2(__m128i key, __m128i keygen_result) 
 
 // Expand a 256-bit key into the AES-256 round-key schedule.
 // key must point to 32 bytes; sched receives 15 × 16 bytes.
-[[gnu::target("aes,sse4.1")]]
+IA_TARGET("aes,sse4.1")
 inline void aes256_key_expand(CByteSpan<aes256_key_size_bytes> key, Aes256Schedule& sched) noexcept
 {
     // Load the two 128-bit halves of the 256-bit key.
@@ -107,7 +107,7 @@ inline void aes256_key_expand(CByteSpan<aes256_key_size_bytes> key, Aes256Schedu
 
 // Encrypt a single 16-byte block under the pre-expanded AES-256 schedule.
 [[nodiscard]]
-[[gnu::target("aes")]]
+IA_TARGET("aes")
 inline __m128i aes256_encrypt_block(__m128i block, const Aes256Schedule& sched) noexcept
 {
     const auto* rk = reinterpret_cast<const __m128i*>(sched.data()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)

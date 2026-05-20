@@ -35,7 +35,7 @@ static inline void store_le64(uint8_t* p, uint64_t v) noexcept {
 
 
 // Build the Poly1305 input and compute the tag.
-[[gnu::target("sse2")]]
+IA_TARGET("sse2")
 static inline void poly1305_feed( // NOLINT(readability-function-size)
     const CryptoByte* otk, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* aad, std::size_t aad_len,
@@ -91,7 +91,7 @@ static inline void poly1305_feed( // NOLINT(readability-function-size)
 }
 
 
-[[gnu::target("sse2")]]
+IA_TARGET("sse2")
 inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* nonce, // NOLINT(bugprone-easily-swappable-parameters)
@@ -110,7 +110,7 @@ inline void chacha20_poly1305_encrypt( // NOLINT(readability-function-size,reada
 }
 
 
-[[gnu::target("sse2")]]
+IA_TARGET("sse2")
 inline bool chacha20_poly1305_decrypt( // NOLINT(readability-function-size,readability-function-cognitive-complexity)
     const CryptoByte* key, // NOLINT(bugprone-easily-swappable-parameters)
     const CryptoByte* nonce, // NOLINT(bugprone-easily-swappable-parameters)
