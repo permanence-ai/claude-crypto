@@ -2,7 +2,7 @@
 
 #pragma once
 
-// Poly1305 one-time MAC (RFC 8439 §2.5) — pure scalar __uint128_t implementation.
+// Poly1305 one-time MAC (RFC 8439 §2.5) — pure scalar implementation.
 //
 // See providers/arm_asm/poly1305.hpp for the full algorithm description.
 // This file is structurally identical but uses ia_asm::detail namespace and
@@ -13,6 +13,10 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
+
+#ifdef _MSC_VER
+#  include <intrin.h>   // _umul128
+#endif
 
 #include "defs.hpp"
 #include "secure_buffer.hpp"
@@ -84,19 +88,63 @@ static inline Poly1305Precomp make_precomp(const Poly1305Limbs& r) noexcept {
     };
 }
 
+// mul64: compute a * b as a 128-bit product, returning the low 64 bits and
+// writing the high 64 bits to *hi.  Uses __uint128_t on GCC/Clang and
+// _umul128 on MSVC (x64 intrinsic from <intrin.h>).
+[[nodiscard]]
+static inline uint64_t mul64(uint64_t a, uint64_t b, uint64_t* hi) noexcept {
+#ifdef _MSC_VER
+    return _umul128(a, b, hi);
+#else
+    const unsigned __int128 r = static_cast<unsigned __int128>(a) * b;
+    *hi = static_cast<uint64_t>(r >> 64U);
+    return static_cast<uint64_t>(r);
+#endif
+}
+
+// add128: add b_lo:b_hi into a_lo:a_hi, propagating carry.
+static inline void add128(uint64_t& a_lo, uint64_t& a_hi,
+                           uint64_t  b_lo, uint64_t  b_hi) noexcept {
+    const uint64_t prev = a_lo;
+    a_lo += b_lo;
+    a_hi += b_hi + (a_lo < prev ? 1U : 0U);
+}
+
 static inline void poly1305_multiply_precomp(Poly1305Limbs& h,
                                               const Poly1305Precomp& p) noexcept {
-    using u128 = unsigned __int128;
-    const u128 d0 = (static_cast<u128>(h.h0)*p.r0) + (static_cast<u128>(h.h1)*p.r2_20) + (static_cast<u128>(h.h2)*p.r1_20);
-    const u128 d1 = (static_cast<u128>(h.h0)*p.r1) + (static_cast<u128>(h.h1)*p.r0)    + (static_cast<u128>(h.h2)*p.r2_20);
-    const u128 d2 = (static_cast<u128>(h.h0)*p.r2) + (static_cast<u128>(h.h1)*p.r1)    + (static_cast<u128>(h.h2)*p.r0);
+    // Compute d0..d2 as 128-bit accumulators (lo/hi pairs).
+    uint64_t d0lo = 0, d0hi = 0;
+    uint64_t d1lo = 0, d1hi = 0;
+    uint64_t d2lo = 0, d2hi = 0;
 
-    h.h0 = static_cast<uint64_t>(d0) & mask44;  const u128 c1 = d0 >> 44U;
-    const u128 e1 = d1 + c1;
-    h.h1 = static_cast<uint64_t>(e1) & mask44;  const u128 c2 = e1 >> 44U;
-    const u128 e2 = d2 + c2;
-    h.h2 = static_cast<uint64_t>(e2) & mask42;
-    const uint64_t c3 = static_cast<uint64_t>(e2 >> 42U); // NOLINT(hicpp-use-auto,modernize-use-auto)
+    uint64_t mhi = 0, mlo = 0;
+
+    mlo = mul64(h.h0, p.r0,    &mhi); add128(d0lo, d0hi, mlo, mhi);
+    mlo = mul64(h.h1, p.r2_20, &mhi); add128(d0lo, d0hi, mlo, mhi);
+    mlo = mul64(h.h2, p.r1_20, &mhi); add128(d0lo, d0hi, mlo, mhi);
+
+    mlo = mul64(h.h0, p.r1,    &mhi); add128(d1lo, d1hi, mlo, mhi);
+    mlo = mul64(h.h1, p.r0,    &mhi); add128(d1lo, d1hi, mlo, mhi);
+    mlo = mul64(h.h2, p.r2_20, &mhi); add128(d1lo, d1hi, mlo, mhi);
+
+    mlo = mul64(h.h0, p.r2,    &mhi); add128(d2lo, d2hi, mlo, mhi);
+    mlo = mul64(h.h1, p.r1,    &mhi); add128(d2lo, d2hi, mlo, mhi);
+    mlo = mul64(h.h2, p.r0,    &mhi); add128(d2lo, d2hi, mlo, mhi);
+
+    // Reduce: extract 44-bit limbs with carry propagation.
+    h.h0 = d0lo & mask44;
+    const uint64_t c1lo = (d0lo >> 44U) | (d0hi << 20U);
+    const uint64_t c1hi = d0hi >> 44U;
+
+    add128(d1lo, d1hi, c1lo, c1hi);
+    h.h1 = d1lo & mask44;
+    const uint64_t c2lo = (d1lo >> 44U) | (d1hi << 20U);
+    const uint64_t c2hi = d1hi >> 44U;
+
+    add128(d2lo, d2hi, c2lo, c2hi);
+    h.h2 = d2lo & mask42;
+    const uint64_t c3 = (d2lo >> 42U) | (d2hi << 22U); // NOLINT(hicpp-use-auto,modernize-use-auto)
+
     h.h0 += c3 * 5U;
     const uint64_t c4 = h.h0 >> 44U; h.h0 &= mask44; h.h1 += c4;
 }
