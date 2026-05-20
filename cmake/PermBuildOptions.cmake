@@ -136,27 +136,47 @@ endif()
 # fstack-clash-protection is x86-only; it is silently ignored on AArch64 by
 # both Apple Clang and upstream LLVM, so it is intentionally omitted.
 set(_harden -fstack-protector-strong)
-# Determine whether the actual compile target is AArch64.
+# Determine whether the actual compile target matches the host architecture.
 # On Apple, CMAKE_OSX_ARCHITECTURES is authoritative when set (it can override
 # CMAKE_SYSTEM_PROCESSOR, e.g. -DCMAKE_OSX_ARCHITECTURES=x86_64 on Apple Silicon).
-# We emit -mbranch-protection=standard only when every target arch is arm64.
+# _is_native_arch: true when every requested target arch matches the host CPU.
+# _is_aarch64:     true when every requested target arch is arm64/aarch64.
+# Both flags are false when cross-compiling to a different architecture.
 if(APPLE AND CMAKE_OSX_ARCHITECTURES)
-    # explicit arch list: emit iff it contains arm64 and not x86_64
-    if(CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)arm64($|;)" AND
-       NOT CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)x86_64($|;)")
-        list(APPEND _harden -mbranch-protection=standard)
+    if(NOT CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)x86_64($|;)")
+        set(_is_aarch64 TRUE)
+        set(_is_native_arch TRUE)  # native Apple Silicon targeting arm64
+    else()
+        set(_is_aarch64 FALSE)
+        set(_is_native_arch FALSE)  # cross-compiling to x86_64 on Apple Silicon
     endif()
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    set(_is_aarch64 TRUE)
+    set(_is_native_arch TRUE)
+else()
+    set(_is_aarch64 FALSE)
+    set(_is_native_arch TRUE)  # native x86-64 or other non-Apple host
+endif()
+
+if(_is_aarch64)
     list(APPEND _harden -mbranch-protection=standard)
 endif()
 set(_harden_defs -D_FORTIFY_SOURCE=3)
+
+# -mtune=native optimises for the host CPU. Skip it when cross-compiling to a
+# different architecture (e.g. -DCMAKE_OSX_ARCHITECTURES=x86_64 on Apple Silicon)
+# because the host CPU model is not a valid tuning target for the cross target.
+set(_tune_native "")
+if(_is_native_arch)
+    set(_tune_native -mtune=native)
+endif()
 
 target_compile_options(safe_crypto_optimize INTERFACE
     # Debug: no optimisation, full debug info
     $<$<CONFIG:Debug>:-O0 -g>
 
     # Release: maximise speed — O3, native tuning, LTO, hardening
-    $<$<CONFIG:Release>:-O3 -mtune=native ${_lto} ${_harden}>
+    $<$<CONFIG:Release>:-O3 ${_tune_native} ${_lto} ${_harden}>
 
     # MinSizeRel: minimise code size — Os, LTO, hardening
     $<$<CONFIG:MinSizeRel>:-Os ${_lto} ${_harden}>
