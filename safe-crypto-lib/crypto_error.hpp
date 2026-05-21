@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <string>
-#include <string_view>
 
 
 enum class CryptoErrorCode : std::uint8_t {
@@ -33,7 +32,7 @@ enum class CryptoErrorCode : std::uint8_t {
 
 class CryptoError {
 public:
-    // noexcept overload — safe in noexcept contexts; stores the literal pointer.
+    // noexcept overload — safe in noexcept contexts; stores a string literal pointer.
     explicit CryptoError(const CryptoErrorCode code, const char* message) noexcept
         : code_(code), literal_(message) {}
 
@@ -46,9 +45,11 @@ public:
         return code_;
     }
 
+    // Returns the message as a std::string.  May allocate when constructed
+    // via the const char* overload; only call from non-critical paths.
     [[nodiscard]]
-    auto message() const noexcept -> std::string_view {
-        return literal_ != nullptr ? std::string_view{literal_} : std::string_view{owned_};
+    auto message() const -> std::string {
+        return literal_ != nullptr ? std::string{literal_} : owned_;
     }
 
 private:
