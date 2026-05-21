@@ -74,6 +74,12 @@ inline unsigned int ossl_asym_store_import(EVP_PKEY* pkey, std::uint32_t alg = 0
     return 0U;
 }
 
+// View returned by ossl_asym_store_get_with_alg — pkey is up_ref'd; caller must EVP_PKEY_free().
+struct OpenSslAsymView {
+    EVP_PKEY*     pkey{nullptr};
+    std::uint32_t alg{0U};
+};
+
 // Returns a new reference to the EVP_PKEY (EVP_PKEY_up_ref'd under the lock).
 // Caller must call EVP_PKEY_free() when done.
 [[nodiscard]]
@@ -93,6 +99,27 @@ inline auto ossl_asym_store_get(unsigned int id) noexcept
         return std::unexpected(CryptoError(CryptoErrorCode::InternalError, "EVP_PKEY_up_ref failed"));
     }
     return pkey;
+}
+
+// Returns up_ref'd pkey AND alg captured atomically under one lock.
+// Caller must call EVP_PKEY_free() on the returned pkey when done.
+[[nodiscard]]
+inline auto ossl_asym_store_get_with_alg(unsigned int id) noexcept
+    -> std::expected<OpenSslAsymView, CryptoError>
+{
+    if (id < ossl_asym_key_id_base || id > ossl_asym_key_id_max) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "invalid asymmetric key id"));
+    }
+    const std::size_t idx = id - ossl_asym_key_id_base;
+    const std::scoped_lock lock{ossl_asym_store_mutex()};
+    if (!ossl_asym_slot(idx).in_use) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "asymmetric key id not in use"));
+    }
+    EVP_PKEY* pkey = ossl_asym_slot(idx).pkey;
+    if (EVP_PKEY_up_ref(pkey) != 1) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InternalError, "EVP_PKEY_up_ref failed"));
+    }
+    return OpenSslAsymView{.pkey = pkey, .alg = ossl_asym_slot(idx).alg};
 }
 
 [[nodiscard]]

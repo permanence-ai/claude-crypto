@@ -1188,12 +1188,11 @@ struct OpenSslBackend {
         const bool is_pqc = ((alg & kAlgCategoryMask) == kAlgSlhDsaBase) ||
                             ((alg & kAlgCategoryMask) == kAlgMlDsaBase);
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc) { return err_invalid_arg; }
-        const auto pkey_r = ossl_asym_store_get(key);
-        if (!pkey_r) { return err_invalid_arg; }
-        EVP_PKEY* pkey = *pkey_r;
+        const auto kv_r = ossl_asym_store_get_with_alg(key);
+        if (!kv_r) { return err_invalid_arg; }
+        EVP_PKEY* pkey = kv_r->pkey;
         if (is_pqc) {
-            const auto alg_r = ossl_asym_store_alg(key);
-            if (!alg_r || static_cast<Algorithm>(*alg_r) != alg) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+            if (static_cast<Algorithm>(kv_r->alg) != alg) { EVP_PKEY_free(pkey); return err_invalid_arg; }
         }
 
         EVP_MD_CTX* ctx = EVP_MD_CTX_new();
@@ -1248,12 +1247,11 @@ struct OpenSslBackend {
         const bool is_pqc_v = ((alg & kAlgCategoryMask) == kAlgSlhDsaBase) ||
                               ((alg & kAlgCategoryMask) == kAlgMlDsaBase);
         if (alg != kAlgEcdsa && alg != kAlgRsaPss && !is_pqc_v) { return err_invalid_arg; }
-        const auto pkey_r = ossl_asym_store_get(key);
-        if (!pkey_r) { return err_invalid_arg; }
-        EVP_PKEY* pkey = *pkey_r;
+        const auto kv_r = ossl_asym_store_get_with_alg(key);
+        if (!kv_r) { return err_invalid_arg; }
+        EVP_PKEY* pkey = kv_r->pkey;
         if (is_pqc_v) {
-            const auto alg_r = ossl_asym_store_alg(key);
-            if (!alg_r || static_cast<Algorithm>(*alg_r) != alg) { EVP_PKEY_free(pkey); return err_invalid_arg; }
+            if (static_cast<Algorithm>(kv_r->alg) != alg) { EVP_PKEY_free(pkey); return err_invalid_arg; }
         }
 
         EVP_MD_CTX* ctx = EVP_MD_CTX_new();
@@ -1493,13 +1491,10 @@ struct OpenSslBackend {
     {
         using namespace openssl_provider::detail;
         if ((alg & kAlgCategoryMask) != kAlgMlKemBase) { return std::unexpected(err_invalid_arg); }
-        const auto pkey_r = ossl_asym_store_get(key);
-        if (!pkey_r) { return std::unexpected(err_invalid_arg); }
-        EVP_PKEY* pkey = *pkey_r;
-        {
-            const auto alg_r = ossl_asym_store_alg(key);
-            if (!alg_r || static_cast<Algorithm>(*alg_r) != alg) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
-        }
+        const auto kv_r = ossl_asym_store_get_with_alg(key);
+        if (!kv_r) { return std::unexpected(err_invalid_arg); }
+        EVP_PKEY* pkey = kv_r->pkey;
+        if (static_cast<Algorithm>(kv_r->alg) != alg) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
 
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
         if (ctx == nullptr) { EVP_PKEY_free(pkey); return std::unexpected(err_invalid_arg); }
@@ -1538,13 +1533,10 @@ struct OpenSslBackend {
     {
         using namespace openssl_provider::detail;
         if ((alg & kAlgCategoryMask) != kAlgMlKemBase) { return err_invalid_arg; }
-        const auto pkey_r = ossl_asym_store_get(key);
-        if (!pkey_r) { return err_invalid_arg; }
-        EVP_PKEY* pkey = *pkey_r;
-        {
-            const auto alg_r = ossl_asym_store_alg(key);
-            if (!alg_r || static_cast<Algorithm>(*alg_r) != alg) { EVP_PKEY_free(pkey); return err_invalid_arg; }
-        }
+        const auto kv_r = ossl_asym_store_get_with_alg(key);
+        if (!kv_r) { return err_invalid_arg; }
+        EVP_PKEY* pkey = kv_r->pkey;
+        if (static_cast<Algorithm>(kv_r->alg) != alg) { EVP_PKEY_free(pkey); return err_invalid_arg; }
 
         EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_from_pkey(nullptr, pkey, nullptr);
         if (ctx == nullptr) { EVP_PKEY_free(pkey); return err_invalid_arg; }
