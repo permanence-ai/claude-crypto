@@ -7,6 +7,7 @@
 #include <expected>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "psa_backend.hpp"
 #include "secure_buffer.hpp"
 #include "sha_variant.hpp"
@@ -44,5 +45,16 @@ template<ShaVariant V, SecureBufferLike Input>
 auto sha(const Input& input)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    return sha_impl<V, DefaultProvider>(input);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("sha", "input", input.size()));
+    }
+    auto result = sha_impl<V, DefaultProvider>(input);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "sha: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("sha", "digest", sha_output_size(V)));
+    }
+    return result;
 }

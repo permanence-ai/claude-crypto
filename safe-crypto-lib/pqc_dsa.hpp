@@ -8,6 +8,7 @@
 #include <span>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "crypto_provider.hpp"
 #include "ml_dsa_variant.hpp"
 #include "psa_backend.hpp"
@@ -177,31 +178,89 @@ auto slh_dsa_verify_impl(
 
 // Convenience wrappers using the default provider.
 template<SlhDsaVariant V>
-[[nodiscard]] auto slh_dsa_generate_key()  { return slh_dsa_generate_key_impl<V>(); }
+[[nodiscard]] auto slh_dsa_generate_key() {
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "slh_dsa_generate_key: entry");
+    }
+    auto result = slh_dsa_generate_key_impl<V>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "slh_dsa_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_generate_key", "priv", result->private_key.size(), "pub", result->public_key.size()));
+    }
+    return result;
+}
 
 template<SlhDsaVariant V, SecureBufferLike Message>
 [[nodiscard]] auto slh_dsa_sign(const SlhDsaKeyPair<V>& kp, const Message& msg) {
-    return slh_dsa_sign_impl<V>(kp, msg);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_sign", "msg", msg.size()));
+    }
+    auto result = slh_dsa_sign_impl<V>(kp, msg);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "slh_dsa_sign: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_sign", "sig", result->size()));
+    }
+    return result;
 }
 
 template<SlhDsaVariant V, SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]] auto slh_dsa_verify(const SlhDsaPublicKey<V>& pk, const Message& msg, const Signature& sig) {
-    return slh_dsa_verify_impl<V>(pk, msg, sig);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_verify", "msg", msg.size(), "sig", sig.size()));
+    }
+    auto result = slh_dsa_verify_impl<V>(pk, msg, sig);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "slh_dsa_verify: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, result.value() ? "slh_dsa_verify: ok" : "slh_dsa_verify: mismatch");
+    }
+    return result;
 }
 
 
 // Zero-parameter wrappers using NIST-recommended parameter sets.
 // SLH-DSA-SHA2-128s (security level 1, small signatures) is the recommended general-purpose choice.
-[[nodiscard]] inline auto slh_dsa_generate_key() { return slh_dsa_generate_key_impl<SlhDsaVariant::Sha2_128s>(); }
+[[nodiscard]] inline auto slh_dsa_generate_key() {
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "slh_dsa_generate_key: entry");
+    }
+    auto result = slh_dsa_generate_key_impl<SlhDsaVariant::Sha2_128s>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "slh_dsa_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_generate_key", "priv", result->private_key.size(), "pub", result->public_key.size()));
+    }
+    return result;
+}
 
 template<SecureBufferLike Message>
 [[nodiscard]] auto slh_dsa_sign(const SlhDsaKeyPair<SlhDsaVariant::Sha2_128s>& kp, const Message& msg) {
-    return slh_dsa_sign_impl<SlhDsaVariant::Sha2_128s>(kp, msg);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_sign", "msg", msg.size()));
+    }
+    auto result = slh_dsa_sign_impl<SlhDsaVariant::Sha2_128s>(kp, msg);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "slh_dsa_sign: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_sign", "sig", result->size()));
+    }
+    return result;
 }
 
 template<SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]] auto slh_dsa_verify(const SlhDsaPublicKey<SlhDsaVariant::Sha2_128s>& pk, const Message& msg, const Signature& sig) {
-    return slh_dsa_verify_impl<SlhDsaVariant::Sha2_128s>(pk, msg, sig);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("slh_dsa_verify", "msg", msg.size(), "sig", sig.size()));
+    }
+    auto result = slh_dsa_verify_impl<SlhDsaVariant::Sha2_128s>(pk, msg, sig);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "slh_dsa_verify: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, result.value() ? "slh_dsa_verify: ok" : "slh_dsa_verify: mismatch");
+    }
+    return result;
 }
 
 
@@ -367,29 +426,87 @@ auto ml_dsa_verify_impl(
 
 // Convenience wrappers using the default provider.
 template<MlDsaVariant V>
-[[nodiscard]] auto ml_dsa_generate_key() { return ml_dsa_generate_key_impl<V>(); }
+[[nodiscard]] auto ml_dsa_generate_key() {
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ml_dsa_generate_key: entry");
+    }
+    auto result = ml_dsa_generate_key_impl<V>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_dsa_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_generate_key", "priv", result->private_key.size(), "pub", result->public_key.size()));
+    }
+    return result;
+}
 
 template<MlDsaVariant V, SecureBufferLike Message>
 [[nodiscard]] auto ml_dsa_sign(const MlDsaKeyPair<V>& kp, const Message& msg) {
-    return ml_dsa_sign_impl<V>(kp, msg);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_sign", "msg", msg.size()));
+    }
+    auto result = ml_dsa_sign_impl<V>(kp, msg);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_dsa_sign: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_sign", "sig", result->size()));
+    }
+    return result;
 }
 
 template<MlDsaVariant V, SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]] auto ml_dsa_verify(const MlDsaPublicKey<V>& pk, const Message& msg, const Signature& sig) {
-    return ml_dsa_verify_impl<V>(pk, msg, sig);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_verify", "msg", msg.size(), "sig", sig.size()));
+    }
+    auto result = ml_dsa_verify_impl<V>(pk, msg, sig);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_dsa_verify: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, result.value() ? "ml_dsa_verify: ok" : "ml_dsa_verify: mismatch");
+    }
+    return result;
 }
 
 
 // Zero-parameter wrappers using NIST-recommended parameter sets.
 // ML-DSA-65 (security level 3, 192-bit) is the recommended general-purpose choice.
-[[nodiscard]] inline auto ml_dsa_generate_key() { return ml_dsa_generate_key_impl<MlDsaVariant::Dsa65>(); }
+[[nodiscard]] inline auto ml_dsa_generate_key() {
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ml_dsa_generate_key: entry");
+    }
+    auto result = ml_dsa_generate_key_impl<MlDsaVariant::Dsa65>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_dsa_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_generate_key", "priv", result->private_key.size(), "pub", result->public_key.size()));
+    }
+    return result;
+}
 
 template<SecureBufferLike Message>
 [[nodiscard]] auto ml_dsa_sign(const MlDsaKeyPair<MlDsaVariant::Dsa65>& kp, const Message& msg) {
-    return ml_dsa_sign_impl<MlDsaVariant::Dsa65>(kp, msg);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_sign", "msg", msg.size()));
+    }
+    auto result = ml_dsa_sign_impl<MlDsaVariant::Dsa65>(kp, msg);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_dsa_sign: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_sign", "sig", result->size()));
+    }
+    return result;
 }
 
 template<SecureBufferLike Message, SecureBufferLike Signature>
 [[nodiscard]] auto ml_dsa_verify(const MlDsaPublicKey<MlDsaVariant::Dsa65>& pk, const Message& msg, const Signature& sig) {
-    return ml_dsa_verify_impl<MlDsaVariant::Dsa65>(pk, msg, sig);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_dsa_verify", "msg", msg.size(), "sig", sig.size()));
+    }
+    auto result = ml_dsa_verify_impl<MlDsaVariant::Dsa65>(pk, msg, sig);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_dsa_verify: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, result.value() ? "ml_dsa_verify: ok" : "ml_dsa_verify: mismatch");
+    }
+    return result;
 }

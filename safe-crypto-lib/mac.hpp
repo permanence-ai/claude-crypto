@@ -7,6 +7,7 @@
 #include <expected>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "defs.hpp"
 #include "digests.hpp"
 #include "psa_backend.hpp"
@@ -111,7 +112,18 @@ template<ShaVariant V, SecureBufferLike Key, SecureBufferLike Message>
 auto hmac_generate(const Key& key, const Message& message)
     -> std::expected<FixedSecureBuffer<sha_output_size(V)>, CryptoError>
 {
-    return hmac_generate_impl<V, DefaultProvider>(key, message);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("hmac_generate", "key", key.size(), "msg", message.size()));
+    }
+    auto result = hmac_generate_impl<V, DefaultProvider>(key, message);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "hmac_generate: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("hmac_generate", "mac", sha_output_size(V)));
+    }
+    return result;
 }
 
 
@@ -123,5 +135,16 @@ auto hmac_verify(
     const FixedSecureBuffer<sha_output_size(V)>& mac)
     -> std::expected<bool, CryptoError>
 {
-    return hmac_verify_impl<V, DefaultProvider>(key, message, mac);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("hmac_verify", "key", key.size(), "msg", message.size()));
+    }
+    auto result = hmac_verify_impl<V, DefaultProvider>(key, message, mac);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "hmac_verify: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            result.value() ? "hmac_verify: ok" : "hmac_verify: mismatch");
+    }
+    return result;
 }

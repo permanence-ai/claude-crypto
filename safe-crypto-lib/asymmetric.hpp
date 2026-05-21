@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "psa_backend.hpp"
 #include "secure_buffer.hpp"
 
@@ -216,7 +217,18 @@ auto rsa_oaep_encrypt(
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return rsa_oaep_encrypt_impl<KB, DefaultProvider>(public_key, plaintext, label);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("rsa_oaep_encrypt", "plaintext", plaintext.size()));
+    }
+    auto result = rsa_oaep_encrypt_impl<KB, DefaultProvider>(public_key, plaintext, label);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "rsa_oaep_encrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("rsa_oaep_encrypt", "ciphertext", result->size()));
+    }
+    return result;
 }
 
 template<RsaKeyBits KB, SecureBufferLike Ciphertext>
@@ -227,7 +239,18 @@ auto rsa_oaep_decrypt(
     const std::optional<SecureBuffer>& label = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return rsa_oaep_decrypt_impl<KB, DefaultProvider>(key_pair, ciphertext, label);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("rsa_oaep_decrypt", "ciphertext", ciphertext.size()));
+    }
+    auto result = rsa_oaep_decrypt_impl<KB, DefaultProvider>(key_pair, ciphertext, label);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "rsa_oaep_decrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("rsa_oaep_decrypt", "plaintext", result->size()));
+    }
+    return result;
 }
 
 template<RsaKeyBits KB, SecureBufferLike Message>
@@ -237,7 +260,18 @@ auto rsa_pss_sign(
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return rsa_pss_sign_impl<KB, DefaultProvider>(key_pair, message);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("rsa_pss_sign", "msg", message.size()));
+    }
+    auto result = rsa_pss_sign_impl<KB, DefaultProvider>(key_pair, message);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "rsa_pss_sign: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("rsa_pss_sign", "sig", result->size()));
+    }
+    return result;
 }
 
 template<RsaKeyBits KB, SecureBufferLike Message, SecureBufferLike Signature>
@@ -248,5 +282,16 @@ auto rsa_pss_verify(
     const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
-    return rsa_pss_verify_impl<KB, DefaultProvider>(public_key, message, signature);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("rsa_pss_verify", "msg", message.size(), "sig", signature.size()));
+    }
+    auto result = rsa_pss_verify_impl<KB, DefaultProvider>(public_key, message, signature);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "rsa_pss_verify: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            result.value() ? "rsa_pss_verify: ok" : "rsa_pss_verify: mismatch");
+    }
+    return result;
 }
