@@ -8,6 +8,7 @@ target_sources(${LIB_NAME} INTERFACE
         asymmetric.hpp
         contracts.hpp
         crypto_error.hpp
+        crypto_log.hpp
         crypto_provider.hpp
         defs.hpp
         digests.hpp

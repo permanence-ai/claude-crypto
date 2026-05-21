@@ -7,6 +7,7 @@
 #include <expected>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "defs.hpp"
 #include "psa_backend.hpp"
 #include "secure_buffer.hpp"
@@ -187,7 +188,19 @@ template<EcCurve C>
 auto ecdsa_generate_key()
     -> std::expected<EccKeyPair<C>, CryptoError>
 {
-    return ecdsa_generate_key_impl<C>();
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ecdsa_generate_key: entry");
+    }
+    auto result = ecdsa_generate_key_impl<C>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ecdsa_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("ecdsa_generate_key",
+                "priv", result->private_key_der.size(),
+                "pub",  result->public_key_der.size()));
+    }
+    return result;
 }
 
 template<EcCurve C, SecureBufferLike Message>
@@ -197,7 +210,18 @@ auto ecdsa_sign(
     const Message& message)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return ecdsa_sign_impl<DefaultProvider>(key_pair, message);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("ecdsa_sign", "msg", message.size()));
+    }
+    auto result = ecdsa_sign_impl<DefaultProvider>(key_pair, message);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ecdsa_sign: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("ecdsa_sign", "sig", result->size()));
+    }
+    return result;
 }
 
 template<EcCurve C, SecureBufferLike Message, SecureBufferLike Signature>
@@ -208,5 +232,18 @@ auto ecdsa_verify(
     const Signature& signature)
     -> std::expected<bool, CryptoError>
 {
-    return ecdsa_verify_impl<DefaultProvider>(public_key, message, signature);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("ecdsa_verify",
+                "msg", message.size(),
+                "sig", signature.size()));
+    }
+    auto result = ecdsa_verify_impl<DefaultProvider>(public_key, message, signature);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ecdsa_verify: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            result.value() ? "ecdsa_verify: ok" : "ecdsa_verify: mismatch");
+    }
+    return result;
 }

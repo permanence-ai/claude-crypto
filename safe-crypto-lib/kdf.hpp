@@ -10,6 +10,7 @@
 #include "asymmetric.hpp"
 #include "contracts.hpp"
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "defs.hpp"
 #include "psa_backend.hpp"
 #include "random.hpp"
@@ -115,7 +116,18 @@ inline auto hkdf_derive(
     const std::optional<SecureBuffer>& info = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return derive_key_impl(output_length, ikm, salt, info);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("hkdf_derive", "output_length", output_length));
+    }
+    auto result = derive_key_impl(output_length, ikm, salt, info);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "hkdf_derive: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("hkdf_derive", "output", result->size()));
+    }
+    return result;
 }
 
 [[nodiscard]]
@@ -125,7 +137,18 @@ inline auto hkdf_expand(
     const std::optional<SecureBuffer>& info = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return expand_key_impl(output_length, prk, info);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("hkdf_expand", "prk", prk.size(), "output_length", output_length));
+    }
+    auto result = expand_key_impl(output_length, prk, info);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "hkdf_expand: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("hkdf_expand", "output", result->size()));
+    }
+    return result;
 }
 
 
@@ -180,5 +203,16 @@ template<RsaKeyBits KB>
 [[nodiscard]]
 auto generate_rsa_key() -> std::expected<RsaKeyPair<KB>, CryptoError>
 {
-    return generate_rsa_key_impl<KB>();
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "generate_rsa_key: entry");
+    }
+    auto result = generate_rsa_key_impl<KB>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "generate_rsa_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("generate_rsa_key", "priv", result->private_key_der.size(),
+                                                        "pub",  result->public_key_der.size()));
+    }
+    return result;
 }

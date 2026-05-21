@@ -6,6 +6,7 @@
 #include <expected>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "defs.hpp"
 #include "ecc.hpp"
 #include "psa_backend.hpp"
@@ -111,7 +112,19 @@ template<EcCurve C>
 auto ecdh_generate_key()
     -> std::expected<EccKeyPair<C>, CryptoError>
 {
-    return ecdh_generate_key_impl<C>();
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ecdh_generate_key: entry");
+    }
+    auto result = ecdh_generate_key_impl<C>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ecdh_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("ecdh_generate_key",
+                "priv", result->private_key_der.size(),
+                "pub",  result->public_key_der.size()));
+    }
+    return result;
 }
 
 template<EcCurve C, SecureBufferLike PeerPublicKey>
@@ -121,6 +134,19 @@ auto ecdh_compute_shared_secret(
     const PeerPublicKey& peer_public_key_der)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return ecdh_compute_shared_secret_impl<DefaultProvider>(
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("ecdh_compute_shared_secret",
+                "peer_pub", peer_public_key_der.size()));
+    }
+    auto result = ecdh_compute_shared_secret_impl<DefaultProvider>(
         our_key_pair, peer_public_key_der);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error,
+            "ecdh_compute_shared_secret: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("ecdh_compute_shared_secret", "secret", result->size()));
+    }
+    return result;
 }

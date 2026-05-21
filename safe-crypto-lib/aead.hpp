@@ -5,8 +5,10 @@
 #include <cstddef>
 #include <expected>
 #include <optional>
+#include <string>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "defs.hpp"
 #include "psa_backend.hpp"
 #include "random.hpp"
@@ -213,7 +215,20 @@ auto aes256_gcm_encrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {
-    return aes256_gcm_encrypt_impl<DefaultProvider>(key, plaintext, aad);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("aes256_gcm_encrypt",
+                "input", plaintext.size(),
+                "aad", aad.has_value() ? aad->size() : 0U));
+    }
+    auto result = aes256_gcm_encrypt_impl<DefaultProvider>(key, plaintext, aad);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "aes256_gcm_encrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("aes256_gcm_encrypt", "ciphertext", result->ciphertext.size()));
+    }
+    return result;
 }
 
 [[nodiscard]]
@@ -223,7 +238,20 @@ inline auto aes256_gcm_decrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return aes256_gcm_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("aes256_gcm_decrypt",
+                "ciphertext", ciphertext.ciphertext.size(),
+                "aad", aad.has_value() ? aad->size() : 0U));
+    }
+    auto result = aes256_gcm_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "aes256_gcm_decrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("aes256_gcm_decrypt", "plaintext", result->size()));
+    }
+    return result;
 }
 
 template<SecureBufferLike Plaintext>
@@ -234,7 +262,20 @@ auto chacha20_poly1305_encrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<ChaCha20Poly1305Result, CryptoError>
 {
-    return chacha20_poly1305_encrypt_impl<DefaultProvider>(key, plaintext, aad);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("chacha20_poly1305_encrypt",
+                "input", plaintext.size(),
+                "aad", aad.has_value() ? aad->size() : 0U));
+    }
+    auto result = chacha20_poly1305_encrypt_impl<DefaultProvider>(key, plaintext, aad);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "chacha20_poly1305_encrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("chacha20_poly1305_encrypt", "ciphertext", result->ciphertext.size()));
+    }
+    return result;
 }
 
 [[nodiscard]]
@@ -244,7 +285,20 @@ inline auto chacha20_poly1305_decrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return chacha20_poly1305_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("chacha20_poly1305_decrypt",
+                "ciphertext", ciphertext.ciphertext.size(),
+                "aad", aad.has_value() ? aad->size() : 0U));
+    }
+    auto result = chacha20_poly1305_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "chacha20_poly1305_decrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("chacha20_poly1305_decrypt", "plaintext", result->size()));
+    }
+    return result;
 }
 
 
@@ -259,7 +313,20 @@ auto symmetric_encrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<AesGcmResult, CryptoError>
 {
-    return aes256_gcm_encrypt_impl<DefaultProvider>(key, plaintext, aad);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("symmetric_encrypt",
+                "input", plaintext.size(),
+                "aad", aad.has_value() ? aad->size() : 0U));
+    }
+    auto result = aes256_gcm_encrypt_impl<DefaultProvider>(key, plaintext, aad);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "symmetric_encrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("symmetric_encrypt", "ciphertext", result->ciphertext.size()));
+    }
+    return result;
 }
 
 [[nodiscard]]
@@ -269,5 +336,18 @@ inline auto symmetric_decrypt(
     const std::optional<SecureBuffer>& aad = std::nullopt)
     -> std::expected<SecureBuffer, CryptoError>
 {
-    return aes256_gcm_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("symmetric_decrypt",
+                "ciphertext", ciphertext.ciphertext.size(),
+                "aad", aad.has_value() ? aad->size() : 0U));
+    }
+    auto result = aes256_gcm_decrypt_impl<DefaultProvider>(key, ciphertext, aad);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "symmetric_decrypt: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug,
+            crypto_log_detail::msg("symmetric_decrypt", "plaintext", result->size()));
+    }
+    return result;
 }

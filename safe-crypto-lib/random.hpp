@@ -5,9 +5,11 @@
 #include <cstddef>
 #include <cstring>
 #include <expected>
+#include <string>
 
 #include "contracts.hpp"
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "psa_backend.hpp"
 #include "secure_buffer.hpp"
 
@@ -61,7 +63,16 @@ auto random_bytes_fixed_impl() -> std::expected<FixedSecureBuffer<N>, CryptoErro
 [[nodiscard]]
 inline auto random_bytes(const std::size_t length) -> std::expected<SecureBuffer, CryptoError>
 {
-    return random_bytes_impl(length);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("random_bytes", "length", length));
+    }
+    auto result = random_bytes_impl(length);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "random_bytes: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("random_bytes", "output", result->size()));
+    }
+    return result;
 }
 
 
@@ -69,5 +80,14 @@ template<std::size_t N>
 [[nodiscard]]
 auto random_bytes() -> std::expected<FixedSecureBuffer<N>, CryptoError>
 {
-    return random_bytes_fixed_impl<N>();
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("random_bytes", "length", N));
+    }
+    auto result = random_bytes_fixed_impl<N>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "random_bytes: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("random_bytes", "output", N));
+    }
+    return result;
 }

@@ -6,6 +6,7 @@
 #include <expected>
 
 #include "crypto_error.hpp"
+#include "crypto_log.hpp"
 #include "crypto_provider.hpp"
 #include "ml_kem_variant.hpp"
 #include "psa_backend.hpp"
@@ -175,28 +176,86 @@ auto ml_kem_decapsulate_impl(
 
 // Convenience wrappers using the default provider.
 template<MlKemVariant V>
-[[nodiscard]] auto ml_kem_generate_key() { return ml_kem_generate_key_impl<V>(); }
+[[nodiscard]] auto ml_kem_generate_key() {
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ml_kem_generate_key: entry");
+    }
+    auto result = ml_kem_generate_key_impl<V>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_kem_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_generate_key", "priv", result->private_key.size(), "pub", result->public_key.size()));
+    }
+    return result;
+}
 
 template<MlKemVariant V>
 [[nodiscard]] auto ml_kem_encapsulate(const MlKemPublicKey<V>& pk) {
-    return ml_kem_encapsulate_impl<V>(pk);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ml_kem_encapsulate: entry");
+    }
+    auto result = ml_kem_encapsulate_impl<V>(pk);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_kem_encapsulate: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_encapsulate", "ct", result->ciphertext.size(), "ss", result->shared_secret.size()));
+    }
+    return result;
 }
 
 template<MlKemVariant V, SecureBufferLike Ciphertext>
 [[nodiscard]] auto ml_kem_decapsulate(const MlKemKeyPair<V>& kp, const Ciphertext& ct) {
-    return ml_kem_decapsulate_impl<V>(kp, ct);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_decapsulate", "ct", ct.size()));
+    }
+    auto result = ml_kem_decapsulate_impl<V>(kp, ct);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_kem_decapsulate: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_decapsulate", "ss", result->size()));
+    }
+    return result;
 }
 
 
 // Zero-parameter wrappers using NIST-recommended parameter sets.
 // ML-KEM-768 (security level 3, 192-bit) is the recommended general-purpose choice.
-[[nodiscard]] inline auto ml_kem_generate_key() { return ml_kem_generate_key_impl<MlKemVariant::Kem768>(); }
+[[nodiscard]] inline auto ml_kem_generate_key() {
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ml_kem_generate_key: entry");
+    }
+    auto result = ml_kem_generate_key_impl<MlKemVariant::Kem768>();
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_kem_generate_key: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_generate_key", "priv", result->private_key.size(), "pub", result->public_key.size()));
+    }
+    return result;
+}
 
 [[nodiscard]] inline auto ml_kem_encapsulate(const MlKemPublicKey<MlKemVariant::Kem768>& pk) {
-    return ml_kem_encapsulate_impl<MlKemVariant::Kem768>(pk);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, "ml_kem_encapsulate: entry");
+    }
+    auto result = ml_kem_encapsulate_impl<MlKemVariant::Kem768>(pk);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_kem_encapsulate: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_encapsulate", "ct", result->ciphertext.size(), "ss", result->shared_secret.size()));
+    }
+    return result;
 }
 
 template<SecureBufferLike Ciphertext>
 [[nodiscard]] auto ml_kem_decapsulate(const MlKemKeyPair<MlKemVariant::Kem768>& kp, const Ciphertext& ct) {
-    return ml_kem_decapsulate_impl<MlKemVariant::Kem768>(kp, ct);
+    if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_decapsulate", "ct", ct.size()));
+    }
+    auto result = ml_kem_decapsulate_impl<MlKemVariant::Kem768>(kp, ct);
+    if (!result.has_value()) {
+        crypto_log(CryptoLogLevel::Error, "ml_kem_decapsulate: " + result.error().message());
+    } else if (crypto_log_enabled(CryptoLogLevel::Debug)) {
+        crypto_log(CryptoLogLevel::Debug, crypto_log_detail::msg("ml_kem_decapsulate", "ss", result->size()));
+    }
+    return result;
 }
