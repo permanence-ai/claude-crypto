@@ -6,10 +6,12 @@ add_executable(${EXE_NAME}
         cli_test_runner.hpp
         digest_tests.hpp
         ecdh_tests.hpp
-        help_tests.hpp
         ecdsa_tests.hpp
+        help_tests.hpp
         io_tests.hpp
         kdf_tests.hpp
+        log_config_tests.hpp
+        logging_tests.hpp
         mac_tests.hpp
         main.cpp
         ml_dsa_tests.hpp
