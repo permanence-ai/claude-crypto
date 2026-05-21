@@ -146,9 +146,10 @@ inline int hkdf_output_bytes(HkdfState* op, uint8_t* out, std::size_t len) noexc
     if (op->phase != HkdfPhase::InfoSet) { return 1; }
     if (len == 0 || len > hkdf_max_output) { return 1; }
 
-    const CryptoByte* ikm = nullptr;
-    std::size_t ikm_len = 0;
-    if (!key_store_get(op->key_id, &ikm, &ikm_len)) { return 1; }
+    const auto kv = key_store_get(op->key_id);
+    if (!kv) { return 1; }
+    const CryptoByte* ikm = kv->data.data();
+    const std::size_t ikm_len = kv->len;
 
     if (op->alg == HkdfAlg::HkdfExpand) {
         return hkdf_expand(ikm, ikm_len, op->info.data(), op->info_len, out, len);

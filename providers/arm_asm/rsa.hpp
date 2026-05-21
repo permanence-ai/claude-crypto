@@ -26,8 +26,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <expected>
+#include <mutex>
 #include <utility>
 
+#include "crypto_error.hpp"
 #include "defs.hpp"
 #include "random.hpp"
 #include "rsa_bigint.hpp"
@@ -65,9 +68,21 @@ struct RsaKeySlot {
     bool in_use{false};
 };
 
+struct RsaKeyView {
+    SecureBuffer data;
+    std::size_t  len{0};
+    std::size_t  bits{0};
+    RsaKeyKind   kind{RsaKeyKind::None};
+};
+
 inline RsaKeySlot& rsa_key_slot(std::size_t idx) noexcept {
     static std::array<RsaKeySlot, rsa_key_store_capacity> slots{};
     return slots[idx];
+}
+
+inline std::mutex& rsa_store_mutex() noexcept {
+    static std::mutex m;
+    return m;
 }
 
 [[nodiscard]]
@@ -75,6 +90,7 @@ inline unsigned int rsa_key_store_import(
     RsaKeyKind kind, std::size_t bits,
     const CryptoByte* key, std::size_t key_len) noexcept {
     if (key_len > rsa_max_private_key_bytes) { return 0U; }
+    const std::scoped_lock lock{rsa_store_mutex()};
     for (std::size_t i = 0; i < rsa_key_store_capacity; ++i) {
         if (!rsa_key_slot(i).in_use) {
             std::memcpy(rsa_key_slot(i).data.data(), key, key_len);
@@ -88,19 +104,27 @@ inline unsigned int rsa_key_store_import(
     return 0U;
 }
 
+// Returns a copy of the key bytes under the lock, or an error.
 [[nodiscard]]
-inline bool rsa_key_store_get(unsigned int id,
-                               RsaKeyKind* out_kind, std::size_t* out_bits,
-                               const CryptoByte** out_key, std::size_t* out_len) noexcept {
-    if (id < rsa_key_id_base || (id - rsa_key_id_base) >= rsa_key_store_capacity) { return false; }
+inline auto rsa_key_store_get(unsigned int id) noexcept
+    -> std::expected<RsaKeyView, CryptoError>
+{
+    if (id < rsa_key_id_base || (id - rsa_key_id_base) >= rsa_key_store_capacity) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "invalid RSA key id"));
+    }
     const std::size_t idx = id - rsa_key_id_base;
+    const std::scoped_lock lock{rsa_store_mutex()};
     const RsaKeySlot& s = rsa_key_slot(idx);
-    if (!s.in_use) { return false; }
-    *out_kind = s.kind;
-    *out_bits = s.bits;
-    *out_key  = s.data.data();
-    *out_len  = s.len;
-    return true;
+    if (!s.in_use) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "RSA key id not in use"));
+    }
+    try {
+        SecureBuffer copy{s.len};
+        std::memcpy(copy.data(), s.data.data(), s.len);
+        return RsaKeyView{.data = std::move(copy), .len = s.len, .bits = s.bits, .kind = s.kind};
+    } catch (...) {  // NOLINT(bugprone-empty-catch) — allocation failure on noexcept path
+        return std::unexpected(CryptoError(CryptoErrorCode::InternalError, "key copy allocation failed"));
+    }
 }
 
 [[nodiscard]]
@@ -111,6 +135,7 @@ inline bool rsa_key_id_is_rsa(unsigned int id) noexcept {
 inline void rsa_key_store_destroy(unsigned int id) noexcept {
     if (id < rsa_key_id_base || (id - rsa_key_id_base) >= rsa_key_store_capacity) { return; }
     const std::size_t idx = id - rsa_key_id_base;
+    const std::scoped_lock lock{rsa_store_mutex()};
     RsaKeySlot& s = rsa_key_slot(idx);
     s.data   = FixedSecureBuffer<rsa_max_private_key_bytes>{};
     s.len    = 0;

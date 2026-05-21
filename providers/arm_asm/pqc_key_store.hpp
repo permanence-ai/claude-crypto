@@ -18,14 +18,17 @@
 // the copy-out inside get_private / get_public.  Key material is copied into
 // a caller-owned SecureBuffer before the lock is released, so liboqs never
 // holds a pointer into store-managed heap memory.
+// get_private / get_public return std::expected<PqcKeyView, CryptoError> for
+// consistency with all other key store get functions in this library.
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <expected>
 #include <mutex>
-#include <optional>
 
+#include "crypto_error.hpp"
 #include "defs.hpp"
 #include "ml_dsa_variant.hpp"
 #include "ml_kem_variant.hpp"
@@ -138,41 +141,54 @@ inline unsigned int pqc_key_store_import(PqcKeyType type, std::uint8_t variant, 
     return 0U;
 }
 
-// Returns a copy of the private key bytes, or an empty optional on failure.
-// The copy is made under the store lock so destroy cannot race with liboqs.
+// Returns a copy of the private key bytes under the lock, or an error.
 [[nodiscard]]
-inline std::optional<PqcKeyView> pqc_key_store_get_private(unsigned int id) noexcept {
+inline auto pqc_key_store_get_private(unsigned int id) noexcept
+    -> std::expected<PqcKeyView, CryptoError>
+{
     if (id < pqc_key_id_base || (id - pqc_key_id_base) >= pqc_key_store_capacity) {
-        return std::nullopt;
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "invalid PQC key id"));
     }
     const std::size_t idx = id - pqc_key_id_base;
     const std::scoped_lock lock{pqc_store_mutex()};
     const PqcKeySlot& s = pqc_key_slot(idx);
-    if (!s.in_use || s.priv_len == 0) { return std::nullopt; }
+    if (!s.in_use || s.priv_len == 0) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "PQC private key id not in use"));
+    }
     try {
         SecureBuffer copy{s.priv_len};
         std::memcpy(copy.data(), s.data, s.priv_len);
         return PqcKeyView{.data = std::move(copy), .type = s.type, .variant = s.variant};
-    } catch (...) { return std::nullopt; }  // NOLINT(bugprone-empty-catch) — allocation failure is an expected noexcept path
+    } catch (...) {  // NOLINT(bugprone-empty-catch) — allocation failure on noexcept path
+        return std::unexpected(CryptoError(CryptoErrorCode::InternalError, "key copy allocation failed"));
+    }
 }
 
-// Returns a copy of the public key bytes, or an empty optional on failure.
+// Returns a copy of the public key bytes under the lock, or an error.
 [[nodiscard]]
-inline std::optional<PqcKeyView> pqc_key_store_get_public(unsigned int id) noexcept {
+inline auto pqc_key_store_get_public(unsigned int id) noexcept
+    -> std::expected<PqcKeyView, CryptoError>
+{
     if (id < pqc_key_id_base || (id - pqc_key_id_base) >= pqc_key_store_capacity) {
-        return std::nullopt;
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "invalid PQC key id"));
     }
     const std::size_t idx = id - pqc_key_id_base;
     const std::scoped_lock lock{pqc_store_mutex()};
     const PqcKeySlot& s = pqc_key_slot(idx);
-    if (!s.in_use) { return std::nullopt; }
+    if (!s.in_use) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "PQC key id not in use"));
+    }
     const std::size_t pub_len = s.len - s.priv_len;
-    if (pub_len == 0) { return std::nullopt; }
+    if (pub_len == 0) {
+        return std::unexpected(CryptoError(CryptoErrorCode::InvalidArgument, "PQC key has no public component"));
+    }
     try {
         SecureBuffer copy{pub_len};
         std::memcpy(copy.data(), s.data + s.priv_len, pub_len);
         return PqcKeyView{.data = std::move(copy), .type = s.type, .variant = s.variant};
-    } catch (...) { return std::nullopt; }  // NOLINT(bugprone-empty-catch) — allocation failure is an expected noexcept path
+    } catch (...) {  // NOLINT(bugprone-empty-catch) — allocation failure on noexcept path
+        return std::unexpected(CryptoError(CryptoErrorCode::InternalError, "key copy allocation failed"));
+    }
 }
 
 [[nodiscard]]
