@@ -1259,22 +1259,16 @@ TEST_F(ArmAsmSymKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
 }
 
 TEST_F(ArmAsmSymKeyStoreTests, GetWithIdZeroReturnsFalse) {
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
-    EXPECT_FALSE(arm_asm::detail::key_store_get(0U, &key, &len));
+    EXPECT_FALSE(arm_asm::detail::key_store_get(0U));
 }
 
 TEST_F(ArmAsmSymKeyStoreTests, GetWithIdAboveCapacityReturnsFalse) {
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
     EXPECT_FALSE(arm_asm::detail::key_store_get(
-        static_cast<unsigned int>(arm_asm::detail::key_store_capacity) + 1U, &key, &len));
+        static_cast<unsigned int>(arm_asm::detail::key_store_capacity) + 1U));
 }
 
 TEST_F(ArmAsmSymKeyStoreTests, GetOnFreeSlotReturnsFalse) {
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
-    EXPECT_FALSE(arm_asm::detail::key_store_get(1U, &key, &len));
+    EXPECT_FALSE(arm_asm::detail::key_store_get(1U));
 }
 
 TEST_F(ArmAsmSymKeyStoreTests, DestroyWithIdZeroIsNoOp) {
@@ -1323,31 +1317,19 @@ TEST_F(ArmAsmEcKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, GetWithIdBelowBaseReturnsFalse) {
-    arm_asm::detail::EcCurveId curve{};
-    arm_asm::detail::EcKeyKind kind{};
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
-    EXPECT_FALSE(arm_asm::detail::ec_key_store_get(0U, &curve, &kind, &key, &len));
+    EXPECT_FALSE(arm_asm::detail::ec_key_store_get(0U));
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, GetWithIdAboveRangeReturnsFalse) {
-    arm_asm::detail::EcCurveId curve{};
-    arm_asm::detail::EcKeyKind kind{};
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
     const unsigned int out_of_range =
         arm_asm::detail::ec_key_id_base +
         static_cast<unsigned int>(arm_asm::detail::ec_key_store_capacity);
-    EXPECT_FALSE(arm_asm::detail::ec_key_store_get(out_of_range, &curve, &kind, &key, &len));
+    EXPECT_FALSE(arm_asm::detail::ec_key_store_get(out_of_range));
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, GetOnFreeSlotReturnsFalse) {
-    arm_asm::detail::EcCurveId curve{};
-    arm_asm::detail::EcKeyKind kind{};
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
     EXPECT_FALSE(arm_asm::detail::ec_key_store_get(
-        arm_asm::detail::ec_key_id_base, &curve, &kind, &key, &len));
+        arm_asm::detail::ec_key_id_base));
 }
 
 TEST_F(ArmAsmEcKeyStoreTests, DestroyWithIdBelowBaseIsNoOp) {
@@ -2301,33 +2283,21 @@ TEST_F(ArmAsmRsaKeyStoreTests, ImportFillsAllSlotsAndReturnsZeroWhenFull) {
 }
 
 TEST_F(ArmAsmRsaKeyStoreTests, GetWithIdBelowBaseReturnsFalse) {
-    arm_asm::detail::RsaKeyKind kind{};
-    std::size_t bits = 0;
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
     EXPECT_FALSE(arm_asm::detail::rsa_key_store_get(
-        arm_asm::detail::rsa_key_id_base - 1U, &kind, &bits, &key, &len));
+        arm_asm::detail::rsa_key_id_base - 1U));
 }
 
 TEST_F(ArmAsmRsaKeyStoreTests, GetWithIdAboveRangeReturnsFalse) {
-    arm_asm::detail::RsaKeyKind kind{};
-    std::size_t bits = 0;
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
     const unsigned int out_of_range =
         arm_asm::detail::rsa_key_id_base +
         static_cast<unsigned int>(arm_asm::detail::rsa_key_store_capacity);
-    EXPECT_FALSE(arm_asm::detail::rsa_key_store_get(out_of_range, &kind, &bits, &key, &len));
+    EXPECT_FALSE(arm_asm::detail::rsa_key_store_get(out_of_range));
 }
 
 TEST_F(ArmAsmRsaKeyStoreTests, GetOnFreeSlotReturnsFalse) {
     // No import has been done; slot 0 must report not-in-use.
-    arm_asm::detail::RsaKeyKind kind{};
-    std::size_t bits = 0;
-    const uint8_t* key = nullptr;
-    std::size_t len = 0;
     EXPECT_FALSE(arm_asm::detail::rsa_key_store_get(
-        arm_asm::detail::rsa_key_id_base, &kind, &bits, &key, &len));
+        arm_asm::detail::rsa_key_id_base));
 }
 
 TEST_F(ArmAsmRsaKeyStoreTests, DestroyWithOutOfRangeIdIsNoOp) {
