@@ -5,6 +5,7 @@ add_executable(${EXE_NAME}
         cli_base64.hpp
         cli_error.hpp
         cli_io.hpp
+        cli_logging.hpp
         cmd_aead.hpp
         cmd_digest.hpp
         cmd_ecdh.hpp
@@ -27,6 +28,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 target_link_libraries(${EXE_NAME} PRIVATE
         safe_crypto_lib
         CLI11::CLI11
+        spdlog::spdlog
 )
 
 # When the LIBOQS supplement is enabled, link it so SAFE_CRYPTO_PQC_LIBOQS
