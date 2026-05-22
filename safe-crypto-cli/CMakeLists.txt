@@ -28,6 +28,7 @@ target_link_libraries(${EXE_NAME} PRIVATE
 target_link_libraries(${EXE_NAME} PRIVATE
         safe_crypto_lib
         CLI11::CLI11
+        nlohmann_json::nlohmann_json
         spdlog::spdlog
 )
 
