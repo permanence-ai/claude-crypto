@@ -146,11 +146,11 @@ providers/
   openssl/                # INTERFACE library — OpenSslBackend, OpenSSL 3.x EVP API
   liboqs/                 # INTERFACE library — PQC supplement (ML-DSA, ML-KEM via liboqs); OQS_KEM/OQS_SIG descriptors cached per variant (thread-safe local statics, never freed)
   ia_asm/                 # INTERFACE library — IaAsmBackend, x86-64 SHA-NI/AES-NI/PCLMULQDQ
-safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, kdf, mac, ml-dsa, ml-kem, random, rsa, slh-dsa subcommands; CLI11 v2.6.2
-safe-crypto-cli-test/     # GoogleTest suite for scli — 89 subprocess-based tests; validates stdout and exit codes
-safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (253 tests in OpenSSL build; 230 in IA_ASM; 454 in ARM_ASM; 479 in ARM_ASM+LIBOQS; 259 in OPENSSL+LIBOQS; 243 in PSA_MBEDTLS+LIBOQS)
+safe-crypto-cli/          # scli executable — aead, digest, ecdh, ecdsa, kdf, mac, ml-dsa, ml-kem, random, rsa, slh-dsa subcommands; CLI11 v2.6.2; --log-level / --log-config logging
+safe-crypto-cli-test/     # GoogleTest suite for scli — 111 subprocess-based tests; validates stdout, stderr, and exit codes
+safe-crypto-lib-test/     # GoogleTest suite + MockPsaBackend (243 tests in PSA_MBEDTLS; 243 in IA_ASM; 467 in ARM_ASM; 492 in ARM_ASM+LIBOQS; 272 in OPENSSL+LIBOQS; 256 in PSA_MBEDTLS+LIBOQS)
 safe-crypto-lib-bench/    # Google Benchmark harness — PSA, ARM ASM, and OpenSSL (PQC) compared side-by-side
-cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
+cmake/                    # FetchContent modules for MbedTLS, GoogleTest, Google Benchmark, CLI11, spdlog, nlohmann/json; PermBuildOptions (warnings, optimisation, hardening, Sanitize build type)
 ```
 
 ## Build
@@ -854,6 +854,52 @@ scli slh-dsa sign   --variant sha2-128f --key priv.bin --input message.bin --out
 scli slh-dsa verify --variant sha2-128f --key pub.bin  --input message.bin --signature sig.bin
 ```
 
+#### Logging
+
+`scli` emits structured diagnostic output via spdlog. Two top-level options control it — they must appear **before** the subcommand name:
+
+```
+scli [--log-level <level>] [--log-config <path>] <subcommand> ...
+```
+
+**`--log-level`** (env: `SCLI_LOG_LEVEL`, default: `warn`)
+
+| Level | Output |
+|---|---|
+| `trace` / `debug` | Operation entry and success traces: `sha: input=5 bytes`, `sha: digest=32 bytes` |
+| `info` | Informational messages |
+| `warn` | Warnings only (default — silent on success) |
+| `error` / `critical` | Errors only |
+| `off` | Suppress all operational logging; fatal CLI errors are still written to stderr |
+
+```bash
+# Debug trace to stderr
+scli --log-level debug digest --algo sha256 --input message.bin
+
+# Via env var
+SCLI_LOG_LEVEL=debug scli digest --algo sha256 --input message.bin
+```
+
+**`--log-config`** (overrides `--log-level`)
+
+Reads a JSON file to configure sinks and level. Supported sink types: `stderr` (default), `stdout`, `file` (rotating). If the file is missing, malformed, or contains an unknown sink type, `scli` prints an error and falls back to default warn-level logging.
+
+```json
+{
+  "level": "debug",
+  "sinks": [
+    { "type": "stderr" },
+    { "type": "file", "path": "/var/log/scli.log", "max_size_mb": 10, "max_files": 3 }
+  ]
+}
+```
+
+```bash
+scli --log-config /etc/scli/logging.json digest --algo sha256 --input message.bin
+```
+
+Log messages never include key material, IVs, plaintexts, ciphertexts, or digests — only operation names and byte-length metadata.
+
 #### `random` — Generate cryptographically secure random bytes
 
 ```
@@ -870,11 +916,11 @@ scli random --length 64 --output keyfile.bin
 
 ### CLI tests
 
-A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout and exit codes using GoogleTest. 140 tests on the default build, plus 17 ML-KEM/ML-DSA tests (LIBOQS build) and 8 SLH-DSA tests (OpenSSL build):
+A separate test suite (`safe-crypto-cli-test/`) drives `scli` as a subprocess and validates stdout, stderr, and exit codes using GoogleTest. 111 tests on the default build, plus 17 ML-KEM/ML-DSA tests (LIBOQS build) and 8 SLH-DSA tests (OpenSSL build):
 
 ```bash
 cmake --build build --target safe_crypto_cli_test
-cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|KdfTests|MacTests|MlDsaTests|MlKemTests|RandomTests|RsaTests|SlhDsaTests"
+cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|KdfTests|LogConfigTests|LoggingTests|MacTests|MlDsaTests|MlKemTests|RandomTests|RsaTests|SlhDsaTests"
 ```
 
 > **Note:** RSA tests are slow in debug builds (~4 min) due to Miller-Rabin primality testing. Use a release build for speed: `cmake -DCMAKE_BUILD_TYPE=Release`.
@@ -887,3 +933,5 @@ cd build && ctest -R "AeadTests|DigestTests|EcdhTests|EcdsaTests|IoTests|KdfTest
 - **Test framework:** GoogleTest + GMock (via FetchContent)
 - **Benchmark framework:** Google Benchmark 1.9.1 (via FetchContent)
 - **CLI argument parsing:** CLI11 2.6.2 (via FetchContent)
+- **CLI logging:** spdlog 1.15.3 (via FetchContent)
+- **CLI log config:** nlohmann/json 3.11.3 (via FetchContent)
