@@ -30,6 +30,10 @@
 #include <string_view>
 #include <vector>
 
+#ifndef _WIN32
+#  include <sys/stat.h>
+#endif
+
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -119,6 +123,11 @@ inline auto make_logger_from_json(const nlohmann::json& cfg)
                 sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
                     path, max_size > 0 ? max_size : DEFAULT_MAX_SIZE_BYTES,
                     max_files > 0 ? max_files : DEFAULT_MAX_FILES));
+                // spdlog creates the file with the process umask; restrict to
+                // owner-only because log output is a security-sensitive surface.
+#ifndef _WIN32
+                ::chmod(path.c_str(), S_IRUSR | S_IWUSR);
+#endif
             } else {
                 throw std::runtime_error("log-config: unknown sink type \"" + type + "\"");
             }

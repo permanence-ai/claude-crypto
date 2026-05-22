@@ -6,6 +6,10 @@
 #include <fstream>
 #include <string>
 
+#ifndef _WIN32
+#  include <sys/stat.h>
+#endif
+
 #include <gtest/gtest.h>
 
 #include "cli_test_runner.hpp"
@@ -119,5 +123,27 @@ TEST_F(LogConfigTests, UnknownSinkTypeFallsBackToDefaultLogging) {
     EXPECT_NE(r.stderr_text.find("Error"), std::string::npos)
         << "Expected error about unknown sink. stderr:\n" << r.stderr_text;
 }
+
+#ifndef _WIN32
+TEST_F(LogConfigTests, FileSinkCreatedWithOwnerOnlyPermissions) {
+    const auto log_path = (std::filesystem::temp_directory_path()
+                           / "scli_log_perms_test.log").string();
+    std::filesystem::remove(log_path);
+
+    const auto cfg = write_config(
+        R"({"level":"debug","sinks":[{"type":"file","path":")" + log_path + R"("}]})");
+    const auto r = run_scli(scli(),
+        {"--log-config", cfg, "digest", "--algo", "sha256", "--input", VALID_INPUT});
+    EXPECT_EQ(r.exit_code, 0);
+    ASSERT_TRUE(std::filesystem::exists(log_path)) << "Log file not created";
+
+    struct stat st{};
+    ASSERT_EQ(::stat(log_path.c_str(), &st), 0);
+    const auto mode = st.st_mode & 0777U;
+    EXPECT_EQ(mode, 0600U)
+        << "Log file has permissions " << std::oct << mode
+        << ", expected 0600";
+}
+#endif
 
 }  // namespace scli_test
