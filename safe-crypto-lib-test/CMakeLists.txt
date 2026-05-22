@@ -7,6 +7,7 @@ add_executable(${EXE_NAME}
         asymmetric_tests.hpp
         chacha20_tests.hpp
         cross_provider_tests.hpp
+        crypto_log_tests.hpp
         digests_tests.hpp
         ecc_tests.hpp
         ecdh_tests.hpp

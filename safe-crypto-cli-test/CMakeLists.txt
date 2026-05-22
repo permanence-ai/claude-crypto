@@ -10,6 +10,8 @@ add_executable(${EXE_NAME}
         ecdsa_tests.hpp
         io_tests.hpp
         kdf_tests.hpp
+        log_config_tests.hpp
+        logging_tests.hpp
         mac_tests.hpp
         main.cpp
         ml_dsa_tests.hpp
